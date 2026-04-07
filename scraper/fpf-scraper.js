@@ -233,16 +233,22 @@ async function main() {
 
   // ── Modo: debug API
   if (args.includes('--debug')) {
-    log('A inspecionar endpoints da API FPF...\n');
+    log('A inspecionar endpoints da API FPF (competitionId=28148, seasonId=105)...\n');
     const endpoints = [
-      `/Competition/GetCompetitionsByAssociation?associationId=218&seasonId=103`,
-      `/Competition/GetCompetitionsByAssociation?associationId=218&seasonId=104`,
+      `/Competition/GetStandings?competitionId=28148&seasonId=105`,
+      `/Competition/GetMatches?competitionId=28148&seasonId=105`,
+      `/Competition/Details?competitionId=28148&seasonId=105`,
+      `/Competition/GetClassification?competitionId=28148&seasonId=105`,
+      `/Competition/GetGames?competitionId=28148&seasonId=105`,
+      `/Competition/GetRounds?competitionId=28148&seasonId=105`,
+      `/Competition/GetPhases?competitionId=28148&seasonId=105`,
+      `/api/Competition/GetStandings?competitionId=28148&seasonId=105`,
+      `/api/Competition/GetMatches?competitionId=28148&seasonId=105`,
       `/Competition/GetCompetitionsByAssociation?associationId=218&seasonId=105`,
-      `/api/Competition/GetCompetitionsByAssociation?associationId=218&seasonId=103`,
-      `/api/v1/competitions?associationId=218`,
-      `/Association/GetAll`,
+      `/Competition/GetCompetitionsByAssociation?associationId=219&seasonId=105`,
+      `/Competition/GetCompetitionsByAssociation?associationId=220&seasonId=105`,
       `/Season/GetAll`,
-      `/api/Season/GetAll`,
+      `/Association/GetAll`,
     ];
     for (const ep of endpoints) {
       try {
@@ -254,7 +260,7 @@ async function main() {
         const code = e.response?.status || e.code || e.message;
         log(`✗ ${ep} → ${code}`);
       }
-      await sleep(300);
+      await sleep(200);
     }
     return;
   }
