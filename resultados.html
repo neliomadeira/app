@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Resultados e Classificação – Juventude Sport Campinense</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/resultados.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="header" id="header">
+    <div class="container header__inner">
+      <a href="index.html" class="logo">
+        <div class="logo__emblem"><span class="logo__sc">SC</span></div>
+        <div class="logo__text">
+          <span class="logo__name">Sport Campinense</span>
+          <span class="logo__sub">Juventude</span>
+        </div>
+      </a>
+      <nav class="nav" id="nav">
+        <ul class="nav__list">
+          <li><a href="index.html#sobre"      class="nav__link">Sobre</a></li>
+          <li><a href="index.html#categorias" class="nav__link">Categorias</a></li>
+          <li><a href="resultados.html"        class="nav__link" style="color:var(--yellow)">Resultados</a></li>
+          <li><a href="index.html#noticias"   class="nav__link">Notícias</a></li>
+          <li><a href="index.html#contato"    class="nav__link">Contacto</a></li>
+          <li><a href="inscricao.html"         class="btn btn--nav">Inscrever</a></li>
+        </ul>
+      </nav>
+      <button class="hamburger" id="hamburger" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- PAGE HERO -->
+  <div class="res-hero">
+    <div class="res-hero__overlay"></div>
+    <div class="container res-hero__content">
+      <p class="hero__tag">Época 2025/2026</p>
+      <h1 class="res-hero__title">Resultados &amp;<br /><span>Classificação</span></h1>
+    </div>
+  </div>
+
+  <!-- ESCALÃO TABS -->
+  <div class="tabs-bar">
+    <div class="container tabs-inner">
+      <button class="tab active" data-escalao="Sub-17">Sub-17</button>
+      <button class="tab" data-escalao="Sub-15">Sub-15</button>
+      <button class="tab" data-escalao="Sub-13">Sub-13</button>
+      <button class="tab" data-escalao="Sub-19">Sub-19</button>
+      <button class="tab" data-escalao="Sub-11">Sub-11</button>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <section class="section res-section">
+    <div class="container res-container">
+
+      <!-- CLASSIFICAÇÃO -->
+      <div class="res-col res-col--main">
+        <div class="res-card">
+          <div class="res-card__header">
+            <h2 class="res-card__title">Classificação</h2>
+            <span class="res-competicao" id="resCompeticao">Campeonato Distrital AF Algarve</span>
+          </div>
+          <div class="table-wrap">
+            <table class="class-table">
+              <thead>
+                <tr>
+                  <th class="pos-col">Pos</th>
+                  <th class="team-col">Equipa</th>
+                  <th title="Jogos">J</th>
+                  <th title="Vitórias">V</th>
+                  <th title="Empates">E</th>
+                  <th title="Derrotas">D</th>
+                  <th title="Golos Marcados">GM</th>
+                  <th title="Golos Sofridos">GS</th>
+                  <th title="Diferença de Golos">DG</th>
+                  <th class="pts-col" title="Pontos">Pts</th>
+                  <th class="forma-col">Forma</th>
+                </tr>
+              </thead>
+              <tbody id="classTable"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- PRÓXIMOS JOGOS -->
+        <div class="res-card" style="margin-top:24px">
+          <div class="res-card__header">
+            <h2 class="res-card__title">Próximos Jogos</h2>
+          </div>
+          <div class="jogos-list" id="proximosJogos"></div>
+        </div>
+      </div>
+
+      <!-- RESULTADOS RECENTES -->
+      <div class="res-col res-col--side">
+        <div class="res-card">
+          <div class="res-card__header">
+            <h2 class="res-card__title">Resultados</h2>
+          </div>
+          <div class="jogos-list" id="resultadosJogos"></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container footer__inner">
+      <div class="footer__brand">
+        <div class="logo">
+          <div class="logo__emblem logo__emblem--small"><span class="logo__sc">SC</span></div>
+          <div class="logo__text">
+            <span class="logo__name">Sport Campinense</span>
+            <span class="logo__sub">Juventude</span>
+          </div>
+        </div>
+        <p class="footer__tagline">Formando campeões dentro e fora do campo.</p>
+      </div>
+      <div class="footer__links">
+        <h4>Links rápidos</h4>
+        <ul>
+          <li><a href="index.html#sobre">Sobre</a></li>
+          <li><a href="index.html#categorias">Escalões</a></li>
+          <li><a href="resultados.html">Resultados</a></li>
+          <li><a href="inscricao.html">Inscrição</a></li>
+        </ul>
+      </div>
+      <div class="footer__links">
+        <h4>Escalões</h4>
+        <ul>
+          <li><a href="#">Sub-9 | Sub-11</a></li>
+          <li><a href="#">Sub-13 | Sub-15</a></li>
+          <li><a href="#">Sub-17 | Sub-19</a></li>
+        </ul>
+      </div>
+      <div class="footer__contact">
+        <h4>Contacto</h4>
+        <p>Estádio Municipal de Loulé, Algarve</p>
+        <p>+351 289 000 000</p>
+        <p>juventude@sportcampinense.pt</p>
+      </div>
+    </div>
+    <div class="footer__bottom">
+      <p>&copy; 2026 Juventude Sport Campinense – Loulé. Todos os direitos reservados.</p>
+    </div>
+  </footer>
+
+  <script src="js/resultados.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

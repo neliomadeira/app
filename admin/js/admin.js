@@ -54,7 +54,8 @@ function goToPage(name) {
 
   const titles = {
     dashboard: 'Dashboard', inscricoes: 'Inscrições', atletas: 'Atletas',
-    noticias: 'Notícias', mensagens: 'Mensagens', escaloes: 'Escalões'
+    noticias: 'Notícias', mensagens: 'Mensagens', escaloes: 'Escalões',
+    jogos: 'Jogos', patrocinadores: 'Patrocinadores',
   };
   document.getElementById('topbarTitle').textContent = titles[name] || name;
   document.getElementById('sidebar').classList.remove('open');
@@ -131,6 +132,8 @@ function initAdmin() {
   renderNoticias();
   renderMensagens();
   renderEscaloes();
+  renderJogos();
+  renderPatrocinadores();
 
   // Date
   document.getElementById('pageDate').textContent =
@@ -624,3 +627,313 @@ function renderEscaloes() {
       </div>
     </div>`).join('');
 }
+
+// ==================================================
+// JOGOS
+// ==================================================
+function fmtDataJogo(str) {
+  if (!str) return '—';
+  const d = new Date(str);
+  return d.toLocaleDateString('pt-PT', { day:'2-digit', month:'2-digit', year:'numeric' });
+}
+
+function renderJogos(filterEscalao = '', filterEstado = '') {
+  const tbody = document.querySelector('#jogosTable tbody');
+  let data = [...DB.jogos];
+  if (filterEscalao) data = data.filter(j => j.escalao === filterEscalao);
+  if (filterEstado)  data = data.filter(j => j.estado  === filterEstado);
+  data.sort((a, b) => b.data.localeCompare(a.data));
+
+  tbody.innerHTML = data.map(j => {
+    const sc = j.casa === 'Sport Campinense' || j.fora === 'Sport Campinense';
+    const resultado = j.estado === 'Realizado'
+      ? `<strong>${j.gcasa} – ${j.gfora}</strong>`
+      : `<span style="color:var(--gray-text)">—</span>`;
+    const estadoBadge = j.estado === 'Realizado'
+      ? `<span class="status status--aprovado">Realizado</span>`
+      : `<span class="status status--pendente">Agendado</span>`;
+    return `
+      <tr>
+        <td>${fmtDataJogo(j.data)}<br/><span style="font-size:0.75rem;color:var(--gray-text)">${j.hora}</span></td>
+        <td>${j.escalao}</td>
+        <td style="${j.casa==='Sport Campinense'?'font-weight:700;color:var(--blue)':''}">${j.casa}</td>
+        <td style="${j.fora==='Sport Campinense'?'font-weight:700;color:var(--blue)':''}">${j.fora}</td>
+        <td style="text-align:center;font-size:1.1rem">${resultado}</td>
+        <td style="font-size:0.8rem;color:var(--gray-text)">${j.local}</td>
+        <td>${estadoBadge}</td>
+        <td>
+          <div class="btn-actions">
+            ${j.estado === 'Agendado' ? `<button class="btn-icon btn-icon--green" onclick="registarResultado(${j.id})" title="Registar resultado">&#9999;</button>` : ''}
+            <button class="btn-icon" onclick="editJogo(${j.id})" title="Editar">&#9998;</button>
+            <button class="btn-icon btn-icon--red" onclick="removeJogo(${j.id})" title="Eliminar">&#128465;</button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+document.getElementById('filterJogoEscalao')?.addEventListener('change', function () {
+  renderJogos(this.value, document.getElementById('filterJogoEstado').value);
+});
+document.getElementById('filterJogoEstado')?.addEventListener('change', function () {
+  renderJogos(document.getElementById('filterJogoEscalao').value, this.value);
+});
+
+document.getElementById('btnNovoJogo')?.addEventListener('click', () => {
+  openModal('Novo Jogo', `
+    <div class="modal-row">
+      <div class="modal-field"><label>Escalão *</label>
+        <select id="mJEscalao">
+          <option>Sub-9</option><option>Sub-11</option><option>Sub-13</option>
+          <option>Sub-15</option><option>Sub-17</option><option>Sub-19</option>
+        </select>
+      </div>
+      <div class="modal-field"><label>Data *</label><input type="date" id="mJData" /></div>
+    </div>
+    <div class="modal-row">
+      <div class="modal-field"><label>Hora</label><input type="time" id="mJHora" value="10:30" /></div>
+      <div class="modal-field"><label>Local</label><input type="text" id="mJLocal" placeholder="Est. Municipal Loulé" /></div>
+    </div>
+    <div class="modal-row">
+      <div class="modal-field"><label>Equipa Casa *</label><input type="text" id="mJCasa" placeholder="Nome da equipa" /></div>
+      <div class="modal-field"><label>Equipa Fora *</label><input type="text" id="mJFora" placeholder="Nome da equipa" /></div>
+    </div>`,
+    `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+     <button class="btn-save" onclick="saveNovoJogo()">Guardar</button>`
+  );
+  document.getElementById('mJData').value = new Date().toISOString().split('T')[0];
+  document.getElementById('mJCasa').value = 'Sport Campinense';
+});
+
+window.saveNovoJogo = function () {
+  const casa = document.getElementById('mJCasa').value.trim();
+  const fora = document.getElementById('mJFora').value.trim();
+  if (!casa || !fora) { showToast('Preencha as equipas.', 'red'); return; }
+  DB.jogos.push({
+    id: Date.now(),
+    escalao: document.getElementById('mJEscalao').value,
+    casa, fora,
+    gcasa: null, gfora: null,
+    data:  document.getElementById('mJData').value,
+    hora:  document.getElementById('mJHora').value,
+    local: document.getElementById('mJLocal').value || 'Est. Municipal Loulé',
+    estado: 'Agendado',
+  });
+  renderJogos();
+  closeModal();
+  showToast('Jogo adicionado!', 'green');
+};
+
+window.registarResultado = function (id) {
+  const j = DB.jogos.find(x => x.id === id);
+  if (!j) return;
+  openModal(`Registar Resultado`, `
+    <p style="margin-bottom:16px;color:var(--gray-text);font-size:0.9rem">
+      ${j.escalao} · ${fmtDataJogo(j.data)} · ${j.hora}
+    </p>
+    <div style="display:flex;align-items:center;gap:16px;justify-content:center;margin-bottom:20px">
+      <div style="text-align:center">
+        <div style="font-weight:700;margin-bottom:8px">${j.casa}</div>
+        <input type="number" id="mGCasa" min="0" max="30" value="0"
+          style="width:70px;padding:12px;font-size:1.5rem;text-align:center;border:2px solid var(--gray-border);border-radius:8px;font-family:var(--font-display)" />
+      </div>
+      <div style="font-family:var(--font-display);font-size:2rem;color:var(--gray-text)">–</div>
+      <div style="text-align:center">
+        <div style="font-weight:700;margin-bottom:8px">${j.fora}</div>
+        <input type="number" id="mGFora" min="0" max="30" value="0"
+          style="width:70px;padding:12px;font-size:1.5rem;text-align:center;border:2px solid var(--gray-border);border-radius:8px;font-family:var(--font-display)" />
+      </div>
+    </div>`,
+    `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+     <button class="btn-approve" onclick="saveResultado(${id})">Confirmar</button>`
+  );
+};
+
+window.saveResultado = function (id) {
+  const j = DB.jogos.find(x => x.id === id);
+  if (!j) return;
+  j.gcasa  = parseInt(document.getElementById('mGCasa').value) || 0;
+  j.gfora  = parseInt(document.getElementById('mGFora').value) || 0;
+  j.estado = 'Realizado';
+  renderJogos();
+  closeModal();
+  showToast(`Resultado registado: ${j.gcasa} – ${j.gfora}`, 'green');
+};
+
+window.editJogo = function (id) {
+  const j = DB.jogos.find(x => x.id === id);
+  if (!j) return;
+  openModal('Editar Jogo', `
+    <div class="modal-row">
+      <div class="modal-field"><label>Escalão</label>
+        <select id="mJEscalao">
+          ${['Sub-9','Sub-11','Sub-13','Sub-15','Sub-17','Sub-19'].map(e =>
+            `<option ${e===j.escalao?'selected':''}>${e}</option>`).join('')}
+        </select>
+      </div>
+      <div class="modal-field"><label>Data</label><input type="date" id="mJData" value="${j.data}" /></div>
+    </div>
+    <div class="modal-row">
+      <div class="modal-field"><label>Hora</label><input type="time" id="mJHora" value="${j.hora}" /></div>
+      <div class="modal-field"><label>Local</label><input type="text" id="mJLocal" value="${j.local}" /></div>
+    </div>
+    <div class="modal-row">
+      <div class="modal-field"><label>Equipa Casa</label><input type="text" id="mJCasa" value="${j.casa}" /></div>
+      <div class="modal-field"><label>Equipa Fora</label><input type="text" id="mJFora" value="${j.fora}" /></div>
+    </div>`,
+    `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+     <button class="btn-save" onclick="saveEditJogo(${id})">Guardar</button>`
+  );
+};
+
+window.saveEditJogo = function (id) {
+  const j = DB.jogos.find(x => x.id === id);
+  if (!j) return;
+  j.escalao = document.getElementById('mJEscalao').value;
+  j.data    = document.getElementById('mJData').value;
+  j.hora    = document.getElementById('mJHora').value;
+  j.local   = document.getElementById('mJLocal').value;
+  j.casa    = document.getElementById('mJCasa').value.trim() || j.casa;
+  j.fora    = document.getElementById('mJFora').value.trim() || j.fora;
+  renderJogos();
+  closeModal();
+  showToast('Jogo actualizado!', 'green');
+};
+
+window.removeJogo = function (id) {
+  if (!confirm('Eliminar este jogo?')) return;
+  const idx = DB.jogos.findIndex(x => x.id === id);
+  if (idx > -1) DB.jogos.splice(idx, 1);
+  renderJogos();
+  showToast('Jogo eliminado.', 'red');
+};
+
+// ==================================================
+// PATROCINADORES
+// ==================================================
+function renderPatrocinadores() {
+  const wrap = document.getElementById('sponsorsAdminTiers');
+  const tiers = ['Ouro', 'Prata', 'Bronze'];
+  wrap.innerHTML = tiers.map(tier => {
+    const lista = DB.patrocinadores.filter(p => p.tier === tier);
+    return `
+      <div class="sponsors-admin-tier">
+        <div class="sponsors-admin-tier__header">
+          <span class="tier-label tier-label--${tier.toLowerCase()}">&#9733; ${tier}</span>
+          <span style="font-size:0.8rem;color:var(--gray-text)">${lista.filter(p=>p.ativo).length} activos · ${lista.filter(p=>!p.ativo).length} inactivos</span>
+        </div>
+        <div class="sponsors-admin-grid">
+          ${lista.map(p => `
+            <div class="sponsor-admin-card ${p.ativo ? '' : 'sponsor-admin-card--inactive'}">
+              <span class="sponsor-admin-card__tier-dot dot--${p.tier.toLowerCase()}"></span>
+              <div class="sponsor-admin-logo">${p.nome}</div>
+              <div class="sponsor-admin-name">${p.nome}</div>
+              <div class="sponsor-admin-sector">${p.sector} · Desde ${p.desde}</div>
+              <div class="sponsor-admin-actions">
+                <button class="btn-icon" onclick="editPatrocinador(${p.id})" title="Editar">&#9998;</button>
+                <button class="btn-icon ${p.ativo ? 'btn-icon--red' : 'btn-icon--green'}"
+                  onclick="togglePatrocinador(${p.id})"
+                  title="${p.ativo ? 'Desactivar' : 'Activar'}">${p.ativo ? '&#9940;' : '&#9989;'}</button>
+                <button class="btn-icon btn-icon--red" onclick="removePatrocinador(${p.id})" title="Eliminar">&#128465;</button>
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+document.getElementById('btnNovoPatrocinador')?.addEventListener('click', () => {
+  openModal('Novo Patrocinador', `
+    <div class="modal-row">
+      <div class="modal-field"><label>Nome da empresa *</label>
+        <input type="text" id="mPNome" placeholder="Nome da empresa" /></div>
+      <div class="modal-field"><label>Sector</label>
+        <input type="text" id="mPSector" placeholder="Ex: Construção, Saúde..." /></div>
+    </div>
+    <div class="modal-row">
+      <div class="modal-field"><label>Nível de patrocínio</label>
+        <select id="mPTier">
+          <option>Ouro</option><option>Prata</option><option>Bronze</option>
+        </select>
+      </div>
+      <div class="modal-field"><label>Ano de início</label>
+        <input type="number" id="mPDesde" value="2026" min="2000" max="2099" /></div>
+    </div>
+    <div class="modal-field"><label>Website (opcional)</label>
+      <input type="url" id="mPWebsite" placeholder="https://empresa.pt" /></div>`,
+    `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+     <button class="btn-save" onclick="saveNovoPatrocinador()">Guardar</button>`
+  );
+});
+
+window.saveNovoPatrocinador = function () {
+  const nome = document.getElementById('mPNome').value.trim();
+  if (!nome) { showToast('Introduza o nome.', 'red'); return; }
+  DB.patrocinadores.push({
+    id: Date.now(), nome,
+    sector:  document.getElementById('mPSector').value || '—',
+    tier:    document.getElementById('mPTier').value,
+    desde:   String(document.getElementById('mPDesde').value),
+    website: document.getElementById('mPWebsite').value,
+    ativo:   true,
+  });
+  renderPatrocinadores();
+  closeModal();
+  showToast('Patrocinador adicionado!', 'green');
+};
+
+window.editPatrocinador = function (id) {
+  const p = DB.patrocinadores.find(x => x.id === id);
+  if (!p) return;
+  openModal(`Editar — ${p.nome}`, `
+    <div class="modal-row">
+      <div class="modal-field"><label>Nome</label>
+        <input type="text" id="mPNome" value="${p.nome}" /></div>
+      <div class="modal-field"><label>Sector</label>
+        <input type="text" id="mPSector" value="${p.sector}" /></div>
+    </div>
+    <div class="modal-row">
+      <div class="modal-field"><label>Nível</label>
+        <select id="mPTier">
+          ${['Ouro','Prata','Bronze'].map(t =>
+            `<option ${t===p.tier?'selected':''}>${t}</option>`).join('')}
+        </select>
+      </div>
+      <div class="modal-field"><label>Desde</label>
+        <input type="number" id="mPDesde" value="${p.desde}" /></div>
+    </div>
+    <div class="modal-field"><label>Website</label>
+      <input type="url" id="mPWebsite" value="${p.website}" /></div>`,
+    `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+     <button class="btn-save" onclick="saveEditPatrocinador(${id})">Guardar</button>`
+  );
+};
+
+window.saveEditPatrocinador = function (id) {
+  const p = DB.patrocinadores.find(x => x.id === id);
+  if (!p) return;
+  p.nome    = document.getElementById('mPNome').value.trim() || p.nome;
+  p.sector  = document.getElementById('mPSector').value;
+  p.tier    = document.getElementById('mPTier').value;
+  p.desde   = String(document.getElementById('mPDesde').value);
+  p.website = document.getElementById('mPWebsite').value;
+  renderPatrocinadores();
+  closeModal();
+  showToast('Patrocinador actualizado!', 'green');
+};
+
+window.togglePatrocinador = function (id) {
+  const p = DB.patrocinadores.find(x => x.id === id);
+  if (!p) return;
+  p.ativo = !p.ativo;
+  renderPatrocinadores();
+  showToast(p.ativo ? 'Patrocinador activado.' : 'Patrocinador desactivado.', p.ativo ? 'green' : '');
+};
+
+window.removePatrocinador = function (id) {
+  if (!confirm('Eliminar este patrocinador?')) return;
+  const idx = DB.patrocinadores.findIndex(x => x.id === id);
+  if (idx > -1) DB.patrocinadores.splice(idx, 1);
+  renderPatrocinadores();
+  showToast('Patrocinador eliminado.', 'red');
+};

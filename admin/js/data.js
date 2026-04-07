@@ -49,4 +49,30 @@ const DB = {
     { id: 5, nome: 'Sub-17', designacao: 'Iniciados',  faixa: '16 a 17 anos', atletas: 20, treinador: 'André Monteiro',  treinos: '2ª a 6ª — 18h30', destaque: false },
     { id: 6, nome: 'Sub-19', designacao: 'Juvenis',    faixa: '18 a 19 anos', atletas: 18, treinador: 'Sérgio Fonseca',  treinos: '2ª a 6ª — 19h00', destaque: false },
   ],
+
+  jogos: [
+    { id:1,  escalao:'Sub-17', casa:'Sport Campinense', fora:'CD Tavira',         gcasa:3,    gfora:1,    data:'2026-03-22', hora:'10:30', local:'Est. Municipal Loulé',     estado:'Realizado' },
+    { id:2,  escalao:'Sub-17', casa:'GD Silves',        fora:'Sport Campinense',  gcasa:1,    gfora:2,    data:'2026-03-15', hora:'15:00', local:'Campo de Silves',          estado:'Realizado' },
+    { id:3,  escalao:'Sub-17', casa:'Sport Campinense', fora:'Olhanense',         gcasa:null, gfora:null, data:'2026-04-12', hora:'10:30', local:'Est. Municipal Loulé',     estado:'Agendado'  },
+    { id:4,  escalao:'Sub-17', casa:'CD Portimão',      fora:'Sport Campinense',  gcasa:null, gfora:null, data:'2026-04-19', hora:'11:00', local:'Campo Municipal Portimão', estado:'Agendado'  },
+    { id:5,  escalao:'Sub-15', casa:'Sport Campinense', fora:'FC Quarteira',      gcasa:3,    gfora:0,    data:'2026-03-29', hora:'09:00', local:'Est. Municipal Loulé',     estado:'Realizado' },
+    { id:6,  escalao:'Sub-15', casa:'SC Farense',       fora:'Sport Campinense',  gcasa:1,    gfora:2,    data:'2026-03-22', hora:'09:30', local:'Estádio Algarve',          estado:'Realizado' },
+    { id:7,  escalao:'Sub-15', casa:'Sport Campinense', fora:'Olhanense',         gcasa:null, gfora:null, data:'2026-04-12', hora:'09:00', local:'Est. Municipal Loulé',     estado:'Agendado'  },
+    { id:8,  escalao:'Sub-13', casa:'Sport Campinense', fora:'GD Silves',         gcasa:4,    gfora:1,    data:'2026-03-29', hora:'09:00', local:'Est. Municipal Loulé',     estado:'Realizado' },
+    { id:9,  escalao:'Sub-13', casa:'Sport Campinense', fora:'FC Quarteira',      gcasa:null, gfora:null, data:'2026-04-19', hora:'09:00', local:'Est. Municipal Loulé',     estado:'Agendado'  },
+    { id:10, escalao:'Sub-19', casa:'Sport Campinense', fora:'SC Farense',        gcasa:1,    gfora:2,    data:'2026-03-28', hora:'15:00', local:'Est. Municipal Loulé',     estado:'Realizado' },
+    { id:11, escalao:'Sub-19', casa:'Sport Campinense', fora:'SL Benfica B',      gcasa:null, gfora:null, data:'2026-04-11', hora:'15:00', local:'Est. Municipal Loulé',     estado:'Agendado'  },
+  ],
+
+  patrocinadores: [
+    { id:1, nome:'Empresa Ouro 1',   sector:'Construção',    tier:'Ouro',   website:'https://exemplo.pt', ativo:true,  desde:'2024' },
+    { id:2, nome:'Empresa Ouro 2',   sector:'Automóvel',     tier:'Ouro',   website:'https://exemplo.pt', ativo:true,  desde:'2023' },
+    { id:3, nome:'Empresa Prata 1',  sector:'Restauração',   tier:'Prata',  website:'',                   ativo:true,  desde:'2025' },
+    { id:4, nome:'Empresa Prata 2',  sector:'Saúde',         tier:'Prata',  website:'',                   ativo:true,  desde:'2025' },
+    { id:5, nome:'Empresa Prata 3',  sector:'Tecnologia',    tier:'Prata',  website:'',                   ativo:false, desde:'2024' },
+    { id:6, nome:'Empresa Bronze 1', sector:'Comércio',      tier:'Bronze', website:'',                   ativo:true,  desde:'2026' },
+    { id:7, nome:'Empresa Bronze 2', sector:'Serviços',      tier:'Bronze', website:'',                   ativo:true,  desde:'2026' },
+    { id:8, nome:'Empresa Bronze 3', sector:'Educação',      tier:'Bronze', website:'',                   ativo:true,  desde:'2025' },
+    { id:9, nome:'Empresa Bronze 4', sector:'Turismo',       tier:'Bronze', website:'',                   ativo:false, desde:'2024' },
+  ],
 };

@@ -885,6 +885,71 @@ ul { list-style: none; }
   font-size: 0.8rem;
 }
 
+/* ---- PATROCINADORES ---- */
+.section--sponsors { background: var(--white); }
+
+.sponsors-tier { margin-bottom: 40px; }
+
+.sponsors-tier__label {
+  display: inline-flex; align-items: center;
+  font-family: var(--font-display); font-size: 1rem; letter-spacing: 3px;
+  padding: 6px 18px; border-radius: 20px; margin-bottom: 20px;
+}
+.sponsors-tier__label--ouro   { background: var(--yellow); color: var(--blue); }
+.sponsors-tier__label--prata  { background: #e8e8e8; color: #555; }
+.sponsors-tier__label--bronze { background: #f5e8d8; color: #8B5E3C; }
+
+.sponsors-row {
+  display: flex; gap: 16px; flex-wrap: wrap;
+}
+
+.sponsor-card {
+  border-radius: var(--radius-lg);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  transition: all var(--transition); cursor: pointer; gap: 10px;
+}
+
+.sponsor-card--ouro {
+  flex: 1; min-width: 260px; padding: 32px;
+  border: 3px solid var(--yellow);
+  box-shadow: 0 4px 20px rgba(255,209,0,0.2);
+}
+.sponsor-card--ouro:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 32px rgba(255,209,0,0.35);
+}
+
+.sponsor-card--prata {
+  flex: 1; min-width: 180px; padding: 24px;
+  border: 2px solid #e0e0e0;
+}
+.sponsor-card--prata:hover { border-color: #aaa; transform: translateY(-3px); box-shadow: var(--shadow); }
+
+.sponsor-card--bronze {
+  flex: 1; min-width: 130px; padding: 18px 20px;
+  border: 1px solid #eee;
+}
+.sponsor-card--bronze:hover { border-color: #ccc; box-shadow: var(--shadow); }
+
+.sponsor-card__logo {
+  font-family: var(--font-display);
+  letter-spacing: 2px;
+  color: var(--blue);
+  text-align: center;
+}
+.sponsor-card--ouro   .sponsor-card__logo { font-size: 1.6rem; }
+.sponsor-card--prata  .sponsor-card__logo { font-size: 1.1rem; color: #555; }
+.sponsor-card--bronze .sponsor-card__logo { font-size: 0.9rem; color: #777; }
+
+.sponsor-card__name { font-size: 0.75rem; color: var(--gray-mid); text-transform: uppercase; letter-spacing: 1px; }
+
+.sponsors-cta {
+  text-align: center; margin-top: 48px; padding: 40px;
+  background: var(--blue);
+  border-radius: var(--radius-lg);
+}
+.sponsors-cta p { color: rgba(255,255,255,0.8); margin-bottom: 20px; font-size: 1.1rem; }
+
 /* ---- RESPONSIVE ---- */
 @media (max-width: 1024px) {
   .categories__grid { grid-template-columns: repeat(2, 1fr); }

@@ -71,6 +71,12 @@
         <a href="#" class="nav-item" data-page="escaloes">
           <span class="nav-icon">&#127942;</span> Escalões
         </a>
+        <a href="#" class="nav-item" data-page="jogos">
+          <span class="nav-icon">&#128197;</span> Jogos
+        </a>
+        <a href="#" class="nav-item" data-page="patrocinadores">
+          <span class="nav-icon">&#11088;</span> Patrocinadores
+        </a>
       </nav>
       <div class="sidebar-footer">
         <a href="../index.html" class="nav-item" target="_blank">
@@ -259,6 +265,45 @@
             <h1>Escalões</h1>
           </div>
           <div class="escaloes-grid" id="escaloesGrid"></div>
+        </section>
+
+        <!-- ===== JOGOS ===== -->
+        <section class="page" id="page-jogos" style="display:none">
+          <div class="page-header">
+            <h1>Jogos</h1>
+            <div class="page-actions">
+              <select class="filter-select" id="filterJogoEscalao">
+                <option value="">Todos os escalões</option>
+                <option>Sub-9</option><option>Sub-11</option><option>Sub-13</option>
+                <option>Sub-15</option><option>Sub-17</option><option>Sub-19</option>
+              </select>
+              <select class="filter-select" id="filterJogoEstado">
+                <option value="">Todos</option>
+                <option>Agendado</option><option>Realizado</option>
+              </select>
+              <button class="btn-primary" id="btnNovoJogo">+ Novo Jogo</button>
+            </div>
+          </div>
+          <div class="card">
+            <table class="table table--full" id="jogosTable">
+              <thead>
+                <tr>
+                  <th>Data</th><th>Escalão</th><th>Casa</th><th>Fora</th>
+                  <th>Resultado</th><th>Local</th><th>Estado</th><th>Ações</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ===== PATROCINADORES ===== -->
+        <section class="page" id="page-patrocinadores" style="display:none">
+          <div class="page-header">
+            <h1>Patrocinadores</h1>
+            <button class="btn-primary" id="btnNovoPatrocinador">+ Novo Patrocinador</button>
+          </div>
+          <div class="sponsors-admin-tiers" id="sponsorsAdminTiers"></div>
         </section>
 
       </main>

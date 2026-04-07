@@ -462,6 +462,56 @@ ul { list-style: none; }
   padding-top: 12px; border-top: 1px solid var(--gray-border); }
 .escalao-treinador strong { color: var(--black); }
 
+/* ===== SPONSORS ADMIN ===== */
+.sponsors-admin-tiers { display: flex; flex-direction: column; gap: 28px; }
+
+.sponsors-admin-tier { background: var(--white); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow); overflow: hidden; }
+
+.sponsors-admin-tier__header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--gray-border);
+}
+
+.tier-label {
+  font-family: var(--font-display); font-size: 1.1rem; letter-spacing: 2px;
+  padding: 4px 14px; border-radius: 16px;
+}
+.tier-label--ouro   { background: var(--yellow); color: var(--blue); }
+.tier-label--prata  { background: #e8e8e8; color: #555; }
+.tier-label--bronze { background: #f5e8d8; color: #8B5E3C; }
+
+.sponsors-admin-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; padding: 20px;
+}
+
+.sponsor-admin-card {
+  border-radius: var(--radius); padding: 16px;
+  border: 2px solid var(--gray-border); text-align: center;
+  transition: all 0.2s; position: relative;
+}
+.sponsor-admin-card:hover { border-color: var(--blue); }
+.sponsor-admin-card--inactive { opacity: 0.5; }
+
+.sponsor-admin-card__tier-dot {
+  position: absolute; top: 8px; right: 8px;
+  width: 10px; height: 10px; border-radius: 50%;
+}
+.dot--ouro   { background: var(--yellow); }
+.dot--prata  { background: #aaa; }
+.dot--bronze { background: #cd7f32; }
+
+.sponsor-admin-logo {
+  height: 56px; display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); letter-spacing: 1px; color: var(--blue);
+  font-size: 0.85rem; border-bottom: 1px solid var(--gray-border);
+  margin-bottom: 10px; padding-bottom: 10px;
+}
+.sponsor-admin-name { font-size: 0.82rem; font-weight: 700; color: var(--black); margin-bottom: 2px; }
+.sponsor-admin-sector { font-size: 0.72rem; color: var(--gray-text); margin-bottom: 10px; }
+.sponsor-admin-actions { display: flex; gap: 6px; justify-content: center; }
+
 /* ===== MODAL ===== */
 .modal-overlay {
   position: fixed; inset: 0;
