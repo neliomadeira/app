@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inscrição – Juventude Sport Campinense</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/inscricao.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="header" id="header">
+    <div class="container header__inner">
+      <a href="index.html" class="logo">
+        <div class="logo__emblem">
+          <span class="logo__sc">SC</span>
+        </div>
+        <div class="logo__text">
+          <span class="logo__name">Sport Campinense</span>
+          <span class="logo__sub">Juventude</span>
+        </div>
+      </a>
+      <a href="index.html" class="btn btn--outline insc-back">&#8592; Voltar ao site</a>
+    </div>
+  </header>
+
+  <!-- PAGE HERO -->
+  <div class="page-hero">
+    <div class="page-hero__overlay"></div>
+    <div class="container page-hero__content">
+      <p class="hero__tag">Dê o primeiro passo</p>
+      <h1 class="page-hero__title">Inscrição de Atleta</h1>
+      <p class="page-hero__desc">Preencha o formulário abaixo. Nossa equipe entrará em contato em até 48 horas para confirmar a inscrição e agendar a avaliação.</p>
+    </div>
+  </div>
+
+  <!-- FORM SECTION -->
+  <section class="insc-section">
+    <div class="container insc-container">
+
+      <!-- SIDEBAR INFO -->
+      <aside class="insc-sidebar">
+        <div class="insc-info-card">
+          <h3 class="insc-info-card__title">Categorias disponíveis</h3>
+          <ul class="insc-categories">
+            <li><span class="insc-cat-badge">Sub-9</span> <span>7 a 9 anos</span></li>
+            <li><span class="insc-cat-badge">Sub-11</span> <span>10 a 11 anos</span></li>
+            <li><span class="insc-cat-badge">Sub-13</span> <span>12 a 13 anos</span></li>
+            <li><span class="insc-cat-badge">Sub-15</span> <span>14 a 15 anos</span></li>
+            <li><span class="insc-cat-badge">Sub-17</span> <span>16 a 17 anos</span></li>
+            <li><span class="insc-cat-badge">Sub-20</span> <span>18 a 20 anos</span></li>
+          </ul>
+        </div>
+
+        <div class="insc-info-card">
+          <h3 class="insc-info-card__title">Documentos necessários</h3>
+          <ul class="insc-docs">
+            <li>&#10003; RG ou Certidão de Nascimento</li>
+            <li>&#10003; CPF (atleta ou responsável)</li>
+            <li>&#10003; Comprovante de residência</li>
+            <li>&#10003; Atestado médico recente</li>
+            <li>&#10003; 1 foto 3x4</li>
+          </ul>
+        </div>
+
+        <div class="insc-info-card insc-info-card--highlight">
+          <h3 class="insc-info-card__title">Dúvidas?</h3>
+          <p>Entre em contato pelo WhatsApp ou telefone:</p>
+          <a href="tel:+558399990000" class="insc-phone">(83) 9 9999-0000</a>
+          <p class="insc-hours">Seg–Sex, 8h às 17h</p>
+        </div>
+      </aside>
+
+      <!-- FORM -->
+      <main class="insc-form-wrap">
+        <form class="insc-form" id="inscForm">
+
+          <div class="insc-form__section">
+            <h2 class="insc-form__section-title">
+              <span class="insc-step">1</span> Dados do Atleta
+            </h2>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="nomeAtleta">Nome completo *</label>
+                <input type="text" id="nomeAtleta" name="nomeAtleta" placeholder="Nome do atleta" required />
+              </div>
+              <div class="form-group">
+                <label for="dataNasc">Data de nascimento *</label>
+                <input type="date" id="dataNasc" name="dataNasc" required />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="cpfAtleta">CPF do atleta</label>
+                <input type="text" id="cpfAtleta" name="cpfAtleta" placeholder="000.000.000-00" maxlength="14" />
+              </div>
+              <div class="form-group">
+                <label for="categoria">Categoria desejada *</label>
+                <select id="categoria" name="categoria" required>
+                  <option value="">Selecione...</option>
+                  <option value="sub9">Sub-9 (7 a 9 anos)</option>
+                  <option value="sub11">Sub-11 (10 a 11 anos)</option>
+                  <option value="sub13">Sub-13 (12 a 13 anos)</option>
+                  <option value="sub15">Sub-15 (14 a 15 anos)</option>
+                  <option value="sub17">Sub-17 (16 a 17 anos)</option>
+                  <option value="sub20">Sub-20 (18 a 20 anos)</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="posicao">Posição</label>
+                <select id="posicao" name="posicao">
+                  <option value="">Selecione...</option>
+                  <option>Goleiro</option>
+                  <option>Lateral Direito</option>
+                  <option>Lateral Esquerdo</option>
+                  <option>Zagueiro</option>
+                  <option>Volante</option>
+                  <option>Meia</option>
+                  <option>Atacante</option>
+                  <option>Ponta</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="pePreferido">Pé preferido</label>
+                <select id="pePreferido" name="pePreferido">
+                  <option value="">Selecione...</option>
+                  <option>Direito</option>
+                  <option>Esquerdo</option>
+                  <option>Ambidestro</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="altura">Altura (cm)</label>
+                <input type="number" id="altura" name="altura" placeholder="Ex: 165" min="80" max="220" />
+              </div>
+              <div class="form-group">
+                <label for="peso">Peso (kg)</label>
+                <input type="number" id="peso" name="peso" placeholder="Ex: 60" min="20" max="120" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="experiencia">Experiência anterior</label>
+              <textarea id="experiencia" name="experiencia" rows="3" placeholder="Descreva clubes anteriores, tempo de prática, etc."></textarea>
+            </div>
+          </div>
+
+          <div class="insc-form__section">
+            <h2 class="insc-form__section-title">
+              <span class="insc-step">2</span> Dados do Responsável
+            </h2>
+            <p class="insc-form__note">Obrigatório para atletas menores de 18 anos.</p>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="nomeResp">Nome do responsável</label>
+                <input type="text" id="nomeResp" name="nomeResp" placeholder="Nome completo do responsável" />
+              </div>
+              <div class="form-group">
+                <label for="parentesco">Parentesco</label>
+                <select id="parentesco" name="parentesco">
+                  <option value="">Selecione...</option>
+                  <option>Pai</option>
+                  <option>Mãe</option>
+                  <option>Avô/Avó</option>
+                  <option>Tio/Tia</option>
+                  <option>Outro</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="telefoneResp">Telefone / WhatsApp *</label>
+                <input type="tel" id="telefoneResp" name="telefoneResp" placeholder="(83) 9 9999-0000" required />
+              </div>
+              <div class="form-group">
+                <label for="emailResp">E-mail</label>
+                <input type="email" id="emailResp" name="emailResp" placeholder="responsavel@email.com" />
+              </div>
+            </div>
+          </div>
+
+          <div class="insc-form__section">
+            <h2 class="insc-form__section-title">
+              <span class="insc-step">3</span> Endereço
+            </h2>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="cep">CEP *</label>
+                <input type="text" id="cep" name="cep" placeholder="00000-000" maxlength="9" required />
+              </div>
+              <div class="form-group">
+                <label for="bairro">Bairro</label>
+                <input type="text" id="bairro" name="bairro" placeholder="Seu bairro" />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group form-group--lg">
+                <label for="rua">Rua / Logradouro *</label>
+                <input type="text" id="rua" name="rua" placeholder="Nome da rua" required />
+              </div>
+              <div class="form-group form-group--sm">
+                <label for="numero">Número</label>
+                <input type="text" id="numero" name="numero" placeholder="Nº" />
+              </div>
+            </div>
+          </div>
+
+          <div class="insc-form__section insc-form__section--terms">
+            <label class="checkbox-label">
+              <input type="checkbox" id="termos" name="termos" required />
+              <span>Declaro que li e concordo com os <a href="#">termos e regulamento</a> da Juventude Sport Campinense e autorizo o uso de imagem do atleta para fins institucionais.</span>
+            </label>
+          </div>
+
+          <button type="submit" class="btn btn--primary btn--full btn--lg">
+            Enviar inscrição
+          </button>
+
+          <div class="form-success" id="inscSuccess">
+            &#10003; Inscrição enviada com sucesso! Em breve nossa equipe entrará em contato.
+          </div>
+        </form>
+      </main>
+
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="footer__bottom">
+      <p>&copy; 2026 Juventude Sport Campinense. Todos os direitos reservados.</p>
+    </div>
+  </footer>
+
+  <script src="js/inscricao.js"></script>
+</body>
+</html>
