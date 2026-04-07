@@ -62,6 +62,7 @@ function goToPage(name) {
   document.getElementById('sidebar').classList.remove('open');
 
   if (name === 'facebook') initFacebookPage();
+  if (name === 'pagina-inicial') initPaginaInicial();
 }
 
 document.querySelectorAll('.nav-item[data-page]').forEach(item => {
@@ -1316,4 +1317,68 @@ function initFacebookPage() {
   if (cfg.accessToken && cfg.pageId) {
     document.getElementById('btnSincFb').style.display = '';
   }
+}
+
+// =============================================
+// PÁGINA INICIAL — editor de conteúdo
+// =============================================
+
+const SITE_CONFIG_KEY = 'site_config';
+
+function getSiteConfig() {
+  try { return JSON.parse(localStorage.getItem(SITE_CONFIG_KEY) || '{}'); } catch { return {}; }
+}
+function saveSiteConfig(cfg) {
+  localStorage.setItem(SITE_CONFIG_KEY, JSON.stringify(cfg));
+}
+
+function loadPaginaInicialForm() {
+  const cfg = getSiteConfig();
+  const fields = {
+    cfgHeroTag: 'heroTag', cfgHeroTitle: 'heroTitle', cfgHeroDesc: 'heroDesc',
+    cfgStat1Num: 'stat1Num', cfgStat1Label: 'stat1Label',
+    cfgStat2Num: 'stat2Num', cfgStat2Label: 'stat2Label',
+    cfgStat3Num: 'stat3Num', cfgStat3Label: 'stat3Label',
+    cfgStat4Num: 'stat4Num', cfgStat4Label: 'stat4Label',
+    cfgAboutText1: 'aboutText1', cfgAboutText2: 'aboutText2',
+    cfgAboutEst: 'aboutEst', cfgAboutMotto: 'aboutMotto',
+    cfgContactAddress: 'contactAddress', cfgContactPhone: 'contactPhone',
+    cfgContactEmail: 'contactEmail', cfgContactHours: 'contactHours',
+    cfgSocialInstagram: 'socialInstagramUrl',
+    cfgSocialFacebook: 'socialFacebookUrl',
+    cfgSocialWhatsapp: 'socialWhatsappUrl',
+  };
+  for (const [elId, cfgKey] of Object.entries(fields)) {
+    const el = document.getElementById(elId);
+    if (el && cfg[cfgKey] !== undefined) el.value = cfg[cfgKey];
+  }
+}
+
+function guardarPaginaInicial() {
+  const cfg = getSiteConfig();
+  const fields = {
+    cfgHeroTag: 'heroTag', cfgHeroTitle: 'heroTitle', cfgHeroDesc: 'heroDesc',
+    cfgStat1Num: 'stat1Num', cfgStat1Label: 'stat1Label',
+    cfgStat2Num: 'stat2Num', cfgStat2Label: 'stat2Label',
+    cfgStat3Num: 'stat3Num', cfgStat3Label: 'stat3Label',
+    cfgStat4Num: 'stat4Num', cfgStat4Label: 'stat4Label',
+    cfgAboutText1: 'aboutText1', cfgAboutText2: 'aboutText2',
+    cfgAboutEst: 'aboutEst', cfgAboutMotto: 'aboutMotto',
+    cfgContactAddress: 'contactAddress', cfgContactPhone: 'contactPhone',
+    cfgContactEmail: 'contactEmail', cfgContactHours: 'contactHours',
+    cfgSocialInstagram: 'socialInstagramUrl',
+    cfgSocialFacebook: 'socialFacebookUrl',
+    cfgSocialWhatsapp: 'socialWhatsappUrl',
+  };
+  for (const [elId, cfgKey] of Object.entries(fields)) {
+    const el = document.getElementById(elId);
+    if (el) cfg[cfgKey] = el.value.trim();
+  }
+  saveSiteConfig(cfg);
+  showToast('✓ Alterações guardadas! Abra o site para ver as mudanças.', 'green');
+}
+
+function initPaginaInicial() {
+  loadPaginaInicialForm();
+  document.getElementById('btnGuardarPaginaInicial')?.addEventListener('click', guardarPaginaInicial);
 }
