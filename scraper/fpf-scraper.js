@@ -17,9 +17,10 @@
  * =====================================================================
  */
 
-const axios  = require('axios');
-const fs     = require('fs');
-const path   = require('path');
+const axios   = require('axios');
+const cheerio = require('cheerio');
+const fs      = require('fs');
+const path    = require('path');
 
 // ── CONFIGURAÇÃO ──────────────────────────────────────────────────────
 const CONFIG = {
@@ -116,73 +117,117 @@ async function descobrirEpoca(assocId) {
   return null;
 }
 
-// ── ENDPOINTS FPF ────────────────────────────────────────────────────
-
-async function listarCompeticoes() {
-  log(`A pesquisar competições da AF Algarve (assoc. ${CONFIG.associationId}, época ${CONFIG.seasonId})...`);
-  try {
-    const { data } = await http.get('/Competition/GetCompetitionsByAssociation', {
-      params: { associationId: CONFIG.associationId, seasonId: CONFIG.seasonId },
-    });
-    return Array.isArray(data) ? data : (data.competitions || data.data || []);
-  } catch (e) {
-    warn(`Não foi possível obter competições: ${e.message}`);
-    if (e.response) warn(`HTTP ${e.response.status}: ${JSON.stringify(e.response.data).slice(0,200)}`);
-    return [];
-  }
+// ── OBTER HTML DA COMPETIÇÃO ──────────────────────────────────────────
+async function obterPaginaHTML(competicaoId) {
+  const { data } = await http.get('/Competition/Details', {
+    params: { competitionId: competicaoId, seasonId: CONFIG.seasonId },
+    headers: { 'Accept': 'text/html,application/xhtml+xml,*/*', 'X-Requested-With': '' },
+  });
+  return cheerio.load(data);
 }
 
+// ── PARSEAR CLASSIFICAÇÃO DO HTML ─────────────────────────────────────
+// Estrutura encontrada:
+// <div class="game classification no-gutters">
+//   <div col-md-1 text-left>  <span>pos</span>  </div>
+//   <div col-md-4>            nome equipa        </div>
+//   <div col-md-1 text-center> J </div>
+//   <div col-md-1 text-center> V </div>
+//   <div col-md-1 text-center> E </div>
+//   <div col-md-1 text-center> D </div>
+//   ... GM GS Pts
+// </div>
 async function obterClassificacao(competicaoId) {
   try {
-    const { data } = await http.get('/Competition/GetStandings', {
-      params: { competitionId: competicaoId, seasonId: CONFIG.seasonId },
+    const $ = await obterPaginaHTML(competicaoId);
+    const classificacao = [];
+
+    $('.game.classification').each((_, row) => {
+      const cols = $(row).find('[class*="col-md-"]');
+      if (cols.length < 6) return;
+
+      const pos    = parseInt($(cols[0]).text().trim()) || 0;
+      const equipa = $(cols[1]).text().trim();
+      if (!equipa || pos === 0) return;
+
+      const nums = [];
+      cols.slice(2).each((_, c) => nums.push(parseInt($(c).text().trim()) || 0));
+      // Ordem típica: J, V, E, D, GM, GS, Pts
+      const [j=0, v=0, e=0, d=0, gm=0, gs=0, pts=0] = nums;
+
+      classificacao.push({
+        posicao: pos,
+        equipa,
+        j, v, e, d, gm, gs, pts,
+        sc: equipa.toLowerCase().includes(CONFIG.clube.toLowerCase()),
+      });
     });
-    const rows = Array.isArray(data) ? data : (data.standings || data.rows || data.data || []);
-    return rows.map(r => ({
-      posicao:  r.position   || r.Position   || r.pos || 0,
-      equipa:   r.teamName   || r.TeamName   || r.team || '—',
-      j:  parseInt(r.played  || r.Played  || 0),
-      v:  parseInt(r.won     || r.Won     || 0),
-      e:  parseInt(r.drawn   || r.Drawn   || 0),
-      d:  parseInt(r.lost    || r.Lost    || 0),
-      gm: parseInt(r.goalsFor    || r.GoalsFor    || r.gf || 0),
-      gs: parseInt(r.goalsAgainst|| r.GoalsAgainst|| r.ga || 0),
-      pts: parseInt(r.points || r.Points || 0),
-      sc: (r.teamName || r.TeamName || '').includes(CONFIG.clube),
-    }));
-  } catch (e) {
-    warn(`Classificação competicao ${competicaoId}: ${e.message}`);
+
+    return classificacao;
+  } catch (err_) {
+    warn(`Classificação competicao ${competicaoId}: ${err_.message}`);
     return [];
   }
 }
 
+// ── PARSEAR JOGOS DO HTML ─────────────────────────────────────────────
 async function obterJogos(competicaoId) {
   try {
-    const { data } = await http.get('/Competition/GetMatches', {
-      params: { competitionId: competicaoId, seasonId: CONFIG.seasonId },
+    const $ = await obterPaginaHTML(competicaoId);
+    const jogos = [];
+
+    // Jogos realizados: procura linhas com resultado (ex: "2 - 1")
+    // e jogos agendados: procura linhas com data/hora
+    $('.game:not(.classification)').each((_, row) => {
+      const texto = $(row).text().trim();
+      if (!texto) return;
+
+      const cols = $(row).find('[class*="col-"]');
+      if (cols.length < 3) return;
+
+      // Tenta extrair: casa | resultado/data | fora
+      const textos = [];
+      cols.each((_, c) => textos.push($(c).text().trim()));
+
+      // Procura resultado "X - Y" ou "X:Y"
+      const resIdx = textos.findIndex(t => /^\d+\s*[-:]\s*\d+$/.test(t));
+      // Procura data "DD/MM/YYYY" ou hora "HH:MM"
+      const dataIdx = textos.findIndex(t => /\d{2}\/\d{2}\/\d{4}/.test(t));
+      const horaIdx = textos.findIndex(t => /^\d{2}:\d{2}$/.test(t));
+
+      if (resIdx > 0) {
+        // Jogo realizado
+        const res   = textos[resIdx].replace(/\s/g, '');
+        const parts = res.split(/[-:]/);
+        const gcasa = parseInt(parts[0]);
+        const gfora = parseInt(parts[1]);
+        const casa  = textos.slice(0, resIdx).join(' ').trim() || '—';
+        const fora  = textos.slice(resIdx + 1).join(' ').trim() || '—';
+        const data  = dataIdx >= 0 ? normalizarData(textos[dataIdx]) : null;
+        const hora  = horaIdx >= 0 ? textos[horaIdx] : '—';
+        jogos.push({ casa, fora, gcasa, gfora, data, hora, local: '—', estado: 'Realizado' });
+      } else if (dataIdx >= 0) {
+        // Jogo agendado
+        const data = normalizarData(textos[dataIdx]);
+        const hora = horaIdx >= 0 ? textos[horaIdx] : '—';
+        const meio = Math.floor(textos.length / 2);
+        const casa = textos.slice(0, meio).filter(t => !t.match(/\d{2}\/\d{2}\/\d{4}/)).join(' ').trim() || '—';
+        const fora = textos.slice(meio).filter(t => !t.match(/\d{2}\/\d{2}\/\d{4}|^\d{2}:\d{2}$/)).join(' ').trim() || '—';
+        jogos.push({ casa, fora, gcasa: null, gfora: null, data, hora, local: '—', estado: 'Agendado' });
+      }
     });
-    const matches = Array.isArray(data) ? data : (data.matches || data.games || data.data || []);
-    return matches.map(m => {
-      const dataBruta = m.matchDate || m.date || m.Date || m.matchDateTime || '';
-      const horaBruta = m.matchTime || m.time || m.Time || dataBruta;
-      const gcasa = m.homeGoals ?? m.HomeGoals ?? m.homeScore ?? null;
-      const gfora = m.awayGoals ?? m.AwayGoals ?? m.awayScore ?? null;
-      const realizado = gcasa !== null && gfora !== null;
-      return {
-        casa:   m.homeTeam  || m.HomeTeam  || m.home  || '—',
-        fora:   m.awayTeam  || m.AwayTeam  || m.away  || '—',
-        gcasa:  realizado ? parseInt(gcasa) : null,
-        gfora:  realizado ? parseInt(gfora) : null,
-        data:   normalizarData(dataBruta),
-        hora:   normalizarHora(horaBruta) || '—',
-        local:  m.venue || m.Venue || m.stadium || '—',
-        estado: realizado ? 'Realizado' : 'Agendado',
-      };
-    });
-  } catch (e) {
-    warn(`Jogos competicao ${competicaoId}: ${e.message}`);
+
+    return jogos;
+  } catch (err_) {
+    warn(`Jogos competicao ${competicaoId}: ${err_.message}`);
     return [];
   }
+}
+
+// ── LISTAR COMPETIÇÕES (não suportado via HTML — usar IDs directos) ───
+async function listarCompeticoes() {
+  warn('Listagem de competições não disponível. Use --competicao <ID> com o ID do URL da FPF.');
+  return [];
 }
 
 async function descobrirAssociacoes() {
