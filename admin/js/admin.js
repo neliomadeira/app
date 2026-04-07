@@ -937,3 +937,141 @@ window.removePatrocinador = function (id) {
   renderPatrocinadores();
   showToast('Patrocinador eliminado.', 'red');
 };
+
+// ==================================================
+// IMPORTAR FPF
+// ==================================================
+
+// Toggle painel
+document.getElementById('btnImportarFPF')?.addEventListener('click', () => {
+  const panel = document.getElementById('fpfImportPanel');
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+});
+
+// Tabs do painel
+document.querySelectorAll('.fpf-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.fpf-tab').forEach(t => t.classList.remove('fpf-tab--active'));
+    document.querySelectorAll('.fpf-tab-content').forEach(c => c.style.display = 'none');
+    tab.classList.add('fpf-tab--active');
+    const target = document.getElementById(`ftab-${tab.dataset.ftab}`);
+    if (target) target.style.display = 'block';
+  });
+});
+
+// Carregar ficheiro
+document.getElementById('fpfFileInput')?.addEventListener('change', function () {
+  const file = this.files[0];
+  if (!file) return;
+  document.getElementById('fpfFileName').textContent = `📄 ${file.name}`;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('fpfJsonInput').value = e.target.result;
+    // Switch para tab JSON
+    document.querySelectorAll('.fpf-tab').forEach(t => t.classList.remove('fpf-tab--active'));
+    document.querySelectorAll('.fpf-tab-content').forEach(c => c.style.display = 'none');
+    document.querySelector('.fpf-tab[data-ftab="json"]').classList.add('fpf-tab--active');
+    document.getElementById('ftab-json').style.display = 'block';
+    infoImport(`✓ Ficheiro carregado: ${file.name}`, 'ok');
+  };
+  reader.readAsText(file);
+});
+
+// Carregar via URL
+window.importarFPFUrl = async function () {
+  const url = document.getElementById('fpfUrlInput').value.trim();
+  if (!url) { infoImport('Introduza um URL válido.', 'err'); return; }
+  infoImport('A carregar...', '');
+  try {
+    const res  = await fetch(url);
+    const json = await res.text();
+    document.getElementById('fpfJsonInput').value = json;
+    document.querySelectorAll('.fpf-tab').forEach(t => t.classList.remove('fpf-tab--active'));
+    document.querySelectorAll('.fpf-tab-content').forEach(c => c.style.display = 'none');
+    document.querySelector('.fpf-tab[data-ftab="json"]').classList.add('fpf-tab--active');
+    document.getElementById('ftab-json').style.display = 'block';
+    infoImport('✓ JSON carregado com sucesso.', 'ok');
+  } catch (e) {
+    infoImport(`Erro: ${e.message}`, 'err');
+  }
+};
+
+function infoImport(msg, tipo) {
+  const el = document.getElementById('fpfImportInfo');
+  el.textContent = msg;
+  el.className = 'fpf-import-info' + (tipo ? ` ${tipo}` : '');
+}
+
+// Processar importação
+window.processarImportFPF = function () {
+  const raw = document.getElementById('fpfJsonInput').value.trim();
+  if (!raw) { infoImport('Cole o JSON gerado pelo scraper.', 'err'); return; }
+
+  let dados;
+  try {
+    dados = JSON.parse(raw);
+  } catch (e) {
+    infoImport('JSON inválido: ' + e.message, 'err');
+    return;
+  }
+
+  if (!dados.competicoes || !Array.isArray(dados.competicoes)) {
+    infoImport('Formato inválido. O JSON deve ter a chave "competicoes".', 'err');
+    return;
+  }
+
+  let totalJogos = 0;
+  let idCounter = Date.now();
+
+  dados.competicoes.forEach(comp => {
+    const escalao = extrairEscalao(comp.nome || comp.escalao || '');
+
+    // Importar jogos
+    (comp.jogos || []).forEach(j => {
+      // Evitar duplicados por data+equipas
+      const jaExiste = DB.jogos.find(x =>
+        x.data === j.data && x.casa === j.casa && x.fora === j.fora
+      );
+      if (!jaExiste) {
+        DB.jogos.push({
+          id:      ++idCounter,
+          escalao: escalao || comp.escalao || 'Sub-17',
+          casa:    j.casa,
+          fora:    j.fora,
+          gcasa:   j.gcasa,
+          gfora:   j.gfora,
+          data:    j.data,
+          hora:    j.hora || '—',
+          local:   j.local || '—',
+          estado:  j.estado || (j.gcasa !== null ? 'Realizado' : 'Agendado'),
+        });
+        totalJogos++;
+      }
+    });
+  });
+
+  renderJogos();
+  document.getElementById('fpfImportPanel').style.display = 'none';
+  document.getElementById('fpfJsonInput').value = '';
+
+  const gerado = dados.geradoEm
+    ? ` (dados de ${new Date(dados.geradoEm).toLocaleDateString('pt-PT')})`
+    : '';
+  showToast(`✓ ${totalJogos} jogos importados da FPF${gerado}`, 'green');
+};
+
+// Tenta extrair escalão do nome da competição
+function extrairEscalao(nome) {
+  const mapa = [
+    [/sub.?19|juveni/i,   'Sub-19'],
+    [/sub.?17|iniciado/i, 'Sub-17'],
+    [/sub.?15|infantil/i, 'Sub-15'],
+    [/sub.?13|benjamin/i, 'Sub-13'],
+    [/sub.?11|traquina/i, 'Sub-11'],
+    [/sub.?9|petiz/i,     'Sub-9'],
+  ];
+  for (const [re, label] of mapa) {
+    if (re.test(nome)) return label;
+  }
+  return null;
+}

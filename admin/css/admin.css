@@ -596,6 +596,81 @@ ul { list-style: none; }
   font-size: 0.85rem; font-weight: 700; cursor: pointer; }
 .btn-save:hover { background: var(--blue-dark); }
 
+/* ===== FPF IMPORT ===== */
+.btn-fpf {
+  background: #006633; color: var(--white);
+  border: none; border-radius: var(--radius);
+  padding: 9px 16px; font-family: var(--font); font-size: 0.85rem; font-weight: 700;
+  cursor: pointer; transition: background var(--transition); white-space: nowrap;
+}
+.btn-fpf:hover { background: #004d26; }
+
+.fpf-import-panel {
+  background: var(--white); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md); margin-bottom: 20px;
+  border: 2px solid #006633; overflow: hidden;
+}
+
+.fpf-import-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  padding: 16px 20px; background: #006633; color: var(--white);
+}
+.fpf-import-header strong { font-size: 0.95rem; }
+.fpf-import-header p { font-size: 0.8rem; opacity: 0.8; margin-top: 3px; }
+.fpf-import-header code { background: rgba(255,255,255,0.2); padding: 1px 5px; border-radius: 3px; }
+.fpf-import-header .modal-close { color: var(--white); font-size: 1.3rem; }
+
+.fpf-import-body { padding: 20px; }
+
+.fpf-tabs { display: flex; gap: 0; border-bottom: 2px solid var(--gray-border); margin-bottom: 16px; }
+.fpf-tab {
+  padding: 8px 18px; background: none; border: none;
+  font-family: var(--font); font-size: 0.85rem; font-weight: 600;
+  color: var(--gray-text); cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -2px;
+  transition: all 0.2s;
+}
+.fpf-tab:hover { color: var(--blue); }
+.fpf-tab--active { color: #006633; border-bottom-color: #006633; }
+
+.fpf-tab-content textarea {
+  width: 100%; height: 160px; padding: 12px;
+  border: 2px solid var(--gray-border); border-radius: var(--radius);
+  font-family: monospace; font-size: 0.82rem; resize: vertical; outline: none;
+}
+.fpf-tab-content textarea:focus { border-color: #006633; }
+
+.fpf-file-label {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 20px; background: var(--gray-bg);
+  border: 2px dashed var(--gray-border); border-radius: var(--radius);
+  cursor: pointer; font-size: 0.9rem; font-weight: 600; color: var(--gray-text);
+  transition: all 0.2s;
+}
+.fpf-file-label:hover { border-color: #006633; color: #006633; }
+.fpf-file-label input { display: none; }
+
+.fpf-import-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--gray-border);
+}
+
+.fpf-import-info { font-size: 0.85rem; color: var(--gray-text); }
+.fpf-import-info.ok  { color: var(--green); font-weight: 600; }
+.fpf-import-info.err { color: var(--red);   font-weight: 600; }
+
+.fpf-instructions {
+  background: #f0f9f0; border-top: 1px solid #c3e6cb;
+  padding: 16px 20px; font-size: 0.82rem; color: #2d6a4f;
+}
+.fpf-instructions strong { display: block; margin-bottom: 8px; }
+.fpf-instructions ol { padding-left: 18px; }
+.fpf-instructions li { margin-bottom: 5px; }
+.fpf-instructions code {
+  background: rgba(0,102,51,0.12); padding: 1px 5px;
+  border-radius: 3px; font-family: monospace;
+}
+
 /* ===== TOAST ===== */
 .toast {
   position: fixed; bottom: 28px; right: 28px;

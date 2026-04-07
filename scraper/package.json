@@ -1,0 +1,14 @@
+{
+  "name": "fpf-scraper",
+  "version": "1.0.0",
+  "description": "Importador de dados da FPF – resultados.fpf.pt",
+  "main": "fpf-scraper.js",
+  "scripts": {
+    "start": "node fpf-scraper.js",
+    "listar": "node fpf-scraper.js --listar"
+  },
+  "dependencies": {
+    "axios": "^1.7.2",
+    "cheerio": "^1.0.0"
+  }
+}
