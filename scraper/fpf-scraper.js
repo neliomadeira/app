@@ -27,8 +27,8 @@ const CONFIG = {
   // Se não souber o ID, corra: node fpf-scraper.js --descobrir-af
   associationId: 218,
 
-  // ID da época (103 = 2025/2026 geralmente — ajuste se necessário)
-  seasonId: 103,
+  // ID da época (105 = 2025/2026 AF Algarve)
+  seasonId: 105,
 
   // Nome do clube a destacar na classificação
   clube: 'Sport Campinense',
@@ -98,8 +98,8 @@ async function testarLigacao() {
 // ── DESCOBRIR ÉPOCA ACTIVA ────────────────────────────────────────────
 async function descobrirEpoca(assocId) {
   log(`A descobrir época activa para associação ${assocId}...`);
-  // Testa IDs de época de 90 a 115
-  for (let s = 115; s >= 90; s--) {
+  // Testa IDs de época de 90 a 120
+  for (let s = 120; s >= 90; s--) {
     try {
       const { data } = await http.get('/Competition/GetCompetitionsByAssociation', {
         params: { associationId: assocId, seasonId: s },
