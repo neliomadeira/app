@@ -55,10 +55,12 @@ function goToPage(name) {
   const titles = {
     dashboard: 'Dashboard', inscricoes: 'Inscrições', atletas: 'Atletas',
     noticias: 'Notícias', mensagens: 'Mensagens', escaloes: 'Escalões',
-    jogos: 'Jogos', patrocinadores: 'Patrocinadores',
+    jogos: 'Jogos', patrocinadores: 'Patrocinadores', facebook: 'Facebook',
   };
   document.getElementById('topbarTitle').textContent = titles[name] || name;
   document.getElementById('sidebar').classList.remove('open');
+
+  if (name === 'facebook') initFacebookPage();
 }
 
 document.querySelectorAll('.nav-item[data-page]').forEach(item => {
@@ -1074,4 +1076,243 @@ function extrairEscalao(nome) {
     if (re.test(nome)) return label;
   }
   return null;
+}
+
+// =============================================
+// FACEBOOK ADMIN
+// =============================================
+
+// ── Storage helpers ──────────────────────────
+function getFbPosts() {
+  try { return JSON.parse(localStorage.getItem('fb_posts') || '[]'); } catch { return []; }
+}
+function saveFbPosts(arr) {
+  localStorage.setItem('fb_posts', JSON.stringify(arr));
+}
+function getFbConfig() {
+  try { return JSON.parse(localStorage.getItem('fb_config') || '{}'); } catch { return {}; }
+}
+function saveFbConfig(cfg) {
+  localStorage.setItem('fb_config', JSON.stringify(cfg));
+}
+
+// ── Render posts grid ─────────────────────────
+function renderFbPosts() {
+  const posts = getFbPosts();
+  const grid  = document.getElementById('fbPostsGrid');
+  const count = document.getElementById('fbPostCount');
+  if (!grid) return;
+
+  if (count) count.textContent = `(${posts.length})`;
+
+  if (!posts.length) {
+    grid.innerHTML = `<div class="empty-state">
+      <div class="empty-icon">📘</div>
+      <p>Sem publicações guardadas. Adicione manualmente ou sincronize via API.</p>
+    </div>`;
+    return;
+  }
+
+  grid.innerHTML = posts.map((p, i) => {
+    const tipoIcon  = { foto:'📷', video:'▶️', link:'🔗', texto:'📝' }[p.tipo] || '📝';
+    const tipoLabel = { foto:'Foto', video:'Vídeo', link:'Partilha', texto:'Publicação' }[p.tipo] || 'Publicação';
+    const dataStr   = p.data ? new Date(p.data).toLocaleDateString('pt-PT', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+    const imgStyle  = p.imagem ? `background-image:url('${p.imagem}')` : '';
+    return `
+    <div class="fb-posts-admin-card">
+      <div class="fb-posts-admin-card__img" style="${imgStyle}">
+        ${!p.imagem ? `<span>${tipoIcon}</span>` : ''}
+      </div>
+      <div class="fb-posts-admin-card__body">
+        <div class="fb-posts-admin-card__meta">
+          <span class="badge">${tipoLabel}</span>
+          <time>${dataStr}</time>
+        </div>
+        <p class="fb-posts-admin-card__text">${(p.texto || '').slice(0, 120)}${(p.texto || '').length > 120 ? '…' : ''}</p>
+        ${p.url ? `<a href="${p.url}" target="_blank" rel="noopener" class="fb-posts-admin-card__link">Ver publicação →</a>` : ''}
+      </div>
+      <div class="fb-posts-admin-card__actions">
+        <button class="btn btn-sm" onclick="editFbPost(${i})">✏️</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteFbPost(${i})">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Load config into form ─────────────────────
+function loadFbConfig() {
+  const cfg = getFbConfig();
+  const tkEl = document.getElementById('fbAccessToken');
+  const idEl = document.getElementById('fbPageId');
+  if (tkEl) tkEl.value = cfg.accessToken || '';
+  if (idEl) idEl.value = cfg.pageId || '';
+}
+
+// ── Save API config ───────────────────────────
+function guardarFbConfig() {
+  const token  = (document.getElementById('fbAccessToken')?.value || '').trim();
+  const pageId = (document.getElementById('fbPageId')?.value || '').trim();
+  saveFbConfig({ accessToken: token, pageId });
+
+  const syncBtn = document.getElementById('btnSincFb');
+  if (syncBtn) syncBtn.style.display = (token && pageId) ? '' : 'none';
+
+  showToast('Configuração Facebook guardada', 'green');
+}
+
+// ── Test API connection ───────────────────────
+async function testarFbApi() {
+  const cfg = getFbConfig();
+  if (!cfg.accessToken || !cfg.pageId) {
+    showToast('Preencha o Access Token e o Page ID primeiro', 'red');
+    return;
+  }
+  const btn = document.getElementById('btnTestarFbApi');
+  if (btn) { btn.disabled = true; btn.textContent = 'A testar…'; }
+  try {
+    const url  = `https://graph.facebook.com/v19.0/${cfg.pageId}?fields=name,fan_count&access_token=${cfg.accessToken}`;
+    const res  = await fetch(url);
+    const json = await res.json();
+    if (json.error) throw new Error(json.error.message);
+    showToast(`✓ Ligação OK — Página: ${json.name} (${json.fan_count || 0} seguidores)`, 'green');
+  } catch (e) {
+    showToast(`Erro: ${e.message}`, 'red');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Testar Ligação'; }
+  }
+}
+
+// ── Sync posts via Graph API ──────────────────
+async function sincronizarFacebook() {
+  const cfg = getFbConfig();
+  if (!cfg.accessToken || !cfg.pageId) {
+    showToast('Configure o Access Token e o Page ID primeiro', 'red');
+    return;
+  }
+  const btn = document.getElementById('btnSincFb');
+  if (btn) { btn.disabled = true; btn.textContent = 'A sincronizar…'; }
+  try {
+    const fields = 'message,story,full_picture,permalink_url,created_time,attachments,reactions.summary(true)';
+    const url    = `https://graph.facebook.com/v19.0/${cfg.pageId}/posts?fields=${fields}&limit=20&access_token=${cfg.accessToken}`;
+    const res    = await fetch(url);
+    const json   = await res.json();
+    if (json.error) throw new Error(json.error.message);
+
+    const posts = (json.data || []).map(p => {
+      const att  = p.attachments?.data?.[0];
+      const tipo = att?.type?.includes('video') ? 'video'
+                 : att?.type?.includes('photo') || p.full_picture ? 'foto'
+                 : att?.type?.includes('share') ? 'link' : 'texto';
+      return {
+        id:     p.id,
+        texto:  p.message || p.story || '',
+        imagem: p.full_picture || att?.media?.image?.src || '',
+        url:    p.permalink_url,
+        data:   p.created_time,
+        tipo,
+        likes:  p.reactions?.summary?.total_count || 0,
+      };
+    });
+
+    saveFbPosts(posts);
+    renderFbPosts();
+    showToast(`✓ ${posts.length} publicações importadas do Facebook`, 'green');
+  } catch (e) {
+    showToast(`Erro ao sincronizar: ${e.message}`, 'red');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '↻ Sincronizar agora'; }
+  }
+}
+
+// ── Clear all posts ───────────────────────────
+function limparFbPosts() {
+  if (!confirm('Apagar todas as publicações guardadas?')) return;
+  saveFbPosts([]);
+  renderFbPosts();
+  showToast('Publicações apagadas', 'green');
+}
+
+// ── Delete single post ────────────────────────
+function deleteFbPost(i) {
+  const posts = getFbPosts();
+  posts.splice(i, 1);
+  saveFbPosts(posts);
+  renderFbPosts();
+  showToast('Publicação removida', 'green');
+}
+
+// ── Edit / Add post modal ─────────────────────
+function editFbPost(i) {
+  const posts = getFbPosts();
+  const post  = i >= 0 ? posts[i] : { texto:'', imagem:'', url:'', data:'', tipo:'texto', likes:0 };
+  openFbPostModal(post, i);
+}
+
+function openFbPostModal(post, idx) {
+  // Remove existing modal if any
+  document.getElementById('fbPostModal')?.remove();
+
+  const tipos = ['texto','foto','video','link'];
+  const modal = document.createElement('div');
+  modal.id = 'fbPostModal';
+  modal.className = 'modal-overlay';
+  modal.innerHTML = `
+    <div class="modal" style="max-width:520px">
+      <div class="modal-header">
+        <h3>${idx >= 0 ? 'Editar' : 'Adicionar'} Publicação</h3>
+        <button class="modal-close" onclick="document.getElementById('fbPostModal').remove()">✕</button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label">Tipo</label>
+        <select id="fbPostTipo" class="form-input" style="margin-bottom:12px">
+          ${tipos.map(t => `<option value="${t}" ${post.tipo===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`).join('')}
+        </select>
+        <label class="form-label">Texto da publicação</label>
+        <textarea id="fbPostTexto" class="form-input" rows="4" style="margin-bottom:12px">${post.texto||''}</textarea>
+        <label class="form-label">URL da imagem (opcional)</label>
+        <input id="fbPostImagem" class="form-input" type="url" placeholder="https://…" value="${post.imagem||''}" style="margin-bottom:12px">
+        <label class="form-label">URL da publicação</label>
+        <input id="fbPostUrl" class="form-input" type="url" placeholder="https://facebook.com/…" value="${post.url||''}" style="margin-bottom:12px">
+        <label class="form-label">Data</label>
+        <input id="fbPostData" class="form-input" type="date" value="${post.data ? post.data.slice(0,10) : ''}" style="margin-bottom:12px">
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="document.getElementById('fbPostModal').remove()">Cancelar</button>
+        <button class="btn btn-primary" onclick="salvarFbPost(${idx})">Guardar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+function salvarFbPost(idx) {
+  const posts = getFbPosts();
+  const post = {
+    texto:  document.getElementById('fbPostTexto')?.value.trim() || '',
+    imagem: document.getElementById('fbPostImagem')?.value.trim() || '',
+    url:    document.getElementById('fbPostUrl')?.value.trim() || '',
+    data:   document.getElementById('fbPostData')?.value || '',
+    tipo:   document.getElementById('fbPostTipo')?.value || 'texto',
+    likes:  idx >= 0 ? (posts[idx]?.likes || 0) : 0,
+  };
+  if (!post.texto && !post.url) { showToast('Preencha o texto ou URL', 'red'); return; }
+  if (idx >= 0) posts[idx] = post;
+  else posts.unshift(post);
+  saveFbPosts(posts);
+  document.getElementById('fbPostModal')?.remove();
+  renderFbPosts();
+  showToast(idx >= 0 ? 'Publicação atualizada' : 'Publicação adicionada', 'green');
+}
+
+// ── Init Facebook page ────────────────────────
+function initFacebookPage() {
+  loadFbConfig();
+  renderFbPosts();
+
+  document.getElementById('btnAddFbPost')?.addEventListener('click', () => editFbPost(-1));
+
+  // Show sync button if config is present
+  const cfg = getFbConfig();
+  if (cfg.accessToken && cfg.pageId) {
+    document.getElementById('btnSincFb').style.display = '';
+  }
 }

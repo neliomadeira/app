@@ -712,3 +712,87 @@ ul { list-style: none; }
   .stats-grid { grid-template-columns: 1fr; }
   .login-card { padding: 32px 20px; }
 }
+
+/* =============================================
+   FACEBOOK ADMIN
+   ============================================= */
+.fb-api-card { margin-bottom: 20px; }
+.fb-api-body { padding: 16px 0 0; }
+.fb-api-row  { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 12px; }
+.fb-api-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
+.fb-api-status  { font-size: 12px; padding: 3px 10px; border-radius: 99px; background: #f0f0f0; color: #666; }
+.fb-api-status.ok  { background: #dcfce7; color: #166534; }
+.fb-api-help   { background: #f8f9fa; border-radius: 8px; padding: 14px 16px; font-size: 13px; }
+.fb-api-help ol { margin: 6px 0 0 16px; padding: 0; }
+.fb-api-help li { margin-bottom: 4px; }
+.fb-api-help code { background: #e9ecef; padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+
+.fb-posts-admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  padding: 16px 0;
+}
+
+.fb-posts-admin-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+}
+
+.fb-posts-admin-card__img {
+  height: 140px;
+  background: #e9ecef center/cover no-repeat;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+}
+
+.fb-posts-admin-card__body {
+  padding: 12px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fb-posts-admin-card__meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--gray-text);
+}
+
+.fb-posts-admin-card__text {
+  font-size: 13px;
+  color: #333;
+  flex: 1;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.fb-posts-admin-card__link {
+  font-size: 12px;
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.fb-posts-admin-card__link:hover { text-decoration: underline; }
+
+.fb-posts-admin-card__actions {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+  background: #fafafa;
+}
+
+@media (max-width: 768px) {
+  .fb-api-row { grid-template-columns: 1fr; }
+  .fb-posts-admin-grid { grid-template-columns: 1fr; }
+}
