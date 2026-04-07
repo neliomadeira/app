@@ -225,6 +225,26 @@ async function descobrirAssociacoes() {
 async function main() {
   const args = process.argv.slice(2);
 
+  // ── Modo: guardar HTML para análise
+  if (args.includes('--salvar-html')) {
+    const ok = await testarLigacao();
+    if (!ok) return;
+    log('A guardar HTML da página de competição...');
+    try {
+      const { data } = await http.get('/Competition/Details', {
+        params: { competitionId: 28148, seasonId: 105 },
+        headers: { 'Accept': 'text/html,application/xhtml+xml,*/*' },
+      });
+      const ficheiro = path.join(__dirname, 'fpf-page.html');
+      fs.writeFileSync(ficheiro, data, 'utf-8');
+      log(`✓ HTML guardado em: ${ficheiro}`);
+      log(`  Abra o ficheiro e procure as tabelas de classificação e jogos.`);
+    } catch (e) {
+      err(`Erro: ${e.message}`);
+    }
+    return;
+  }
+
   // ── Modo: testar ligação
   if (args.includes('--testar')) {
     await testarLigacao();
