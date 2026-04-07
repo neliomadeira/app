@@ -231,6 +231,34 @@ async function main() {
     return;
   }
 
+  // ── Modo: debug API
+  if (args.includes('--debug')) {
+    log('A inspecionar endpoints da API FPF...\n');
+    const endpoints = [
+      `/Competition/GetCompetitionsByAssociation?associationId=218&seasonId=103`,
+      `/Competition/GetCompetitionsByAssociation?associationId=218&seasonId=104`,
+      `/Competition/GetCompetitionsByAssociation?associationId=218&seasonId=105`,
+      `/api/Competition/GetCompetitionsByAssociation?associationId=218&seasonId=103`,
+      `/api/v1/competitions?associationId=218`,
+      `/Association/GetAll`,
+      `/Season/GetAll`,
+      `/api/Season/GetAll`,
+    ];
+    for (const ep of endpoints) {
+      try {
+        const { data, status } = await http.get(ep, { timeout: 8000 });
+        const preview = JSON.stringify(data).slice(0, 200);
+        log(`✓ ${ep}`);
+        log(`  HTTP ${status}: ${preview}\n`);
+      } catch (e) {
+        const code = e.response?.status || e.code || e.message;
+        log(`✗ ${ep} → ${code}`);
+      }
+      await sleep(300);
+    }
+    return;
+  }
+
   // ── Modo: descobrir associações
   if (args.includes('--descobrir-af')) {
     const ok = await testarLigacao();
