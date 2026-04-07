@@ -14,7 +14,7 @@
 .page-hero {
   position: relative;
   padding: 160px 0 80px;
-  background: linear-gradient(135deg, var(--black) 0%, #1a0005 50%, var(--gray-dark) 100%);
+  background: linear-gradient(135deg, var(--blue-bg) 0%, var(--blue-dark) 50%, var(--blue) 100%);
   overflow: hidden;
 }
 
@@ -97,10 +97,15 @@
   font-weight: 700;
   letter-spacing: 2px;
   text-transform: uppercase;
-  color: var(--black);
+  color: var(--blue);
   margin-bottom: 16px;
   padding-bottom: 12px;
-  border-bottom: 2px solid var(--red);
+  border-bottom: 2px solid var(--yellow);
+}
+
+.insc-info-card--highlight .insc-info-card__title {
+  color: var(--yellow);
+  border-bottom-color: rgba(255,209,0,0.4);
 }
 
 .insc-categories {
@@ -118,8 +123,8 @@
 }
 
 .insc-cat-badge {
-  background: var(--red);
-  color: var(--white);
+  background: var(--blue);
+  color: var(--yellow);
   font-size: 0.7rem;
   font-weight: 700;
   padding: 3px 8px;
@@ -145,7 +150,7 @@
   display: block;
   font-family: var(--font-display);
   font-size: 1.6rem;
-  color: var(--red);
+  color: var(--yellow);
   letter-spacing: 1px;
   margin: 8px 0 4px;
 }
@@ -192,8 +197,8 @@
 .insc-step {
   width: 36px;
   height: 36px;
-  background: var(--red);
-  color: var(--white);
+  background: var(--blue);
+  color: var(--yellow);
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
@@ -247,7 +252,7 @@
   cursor: pointer;
 }
 
-.checkbox-label a { color: var(--red); font-weight: 700; }
+.checkbox-label a { color: var(--blue); font-weight: 700; }
 
 /* ---- BUTTON ---- */
 .btn--lg { padding: 18px 40px; font-size: 1.05rem; }
