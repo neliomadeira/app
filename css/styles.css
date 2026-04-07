@@ -122,28 +122,17 @@ ul { list-style: none; }
   gap: 12px;
 }
 
-.logo__emblem {
+.logo__img {
   width: 48px;
   height: 48px;
-  background: var(--yellow);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 2px solid var(--white);
+  object-fit: contain;
   flex-shrink: 0;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.25));
 }
 
-.logo__emblem--small {
+.logo__img--small {
   width: 36px;
   height: 36px;
-}
-
-.logo__sc {
-  font-family: var(--font-display);
-  color: var(--blue);
-  font-size: 1.1rem;
-  letter-spacing: 1px;
 }
 
 .logo__text {
