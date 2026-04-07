@@ -1,0 +1,52 @@
+// =============================================
+// MOCK DATA — Sport Campinense Juventude
+// =============================================
+
+const DB = {
+  inscricoes: [
+    { id: 1, nome: 'Miguel Ferreira Santos',   escalao: 'Sub-13', idade: 12, telefone: '+351 912 345 678', email: 'miguel.pai@gmail.com',    data: '2026-04-01', estado: 'Pendente',  posicao: 'Médio',        pref: 'Direito',   altura: 152, peso: 45 },
+    { id: 2, nome: 'Tomás Rodrigues Costa',    escalao: 'Sub-15', idade: 14, telefone: '+351 963 456 789', email: 'tomas.mae@outlook.pt',     data: '2026-04-02', estado: 'Pendente',  posicao: 'Avançado',     pref: 'Direito',   altura: 168, peso: 58 },
+    { id: 3, nome: 'João Almeida Pereira',     escalao: 'Sub-17', idade: 16, telefone: '+351 934 567 890', email: 'joao.resp@sapo.pt',        data: '2026-04-03', estado: 'Pendente',  posicao: 'Extremo',      pref: 'Esquerdo',  altura: 175, peso: 65 },
+    { id: 4, nome: 'Diogo Nunes Marques',      escalao: 'Sub-9',  idade: 8,  telefone: '+351 915 678 901', email: 'diogo.pai@gmail.com',      data: '2026-03-20', estado: 'Aprovado',  posicao: '',             pref: 'Direito',   altura: 128, peso: 28 },
+    { id: 5, nome: 'Rui Sousa Carvalho',       escalao: 'Sub-11', idade: 10, telefone: '+351 962 789 012', email: 'rui.enc@hotmail.com',      data: '2026-03-18', estado: 'Aprovado',  posicao: 'Médio',        pref: 'Direito',   altura: 140, peso: 35 },
+    { id: 6, nome: 'André Lopes Figueiredo',   escalao: 'Sub-13', idade: 13, telefone: '+351 933 890 123', email: 'andre.familia@gmail.com',  data: '2026-03-15', estado: 'Rejeitado', posicao: 'Central',      pref: 'Direito',   altura: 158, peso: 50 },
+    { id: 7, nome: 'Pedro Gomes Rodrigues',    escalao: 'Sub-19', idade: 18, telefone: '+351 916 901 234', email: 'pedro.gomes@gmail.com',    data: '2026-03-10', estado: 'Aprovado',  posicao: 'Guarda-redes', pref: 'Direito',   altura: 185, peso: 78 },
+  ],
+
+  atletas: [
+    { id: 1,  nome: 'Diogo Nunes Marques',       escalao: 'Sub-9',  posicao: '',             idade: 8,  encarregado: 'Carlos Nunes',       telefone: '+351 915 678 901', estado: 'Activo'   },
+    { id: 2,  nome: 'Rui Sousa Carvalho',         escalao: 'Sub-11', posicao: 'Médio',        idade: 10, encarregado: 'Ana Carvalho',        telefone: '+351 962 789 012', estado: 'Activo'   },
+    { id: 3,  nome: 'Luís Tavares Brito',         escalao: 'Sub-11', posicao: 'Avançado',     idade: 11, encarregado: 'Mário Tavares',       telefone: '+351 935 111 222', estado: 'Activo'   },
+    { id: 4,  nome: 'Rafael Castro Mota',         escalao: 'Sub-13', posicao: 'Extremo',      idade: 12, encarregado: 'Paulo Castro',        telefone: '+351 912 222 333', estado: 'Activo'   },
+    { id: 5,  nome: 'Gonçalo Pires Mendes',       escalao: 'Sub-13', posicao: 'Central',      idade: 13, encarregado: 'Sofia Pires',         telefone: '+351 963 333 444', estado: 'Activo'   },
+    { id: 6,  nome: 'Tiago Ferreira Lima',        escalao: 'Sub-15', posicao: 'Defesa Dir.',  idade: 14, encarregado: 'Jorge Ferreira',      telefone: '+351 934 444 555', estado: 'Activo'   },
+    { id: 7,  nome: 'Bernardo Santos Cruz',       escalao: 'Sub-15', posicao: 'Médio Def.',   idade: 15, encarregado: 'Carla Santos',        telefone: '+351 916 555 666', estado: 'Activo'   },
+    { id: 8,  nome: 'Francisco Lopes Vaz',        escalao: 'Sub-17', posicao: 'Avançado',     idade: 16, encarregado: 'António Lopes',       telefone: '+351 962 666 777', estado: 'Activo'   },
+    { id: 9,  nome: 'Martim Costa Azevedo',       escalao: 'Sub-17', posicao: 'Extremo',      idade: 17, encarregado: 'Rosa Costa',          telefone: '+351 933 777 888', estado: 'Activo'   },
+    { id: 10, nome: 'Pedro Gomes Rodrigues',      escalao: 'Sub-19', posicao: 'Guarda-redes', idade: 18, encarregado: '-',                   telefone: '+351 916 901 234', estado: 'Activo'   },
+    { id: 11, nome: 'Rodrigo Alves Monteiro',     escalao: 'Sub-19', posicao: 'Médio',        idade: 19, encarregado: '-',                   telefone: '+351 915 888 999', estado: 'Inactivo' },
+  ],
+
+  noticias: [
+    { id: 1, titulo: 'Sub-17 vence Olhanense e avança às meias-finais do Campeonato Distrital', categoria: 'Resultado', data: '2026-04-05', publicada: true,  img: 1 },
+    { id: 2, titulo: 'Testes de seleção abertos para Sub-13 e Sub-15',                          categoria: 'Seleção',   data: '2026-03-28', publicada: true,  img: 2 },
+    { id: 3, titulo: 'Três atletas da formação convocados para a Seleção Regional do Algarve',  categoria: 'Conquista', data: '2026-03-15', publicada: true,  img: 3 },
+    { id: 4, titulo: 'Parceria com Escola Secundária de Loulé reforça formação académica',      categoria: 'Clube',     data: '2026-03-05', publicada: false, img: 1 },
+  ],
+
+  mensagens: [
+    { id: 1, nome: 'Ana Gomes',       email: 'ana.gomes@gmail.com',      telefone: '+351 912 100 200', assunto: 'Inscrição de atleta',   mensagem: 'Gostaria de saber mais informações sobre a inscrição do meu filho de 12 anos.',              data: '2026-04-06', estado: 'Não lida'   },
+    { id: 2, nome: 'Paulo Marques',   email: 'paulo.mrq@outlook.pt',     telefone: '+351 963 200 300', assunto: 'Parceria / Patrocínio', mensagem: 'Somos uma empresa local e gostaríamos de discutir possibilidades de patrocínio.',           data: '2026-04-05', estado: 'Não lida'   },
+    { id: 3, nome: 'Carla Nogueira',  email: 'carla.nog@sapo.pt',        telefone: '+351 934 300 400', assunto: 'Informações gerais',    mensagem: 'Quais são os horários dos treinos para a categoria Sub-11?',                                data: '2026-04-02', estado: 'Lida'       },
+    { id: 4, nome: 'Rui Teixeira',    email: 'rui.teixeira@gmail.com',   telefone: '+351 916 400 500', assunto: 'Testes de seleção',     mensagem: 'O meu filho tem 14 anos e joga a médio. Quando são os próximos testes de seleção?',         data: '2026-03-30', estado: 'Respondida' },
+  ],
+
+  escaloes: [
+    { id: 1, nome: 'Sub-9',  designacao: 'Petizes',    faixa: '7 a 9 anos',   atletas: 18, treinador: 'Ricardo Matos',   treinos: '3ª, 5ª — 17h30', destaque: false },
+    { id: 2, nome: 'Sub-11', designacao: 'Traquinas',  faixa: '10 a 11 anos', atletas: 22, treinador: 'Jorge Pinto',     treinos: '3ª, 5ª, Sáb — 17h30', destaque: false },
+    { id: 3, nome: 'Sub-13', designacao: 'Benjamins',  faixa: '12 a 13 anos', atletas: 26, treinador: 'Nuno Carvalho',   treinos: '2ª, 4ª, 6ª — 18h00', destaque: true  },
+    { id: 4, nome: 'Sub-15', designacao: 'Infantis',   faixa: '14 a 15 anos', atletas: 24, treinador: 'Filipe Gomes',    treinos: '2ª, 4ª, 6ª — 18h30', destaque: false },
+    { id: 5, nome: 'Sub-17', designacao: 'Iniciados',  faixa: '16 a 17 anos', atletas: 20, treinador: 'André Monteiro',  treinos: '2ª a 6ª — 18h30', destaque: false },
+    { id: 6, nome: 'Sub-19', designacao: 'Juvenis',    faixa: '18 a 19 anos', atletas: 18, treinador: 'Sérgio Fonseca',  treinos: '2ª a 6ª — 19h00', destaque: false },
+  ],
+};

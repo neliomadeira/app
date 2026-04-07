@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin – Juventude Sport Campinense</title>
+  <link rel="stylesheet" href="css/admin.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+</head>
+<body class="login-page">
+
+  <!-- LOGIN -->
+  <div class="login-wrap" id="loginWrap">
+    <div class="login-card">
+      <div class="login-logo">
+        <div class="emblem">SC</div>
+        <div>
+          <span class="login-club">Sport Campinense</span>
+          <span class="login-sub">Painel Administrativo</span>
+        </div>
+      </div>
+      <form class="login-form" id="loginForm">
+        <div class="field">
+          <label>Utilizador</label>
+          <input type="text" id="loginUser" placeholder="admin" autocomplete="username" />
+        </div>
+        <div class="field">
+          <label>Palavra-passe</label>
+          <div class="field-pw">
+            <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password" />
+            <button type="button" class="toggle-pw" id="togglePw">&#128065;</button>
+          </div>
+        </div>
+        <div class="login-error" id="loginError">Credenciais inválidas. Tente novamente.</div>
+        <button type="submit" class="btn-login">Entrar</button>
+        <p class="login-hint">Demo: utilizador <strong>admin</strong> / senha <strong>1234</strong></p>
+      </form>
+    </div>
+  </div>
+
+  <!-- ADMIN LAYOUT -->
+  <div class="admin-layout" id="adminLayout" style="display:none">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <div class="emblem emblem--sm">SC</div>
+        <div>
+          <span class="sidebar-club">Sport Campinense</span>
+          <span class="sidebar-sub">Juventude</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-item active" data-page="dashboard">
+          <span class="nav-icon">&#9646;</span> Dashboard
+        </a>
+        <a href="#" class="nav-item" data-page="inscricoes">
+          <span class="nav-icon">&#128101;</span> Inscrições
+          <span class="badge" id="badgeInsc">3</span>
+        </a>
+        <a href="#" class="nav-item" data-page="atletas">
+          <span class="nav-icon">&#9917;</span> Atletas
+        </a>
+        <a href="#" class="nav-item" data-page="noticias">
+          <span class="nav-icon">&#128240;</span> Notícias
+        </a>
+        <a href="#" class="nav-item" data-page="mensagens">
+          <span class="nav-icon">&#128140;</span> Mensagens
+          <span class="badge badge--yellow" id="badgeMsg">2</span>
+        </a>
+        <a href="#" class="nav-item" data-page="escaloes">
+          <span class="nav-icon">&#127942;</span> Escalões
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <a href="../index.html" class="nav-item" target="_blank">
+          <span class="nav-icon">&#127758;</span> Ver site
+        </a>
+        <button class="nav-item nav-logout" id="logoutBtn">
+          <span class="nav-icon">&#8594;</span> Sair
+        </button>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <div class="main-wrap">
+
+      <!-- TOPBAR -->
+      <header class="topbar">
+        <button class="sidebar-toggle" id="sidebarToggle">&#9776;</button>
+        <div class="topbar-title" id="topbarTitle">Dashboard</div>
+        <div class="topbar-right">
+          <span class="topbar-user">
+            <span class="avatar">A</span>
+            <span>Administrador</span>
+          </span>
+        </div>
+      </header>
+
+      <!-- PAGES -->
+      <main class="page-content">
+
+        <!-- ===== DASHBOARD ===== -->
+        <section class="page" id="page-dashboard">
+          <div class="page-header">
+            <h1>Dashboard</h1>
+            <span class="page-date" id="pageDate"></span>
+          </div>
+
+          <div class="stats-grid">
+            <div class="stat-card stat-card--blue">
+              <div class="stat-card__icon">&#128101;</div>
+              <div class="stat-card__info">
+                <span class="stat-card__num" id="totalAtletas">0</span>
+                <span class="stat-card__label">Total de Atletas</span>
+              </div>
+            </div>
+            <div class="stat-card stat-card--yellow">
+              <div class="stat-card__icon">&#128197;</div>
+              <div class="stat-card__info">
+                <span class="stat-card__num" id="inscPendentes">0</span>
+                <span class="stat-card__label">Inscrições Pendentes</span>
+              </div>
+            </div>
+            <div class="stat-card stat-card--green">
+              <div class="stat-card__icon">&#9917;</div>
+              <div class="stat-card__info">
+                <span class="stat-card__num" id="totalEscaloes">6</span>
+                <span class="stat-card__label">Escalões Activos</span>
+              </div>
+            </div>
+            <div class="stat-card stat-card--purple">
+              <div class="stat-card__icon">&#128140;</div>
+              <div class="stat-card__info">
+                <span class="stat-card__num" id="msgNovos">0</span>
+                <span class="stat-card__label">Mensagens Novas</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="dashboard-grid">
+            <div class="card">
+              <div class="card-header">
+                <h3>Inscrições recentes</h3>
+                <button class="btn-sm" data-goto="inscricoes">Ver todas</button>
+              </div>
+              <table class="table" id="dashInscTable">
+                <thead>
+                  <tr><th>Nome</th><th>Escalão</th><th>Data</th><th>Estado</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <h3>Atletas por escalão</h3>
+              </div>
+              <div class="chart-bars" id="chartBars"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3>Mensagens recentes</h3>
+              <button class="btn-sm" data-goto="mensagens">Ver todas</button>
+            </div>
+            <table class="table" id="dashMsgTable">
+              <thead>
+                <tr><th>Nome</th><th>Assunto</th><th>Data</th><th>Estado</th></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ===== INSCRIÇÕES ===== -->
+        <section class="page" id="page-inscricoes" style="display:none">
+          <div class="page-header">
+            <h1>Inscrições</h1>
+            <div class="page-actions">
+              <select class="filter-select" id="filterInscEscalao">
+                <option value="">Todos os escalões</option>
+                <option>Sub-9</option><option>Sub-11</option><option>Sub-13</option>
+                <option>Sub-15</option><option>Sub-17</option><option>Sub-19</option>
+              </select>
+              <select class="filter-select" id="filterInscEstado">
+                <option value="">Todos os estados</option>
+                <option>Pendente</option><option>Aprovado</option><option>Rejeitado</option>
+              </select>
+            </div>
+          </div>
+          <div class="card">
+            <table class="table table--full" id="inscTable">
+              <thead>
+                <tr>
+                  <th>Nome</th><th>Escalão</th><th>Idade</th>
+                  <th>Contacto</th><th>Data</th><th>Estado</th><th>Ações</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ===== ATLETAS ===== -->
+        <section class="page" id="page-atletas" style="display:none">
+          <div class="page-header">
+            <h1>Atletas</h1>
+            <div class="page-actions">
+              <input type="search" class="search-input" id="searchAtleta" placeholder="Pesquisar atleta..." />
+              <button class="btn-primary" id="btnNovoAtleta">+ Novo Atleta</button>
+            </div>
+          </div>
+          <div class="card">
+            <table class="table table--full" id="atletasTable">
+              <thead>
+                <tr>
+                  <th>Nome</th><th>Escalão</th><th>Posição</th>
+                  <th>Idade</th><th>Encarregado</th><th>Estado</th><th>Ações</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ===== NOTÍCIAS ===== -->
+        <section class="page" id="page-noticias" style="display:none">
+          <div class="page-header">
+            <h1>Notícias</h1>
+            <button class="btn-primary" id="btnNovaNoticia">+ Nova Notícia</button>
+          </div>
+          <div class="news-admin-grid" id="newsAdminGrid"></div>
+        </section>
+
+        <!-- ===== MENSAGENS ===== -->
+        <section class="page" id="page-mensagens" style="display:none">
+          <div class="page-header">
+            <h1>Mensagens</h1>
+            <select class="filter-select" id="filterMsgEstado">
+              <option value="">Todas</option>
+              <option>Não lida</option><option>Lida</option><option>Respondida</option>
+            </select>
+          </div>
+          <div class="card">
+            <table class="table table--full" id="msgTable">
+              <thead>
+                <tr><th>Nome</th><th>E-mail</th><th>Assunto</th><th>Data</th><th>Estado</th><th>Ações</th></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ===== ESCALÕES ===== -->
+        <section class="page" id="page-escaloes" style="display:none">
+          <div class="page-header">
+            <h1>Escalões</h1>
+          </div>
+          <div class="escaloes-grid" id="escaloesGrid"></div>
+        </section>
+
+      </main>
+    </div><!-- end main-wrap -->
+  </div><!-- end admin-layout -->
+
+  <!-- MODAL -->
+  <div class="modal-overlay" id="modalOverlay" style="display:none">
+    <div class="modal" id="modal">
+      <div class="modal-header">
+        <h3 id="modalTitle">Detalhes</h3>
+        <button class="modal-close" id="modalClose">&times;</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-footer" id="modalFooter"></div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div class="toast" id="toast"></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>
