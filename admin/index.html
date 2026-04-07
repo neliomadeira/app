@@ -77,6 +77,9 @@
         <a href="#" class="nav-item" data-page="patrocinadores">
           <span class="nav-icon">&#11088;</span> Patrocinadores
         </a>
+        <a href="#" class="nav-item" data-page="facebook">
+          <span class="nav-icon">&#128241;</span> Facebook
+        </a>
       </nav>
       <div class="sidebar-footer">
         <a href="../index.html" class="nav-item" target="_blank">
@@ -348,6 +351,64 @@
               </thead>
               <tbody></tbody>
             </table>
+          </div>
+        </section>
+
+        <!-- ===== FACEBOOK ===== -->
+        <section class="page" id="page-facebook" style="display:none">
+          <div class="page-header">
+            <h1>Facebook</h1>
+            <button class="btn-primary" id="btnAddFbPost">+ Adicionar Publicação</button>
+          </div>
+
+          <!-- CONFIG API -->
+          <div class="card fb-api-card">
+            <div class="card-header">
+              <h3>&#9889; Ligação Automática — Facebook Graph API</h3>
+              <span class="fb-api-status" id="fbApiStatus">Não configurado</span>
+            </div>
+            <div class="fb-api-body">
+              <div class="fb-api-row">
+                <div class="modal-field">
+                  <label>Page ID da página de Facebook</label>
+                  <input type="text" id="fbPageId" placeholder="Ex: 123456789012345" />
+                </div>
+                <div class="modal-field">
+                  <label>Page Access Token</label>
+                  <div style="position:relative">
+                    <input type="password" id="fbAccessToken" placeholder="EAAxxxxxxxxxxxxxxx..." style="padding-right:44px" />
+                    <button type="button" onclick="this.previousElementSibling.type=this.previousElementSibling.type==='password'?'text':'password'" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;opacity:0.5">&#128065;</button>
+                  </div>
+                </div>
+              </div>
+              <div class="fb-api-actions">
+                <a href="https://developers.facebook.com/tools/explorer/" target="_blank" class="btn-sm">&#128279; Obter Token</a>
+                <button class="btn-sm" onclick="testarFbApi()">&#9654; Testar ligação</button>
+                <button class="btn-save" onclick="guardarFbConfig()">Guardar configuração</button>
+                <button class="btn-primary" id="btnSincFb" onclick="sincronizarFacebook()" style="display:none">&#8635; Sincronizar agora</button>
+              </div>
+              <div class="fb-api-help">
+                <strong>Como obter o Page Access Token:</strong>
+                <ol>
+                  <li>Aceda a <a href="https://developers.facebook.com" target="_blank">developers.facebook.com</a> e crie uma App</li>
+                  <li>Em <strong>Graph API Explorer</strong>, seleccione a sua App e a Página</li>
+                  <li>Adicione as permissões: <code>pages_read_engagement</code>, <code>pages_read_user_content</code></li>
+                  <li>Clique em <strong>Generate Access Token</strong> e copie o token</li>
+                  <li>Para token permanente, converta-o com a <strong>Long-lived Token API</strong></li>
+                </ol>
+              </div>
+            </div>
+          </div>
+
+          <!-- POSTS MANUAIS -->
+          <div class="card" style="margin-top:20px">
+            <div class="card-header">
+              <h3>&#128242; Publicações no site <span id="fbPostCount" style="color:var(--gray-text);font-weight:400"></span></h3>
+              <div style="display:flex;gap:8px">
+                <button class="btn-sm" onclick="limparFbPosts()">Limpar tudo</button>
+              </div>
+            </div>
+            <div id="fbPostsGrid" class="fb-posts-admin-grid"></div>
           </div>
         </section>
 
