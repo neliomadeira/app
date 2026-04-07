@@ -1,20 +1,64 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 120" fill="none">
-  <!-- Escudo -->
-  <path d="M50 8 L88 22 L88 65 Q88 95 50 112 Q12 95 12 65 L12 22 Z" fill="#003B8E" stroke="#000" stroke-width="3"/>
-  <!-- Metade amarela (diagonal) -->
-  <clipPath id="shield">
-    <path d="M50 8 L88 22 L88 65 Q88 95 50 112 Q12 95 12 65 L12 22 Z"/>
-  </clipPath>
-  <polygon points="12,80 88,22 88,112 12,112" fill="#FFD100" clip-path="url(#shield)"/>
-  <!-- Faixa diagonal branca -->
-  <rect x="8" y="48" width="84" height="18" fill="white" transform="rotate(-35 50 57)" clip-path="url(#shield)"/>
-  <!-- Texto JS na faixa -->
-  <text x="50" y="63" text-anchor="middle" font-family="Arial Black, sans-serif" font-weight="900" font-size="13" fill="#000" transform="rotate(-35 50 57)">JS</text>
-  <!-- Contorno escudo -->
-  <path d="M50 8 L88 22 L88 65 Q88 95 50 112 Q12 95 12 65 L12 22 Z" fill="none" stroke="#000" stroke-width="3.5"/>
-  <!-- Águia simplificada -->
-  <ellipse cx="50" cy="10" rx="6" ry="5" fill="#111"/>
-  <path d="M20 14 Q35 8 50 10 Q65 8 80 14 Q70 4 50 6 Q30 4 20 14Z" fill="#111"/>
-  <path d="M15 18 Q22 10 30 12" stroke="#111" stroke-width="2.5" stroke-linecap="round"/>
-  <path d="M85 18 Q78 10 70 12" stroke="#111" stroke-width="2.5" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 240">
+  <defs>
+    <clipPath id="shieldClip">
+      <path d="M100 228 Q40 195 25 155 L20 65 Q20 52 32 48 L100 30 L168 48 Q180 52 180 65 L175 155 Q160 195 100 228Z"/>
+    </clipPath>
+  </defs>
+
+  <!-- EAGLE BODY -->
+  <g fill="#111">
+    <!-- Body -->
+    <ellipse cx="100" cy="38" rx="12" ry="14"/>
+    <!-- Head -->
+    <ellipse cx="108" cy="26" rx="8" ry="7"/>
+    <!-- Beak -->
+    <path d="M115 24 L122 27 L114 30Z"/>
+    <!-- Left wing -->
+    <path d="M88 36 Q70 28 50 22 Q30 16 12 20 Q20 28 35 30 Q50 32 60 36 Q72 40 82 42Z"/>
+    <path d="M12 20 Q8 30 10 38 Q20 34 35 32 Q50 30 62 36Z" opacity="0.7"/>
+    <!-- Right wing -->
+    <path d="M112 36 Q130 28 150 22 Q170 16 188 20 Q180 28 165 30 Q150 32 140 36 Q128 40 118 42Z"/>
+    <path d="M188 20 Q192 30 190 38 Q180 34 165 32 Q150 30 138 36Z" opacity="0.7"/>
+    <!-- Tail/body lower -->
+    <path d="M92 50 Q100 60 108 50 Q104 44 100 42 Q96 44 92 50Z"/>
+    <!-- Talons -->
+    <path d="M94 50 Q88 56 86 64 Q92 58 96 54Z"/>
+    <path d="M106 50 Q112 56 114 64 Q108 58 104 54Z"/>
+  </g>
+
+  <!-- SHIELD OUTLINE (black border) -->
+  <path d="M100 228 Q38 193 23 152 L18 62 Q18 48 32 44 L100 25 L168 44 Q182 48 182 62 L177 152 Q162 193 100 228Z" fill="#111"/>
+
+  <!-- SHIELD WHITE inner border -->
+  <path d="M100 220 Q44 187 30 149 L25 65 Q25 54 37 50 L100 33 L163 50 Q175 54 175 65 L170 149 Q156 187 100 220Z" fill="white" clip-path="url(#shieldClip)"/>
+
+  <!-- SHIELD BLUE (top-left) -->
+  <path d="M100 220 Q44 187 30 149 L25 65 Q25 54 37 50 L100 33 L163 50 Q175 54 175 65 L170 149 Q156 187 100 220Z" fill="#4A90D9"/>
+
+  <!-- SHIELD YELLOW (bottom-right triangle) -->
+  <polygon points="25,145 175,55 175,145 170,155 156,187 100,220 44,187 30,149" fill="#FFD100" clip-path="url(#shieldClip)"/>
+
+  <!-- WHITE SASH / BAND diagonal -->
+  <rect x="15" y="108" width="170" height="32" rx="4" fill="white" transform="rotate(-34 100 124)"/>
+  <!-- Sash black border top -->
+  <rect x="15" y="108" width="170" height="3" rx="1" fill="#111" transform="rotate(-34 100 124)"/>
+  <!-- Sash black border bottom -->
+  <rect x="15" y="137" width="170" height="3" rx="1" fill="#111" transform="rotate(-34 100 124)"/>
+
+  <!-- TEXT on sash -->
+  <text
+    x="100" y="128"
+    text-anchor="middle"
+    font-family="Arial Black, Impact, sans-serif"
+    font-weight="900"
+    font-size="14"
+    letter-spacing="1"
+    fill="#111"
+    transform="rotate(-34 100 124)">J.S.CAMPINENSE</text>
+
+  <!-- SHIELD OUTER BORDER again on top -->
+  <path d="M100 228 Q38 193 23 152 L18 62 Q18 48 32 44 L100 25 L168 44 Q182 48 182 62 L177 152 Q162 193 100 228Z" fill="none" stroke="#111" stroke-width="4"/>
+
+  <!-- Inner shield line -->
+  <path d="M100 220 Q44 187 30 149 L25 65 Q25 54 37 50 L100 33 L163 50 Q175 54 175 65 L170 149 Q156 187 100 220Z" fill="none" stroke="white" stroke-width="2"/>
 </svg>
