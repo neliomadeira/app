@@ -43,9 +43,9 @@
   <section class="hero" id="inicio">
     <div class="hero__overlay"></div>
     <div class="container hero__content">
-      <p class="hero__tag">Formando Campeões desde 1923</p>
-      <h1 class="hero__title">Juventude<br /><span>Sport Campinense</span></h1>
-      <p class="hero__desc">
+      <p class="hero__tag" id="heroTag">Formando Campeões desde 1923</p>
+      <h1 class="hero__title" id="heroTitle">Juventude<br /><span>Sport Campinense</span></h1>
+      <p class="hero__desc" id="heroDesc">
         Desenvolvendo talentos, construindo carácter e cultivando a paixão pelo futebol em Loulé, Algarve.
       </p>
       <div class="hero__actions">
@@ -56,20 +56,20 @@
     <div class="hero__stats">
       <div class="container hero__stats-inner">
         <div class="stat">
-          <span class="stat__num">300+</span>
-          <span class="stat__label">Atletas</span>
+          <span class="stat__num" id="stat1Num">300+</span>
+          <span class="stat__label" id="stat1Label">Atletas</span>
         </div>
         <div class="stat">
-          <span class="stat__num">6</span>
-          <span class="stat__label">Escalões</span>
+          <span class="stat__num" id="stat2Num">6</span>
+          <span class="stat__label" id="stat2Label">Escalões</span>
         </div>
         <div class="stat">
-          <span class="stat__num">100+</span>
-          <span class="stat__label">Anos de história</span>
+          <span class="stat__num" id="stat3Num">100+</span>
+          <span class="stat__label" id="stat3Label">Anos de história</span>
         </div>
         <div class="stat">
-          <span class="stat__num">80+</span>
-          <span class="stat__label">Títulos</span>
+          <span class="stat__num" id="stat4Num">80+</span>
+          <span class="stat__label" id="stat4Label">Títulos</span>
         </div>
       </div>
     </div>
@@ -84,10 +84,10 @@
       </div>
       <div class="about__grid">
         <div class="about__text">
-          <p>
+          <p id="aboutText1">
             A <strong>Juventude Sport Campinense</strong> é o departamento de formação do Sport Campinense de Loulé, um dos clubes mais emblemáticos do Algarve. A nossa missão é descobrir e desenvolver talentos do futebol algarvio, oferecendo estrutura profissional e uma formação de excelência.
           </p>
-          <p>
+          <p id="aboutText2">
             Para além do futebol de alto nível, priorizamos a formação humana dos nossos atletas, com acompanhamento pedagógico, psicológico e nutricional. Acreditamos que um atleta completo começa dentro do campo, mas constrói-se fora dele.
           </p>
           <div class="values">
@@ -116,10 +116,10 @@
         </div>
         <div class="about__visual">
           <div class="about__card">
-            <div class="about__card-badge">EST. 1923</div>
+            <div class="about__card-badge" id="aboutEst">EST. 1923</div>
             <div class="about__card-body">
               <div class="about__emblem-large">SC</div>
-              <p class="about__card-motto">"Raça, Garra e Tradição"</p>
+              <p class="about__card-motto" id="aboutMotto">"Raça, Garra e Tradição"</p>
             </div>
             <div class="about__card-footer">
               <span>Loulé · Algarve · Portugal</span>
@@ -319,34 +319,34 @@
             <div class="contact__icon">&#128205;</div>
             <div>
               <strong>Morada</strong>
-              <p>Estádio Municipal de Loulé<br />Rua Dr. Cândido Guerreiro, 8100-519 Loulé</p>
+              <p id="contactAddress">Estádio Municipal de Loulé<br />Rua Dr. Cândido Guerreiro, 8100-519 Loulé</p>
             </div>
           </div>
           <div class="contact__item">
             <div class="contact__icon">&#128222;</div>
             <div>
               <strong>Telefone / WhatsApp</strong>
-              <p>+351 289 000 000</p>
+              <p id="contactPhone">+351 289 000 000</p>
             </div>
           </div>
           <div class="contact__item">
             <div class="contact__icon">&#128140;</div>
             <div>
               <strong>E-mail</strong>
-              <p>juventude@sportcampinense.pt</p>
+              <p id="contactEmail">juventude@sportcampinense.pt</p>
             </div>
           </div>
           <div class="contact__item">
             <div class="contact__icon">&#128337;</div>
             <div>
               <strong>Horário de atendimento</strong>
-              <p>Segunda a Sexta, das 9h às 18h</p>
+              <p id="contactHours">Segunda a Sexta, das 9h às 18h</p>
             </div>
           </div>
           <div class="contact__social">
-            <a href="#" class="social-btn">Instagram</a>
-            <a href="#" class="social-btn">Facebook</a>
-            <a href="#" class="social-btn social-btn--whatsapp">WhatsApp</a>
+            <a href="#" class="social-btn" id="socialInstagram">Instagram</a>
+            <a href="#" class="social-btn" id="socialFacebook">Facebook</a>
+            <a href="#" class="social-btn social-btn--whatsapp" id="socialWhatsapp">WhatsApp</a>
           </div>
         </div>
         <form class="contact__form" id="contactForm">
@@ -492,7 +492,7 @@
         <h4>Contacto</h4>
         <p>Estádio Municipal de Loulé, Algarve</p>
         <p>+351 289 000 000</p>
-        <p>juventude@sportcampinense.pt</p>
+        <p id="footerEmail">juventude@sportcampinense.pt</p>
       </div>
     </div>
     <div class="footer__bottom">
@@ -500,6 +500,7 @@
     </div>
   </footer>
 
+  <script src="js/site-config.js"></script>
   <script src="js/facebook.js"></script>
   <script src="js/main.js"></script>
 </body>

@@ -45,66 +45,48 @@
     </div>
   </div>
 
-  <!-- ESCALÃO TABS -->
-  <div class="tabs-bar">
-    <div class="container tabs-inner">
-      <button class="tab active" data-escalao="Sub-17">Sub-17</button>
-      <button class="tab" data-escalao="Sub-15">Sub-15</button>
-      <button class="tab" data-escalao="Sub-13">Sub-13</button>
-      <button class="tab" data-escalao="Sub-19">Sub-19</button>
-      <button class="tab" data-escalao="Sub-11">Sub-11</button>
-    </div>
-  </div>
-
-  <!-- MAIN CONTENT -->
+  <!-- COMPETIÇÕES FPF -->
   <section class="section res-section">
-    <div class="container res-container">
+    <div class="container">
 
-      <!-- CLASSIFICAÇÃO -->
-      <div class="res-col res-col--main">
-        <div class="res-card">
-          <div class="res-card__header">
-            <h2 class="res-card__title">Classificação</h2>
-            <span class="res-competicao" id="resCompeticao">Campeonato Distrital AF Algarve</span>
-          </div>
-          <div class="table-wrap">
-            <table class="class-table">
-              <thead>
-                <tr>
-                  <th class="pos-col">Pos</th>
-                  <th class="team-col">Equipa</th>
-                  <th title="Jogos">J</th>
-                  <th title="Vitórias">V</th>
-                  <th title="Empates">E</th>
-                  <th title="Derrotas">D</th>
-                  <th title="Golos Marcados">GM</th>
-                  <th title="Golos Sofridos">GS</th>
-                  <th title="Diferença de Golos">DG</th>
-                  <th class="pts-col" title="Pontos">Pts</th>
-                  <th class="forma-col">Forma</th>
-                </tr>
-              </thead>
-              <tbody id="classTable"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- PRÓXIMOS JOGOS -->
-        <div class="res-card" style="margin-top:24px">
-          <div class="res-card__header">
-            <h2 class="res-card__title">Próximos Jogos</h2>
-          </div>
-          <div class="jogos-list" id="proximosJogos"></div>
-        </div>
+      <div class="fpf-intro">
+        <p>Consulte os resultados e classificações oficiais de todas as nossas equipas diretamente no site da <strong>Federação Portuguesa de Futebol</strong>.</p>
       </div>
 
-      <!-- RESULTADOS RECENTES -->
-      <div class="res-col res-col--side">
-        <div class="res-card">
-          <div class="res-card__header">
-            <h2 class="res-card__title">Resultados</h2>
+      <div class="fpf-cards">
+
+        <a href="https://resultados.fpf.pt/Competition/Details?competitionId=28148&seasonId=105" target="_blank" rel="noopener" class="fpf-card">
+          <div class="fpf-card__badge">Sub-17</div>
+          <div class="fpf-card__body">
+            <h3 class="fpf-card__title">Liga 1 Algarve<br>Futebol Juvenis</h3>
+            <p class="fpf-card__desc">Campeonato Distrital AF Algarve<br>Época 2025/2026</p>
           </div>
-          <div class="jogos-list" id="resultadosJogos"></div>
+          <div class="fpf-card__action">
+            Ver Classificação &amp; Resultados →
+          </div>
+        </a>
+
+        <a href="https://resultados.fpf.pt" target="_blank" rel="noopener" class="fpf-card fpf-card--secondary">
+          <div class="fpf-card__badge fpf-card__badge--gray">Todas</div>
+          <div class="fpf-card__body">
+            <h3 class="fpf-card__title">Outras Competições</h3>
+            <p class="fpf-card__desc">Sub-9, Sub-11, Sub-13, Sub-15, Sub-19<br>Pesquise por "Sport Campinense" no site da FPF</p>
+          </div>
+          <div class="fpf-card__action">
+            Aceder ao site da FPF →
+          </div>
+        </a>
+
+      </div>
+
+      <div class="fpf-cta-box">
+        <img src="https://resultados.fpf.pt/Images/SocialMedia/img-fb-share-generica-centro-resultados-partilha.png" alt="FPF Resultados" class="fpf-cta-logo" onerror="this.style.display='none'" />
+        <div class="fpf-cta-text">
+          <h4>Resultados FPF — AF Algarve</h4>
+          <p>Classificações, resultados, jogos e estatísticas oficiais actualizados em tempo real.</p>
+          <a href="https://resultados.fpf.pt" target="_blank" rel="noopener" class="btn btn--primary btn--lg">
+            Abrir resultados.fpf.pt
+          </a>
         </div>
       </div>
 

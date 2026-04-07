@@ -56,6 +56,7 @@ function goToPage(name) {
     dashboard: 'Dashboard', inscricoes: 'Inscrições', atletas: 'Atletas',
     noticias: 'Notícias', mensagens: 'Mensagens', escaloes: 'Escalões',
     jogos: 'Jogos', patrocinadores: 'Patrocinadores', facebook: 'Facebook',
+    'pagina-inicial': 'Página Inicial',
   };
   document.getElementById('topbarTitle').textContent = titles[name] || name;
   document.getElementById('sidebar').classList.remove('open');
