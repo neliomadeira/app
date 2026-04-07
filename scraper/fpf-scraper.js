@@ -278,12 +278,48 @@ async function main() {
   const ok = await testarLigacao();
   if (!ok) process.exit(1);
 
+  // ── Modo: importar directamente por ID (sem precisar listar)
+  const idFlag = args.indexOf('--competicao');
+  if (idFlag !== -1 && args[idFlag + 1]) {
+    const cId = parseInt(args[idFlag + 1]);
+    log(`\nA importar competição ID ${cId} directamente...\n`);
+
+    const [classificacao, jogos] = await Promise.all([
+      obterClassificacao(cId),
+      obterJogos(cId),
+    ]);
+
+    log(`   Classificação: ${classificacao.length} equipas`);
+    log(`   Jogos: ${jogos.length} (${jogos.filter(j=>j.estado==='Realizado').length} realizados, ${jogos.filter(j=>j.estado==='Agendado').length} agendados)`);
+
+    if (!classificacao.length && !jogos.length) {
+      err('Sem dados. Verifique se o competitionId e seasonId estão correctos.');
+      process.exit(1);
+    }
+
+    const resultado = {
+      geradoEm: new Date().toISOString(),
+      competicoes: [{
+        id: cId,
+        nome: `Competição ${cId}`,
+        associacao: 'AF Algarve',
+        escalao: '',
+        classificacao,
+        jogos,
+      }],
+    };
+
+    fs.writeFileSync(CONFIG.output, JSON.stringify(resultado, null, 2), 'utf-8');
+    log(`\n✓ Dados guardados em: ${CONFIG.output}`);
+    log(`  Importe no Painel Admin → Jogos → "Importar FPF"\n`);
+    return;
+  }
+
   // ── Modo: listar competições
   const competicoes = await listarCompeticoes();
   if (!competicoes.length) {
     err(`Sem competições. Verifique associationId (${CONFIG.associationId}) e seasonId (${CONFIG.seasonId}).`);
-    err('Corra:  node fpf-scraper.js --descobrir-af');
-    err('Ou aceda a https://resultados.fpf.pt e verifique os IDs no URL.');
+    err('Se conhece o competitionId, use:  node fpf-scraper.js --competicao <ID>');
     process.exit(1);
   }
 
@@ -300,19 +336,9 @@ async function main() {
     return;
   }
 
-  // ── Filtrar competições a importar
+  // ── Importar todas
   let alvo = competicoes;
-  const idFlag = args.indexOf('--competicao');
-  if (idFlag !== -1 && args[idFlag + 1]) {
-    const filtroId = parseInt(args[idFlag + 1]);
-    alvo = competicoes.filter(c =>
-      (c.competitionId || c.CompetitionId || c.id) === filtroId
-    );
-    if (!alvo.length) {
-      err(`Competição ID ${filtroId} não encontrada.`);
-      process.exit(1);
-    }
-  } else if (CONFIG.competicaoIds.length) {
+  if (CONFIG.competicaoIds.length) {
     alvo = competicoes.filter(c =>
       CONFIG.competicaoIds.includes(c.competitionId || c.CompetitionId || c.id)
     );
