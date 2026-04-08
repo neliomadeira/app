@@ -475,7 +475,7 @@ window.removeAtleta = function (id) {
 function renderNoticias() {
   const grid = document.getElementById('newsAdminGrid');
   grid.innerHTML = [
-    { id: 0, titulo: '+ Nova Notícia', categoria: '', data: '', publicada: null, img: null, novo: true },
+    { id: 0, titulo: '+ Nova Notícia', categoria: '', data: '', publicada: null, imagem: null, novo: true },
     ...DB.noticias
   ].map(n => {
     if (n.novo) return `
@@ -487,9 +487,12 @@ function renderNoticias() {
           <div style="font-weight:700;font-size:0.9rem">Nova Notícia</div>
         </div>
       </div>`;
+    const imgStyle = n.imagem
+      ? `background-image:url('${n.imagem}');background-size:cover;background-position:center`
+      : '';
     return `
       <div class="news-admin-card">
-        <div class="news-admin-img news-admin-img--${n.img}">
+        <div class="news-admin-img news-admin-img--${n.img || 1}" style="${imgStyle}">
           <span class="news-cat-badge">${n.categoria}</span>
         </div>
         <div class="news-admin-body">
@@ -497,6 +500,7 @@ function renderNoticias() {
           <div class="news-admin-date">${fmtDate(n.data)} · ${n.publicada
             ? '<span style="color:#16a34a;font-weight:700">✓ Publicada</span>'
             : '<span style="color:#d97706;font-weight:700">⏸ Rascunho</span>'}</div>
+          ${n.imagem ? `<div style="font-size:11px;color:#888;margin-top:4px">🖼 Com imagem</div>` : ''}
         </div>
         <div class="news-admin-footer">
           <button class="btn-icon" onclick="editNoticia(${n.id})" title="Editar">&#9998;</button>
@@ -506,77 +510,95 @@ function renderNoticias() {
   }).join('');
 }
 
-document.getElementById('btnNovaNoticia')?.addEventListener('click', () => {
-  openModal('Nova Notícia', `
-    <div class="modal-field"><label>Título</label><input type="text" id="mTitulo" placeholder="Título da notícia" /></div>
+function abrirModalNoticia(n = null) {
+  const isNew = !n;
+  const titulo   = n?.titulo    || '';
+  const cat      = n?.categoria || 'Resultado';
+  const data     = n?.data      || new Date().toISOString().split('T')[0];
+  const resumo   = n?.resumo    || '';
+  const imagem   = n?.imagem    || '';
+  const publicada = n?.publicada ?? false;
+  const cats = ['Resultado','Seleção','Conquista','Clube','Evento','Formação'];
+
+  openModal(isNew ? 'Nova Notícia' : 'Editar Notícia', `
+    <div class="modal-field">
+      <label>Título</label>
+      <input type="text" class="form-input" id="mTitulo" value="${titulo}" placeholder="Título da notícia" />
+    </div>
     <div class="modal-row">
       <div class="modal-field"><label>Categoria</label>
-        <select id="mCat">
-          <option>Resultado</option><option>Seleção</option><option>Conquista</option><option>Clube</option>
+        <select class="form-input" id="mCat">
+          ${cats.map(c => `<option ${c===cat?'selected':''}>${c}</option>`).join('')}
         </select>
       </div>
-      <div class="modal-field"><label>Data</label><input type="date" id="mData" /></div>
+      <div class="modal-field"><label>Data</label>
+        <input type="date" class="form-input" id="mData" value="${data}" />
+      </div>
     </div>
-    <div class="modal-field"><label>Resumo</label><textarea id="mResumo" rows="3" placeholder="Texto resumido da notícia..."></textarea></div>
     <div class="modal-field">
+      <label>Resumo / Texto</label>
+      <textarea class="form-input" id="mResumo" rows="4" placeholder="Texto da notícia...">${resumo}</textarea>
+    </div>
+    <div class="modal-field">
+      <label>URL da Imagem</label>
+      <input type="url" class="form-input" id="mImagem" value="${imagem}" placeholder="https://exemplo.com/foto.jpg" />
+      <small style="color:#888;font-size:11px;margin-top:4px;display:block">Cole o link direto da imagem (ex: do Google Drive, Dropbox, etc.)</small>
+    </div>
+    <div id="mImagemPreview" style="margin-top:8px;${imagem?'':'display:none'}">
+      <img src="${imagem}" style="max-width:100%;max-height:160px;border-radius:8px;object-fit:cover" onerror="this.parentElement.style.display='none'" />
+    </div>
+    <div class="modal-field" style="margin-top:8px">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-        <input type="checkbox" id="mPublicada" /> Publicar imediatamente
+        <input type="checkbox" id="mPublicada" ${publicada?'checked':''} />
+        Publicar imediatamente
       </label>
     </div>`,
     `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
-     <button class="btn-save" onclick="saveNovaNoticia()">Guardar</button>`
+     <button class="btn-save" onclick="saveNoticia(${n?.id ?? 'null'})">${isNew ? 'Criar Notícia' : 'Guardar'}</button>`
   );
-  document.getElementById('mData').value = new Date().toISOString().split('T')[0];
-});
+  // Preview em tempo real
+  document.getElementById('mImagem')?.addEventListener('input', function() {
+    const prev = document.getElementById('mImagemPreview');
+    if (this.value) {
+      prev.style.display = '';
+      prev.querySelector('img').src = this.value;
+    } else {
+      prev.style.display = 'none';
+    }
+  });
+}
 
-window.saveNovaNoticia = function () {
+document.getElementById('btnNovaNoticia')?.addEventListener('click', () => abrirModalNoticia());
+
+window.saveNoticia = function(id) {
   const titulo = document.getElementById('mTitulo').value.trim();
   if (!titulo) { showToast('Introduza o título.', 'red'); return; }
-  DB.noticias.unshift({
-    id: Date.now(), titulo, categoria: document.getElementById('mCat').value,
-    data: document.getElementById('mData').value,
+  const dados = {
+    titulo,
+    categoria: document.getElementById('mCat').value,
+    data:      document.getElementById('mData').value,
+    resumo:    document.getElementById('mResumo').value.trim(),
+    imagem:    document.getElementById('mImagem').value.trim(),
     publicada: document.getElementById('mPublicada').checked,
-    img: Math.ceil(Math.random() * 3)
-  });
-  renderNoticias();
-  closeModal();
-  showToast('Notícia guardada!', 'green');
+  };
+  if (id === null) {
+    DB.noticias.unshift({ id: Date.now(), img: Math.ceil(Math.random()*3), ...dados });
+    showToast('Notícia criada!', 'green');
+  } else {
+    const n = DB.noticias.find(x => x.id === id);
+    if (n) Object.assign(n, dados);
+    showToast('Notícia actualizada!', 'green');
+  }
+  renderNoticias(); closeModal();
 };
+
+// manter retrocompatibilidade
+window.saveNovaNoticia = () => window.saveNoticia(null);
 
 window.editNoticia = function (id) {
   const n = DB.noticias.find(x => x.id === id);
   if (!n) return;
-  openModal(`Editar Notícia`, `
-    <div class="modal-field"><label>Título</label><input type="text" id="mTitulo" value="${n.titulo}" /></div>
-    <div class="modal-row">
-      <div class="modal-field"><label>Categoria</label>
-        <select id="mCat">
-          ${['Resultado','Seleção','Conquista','Clube'].map(c =>
-            `<option ${c===n.categoria?'selected':''}>${c}</option>`).join('')}
-        </select>
-      </div>
-      <div class="modal-field"><label>Data</label><input type="date" id="mData" value="${n.data}" /></div>
-    </div>
-    <div class="modal-field">
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-        <input type="checkbox" id="mPublicada" ${n.publicada?'checked':''} /> Publicada
-      </label>
-    </div>`,
-    `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
-     <button class="btn-save" onclick="saveEditNoticia(${id})">Guardar</button>`
-  );
-};
-
-window.saveEditNoticia = function (id) {
-  const n = DB.noticias.find(x => x.id === id);
-  if (!n) return;
-  n.titulo    = document.getElementById('mTitulo').value.trim() || n.titulo;
-  n.categoria = document.getElementById('mCat').value;
-  n.data      = document.getElementById('mData').value;
-  n.publicada = document.getElementById('mPublicada').checked;
-  renderNoticias();
-  closeModal();
-  showToast('Notícia actualizada!', 'green');
+  abrirModalNoticia(n);
 };
 
 window.removeNoticia = function (id) {
@@ -659,8 +681,9 @@ window.removeMensagem = function (id) {
 // ==================================================
 function renderEscaloes() {
   const grid = document.getElementById('escaloesGrid');
-  grid.innerHTML = DB.escaloes.map(e => `
+  grid.innerHTML = DB.escaloes.map((e, i) => `
     <div class="escalao-card ${e.destaque ? 'escalao-card--featured' : ''}">
+      ${e.destaque ? '<div class="escalao-destaque-badge">⭐ Destaque</div>' : ''}
       <div class="escalao-name">${e.nome} – ${e.designacao}</div>
       <div class="escalao-range">${e.faixa}</div>
       <div class="escalao-stats">
@@ -673,8 +696,75 @@ function renderEscaloes() {
         <strong>Treinador:</strong> ${e.treinador}<br />
         <strong>Treinos:</strong> ${e.treinos}
       </div>
+      ${e.descricao ? `<div class="escalao-desc">${e.descricao}</div>` : ''}
+      <div style="display:flex;gap:6px;margin-top:10px">
+        <button class="btn btn-sm" onclick="editEscalao(${i})" style="flex:1">✏️ Editar</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteEscalao(${i})">🗑️</button>
+      </div>
     </div>`).join('');
 }
+
+window.editEscalao = function(idx) {
+  const e = idx >= 0 ? DB.escaloes[idx] : {
+    nome:'Sub-X', designacao:'', faixa:'', atletas:0,
+    treinador:'', treinos:'', descricao:'', destaque:false
+  };
+  openModal(idx >= 0 ? 'Editar Categoria' : 'Nova Categoria', `
+    <div class="modal-row">
+      <div class="modal-field"><label>Nome (ex: Sub-13)</label>
+        <input class="form-input" id="eNome" value="${e.nome}" /></div>
+      <div class="modal-field"><label>Designação (ex: Benjamins)</label>
+        <input class="form-input" id="eDesig" value="${e.designacao}" /></div>
+    </div>
+    <div class="modal-row">
+      <div class="modal-field"><label>Faixa etária (ex: 12 a 13 anos)</label>
+        <input class="form-input" id="eFaixa" value="${e.faixa}" /></div>
+      <div class="modal-field"><label>Nº de atletas</label>
+        <input class="form-input" type="number" id="eAtletas" value="${e.atletas}" /></div>
+    </div>
+    <div class="modal-row">
+      <div class="modal-field"><label>Treinador responsável</label>
+        <input class="form-input" id="eTreinador" value="${e.treinador}" /></div>
+      <div class="modal-field"><label>Horário de treinos</label>
+        <input class="form-input" id="eTreinos" value="${e.treinos}" placeholder="Ex: Seg, Qua e Sex 17h" /></div>
+    </div>
+    <div class="modal-field"><label>Descrição (aparece no site)</label>
+      <textarea class="form-input" id="eDesc" rows="3">${e.descricao || ''}</textarea></div>
+    <div class="modal-field" style="margin-top:8px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="eDestaque" ${e.destaque?'checked':''} />
+        Marcar como destaque (aparece em evidência no site)
+      </label>
+    </div>`,
+    `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+     <button class="btn-save" onclick="salvarEscalao(${idx})">Guardar</button>`
+  );
+};
+
+window.salvarEscalao = function(idx) {
+  const dados = {
+    nome:       document.getElementById('eNome').value.trim(),
+    designacao: document.getElementById('eDesig').value.trim(),
+    faixa:      document.getElementById('eFaixa').value.trim(),
+    atletas:    parseInt(document.getElementById('eAtletas').value) || 0,
+    treinador:  document.getElementById('eTreinador').value.trim(),
+    treinos:    document.getElementById('eTreinos').value.trim(),
+    descricao:  document.getElementById('eDesc').value.trim(),
+    destaque:   document.getElementById('eDestaque').checked,
+  };
+  if (!dados.nome) { showToast('Preencha o nome', 'red'); return; }
+  if (idx >= 0) DB.escaloes[idx] = { ...DB.escaloes[idx], ...dados };
+  else DB.escaloes.push({ id: Date.now(), ...dados });
+  renderEscaloes(); closeModal();
+  showToast(idx >= 0 ? 'Categoria atualizada!' : 'Categoria adicionada!', 'green');
+};
+
+window.deleteEscalao = function(idx) {
+  if (!confirm('Eliminar esta categoria?')) return;
+  DB.escaloes.splice(idx, 1);
+  renderEscaloes();
+  showToast('Categoria eliminada', 'red');
+};
 
 // ==================================================
 // JOGOS
