@@ -57,12 +57,18 @@ function goToPage(name) {
     noticias: 'Notícias', mensagens: 'Mensagens', escaloes: 'Escalões',
     jogos: 'Jogos', patrocinadores: 'Patrocinadores', facebook: 'Facebook',
     'pagina-inicial': 'Página Inicial',
+    galeria: 'Galeria', treinadores: 'Treinadores & Staff',
+    agenda: 'Agenda & Eventos', configuracoes: 'Configurações',
   };
   document.getElementById('topbarTitle').textContent = titles[name] || name;
   document.getElementById('sidebar').classList.remove('open');
 
   if (name === 'facebook') initFacebookPage();
   if (name === 'pagina-inicial') initPaginaInicial();
+  if (name === 'galeria') initGaleria();
+  if (name === 'treinadores') initTreinadores();
+  if (name === 'agenda') initAgenda();
+  if (name === 'configuracoes') initConfiguracoes();
 }
 
 document.querySelectorAll('.nav-item[data-page]').forEach(item => {
@@ -139,6 +145,11 @@ function initAdmin() {
   renderJogos();
   renderPatrocinadores();
 
+  // novos módulos — inicialização silenciosa para o dashboard funcionar
+  if (typeof renderGaleria === 'function')    renderGaleria();
+  if (typeof renderTreinadores === 'function') renderTreinadores();
+  if (typeof renderAgenda === 'function')     renderAgenda();
+
   // Date
   document.getElementById('pageDate').textContent =
     new Date().toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -150,11 +161,23 @@ function initAdmin() {
 function updateBadges() {
   const pendentes = DB.inscricoes.filter(i => i.estado === 'Pendente').length;
   const naoLidas  = DB.mensagens.filter(m => m.estado === 'Não lida').length;
-  document.getElementById('badgeInsc').textContent = pendentes;
-  document.getElementById('badgeMsg').textContent  = naoLidas;
-  document.getElementById('totalAtletas').textContent = DB.atletas.filter(a => a.estado === 'Activo').length;
-  document.getElementById('inscPendentes').textContent = pendentes;
-  document.getElementById('msgNovos').textContent = naoLidas;
+  const hoje      = new Date();
+  const mesAtual  = hoje.getMonth();
+  const anoAtual  = hoje.getFullYear();
+  const jogosmes  = (DB.jogos || []).filter(j => {
+    if (!j.data) return false;
+    const d = new Date(j.data);
+    return d.getMonth() === mesAtual && d.getFullYear() === anoAtual;
+  }).length;
+
+  document.getElementById('badgeInsc').textContent     = pendentes;
+  document.getElementById('badgeMsg').textContent       = naoLidas;
+  document.getElementById('totalAtletas').textContent   = DB.atletas.filter(a => a.estado === 'Activo').length;
+  document.getElementById('inscPendentes').textContent  = pendentes;
+  document.getElementById('msgNovos').textContent       = naoLidas;
+  document.getElementById('totalJogos').textContent     = jogosmes;
+  document.getElementById('totalNoticias').textContent  = (DB.noticias || []).filter(n => n.estado === 'Publicada').length;
+  document.getElementById('totalPatrocinadores').textContent = (DB.patrocinadores || []).filter(p => p.ativo).length;
 }
 
 // ==================================================
@@ -173,13 +196,34 @@ function renderDashboard() {
 
   // Recent mensagens
   const tbody2 = document.querySelector('#dashMsgTable tbody');
-  tbody2.innerHTML = DB.mensagens.slice(0, 3).map(m => `
+  tbody2.innerHTML = DB.mensagens.slice(0, 4).map(m => `
     <tr>
       <td>${m.nome}</td>
       <td>${m.assunto}</td>
-      <td>${fmtDate(m.data)}</td>
       <td>${statusBadge(m.estado)}</td>
     </tr>`).join('');
+
+  // Próximos eventos agenda
+  const agendaEl = document.getElementById('dashAgenda');
+  if (agendaEl) {
+    const proximos = (DB.agenda || [])
+      .filter(e => new Date(e.data) >= new Date())
+      .sort((a, b) => new Date(a.data) - new Date(b.data))
+      .slice(0, 4);
+    agendaEl.innerHTML = proximos.length ? proximos.map(e => {
+      const d = new Date(e.data);
+      return `<div class="dash-agenda-item">
+        <div class="dash-agenda-date">
+          <span>${d.getDate()}</span>
+          ${d.toLocaleDateString('pt-PT', { month: 'short' })}
+        </div>
+        <div class="dash-agenda-info">
+          <strong>${e.titulo}</strong>
+          <small>${e.hora} · ${e.local}</small>
+        </div>
+      </div>`;
+    }).join('') : '<p style="padding:16px;color:#999;font-size:13px">Sem eventos próximos.</p>';
+  }
 
   // Chart
   renderChart();
@@ -1381,4 +1425,389 @@ function guardarPaginaInicial() {
 function initPaginaInicial() {
   loadPaginaInicialForm();
   document.getElementById('btnGuardarPaginaInicial')?.addEventListener('click', guardarPaginaInicial);
+}
+
+// =============================================
+// GALERIA
+// =============================================
+let galeriaFiltro = '';
+
+function initGaleria() {
+  renderGaleria();
+  document.getElementById('btnNovaFoto')?.addEventListener('click', () => editFoto(-1));
+  document.querySelectorAll('#galeriaCatFilters .tab-filter').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#galeriaCatFilters .tab-filter').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      galeriaFiltro = btn.dataset.cat;
+      renderGaleria();
+    });
+  });
+}
+
+function renderGaleria() {
+  const grid = document.getElementById('galeriaAdminGrid');
+  if (!grid) return;
+  const items = galeriaFiltro
+    ? DB.galeria.filter(f => f.categoria === galeriaFiltro)
+    : DB.galeria;
+
+  const catIcons = { Treino:'⚽', Jogo:'🏆', Evento:'🎉', Conquista:'🥇' };
+  grid.innerHTML = items.length ? items.map((f, i) => `
+    <div class="galeria-card">
+      <div class="galeria-card__img" ${f.url ? `style="background-image:url('${f.url}')"` : ''}>
+        ${!f.url ? `<span>${catIcons[f.categoria] || '📷'}</span>` : ''}
+        <span class="galeria-card__cat">${f.categoria}</span>
+      </div>
+      <div class="galeria-card__body">
+        <p class="galeria-card__title">${f.titulo}</p>
+        <p class="galeria-card__date">${fmtDate(f.data)}</p>
+      </div>
+      <div class="galeria-card__actions">
+        <button class="btn btn-sm" onclick="editFoto(${DB.galeria.indexOf(f)})">✏️ Editar</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteFoto(${DB.galeria.indexOf(f)})">🗑️</button>
+      </div>
+    </div>`).join('') :
+    '<p style="padding:24px;color:#999;text-align:center">Sem fotos nesta categoria.</p>';
+}
+
+function editFoto(idx) {
+  const f = idx >= 0 ? DB.galeria[idx] : { titulo:'', categoria:'Treino', data:'', url:'', descricao:'' };
+  openModal(idx >= 0 ? 'Editar Foto' : 'Adicionar Foto', `
+    <div class="modal-row">
+      <div class="modal-field"><label>Título</label>
+        <input class="form-input" id="mFotoTitulo" value="${f.titulo}" /></div>
+      <div class="modal-field"><label>Categoria</label>
+        <select class="form-input" id="mFotoCat">
+          ${['Treino','Jogo','Evento','Conquista'].map(c => `<option ${f.categoria===c?'selected':''}>${c}</option>`).join('')}
+        </select></div>
+    </div>
+    <div class="modal-field"><label>Data</label>
+      <input class="form-input" type="date" id="mFotoData" value="${f.data}" /></div>
+    <div class="modal-field"><label>URL da imagem (opcional)</label>
+      <input class="form-input" type="url" id="mFotoUrl" placeholder="https://..." value="${f.url}" /></div>
+    <div class="modal-field"><label>Descrição</label>
+      <textarea class="form-input" id="mFotoDesc" rows="2">${f.descricao}</textarea></div>
+  `, `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarFoto(${idx})">Guardar</button>`);
+}
+
+function salvarFoto(idx) {
+  const item = {
+    titulo: document.getElementById('mFotoTitulo').value.trim(),
+    categoria: document.getElementById('mFotoCat').value,
+    data: document.getElementById('mFotoData').value,
+    url: document.getElementById('mFotoUrl').value.trim(),
+    descricao: document.getElementById('mFotoDesc').value.trim(),
+  };
+  if (!item.titulo) { showToast('Preencha o título', 'red'); return; }
+  if (idx >= 0) DB.galeria[idx] = { ...DB.galeria[idx], ...item };
+  else DB.galeria.unshift({ id: Date.now(), ...item });
+  closeModal(); renderGaleria();
+  showToast(idx >= 0 ? 'Foto atualizada' : 'Foto adicionada', 'green');
+}
+
+function deleteFoto(idx) {
+  if (!confirm('Remover esta foto?')) return;
+  DB.galeria.splice(idx, 1);
+  renderGaleria();
+  showToast('Foto removida', 'green');
+}
+
+// =============================================
+// TREINADORES / STAFF
+// =============================================
+function initTreinadores() {
+  renderTreinadores();
+  document.getElementById('btnNovoTreinador')?.addEventListener('click', () => editTreinador(-1));
+}
+
+function renderTreinadores() {
+  const grid = document.getElementById('staffGrid');
+  if (!grid) return;
+  grid.innerHTML = DB.treinadores.map((t, i) => {
+    const iniciais = t.nome.split(' ').map(n => n[0]).slice(0,2).join('');
+    return `<div class="staff-card ${t.ativo ? '' : 'inactive'}">
+      <div class="staff-avatar">${iniciais}</div>
+      <div class="staff-info">
+        <p class="staff-name">${t.nome} ${t.ativo ? '' : '<span style="font-size:11px;color:#999">(inactivo)</span>'}</p>
+        <p class="staff-cargo">${t.cargo}</p>
+        <p class="staff-meta">📋 ${t.escalao} · Desde ${t.desde}</p>
+        <p class="staff-meta">📞 ${t.telefone}</p>
+        <div class="staff-actions">
+          <button class="btn btn-sm" onclick="editTreinador(${i})">✏️</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteTreinador(${i})">🗑️</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function editTreinador(idx) {
+  const t = idx >= 0 ? DB.treinadores[idx] : { nome:'', cargo:'', escalao:'Todos', telefone:'', email:'', desde:'2026', ativo:true };
+  openModal(idx >= 0 ? 'Editar Membro' : 'Novo Membro', `
+    <div class="modal-row">
+      <div class="modal-field"><label>Nome completo</label>
+        <input class="form-input" id="mTNome" value="${t.nome}" /></div>
+      <div class="modal-field"><label>Cargo</label>
+        <input class="form-input" id="mTCargo" value="${t.cargo}" /></div>
+    </div>
+    <div class="modal-row">
+      <div class="modal-field"><label>Escalão</label>
+        <select class="form-input" id="mTEscalao">
+          ${['Todos','Sub-9','Sub-11','Sub-13','Sub-15','Sub-17','Sub-19'].map(e => `<option ${t.escalao===e?'selected':''}>${e}</option>`).join('')}
+        </select></div>
+      <div class="modal-field"><label>Desde (ano)</label>
+        <input class="form-input" id="mTDesde" value="${t.desde}" /></div>
+    </div>
+    <div class="modal-row">
+      <div class="modal-field"><label>Telefone</label>
+        <input class="form-input" id="mTTel" value="${t.telefone}" /></div>
+      <div class="modal-field"><label>E-mail</label>
+        <input class="form-input" id="mTEmail" value="${t.email}" /></div>
+    </div>
+    <div class="modal-field"><label>Estado</label>
+      <select class="form-input" id="mTAtivo">
+        <option value="1" ${t.ativo?'selected':''}>Activo</option>
+        <option value="0" ${!t.ativo?'selected':''}>Inactivo</option>
+      </select></div>
+  `, `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarTreinador(${idx})">Guardar</button>`);
+}
+
+function salvarTreinador(idx) {
+  const item = {
+    nome: document.getElementById('mTNome').value.trim(),
+    cargo: document.getElementById('mTCargo').value.trim(),
+    escalao: document.getElementById('mTEscalao').value,
+    desde: document.getElementById('mTDesde').value.trim(),
+    telefone: document.getElementById('mTTel').value.trim(),
+    email: document.getElementById('mTEmail').value.trim(),
+    ativo: document.getElementById('mTAtivo').value === '1',
+  };
+  if (!item.nome) { showToast('Preencha o nome', 'red'); return; }
+  if (idx >= 0) DB.treinadores[idx] = { ...DB.treinadores[idx], ...item };
+  else DB.treinadores.unshift({ id: Date.now(), ...item });
+  closeModal(); renderTreinadores();
+  showToast(idx >= 0 ? 'Membro atualizado' : 'Membro adicionado', 'green');
+}
+
+function deleteTreinador(idx) {
+  if (!confirm('Remover este membro?')) return;
+  DB.treinadores.splice(idx, 1);
+  renderTreinadores();
+  showToast('Membro removido', 'green');
+}
+
+// =============================================
+// AGENDA / EVENTOS
+// =============================================
+function initAgenda() {
+  renderAgenda();
+  document.getElementById('btnNovoEvento')?.addEventListener('click', () => editEvento(-1));
+  document.getElementById('filterAgendaTipo')?.addEventListener('change', renderAgenda);
+  document.getElementById('filterAgendaEscalao')?.addEventListener('change', renderAgenda);
+}
+
+function renderAgenda() {
+  const list = document.getElementById('agendaList');
+  if (!list) return;
+  const tipo    = document.getElementById('filterAgendaTipo')?.value || '';
+  const escalao = document.getElementById('filterAgendaEscalao')?.value || '';
+
+  let items = [...(DB.agenda || [])].sort((a, b) => new Date(a.data) - new Date(b.data));
+  if (tipo)    items = items.filter(e => e.tipo === tipo);
+  if (escalao) items = items.filter(e => e.escalao === escalao || e.escalao === 'Todos');
+
+  list.innerHTML = items.length ? items.map((e, i) => {
+    const d = new Date(e.data);
+    const passado = d < new Date();
+    return `<div class="agenda-list-item" style="${passado ? 'opacity:0.6' : ''}">
+      <div class="agenda-date-box">
+        <span class="day">${d.getDate()}</span>
+        <span class="month">${d.toLocaleDateString('pt-PT',{month:'short'})}</span>
+        <span class="time">${e.hora}</span>
+      </div>
+      <div class="agenda-body">
+        <span class="agenda-tipo-badge ${e.tipo}">${e.tipo}</span>
+        <p class="agenda-title">${e.titulo}</p>
+        <p class="agenda-meta">📍 ${e.local} · 👥 ${e.escalao}</p>
+        ${e.descricao ? `<p class="agenda-meta">${e.descricao}</p>` : ''}
+        <div class="agenda-actions">
+          <button class="btn btn-sm" onclick="editEvento(${DB.agenda.indexOf(e)})">✏️ Editar</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteEvento(${DB.agenda.indexOf(e)})">🗑️</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('') : '<p style="padding:24px;color:#999;text-align:center">Sem eventos.</p>';
+}
+
+function editEvento(idx) {
+  const e = idx >= 0 ? DB.agenda[idx] : { titulo:'', tipo:'Jogo', escalao:'Todos', data:'', hora:'', local:'', descricao:'', estado:'Agendado' };
+  openModal(idx >= 0 ? 'Editar Evento' : 'Novo Evento', `
+    <div class="modal-field"><label>Título</label>
+      <input class="form-input" id="mEvTitulo" value="${e.titulo}" /></div>
+    <div class="modal-row">
+      <div class="modal-field"><label>Tipo</label>
+        <select class="form-input" id="mEvTipo">
+          ${['Jogo','Torneio','Treino','Reunião','Outro'].map(t => `<option ${e.tipo===t?'selected':''}>${t}</option>`).join('')}
+        </select></div>
+      <div class="modal-field"><label>Escalão</label>
+        <select class="form-input" id="mEvEscalao">
+          ${['Todos','Sub-9','Sub-11','Sub-13','Sub-15','Sub-17','Sub-19'].map(s => `<option ${e.escalao===s?'selected':''}>${s}</option>`).join('')}
+        </select></div>
+    </div>
+    <div class="modal-row">
+      <div class="modal-field"><label>Data</label>
+        <input class="form-input" type="date" id="mEvData" value="${e.data}" /></div>
+      <div class="modal-field"><label>Hora</label>
+        <input class="form-input" type="time" id="mEvHora" value="${e.hora}" /></div>
+    </div>
+    <div class="modal-field"><label>Local</label>
+      <input class="form-input" id="mEvLocal" value="${e.local}" /></div>
+    <div class="modal-field"><label>Descrição</label>
+      <textarea class="form-input" id="mEvDesc" rows="2">${e.descricao}</textarea></div>
+  `, `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarEvento(${idx})">Guardar</button>`);
+}
+
+function salvarEvento(idx) {
+  const item = {
+    titulo: document.getElementById('mEvTitulo').value.trim(),
+    tipo: document.getElementById('mEvTipo').value,
+    escalao: document.getElementById('mEvEscalao').value,
+    data: document.getElementById('mEvData').value,
+    hora: document.getElementById('mEvHora').value,
+    local: document.getElementById('mEvLocal').value.trim(),
+    descricao: document.getElementById('mEvDesc').value.trim(),
+    estado: 'Agendado',
+  };
+  if (!item.titulo || !item.data) { showToast('Preencha título e data', 'red'); return; }
+  if (idx >= 0) DB.agenda[idx] = { ...DB.agenda[idx], ...item };
+  else DB.agenda.unshift({ id: Date.now(), ...item });
+  closeModal(); renderAgenda();
+  showToast(idx >= 0 ? 'Evento atualizado' : 'Evento adicionado', 'green');
+}
+
+function deleteEvento(idx) {
+  if (!confirm('Remover este evento?')) return;
+  DB.agenda.splice(idx, 1);
+  renderAgenda();
+  showToast('Evento removido', 'green');
+}
+
+// =============================================
+// CONFIGURAÇÕES
+// =============================================
+function initConfiguracoes() {
+  // Carregar credenciais guardadas
+  const creds = JSON.parse(localStorage.getItem('admin_creds') || '{}');
+  if (creds.user) document.getElementById('cfgAdminUser').value = creds.user;
+
+  // Carregar cores guardadas
+  const cores = JSON.parse(localStorage.getItem('site_cores') || '{}');
+  if (cores.azul)    document.getElementById('cfgCorAzul').value    = cores.azul;
+  if (cores.amarelo) document.getElementById('cfgCorAmarelo').value = cores.amarelo;
+
+  // Carregar dados do clube
+  const clube = JSON.parse(localStorage.getItem('dados_clube') || '{}');
+  if (clube.nome)    document.getElementById('cfgClubNome').value    = clube.nome;
+  if (clube.sigla)   document.getElementById('cfgClubSigla').value   = clube.sigla;
+  if (clube.ano)     document.getElementById('cfgClubAno').value     = clube.ano;
+  if (clube.estadio) document.getElementById('cfgClubEstadio').value = clube.estadio;
+}
+
+function guardarSeguranca() {
+  const user = document.getElementById('cfgAdminUser').value.trim();
+  const pw   = document.getElementById('cfgAdminPw').value;
+  const conf = document.getElementById('cfgAdminPwConf').value;
+  if (!user) { showToast('Introduza o nome de utilizador', 'red'); return; }
+  if (pw && pw !== conf) { showToast('As palavras-passe não coincidem', 'red'); return; }
+  const creds = { user };
+  if (pw) creds.pw = pw;
+  localStorage.setItem('admin_creds', JSON.stringify(creds));
+  document.getElementById('cfgAdminPw').value = '';
+  document.getElementById('cfgAdminPwConf').value = '';
+  showToast('Credenciais guardadas', 'green');
+}
+
+function guardarDadosClube() {
+  const clube = {
+    nome:    document.getElementById('cfgClubNome').value.trim(),
+    sigla:   document.getElementById('cfgClubSigla').value.trim(),
+    ano:     document.getElementById('cfgClubAno').value.trim(),
+    estadio: document.getElementById('cfgClubEstadio').value.trim(),
+  };
+  localStorage.setItem('dados_clube', JSON.stringify(clube));
+  showToast('Dados do clube guardados', 'green');
+}
+
+function guardarAparencia() {
+  const azul    = document.getElementById('cfgCorAzul').value;
+  const amarelo = document.getElementById('cfgCorAmarelo').value;
+  localStorage.setItem('site_cores', JSON.stringify({ azul, amarelo }));
+  document.documentElement.style.setProperty('--primary', azul);
+  document.documentElement.style.setProperty('--yellow', amarelo);
+  showToast('Cores aplicadas! Atualize o site para ver as mudanças.', 'green');
+}
+
+function resetarCores() {
+  localStorage.removeItem('site_cores');
+  document.getElementById('cfgCorAzul').value    = '#003B8E';
+  document.getElementById('cfgCorAmarelo').value = '#FFD100';
+  document.documentElement.style.removeProperty('--primary');
+  document.documentElement.style.removeProperty('--yellow');
+  showToast('Cores originais restauradas', 'green');
+}
+
+function exportarDados() {
+  const dados = {
+    exportadoEm: new Date().toISOString(),
+    inscricoes:   DB.inscricoes,
+    atletas:      DB.atletas,
+    noticias:     DB.noticias,
+    mensagens:    DB.mensagens,
+    escaloes:     DB.escaloes,
+    jogos:        DB.jogos,
+    patrocinadores: DB.patrocinadores,
+    galeria:      DB.galeria,
+    treinadores:  DB.treinadores,
+    agenda:       DB.agenda,
+    siteConfig:   JSON.parse(localStorage.getItem('site_config') || '{}'),
+  };
+  const blob = new Blob([JSON.stringify(dados, null, 2)], { type: 'application/json' });
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(blob);
+  a.download = `backup-jscampinense-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  showToast('Backup exportado com sucesso', 'green');
+}
+
+function importarDados() {
+  document.getElementById('importBackupFile').click();
+}
+
+function processarImportBackup(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const dados = JSON.parse(ev.target.result);
+      if (dados.inscricoes)     DB.inscricoes     = dados.inscricoes;
+      if (dados.atletas)        DB.atletas        = dados.atletas;
+      if (dados.noticias)       DB.noticias       = dados.noticias;
+      if (dados.mensagens)      DB.mensagens      = dados.mensagens;
+      if (dados.jogos)          DB.jogos          = dados.jogos;
+      if (dados.patrocinadores) DB.patrocinadores = dados.patrocinadores;
+      if (dados.galeria)        DB.galeria        = dados.galeria;
+      if (dados.treinadores)    DB.treinadores    = dados.treinadores;
+      if (dados.agenda)         DB.agenda         = dados.agenda;
+      if (dados.siteConfig)     localStorage.setItem('site_config', JSON.stringify(dados.siteConfig));
+      showToast('✓ Backup importado com sucesso! Recarregue a página.', 'green');
+    } catch {
+      showToast('Ficheiro inválido', 'red');
+    }
+  };
+  reader.readAsText(file);
 }

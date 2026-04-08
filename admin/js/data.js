@@ -75,4 +75,33 @@ const DB = {
     { id:8, nome:'Empresa Bronze 3', sector:'Educação',      tier:'Bronze', website:'',                   ativo:true,  desde:'2025' },
     { id:9, nome:'Empresa Bronze 4', sector:'Turismo',       tier:'Bronze', website:'',                   ativo:false, desde:'2024' },
   ],
+
+  galeria: [
+    { id:1, titulo:'Treino Sub-17',               categoria:'Treino',    data:'2026-04-05', url:'', descricao:'Treino tático no estádio municipal' },
+    { id:2, titulo:'Jogo Sub-13 vs Silves 4-1',   categoria:'Jogo',      data:'2026-03-29', url:'', descricao:'Grande vitória em casa' },
+    { id:3, titulo:'Campeões Distritais Sub-19',  categoria:'Conquista', data:'2026-03-20', url:'', descricao:'Celebração do título distrital' },
+    { id:4, titulo:'Torneio de Páscoa Sub-9',     categoria:'Evento',    data:'2026-04-01', url:'', descricao:'Torneio festivo com 8 equipas' },
+    { id:5, titulo:'Treino Sub-11',               categoria:'Treino',    data:'2026-04-03', url:'', descricao:'Exercícios de coordenação' },
+    { id:6, titulo:'Jogo Sub-15 Sub-17',          categoria:'Jogo',      data:'2026-03-28', url:'', descricao:'Jogo treino entre escalões' },
+  ],
+
+  treinadores: [
+    { id:1, nome:'Carlos Mendes',    cargo:'Director Técnico',     escalao:'Todos',  telefone:'+351 912 000 001', email:'carlos@jscampinense.pt', desde:'2020', ativo:true  },
+    { id:2, nome:'João Silva',       cargo:'Treinador Principal',  escalao:'Sub-17', telefone:'+351 912 000 002', email:'joao@jscampinense.pt',   desde:'2021', ativo:true  },
+    { id:3, nome:'Pedro Alves',      cargo:'Treinador Principal',  escalao:'Sub-15', telefone:'+351 912 000 003', email:'pedro@jscampinense.pt',  desde:'2022', ativo:true  },
+    { id:4, nome:'Rui Costa',        cargo:'Treinador Adjunto',    escalao:'Sub-17', telefone:'+351 912 000 004', email:'rui@jscampinense.pt',    desde:'2023', ativo:true  },
+    { id:5, nome:'Ana Rodrigues',    cargo:'Preparadora Física',   escalao:'Todos',  telefone:'+351 912 000 005', email:'ana@jscampinense.pt',    desde:'2022', ativo:true  },
+    { id:6, nome:'Miguel Ferreira',  cargo:'Treinador de Guarda-redes', escalao:'Todos', telefone:'+351 912 000 006', email:'miguel@jscampinense.pt', desde:'2021', ativo:true },
+    { id:7, nome:'Sofia Lopes',      cargo:'Psicóloga',            escalao:'Todos',  telefone:'+351 912 000 007', email:'sofia@jscampinense.pt',  desde:'2023', ativo:true  },
+    { id:8, nome:'António Gomes',    cargo:'Team Manager',         escalao:'Sub-19', telefone:'+351 912 000 008', email:'antonio@jscampinense.pt',desde:'2020', ativo:false },
+  ],
+
+  agenda: [
+    { id:1, titulo:'Jogo Sub-17 vs FC Tavira',   tipo:'Jogo',    escalao:'Sub-17', data:'2026-04-12', hora:'15:00', local:'Est. Municipal Loulé',  descricao:'Campeonato Distrital AF Algarve', estado:'Agendado'  },
+    { id:2, titulo:'Torneio Primavera Sub-9',     tipo:'Torneio', escalao:'Sub-9',  data:'2026-04-13', hora:'09:00', local:'Campo Sintético Loulé',  descricao:'Torneio festivo de Primavera',     estado:'Agendado'  },
+    { id:3, titulo:'Reunião de Pais Sub-13',      tipo:'Reunião', escalao:'Sub-13', data:'2026-04-15', hora:'19:00', local:'Sede do Clube',           descricao:'Reunião trimestral com encarregados', estado:'Agendado' },
+    { id:4, titulo:'Treino físico Sub-15',        tipo:'Treino',  escalao:'Sub-15', data:'2026-04-10', hora:'17:30', local:'Est. Municipal Loulé',  descricao:'Treino de preparação física',      estado:'Agendado'  },
+    { id:5, titulo:'Jogo Sub-19 vs Portimonense', tipo:'Jogo',    escalao:'Sub-19', data:'2026-04-11', hora:'17:00', local:'Est. Municipal Loulé',  descricao:'Liga Nacional Juvenis',            estado:'Agendado'  },
+    { id:6, titulo:'Festa de Encerramento',       tipo:'Outro',   escalao:'Todos',  data:'2026-06-15', hora:'18:00', local:'Pavilhão Municipal',     descricao:'Festa de fim de época',            estado:'Agendado'  },
+  ],
 };

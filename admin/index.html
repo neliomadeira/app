@@ -77,11 +77,23 @@
         <a href="#" class="nav-item" data-page="patrocinadores">
           <span class="nav-icon">&#11088;</span> Patrocinadores
         </a>
+        <a href="#" class="nav-item" data-page="galeria">
+          <span class="nav-icon">&#128247;</span> Galeria
+        </a>
+        <a href="#" class="nav-item" data-page="treinadores">
+          <span class="nav-icon">&#128104;&#8205;&#127979;</span> Treinadores
+        </a>
+        <a href="#" class="nav-item" data-page="agenda">
+          <span class="nav-icon">&#128336;</span> Agenda
+        </a>
         <a href="#" class="nav-item" data-page="facebook">
           <span class="nav-icon">&#128241;</span> Facebook
         </a>
         <a href="#" class="nav-item" data-page="pagina-inicial">
-          <span class="nav-icon">🏠</span> Página Inicial
+          <span class="nav-icon">&#127968;</span> Página Inicial
+        </a>
+        <a href="#" class="nav-item" data-page="configuracoes">
+          <span class="nav-icon">&#9881;</span> Configurações
         </a>
       </nav>
       <div class="sidebar-footer">
@@ -120,34 +132,58 @@
           </div>
 
           <div class="stats-grid">
-            <div class="stat-card stat-card--blue">
-              <div class="stat-card__icon">&#128101;</div>
+            <div class="stat-card stat-card--blue" style="cursor:pointer" onclick="goToPage('atletas')">
+              <div class="stat-card__icon">&#9917;</div>
               <div class="stat-card__info">
                 <span class="stat-card__num" id="totalAtletas">0</span>
-                <span class="stat-card__label">Total de Atletas</span>
+                <span class="stat-card__label">Atletas Activos</span>
               </div>
             </div>
-            <div class="stat-card stat-card--yellow">
-              <div class="stat-card__icon">&#128197;</div>
+            <div class="stat-card stat-card--yellow" style="cursor:pointer" onclick="goToPage('inscricoes')">
+              <div class="stat-card__icon">&#128101;</div>
               <div class="stat-card__info">
                 <span class="stat-card__num" id="inscPendentes">0</span>
                 <span class="stat-card__label">Inscrições Pendentes</span>
               </div>
             </div>
-            <div class="stat-card stat-card--green">
-              <div class="stat-card__icon">&#9917;</div>
+            <div class="stat-card stat-card--green" style="cursor:pointer" onclick="goToPage('jogos')">
+              <div class="stat-card__icon">&#128197;</div>
               <div class="stat-card__info">
-                <span class="stat-card__num" id="totalEscaloes">6</span>
-                <span class="stat-card__label">Escalões Activos</span>
+                <span class="stat-card__num" id="totalJogos">0</span>
+                <span class="stat-card__label">Jogos este Mês</span>
               </div>
             </div>
-            <div class="stat-card stat-card--purple">
+            <div class="stat-card stat-card--purple" style="cursor:pointer" onclick="goToPage('mensagens')">
               <div class="stat-card__icon">&#128140;</div>
               <div class="stat-card__info">
                 <span class="stat-card__num" id="msgNovos">0</span>
                 <span class="stat-card__label">Mensagens Novas</span>
               </div>
             </div>
+            <div class="stat-card stat-card--orange" style="cursor:pointer" onclick="goToPage('noticias')">
+              <div class="stat-card__icon">&#128240;</div>
+              <div class="stat-card__info">
+                <span class="stat-card__num" id="totalNoticias">0</span>
+                <span class="stat-card__label">Notícias Publicadas</span>
+              </div>
+            </div>
+            <div class="stat-card stat-card--teal" style="cursor:pointer" onclick="goToPage('patrocinadores')">
+              <div class="stat-card__icon">&#11088;</div>
+              <div class="stat-card__info">
+                <span class="stat-card__num" id="totalPatrocinadores">0</span>
+                <span class="stat-card__label">Patrocinadores</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Atalhos rápidos -->
+          <div class="quick-actions">
+            <button class="quick-btn" onclick="goToPage('inscricoes')">&#128101; Nova Inscrição</button>
+            <button class="quick-btn" onclick="goToPage('noticias')">&#128240; Nova Notícia</button>
+            <button class="quick-btn" onclick="goToPage('jogos')">&#128197; Adicionar Jogo</button>
+            <button class="quick-btn" onclick="goToPage('atletas')">&#9917; Novo Atleta</button>
+            <button class="quick-btn" onclick="goToPage('galeria')">&#128247; Upload Foto</button>
+            <button class="quick-btn" onclick="goToPage('agenda')">&#128336; Novo Evento</button>
           </div>
 
           <div class="dashboard-grid">
@@ -172,17 +208,26 @@
             </div>
           </div>
 
-          <div class="card">
-            <div class="card-header">
-              <h3>Mensagens recentes</h3>
-              <button class="btn-sm" data-goto="mensagens">Ver todas</button>
+          <div class="dashboard-grid">
+            <div class="card">
+              <div class="card-header">
+                <h3>Próximos eventos</h3>
+                <button class="btn-sm" data-goto="agenda">Ver agenda</button>
+              </div>
+              <div id="dashAgenda" class="dash-agenda-list"></div>
             </div>
-            <table class="table" id="dashMsgTable">
-              <thead>
-                <tr><th>Nome</th><th>Assunto</th><th>Data</th><th>Estado</th></tr>
-              </thead>
-              <tbody></tbody>
-            </table>
+            <div class="card">
+              <div class="card-header">
+                <h3>Mensagens recentes</h3>
+                <button class="btn-sm" data-goto="mensagens">Ver todas</button>
+              </div>
+              <table class="table" id="dashMsgTable">
+                <thead>
+                  <tr><th>Nome</th><th>Assunto</th><th>Estado</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
           </div>
         </section>
 
@@ -558,6 +603,144 @@
             </div>
           </div>
 
+        </section>
+
+        <!-- ===== GALERIA ===== -->
+        <section class="page" id="page-galeria" style="display:none">
+          <div class="page-header">
+            <h1>Galeria</h1>
+            <button class="btn-primary" id="btnNovaFoto">&#128247; Adicionar Foto</button>
+          </div>
+          <div class="card" style="margin-bottom:20px">
+            <div class="card-header">
+              <h3>Filtrar por categoria</h3>
+            </div>
+            <div style="padding:12px 16px;display:flex;gap:8px;flex-wrap:wrap" id="galeriaCatFilters">
+              <button class="tab-filter active" data-cat="">Todas</button>
+              <button class="tab-filter" data-cat="Treino">Treino</button>
+              <button class="tab-filter" data-cat="Jogo">Jogo</button>
+              <button class="tab-filter" data-cat="Evento">Evento</button>
+              <button class="tab-filter" data-cat="Conquista">Conquista</button>
+            </div>
+          </div>
+          <div class="galeria-admin-grid" id="galeriaAdminGrid"></div>
+        </section>
+
+        <!-- ===== TREINADORES ===== -->
+        <section class="page" id="page-treinadores" style="display:none">
+          <div class="page-header">
+            <h1>Treinadores &amp; Staff</h1>
+            <button class="btn-primary" id="btnNovoTreinador">+ Novo Membro</button>
+          </div>
+          <div class="staff-grid" id="staffGrid"></div>
+        </section>
+
+        <!-- ===== AGENDA ===== -->
+        <section class="page" id="page-agenda" style="display:none">
+          <div class="page-header">
+            <h1>Agenda &amp; Eventos</h1>
+            <button class="btn-primary" id="btnNovoEvento">+ Novo Evento</button>
+          </div>
+          <div class="agenda-filters" style="margin-bottom:20px">
+            <select class="filter-select" id="filterAgendaTipo">
+              <option value="">Todos os tipos</option>
+              <option>Jogo</option>
+              <option>Treino</option>
+              <option>Torneio</option>
+              <option>Reunião</option>
+              <option>Outro</option>
+            </select>
+            <select class="filter-select" id="filterAgendaEscalao">
+              <option value="">Todos os escalões</option>
+              <option>Sub-9</option><option>Sub-11</option><option>Sub-13</option>
+              <option>Sub-15</option><option>Sub-17</option><option>Sub-19</option>
+              <option>Todos</option>
+            </select>
+          </div>
+          <div id="agendaList"></div>
+        </section>
+
+        <!-- ===== CONFIGURAÇÕES ===== -->
+        <section class="page" id="page-configuracoes" style="display:none">
+          <div class="page-header">
+            <h1>Configurações</h1>
+          </div>
+
+          <!-- Alterar senha -->
+          <div class="card" style="margin-bottom:20px;max-width:520px">
+            <div class="card-header"><h3>&#128274; Segurança</h3></div>
+            <div style="padding:16px;display:grid;gap:12px">
+              <div class="modal-field">
+                <label class="form-label">Utilizador admin</label>
+                <input class="form-input" type="text" id="cfgAdminUser" value="admin" />
+              </div>
+              <div class="modal-field">
+                <label class="form-label">Nova palavra-passe</label>
+                <input class="form-input" type="password" id="cfgAdminPw" placeholder="Deixe em branco para manter" />
+              </div>
+              <div class="modal-field">
+                <label class="form-label">Confirmar palavra-passe</label>
+                <input class="form-input" type="password" id="cfgAdminPwConf" placeholder="Repetir nova senha" />
+              </div>
+              <button class="btn-save" onclick="guardarSeguranca()">Guardar credenciais</button>
+            </div>
+          </div>
+
+          <!-- Dados do clube -->
+          <div class="card" style="margin-bottom:20px;max-width:520px">
+            <div class="card-header"><h3>&#9917; Dados do Clube</h3></div>
+            <div style="padding:16px;display:grid;gap:12px">
+              <div class="modal-field">
+                <label class="form-label">Nome do clube</label>
+                <input class="form-input" type="text" id="cfgClubNome" placeholder="Juventude Sport Campinense" />
+              </div>
+              <div class="modal-field">
+                <label class="form-label">Sigla</label>
+                <input class="form-input" type="text" id="cfgClubSigla" placeholder="JSC" />
+              </div>
+              <div class="modal-field">
+                <label class="form-label">Ano de fundação</label>
+                <input class="form-input" type="text" id="cfgClubAno" placeholder="1923" />
+              </div>
+              <div class="modal-field">
+                <label class="form-label">Estádio / Local</label>
+                <input class="form-input" type="text" id="cfgClubEstadio" placeholder="Estádio Municipal de Loulé" />
+              </div>
+              <button class="btn-save" onclick="guardarDadosClube()">Guardar dados</button>
+            </div>
+          </div>
+
+          <!-- Backup / Exportar -->
+          <div class="card" style="margin-bottom:20px;max-width:520px">
+            <div class="card-header"><h3>&#128190; Dados &amp; Backup</h3></div>
+            <div style="padding:16px;display:grid;gap:10px">
+              <p style="font-size:13px;color:#666;margin:0">Exporte todos os dados do painel (atletas, inscrições, jogos, etc.) em formato JSON para guardar uma cópia de segurança.</p>
+              <div style="display:flex;gap:10px;flex-wrap:wrap">
+                <button class="btn-save" onclick="exportarDados()">&#11015; Exportar tudo (JSON)</button>
+                <button class="btn-sm" onclick="importarDados()">&#11014; Importar backup</button>
+              </div>
+              <input type="file" id="importBackupFile" accept=".json" style="display:none" onchange="processarImportBackup(event)" />
+            </div>
+          </div>
+
+          <!-- Aparência -->
+          <div class="card" style="max-width:520px">
+            <div class="card-header"><h3>&#127912; Aparência</h3></div>
+            <div style="padding:16px;display:grid;gap:12px">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                <div class="modal-field">
+                  <label class="form-label">Cor principal (Azul)</label>
+                  <input class="form-input" type="color" id="cfgCorAzul" value="#003B8E" />
+                </div>
+                <div class="modal-field">
+                  <label class="form-label">Cor secundária (Amarelo)</label>
+                  <input class="form-input" type="color" id="cfgCorAmarelo" value="#FFD100" />
+                </div>
+              </div>
+              <button class="btn-save" onclick="guardarAparencia()">Aplicar cores</button>
+              <button class="btn-sm" onclick="resetarCores()">Repor cores originais</button>
+            </div>
+          </div>
         </section>
 
       </main>
