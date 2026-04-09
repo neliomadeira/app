@@ -2,7 +2,7 @@
 // ADMIN PANEL — MAIN JS
 // =============================================
 
-// ---- AUTH ---- //
+// ---- AUTH + SEGURANÇA ---- //
 const loginForm    = document.getElementById('loginForm');
 const loginError   = document.getElementById('loginError');
 const loginWrap    = document.getElementById('loginWrap');
@@ -10,31 +10,102 @@ const adminLayout  = document.getElementById('adminLayout');
 const togglePw     = document.getElementById('togglePw');
 const loginPassEl  = document.getElementById('loginPass');
 
+const MAX_ATTEMPTS   = 5;
+const LOCKOUT_MS     = 5 * 60 * 1000;   // 5 minutos
+const SESSION_MS     = 30 * 60 * 1000;  // 30 minutos de inactividade
+let   sessionTimer   = null;
+
+function getLockout() {
+  try { return JSON.parse(localStorage.getItem('admin_lockout') || 'null'); } catch { return null; }
+}
+function setLockout(data) { localStorage.setItem('admin_lockout', JSON.stringify(data)); }
+function clearLockout()   { localStorage.removeItem('admin_lockout'); }
+
+function checkLockout() {
+  const l = getLockout();
+  if (!l) return null;
+  const remaining = l.until - Date.now();
+  if (remaining <= 0) { clearLockout(); return null; }
+  return remaining;
+}
+
+function showLoginError(msg) {
+  loginError.textContent = msg;
+  loginError.style.display = 'block';
+  setTimeout(() => { loginError.style.display = 'none'; }, 4000);
+}
+
+function startSessionTimer() {
+  clearTimeout(sessionTimer);
+  sessionTimer = setTimeout(() => {
+    doLogout();
+    showLoginError('Sessão expirada por inactividade (30 min). Faça login novamente.');
+  }, SESSION_MS);
+}
+
+function resetSessionTimer() {
+  if (adminLayout?.style.display !== 'none' && adminLayout?.style.display !== '') {
+    startSessionTimer();
+  }
+}
+
+function doLogout() {
+  clearTimeout(sessionTimer);
+  adminLayout.style.display = 'none';
+  document.body.classList.add('login-page');
+  loginWrap.style.display = '';
+  loginForm.reset();
+}
+
+// Reinicia o timer ao interagir com o admin
+['click','keydown','mousemove','scroll'].forEach(evt =>
+  document.addEventListener(evt, resetSessionTimer, { passive: true })
+);
+
 togglePw?.addEventListener('click', () => {
   loginPassEl.type = loginPassEl.type === 'password' ? 'text' : 'password';
 });
 
 loginForm?.addEventListener('submit', (e) => {
   e.preventDefault();
+
+  // Verificar bloqueio
+  const remaining = checkLockout();
+  if (remaining) {
+    const mins = Math.ceil(remaining / 60000);
+    showLoginError(`Conta bloqueada. Tente novamente em ${mins} minuto${mins > 1 ? 's' : ''}.`);
+    return;
+  }
+
   const u = document.getElementById('loginUser').value.trim();
   const p = loginPassEl.value;
-  if (u === 'admin' && p === '1234') {
+  const creds = JSON.parse(localStorage.getItem('admin_creds') || '{"user":"admin","pass":"1234"}');
+
+  if (u === creds.user && p === creds.pass) {
+    clearLockout();
     loginWrap.style.display = 'none';
     document.body.classList.remove('login-page');
     adminLayout.style.display = 'flex';
+    startSessionTimer();
     initAdmin();
   } else {
-    loginError.style.display = 'block';
-    setTimeout(() => { loginError.style.display = 'none'; }, 3000);
+    // Registar tentativa falhada
+    const l = getLockout() || { count: 0, until: 0 };
+    l.count += 1;
+    const left = MAX_ATTEMPTS - l.count;
+    if (l.count >= MAX_ATTEMPTS) {
+      l.until = Date.now() + LOCKOUT_MS;
+      setLockout(l);
+      showLoginError(`Demasiadas tentativas. Conta bloqueada por 5 minutos.`);
+    } else {
+      setLockout(l);
+      showLoginError(`Credenciais inválidas. ${left} tentativa${left !== 1 ? 's' : ''} restante${left !== 1 ? 's' : ''}.`);
+    }
+    loginPassEl.value = '';
   }
 });
 
-document.getElementById('logoutBtn')?.addEventListener('click', () => {
-  adminLayout.style.display = 'none';
-  document.body.classList.add('login-page');
-  loginWrap.style.display = '';
-  loginForm.reset();
-});
+document.getElementById('logoutBtn')?.addEventListener('click', doLogout);
 
 // ---- SIDEBAR TOGGLE ---- //
 document.getElementById('sidebarToggle')?.addEventListener('click', () => {

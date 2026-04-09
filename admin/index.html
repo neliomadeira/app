@@ -802,5 +802,20 @@
 
   <script src="js/data.js"></script>
   <script src="js/admin.js"></script>
+  <script>
+    // Mostrar estado de bloqueio ao carregar a página
+    (function() {
+      var l = null;
+      try { l = JSON.parse(localStorage.getItem('admin_lockout') || 'null'); } catch(_){}
+      if (l && l.until > Date.now()) {
+        var el = document.getElementById('loginError');
+        if (el) {
+          var mins = Math.ceil((l.until - Date.now()) / 60000);
+          el.textContent = 'Conta bloqueada. Tente novamente em ' + mins + ' minuto' + (mins > 1 ? 's' : '') + '.';
+          el.style.display = 'block';
+        }
+      }
+    })();
+  </script>
 </body>
 </html>
