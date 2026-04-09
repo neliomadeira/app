@@ -33,7 +33,6 @@
         </div>
         <div class="login-error" id="loginError">Credenciais inválidas. Tente novamente.</div>
         <button type="submit" class="btn-login">Entrar</button>
-        <p class="login-hint">Demo: utilizador <strong>admin</strong> / senha <strong>1234</strong></p>
       </form>
     </div>
   </div>
@@ -129,6 +128,16 @@
           <div class="page-header">
             <h1>Dashboard</h1>
             <span class="page-date" id="pageDate"></span>
+          </div>
+
+          <!-- Alerta de segurança (visível apenas se password for padrão) -->
+          <div id="secAlerta" style="display:none;background:#fff3cd;border:1px solid #ffc107;border-left:4px solid #e53e3e;border-radius:8px;padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;gap:12px">
+            <span style="font-size:1.5rem">⚠️</span>
+            <div>
+              <strong style="color:#c05621">Ação de segurança necessária</strong><br>
+              <span style="font-size:13px;color:#744210">Está a usar a palavra-passe padrão <strong>1234</strong>. Altere-a imediatamente em
+              <a href="#" onclick="goToPage('configuracoes');return false" style="color:#003B8E;font-weight:700">Configurações → Segurança</a>.</span>
+            </div>
           </div>
 
           <div class="stats-grid">

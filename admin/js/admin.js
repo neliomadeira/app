@@ -10,10 +10,19 @@ const adminLayout  = document.getElementById('adminLayout');
 const togglePw     = document.getElementById('togglePw');
 const loginPassEl  = document.getElementById('loginPass');
 
-const MAX_ATTEMPTS   = 5;
-const LOCKOUT_MS     = 5 * 60 * 1000;   // 5 minutos
-const SESSION_MS     = 30 * 60 * 1000;  // 30 minutos de inactividade
-let   sessionTimer   = null;
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_MS   = 5 * 60 * 1000;   // 5 minutos
+const SESSION_MS   = 30 * 60 * 1000;  // 30 minutos de inactividade
+let   sessionTimer = null;
+
+// Hash SHA-256 via Web Crypto API
+async function sha256(str) {
+  const buf  = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+// Password padrão hash (para detetar se ainda não foi alterada)
+const DEFAULT_PASS_HASH = await sha256('1234').catch(() => '');
 
 function getLockout() {
   try { return JSON.parse(localStorage.getItem('admin_lockout') || 'null'); } catch { return null; }
@@ -57,7 +66,6 @@ function doLogout() {
   loginForm.reset();
 }
 
-// Reinicia o timer ao interagir com o admin
 ['click','keydown','mousemove','scroll'].forEach(evt =>
   document.addEventListener(evt, resetSessionTimer, { passive: true })
 );
@@ -66,10 +74,9 @@ togglePw?.addEventListener('click', () => {
   loginPassEl.type = loginPassEl.type === 'password' ? 'text' : 'password';
 });
 
-loginForm?.addEventListener('submit', (e) => {
+loginForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
 
-  // Verificar bloqueio
   const remaining = checkLockout();
   if (remaining) {
     const mins = Math.ceil(remaining / 60000);
@@ -79,9 +86,36 @@ loginForm?.addEventListener('submit', (e) => {
 
   const u = document.getElementById('loginUser').value.trim();
   const p = loginPassEl.value;
-  const creds = JSON.parse(localStorage.getItem('admin_creds') || '{"user":"admin","pass":"1234"}');
+  if (!p) { showLoginError('Introduza a palavra-passe.'); return; }
 
-  if (u === creds.user && p === creds.pass) {
+  // Carregar credenciais guardadas (suporte a hash e texto simples legado)
+  let stored = null;
+  try { stored = JSON.parse(localStorage.getItem('admin_creds') || 'null'); } catch(_) {}
+
+  let inputHash;
+  try { inputHash = await sha256(p); } catch(_) { inputHash = p; }
+
+  let match = false;
+  if (stored) {
+    if (stored.hashed) {
+      match = u === stored.user && inputHash === stored.pass;
+    } else {
+      // Legado: comparar texto simples e migrar para hash
+      match = u === stored.user && p === stored.pass;
+      if (match) {
+        localStorage.setItem('admin_creds', JSON.stringify({ user: stored.user, pass: inputHash, hashed: true }));
+      }
+    }
+  } else {
+    // Credenciais padrão nunca alteradas
+    const defaultHash = await sha256('1234').catch(() => '1234');
+    match = u === 'admin' && (p === '1234' || inputHash === defaultHash);
+    if (match) {
+      localStorage.setItem('admin_creds', JSON.stringify({ user: 'admin', pass: defaultHash, hashed: true }));
+    }
+  }
+
+  if (match) {
     clearLockout();
     loginWrap.style.display = 'none';
     document.body.classList.remove('login-page');
@@ -89,14 +123,13 @@ loginForm?.addEventListener('submit', (e) => {
     startSessionTimer();
     initAdmin();
   } else {
-    // Registar tentativa falhada
     const l = getLockout() || { count: 0, until: 0 };
     l.count += 1;
     const left = MAX_ATTEMPTS - l.count;
     if (l.count >= MAX_ATTEMPTS) {
       l.until = Date.now() + LOCKOUT_MS;
       setLockout(l);
-      showLoginError(`Demasiadas tentativas. Conta bloqueada por 5 minutos.`);
+      showLoginError('Demasiadas tentativas. Conta bloqueada por 5 minutos.');
     } else {
       setLockout(l);
       showLoginError(`Credenciais inválidas. ${left} tentativa${left !== 1 ? 's' : ''} restante${left !== 1 ? 's' : ''}.`);
@@ -207,6 +240,15 @@ function fmtDate(str) {
 // INIT
 // ==================================================
 function initAdmin() {
+  // Verificar se ainda usa password padrão → mostrar alerta
+  (async function checkDefaultPassword() {
+    const stored = JSON.parse(localStorage.getItem('admin_creds') || 'null');
+    const defaultHash = await sha256('1234').catch(() => '');
+    const isDefault = !stored || (stored.pass === defaultHash) || (!stored.hashed && stored.pass === '1234');
+    const alerta = document.getElementById('secAlerta');
+    if (alerta) alerta.style.display = isDefault ? 'flex' : 'none';
+  })();
+
   renderDashboard();
   renderInscricoes();
   renderAtletas();
@@ -1983,18 +2025,33 @@ function initConfiguracoes() {
   if (clube.estadio) document.getElementById('cfgClubEstadio').value = clube.estadio;
 }
 
-function guardarSeguranca() {
+async function guardarSeguranca() {
   const user = document.getElementById('cfgAdminUser').value.trim();
   const pw   = document.getElementById('cfgAdminPw').value;
   const conf = document.getElementById('cfgAdminPwConf').value;
   if (!user) { showToast('Introduza o nome de utilizador', 'red'); return; }
-  if (pw && pw !== conf) { showToast('As palavras-passe não coincidem', 'red'); return; }
-  const creds = { user };
-  if (pw) creds.pw = pw;
-  localStorage.setItem('admin_creds', JSON.stringify(creds));
+  if (pw && pw.length < 6) { showToast('A palavra-passe deve ter pelo menos 6 caracteres', 'red'); return; }
+  if (pw && pw !== conf)   { showToast('As palavras-passe não coincidem', 'red'); return; }
+
+  const existing = JSON.parse(localStorage.getItem('admin_creds') || 'null');
+  let passHash = existing?.pass || null;
+
+  if (pw) {
+    try { passHash = await sha256(pw); } catch(_) { passHash = pw; }
+  }
+  if (!passHash) {
+    showToast('Introduza uma palavra-passe', 'red'); return;
+  }
+
+  localStorage.setItem('admin_creds', JSON.stringify({ user, pass: passHash, hashed: true }));
   document.getElementById('cfgAdminPw').value = '';
   document.getElementById('cfgAdminPwConf').value = '';
-  showToast('Credenciais guardadas', 'green');
+
+  // Esconder aviso de password padrão se existir
+  const alerta = document.getElementById('secAlerta');
+  if (alerta) alerta.style.display = 'none';
+
+  showToast('✓ Credenciais guardadas com segurança (SHA-256)', 'green');
 }
 
 function guardarDadosClube() {
