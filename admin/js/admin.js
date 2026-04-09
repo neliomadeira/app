@@ -712,10 +712,10 @@ function abrirModalNoticia(n = null) {
       </div>
       <div class="modal-field"><label>Tamanho</label>
         <select class="form-input" id="mImagemSize">
-          <option value="cover" ${sz==='cover'?'selected':''}>Preencher (cover)</option>
-          <option value="contain" ${sz==='contain'?'selected':''}>Mostrar tudo</option>
-          <option value="auto 120%" ${sz==='auto 120%'?'selected':''}>Zoom 120%</option>
-          <option value="auto 150%" ${sz==='auto 150%'?'selected':''}>Zoom 150%</option>
+          <option value="cover"   ${sz==='cover'?'selected':''}>Preencher — recortar bordas</option>
+          <option value="contain" ${sz==='contain'?'selected':''}>Mostrar tudo — com margens</option>
+          <option value="110%"    ${sz==='110%'?'selected':''}>Zoom 110%</option>
+          <option value="140%"    ${sz==='140%'?'selected':''}>Zoom 140%</option>
         </select>
       </div>
     </div>
@@ -1628,7 +1628,12 @@ function getSiteConfig() {
   try { return JSON.parse(localStorage.getItem(SITE_CONFIG_KEY) || '{}'); } catch { return {}; }
 }
 function saveSiteConfig(cfg) {
-  localStorage.setItem(SITE_CONFIG_KEY, JSON.stringify(cfg));
+  try {
+    localStorage.setItem(SITE_CONFIG_KEY, JSON.stringify(cfg));
+  } catch (e) {
+    showToast('Erro ao guardar: armazenamento cheio. Remova imagens grandes e tente novamente.', 'red');
+    throw e;
+  }
 }
 
 function loadPaginaInicialForm() {
@@ -1680,8 +1685,10 @@ function guardarPaginaInicial() {
     const el = document.getElementById(elId);
     if (el) cfg[cfgKey] = el.value.trim();
   }
-  saveSiteConfig(cfg);
-  showToast('✓ Alterações guardadas! Abra o site para ver as mudanças.', 'green');
+  try {
+    saveSiteConfig(cfg);
+    showToast('✓ Alterações guardadas! Abra o site para ver as mudanças.', 'green');
+  } catch(_) { /* saveSiteConfig already shows error toast */ }
 }
 
 window.removerHeroImagem = function() {
@@ -1697,7 +1704,6 @@ window.removerHeroImagem = function() {
 
 function initPaginaInicial() {
   loadPaginaInicialForm();
-  document.getElementById('btnGuardarPaginaInicial')?.addEventListener('click', guardarPaginaInicial);
   setupImageUpload('cfgHeroFicheiro', 'cfgHeroImagem', 'cfgHeroPreview');
 }
 
@@ -1784,10 +1790,10 @@ function editFoto(idx) {
       </div>
       <div class="modal-field"><label>Tamanho</label>
         <select class="form-input" id="mFotoSize">
-          <option value="cover" ${sz==='cover'?'selected':''}>Preencher (cover)</option>
-          <option value="contain" ${sz==='contain'?'selected':''}>Mostrar tudo</option>
-          <option value="auto 120%" ${sz==='auto 120%'?'selected':''}>Zoom 120%</option>
-          <option value="auto 150%" ${sz==='auto 150%'?'selected':''}>Zoom 150%</option>
+          <option value="cover"   ${sz==='cover'?'selected':''}>Preencher — recortar bordas</option>
+          <option value="contain" ${sz==='contain'?'selected':''}>Mostrar tudo — com margens</option>
+          <option value="110%"    ${sz==='110%'?'selected':''}>Zoom 110%</option>
+          <option value="140%"    ${sz==='140%'?'selected':''}>Zoom 140%</option>
         </select>
       </div>
     </div>

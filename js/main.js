@@ -149,7 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
           grid.innerHTML = lista.slice(0, 3).map((n, i) => `
             <article class="news-card${i === 0 ? ' news-card--featured' : ''}">
               <div class="news-card__img${n.imagem ? '' : ` news-card__img--${n.img || 1}`}"
-                   ${n.imagem ? `style="background-image:url('${n.imagem}');background-size:${n.imagemSize||'cover'};background-position:${n.imagemPos||'center'}"` : ''}>
+                   ${n.imagem ? `style="background-image:url('${n.imagem}');background-size:${(n.imagemSize||'cover').replace('auto ','')};background-position:${n.imagemPos||'center'}"` : ''}>
                 <span class="news-card__cat">${n.categoria || ''}</span>
               </div>
               <div class="news-card__body">
