@@ -17,12 +17,12 @@ let   sessionTimer = null;
 
 // Hash SHA-256 via Web Crypto API
 async function sha256(str) {
-  const buf  = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
 }
 
-// Password padrão hash (para detetar se ainda não foi alterada)
-const DEFAULT_PASS_HASH = await sha256('1234').catch(() => '');
+// Retorna o hash SHA-256 da password padrão "1234"
+function getDefaultHash() { return sha256('1234').catch(() => '____'); }
 
 function getLockout() {
   try { return JSON.parse(localStorage.getItem('admin_lockout') || 'null'); } catch { return null; }
