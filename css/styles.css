@@ -231,7 +231,7 @@ ul { list-style: none; }
 }
 
 .hero::after {
-  content: 'SC';
+  content: 'JSC';
   position: absolute;
   bottom: -60px; right: -40px;
   font-family: var(--font-display);
