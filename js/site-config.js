@@ -27,6 +27,19 @@
   setHtml('heroTitle', cfg.heroTitle);
   set('heroDesc', cfg.heroDesc);
 
+  // Hero background image
+  if (cfg.heroImagem) {
+    const hero = document.querySelector('.hero');
+    if (hero) {
+      const opacity = cfg.heroOverlay !== undefined && cfg.heroOverlay !== '' ? cfg.heroOverlay : '0.7';
+      const pos     = cfg.heroImgPos || 'center';
+      hero.style.backgroundImage    = `linear-gradient(rgba(0,27,77,${opacity}),rgba(0,27,77,${opacity})),url('${cfg.heroImagem}')`;
+      hero.style.backgroundSize     = 'cover';
+      hero.style.backgroundPosition = pos;
+      hero.style.backgroundRepeat   = 'no-repeat';
+    }
+  }
+
   // Stats
   set('stat1Num',   cfg.stat1Num);   set('stat1Label', cfg.stat1Label);
   set('stat2Num',   cfg.stat2Num);   set('stat2Label', cfg.stat2Label);

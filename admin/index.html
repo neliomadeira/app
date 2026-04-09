@@ -492,6 +492,44 @@
                 <label class="form-label">Descrição</label>
                 <textarea class="form-input" id="cfgHeroDesc" rows="3"></textarea>
               </div>
+              <hr style="border:none;border-top:1px solid #e2e8f0;margin:4px 0">
+              <div class="modal-field">
+                <label class="form-label">🖼️ Imagem de fundo</label>
+                <div class="img-upload-box">
+                  <label class="img-upload-btn" for="cfgHeroFicheiro">📁 Escolher ficheiro</label>
+                  <input type="file" id="cfgHeroFicheiro" accept="image/*" style="display:none">
+                  <input class="form-input" type="text" id="cfgHeroImagem" placeholder="ou cole URL da imagem..." />
+                </div>
+                <small style="color:#888;font-size:11px;margin-top:4px;display:block">JPG, PNG, WebP — máx. 3MB. A imagem aparece por baixo do overlay azul.</small>
+              </div>
+              <div id="cfgHeroPreview" style="display:none;margin-top:4px">
+                <img style="max-width:100%;max-height:120px;border-radius:8px;object-fit:cover" />
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <div class="modal-field">
+                  <label class="form-label">Posição da imagem</label>
+                  <select class="form-input" id="cfgHeroImgPos">
+                    <option value="center">Centro</option>
+                    <option value="top">Topo</option>
+                    <option value="bottom">Baixo</option>
+                    <option value="left center">Esquerda</option>
+                    <option value="right center">Direita</option>
+                  </select>
+                </div>
+                <div class="modal-field">
+                  <label class="form-label">Sobreposição azul</label>
+                  <select class="form-input" id="cfgHeroOverlay">
+                    <option value="0.7">70% — padrão</option>
+                    <option value="0.5">50% — mais visível</option>
+                    <option value="0.3">30% — muito visível</option>
+                    <option value="0.85">85% — mais escuro</option>
+                    <option value="0">Sem overlay</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <button type="button" class="btn btn-sm" onclick="removerHeroImagem()" style="color:#e53e3e;border-color:#e53e3e;background:none">🗑️ Remover imagem de fundo</button>
+              </div>
             </div>
           </div>
 

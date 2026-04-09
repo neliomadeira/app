@@ -1522,6 +1522,7 @@ function loadPaginaInicialForm() {
   const cfg = getSiteConfig();
   const fields = {
     cfgHeroTag: 'heroTag', cfgHeroTitle: 'heroTitle', cfgHeroDesc: 'heroDesc',
+    cfgHeroImagem: 'heroImagem', cfgHeroImgPos: 'heroImgPos', cfgHeroOverlay: 'heroOverlay',
     cfgStat1Num: 'stat1Num', cfgStat1Label: 'stat1Label',
     cfgStat2Num: 'stat2Num', cfgStat2Label: 'stat2Label',
     cfgStat3Num: 'stat3Num', cfgStat3Label: 'stat3Label',
@@ -1538,12 +1539,18 @@ function loadPaginaInicialForm() {
     const el = document.getElementById(elId);
     if (el && cfg[cfgKey] !== undefined) el.value = cfg[cfgKey];
   }
+  // Mostrar preview se já tem imagem
+  if (cfg.heroImagem) {
+    const prev = document.getElementById('cfgHeroPreview');
+    if (prev) { prev.style.display = ''; prev.querySelector('img').src = cfg.heroImagem; }
+  }
 }
 
 function guardarPaginaInicial() {
   const cfg = getSiteConfig();
   const fields = {
     cfgHeroTag: 'heroTag', cfgHeroTitle: 'heroTitle', cfgHeroDesc: 'heroDesc',
+    cfgHeroImagem: 'heroImagem', cfgHeroImgPos: 'heroImgPos', cfgHeroOverlay: 'heroOverlay',
     cfgStat1Num: 'stat1Num', cfgStat1Label: 'stat1Label',
     cfgStat2Num: 'stat2Num', cfgStat2Label: 'stat2Label',
     cfgStat3Num: 'stat3Num', cfgStat3Label: 'stat3Label',
@@ -1564,9 +1571,21 @@ function guardarPaginaInicial() {
   showToast('✓ Alterações guardadas! Abra o site para ver as mudanças.', 'green');
 }
 
+window.removerHeroImagem = function() {
+  const cfg = getSiteConfig();
+  cfg.heroImagem = '';
+  saveSiteConfig(cfg);
+  const el = document.getElementById('cfgHeroImagem');
+  if (el) el.value = '';
+  const prev = document.getElementById('cfgHeroPreview');
+  if (prev) prev.style.display = 'none';
+  showToast('Imagem de fundo removida.', 'green');
+};
+
 function initPaginaInicial() {
   loadPaginaInicialForm();
   document.getElementById('btnGuardarPaginaInicial')?.addEventListener('click', guardarPaginaInicial);
+  setupImageUpload('cfgHeroFicheiro', 'cfgHeroImagem', 'cfgHeroPreview');
 }
 
 // =============================================
