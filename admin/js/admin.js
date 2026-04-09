@@ -470,6 +470,40 @@ window.removeAtleta = function (id) {
 };
 
 // ==================================================
+// UTILITÁRIO: UPLOAD DE IMAGEM
+// ==================================================
+function setupImageUpload(fileInputId, urlInputId, previewId) {
+  const fileEl = document.getElementById(fileInputId);
+  const urlEl  = document.getElementById(urlInputId);
+  const prevEl = document.getElementById(previewId);
+
+  function updatePreview(src) {
+    if (!prevEl) return;
+    const img = prevEl.querySelector('img');
+    if (src) { prevEl.style.display = ''; if (img) img.src = src; }
+    else { prevEl.style.display = 'none'; }
+  }
+
+  fileEl?.addEventListener('change', function() {
+    const file = this.files[0];
+    if (!file) return;
+    if (file.size > 3 * 1024 * 1024) {
+      showToast('Imagem demasiado grande (máx 3MB)', 'red');
+      this.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = ev => {
+      if (urlEl) urlEl.value = ev.target.result;
+      updatePreview(ev.target.result);
+    };
+    reader.readAsDataURL(file);
+  });
+
+  urlEl?.addEventListener('input', function() { updatePreview(this.value); });
+}
+
+// ==================================================
 // NOTÍCIAS
 // ==================================================
 function renderNoticias() {
@@ -488,7 +522,7 @@ function renderNoticias() {
         </div>
       </div>`;
     const imgStyle = n.imagem
-      ? `background-image:url('${n.imagem}');background-size:cover;background-position:center`
+      ? `background-image:url('${n.imagem}');background-size:${n.imagemSize||'cover'};background-position:${n.imagemPos||'center'}`
       : '';
     return `
       <div class="news-admin-card">
@@ -512,11 +546,13 @@ function renderNoticias() {
 
 function abrirModalNoticia(n = null) {
   const isNew = !n;
-  const titulo   = n?.titulo    || '';
-  const cat      = n?.categoria || 'Resultado';
-  const data     = n?.data      || new Date().toISOString().split('T')[0];
-  const resumo   = n?.resumo    || '';
-  const imagem   = n?.imagem    || '';
+  const titulo   = n?.titulo     || '';
+  const cat      = n?.categoria  || 'Resultado';
+  const data     = n?.data       || new Date().toISOString().split('T')[0];
+  const resumo   = n?.resumo     || '';
+  const imagem   = n?.imagem     || '';
+  const pos      = n?.imagemPos  || 'center';
+  const sz       = n?.imagemSize || 'cover';
   const publicada = n?.publicada ?? false;
   const cats = ['Resultado','Seleção','Conquista','Clube','Evento','Formação'];
 
@@ -540,12 +576,35 @@ function abrirModalNoticia(n = null) {
       <textarea class="form-input" id="mResumo" rows="4" placeholder="Texto da notícia...">${resumo}</textarea>
     </div>
     <div class="modal-field">
-      <label>URL da Imagem</label>
-      <input type="url" class="form-input" id="mImagem" value="${imagem}" placeholder="https://exemplo.com/foto.jpg" />
-      <small style="color:#888;font-size:11px;margin-top:4px;display:block">Cole o link direto da imagem (ex: do Google Drive, Dropbox, etc.)</small>
+      <label>Imagem</label>
+      <div class="img-upload-box">
+        <label class="img-upload-btn" for="mFicheiro">📁 Escolher ficheiro</label>
+        <input type="file" id="mFicheiro" accept="image/*" style="display:none">
+        <input type="text" class="form-input" id="mImagem" value="${imagem}" placeholder="ou cole URL da imagem..." />
+      </div>
+      <small style="color:#888;font-size:11px;margin-top:4px;display:block">JPG, PNG, WebP — máx. 3MB</small>
     </div>
     <div id="mImagemPreview" style="margin-top:8px;${imagem?'':'display:none'}">
       <img src="${imagem}" style="max-width:100%;max-height:160px;border-radius:8px;object-fit:cover" onerror="this.parentElement.style.display='none'" />
+    </div>
+    <div class="modal-row" style="margin-top:8px">
+      <div class="modal-field"><label>Posição da imagem</label>
+        <select class="form-input" id="mImagemPos">
+          <option value="center" ${pos==='center'?'selected':''}>Centro</option>
+          <option value="top" ${pos==='top'?'selected':''}>Topo</option>
+          <option value="bottom" ${pos==='bottom'?'selected':''}>Baixo</option>
+          <option value="left center" ${pos==='left center'?'selected':''}>Esquerda</option>
+          <option value="right center" ${pos==='right center'?'selected':''}>Direita</option>
+        </select>
+      </div>
+      <div class="modal-field"><label>Tamanho</label>
+        <select class="form-input" id="mImagemSize">
+          <option value="cover" ${sz==='cover'?'selected':''}>Preencher (cover)</option>
+          <option value="contain" ${sz==='contain'?'selected':''}>Mostrar tudo</option>
+          <option value="auto 120%" ${sz==='auto 120%'?'selected':''}>Zoom 120%</option>
+          <option value="auto 150%" ${sz==='auto 150%'?'selected':''}>Zoom 150%</option>
+        </select>
+      </div>
     </div>
     <div class="modal-field" style="margin-top:8px">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
@@ -556,16 +615,7 @@ function abrirModalNoticia(n = null) {
     `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
      <button class="btn-save" onclick="saveNoticia(${n?.id ?? 'null'})">${isNew ? 'Criar Notícia' : 'Guardar'}</button>`
   );
-  // Preview em tempo real
-  document.getElementById('mImagem')?.addEventListener('input', function() {
-    const prev = document.getElementById('mImagemPreview');
-    if (this.value) {
-      prev.style.display = '';
-      prev.querySelector('img').src = this.value;
-    } else {
-      prev.style.display = 'none';
-    }
-  });
+  setupImageUpload('mFicheiro', 'mImagem', 'mImagemPreview');
 }
 
 document.getElementById('btnNovaNoticia')?.addEventListener('click', () => abrirModalNoticia());
@@ -575,11 +625,13 @@ window.saveNoticia = function(id) {
   if (!titulo) { showToast('Introduza o título.', 'red'); return; }
   const dados = {
     titulo,
-    categoria: document.getElementById('mCat').value,
-    data:      document.getElementById('mData').value,
-    resumo:    document.getElementById('mResumo').value.trim(),
-    imagem:    document.getElementById('mImagem').value.trim(),
-    publicada: document.getElementById('mPublicada').checked,
+    categoria:  document.getElementById('mCat').value,
+    data:       document.getElementById('mData').value,
+    resumo:     document.getElementById('mResumo').value.trim(),
+    imagem:     document.getElementById('mImagem').value.trim(),
+    imagemPos:  document.getElementById('mImagemPos')?.value  || 'center',
+    imagemSize: document.getElementById('mImagemSize')?.value || 'cover',
+    publicada:  document.getElementById('mPublicada').checked,
   };
   if (id === null) {
     DB.noticias.unshift({ id: Date.now(), img: Math.ceil(Math.random()*3), ...dados });
@@ -1562,7 +1614,9 @@ function renderGaleria() {
 }
 
 function editFoto(idx) {
-  const f = idx >= 0 ? DB.galeria[idx] : { titulo:'', categoria:'Treino', data:'', url:'', descricao:'' };
+  const f = idx >= 0 ? DB.galeria[idx] : { titulo:'', categoria:'Treino', data:'', url:'', descricao:'', imgPos:'center', imgSize:'cover' };
+  const pos = f.imgPos  || 'center';
+  const sz  = f.imgSize || 'cover';
   openModal(idx >= 0 ? 'Editar Foto' : 'Adicionar Foto', `
     <div class="modal-row">
       <div class="modal-field"><label>Título</label>
@@ -1574,20 +1628,52 @@ function editFoto(idx) {
     </div>
     <div class="modal-field"><label>Data</label>
       <input class="form-input" type="date" id="mFotoData" value="${f.data}" /></div>
-    <div class="modal-field"><label>URL da imagem (opcional)</label>
-      <input class="form-input" type="url" id="mFotoUrl" placeholder="https://..." value="${f.url}" /></div>
+    <div class="modal-field">
+      <label>Imagem</label>
+      <div class="img-upload-box">
+        <label class="img-upload-btn" for="mFotoFicheiro">📁 Escolher ficheiro</label>
+        <input type="file" id="mFotoFicheiro" accept="image/*" style="display:none">
+        <input class="form-input" type="text" id="mFotoUrl" placeholder="ou cole URL da imagem..." value="${f.url}" />
+      </div>
+      <small style="color:#888;font-size:11px;margin-top:4px;display:block">JPG, PNG, WebP — máx. 3MB</small>
+    </div>
+    <div id="mFotoPreview" style="margin-top:8px;${f.url?'':'display:none'}">
+      <img src="${f.url}" style="max-width:100%;max-height:160px;border-radius:8px;object-fit:cover" onerror="this.parentElement.style.display='none'" />
+    </div>
+    <div class="modal-row" style="margin-top:8px">
+      <div class="modal-field"><label>Posição</label>
+        <select class="form-input" id="mFotoPos">
+          <option value="center" ${pos==='center'?'selected':''}>Centro</option>
+          <option value="top" ${pos==='top'?'selected':''}>Topo</option>
+          <option value="bottom" ${pos==='bottom'?'selected':''}>Baixo</option>
+          <option value="left center" ${pos==='left center'?'selected':''}>Esquerda</option>
+          <option value="right center" ${pos==='right center'?'selected':''}>Direita</option>
+        </select>
+      </div>
+      <div class="modal-field"><label>Tamanho</label>
+        <select class="form-input" id="mFotoSize">
+          <option value="cover" ${sz==='cover'?'selected':''}>Preencher (cover)</option>
+          <option value="contain" ${sz==='contain'?'selected':''}>Mostrar tudo</option>
+          <option value="auto 120%" ${sz==='auto 120%'?'selected':''}>Zoom 120%</option>
+          <option value="auto 150%" ${sz==='auto 150%'?'selected':''}>Zoom 150%</option>
+        </select>
+      </div>
+    </div>
     <div class="modal-field"><label>Descrição</label>
       <textarea class="form-input" id="mFotoDesc" rows="2">${f.descricao}</textarea></div>
   `, `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="salvarFoto(${idx})">Guardar</button>`);
+  setupImageUpload('mFotoFicheiro', 'mFotoUrl', 'mFotoPreview');
 }
 
 function salvarFoto(idx) {
   const item = {
-    titulo: document.getElementById('mFotoTitulo').value.trim(),
+    titulo:    document.getElementById('mFotoTitulo').value.trim(),
     categoria: document.getElementById('mFotoCat').value,
-    data: document.getElementById('mFotoData').value,
-    url: document.getElementById('mFotoUrl').value.trim(),
+    data:      document.getElementById('mFotoData').value,
+    url:       document.getElementById('mFotoUrl').value.trim(),
+    imgPos:    document.getElementById('mFotoPos')?.value  || 'center',
+    imgSize:   document.getElementById('mFotoSize')?.value || 'cover',
     descricao: document.getElementById('mFotoDesc').value.trim(),
   };
   if (!item.titulo) { showToast('Preencha o título', 'red'); return; }

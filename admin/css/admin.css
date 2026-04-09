@@ -940,3 +940,33 @@ ul { list-style: none; }
   .stats-grid { grid-template-columns: 1fr 1fr; }
   .galeria-admin-grid { grid-template-columns: 1fr; }
 }
+
+/* =============================================
+   UPLOAD DE IMAGEM
+   ============================================= */
+.img-upload-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.img-upload-box .form-input {
+  flex: 1;
+  min-width: 0;
+}
+.img-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--blue);
+  color: #fff;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+.img-upload-btn:hover { background: var(--blue-dark); }
