@@ -111,6 +111,7 @@ window.saveDB = function() {
   try {
     localStorage.setItem('db_noticias', JSON.stringify(DB.noticias));
     localStorage.setItem('db_escaloes', JSON.stringify(DB.escaloes));
+    localStorage.setItem('db_galeria',  JSON.stringify(DB.galeria));
   } catch(e) {}
 };
 
@@ -119,7 +120,9 @@ window.saveDB = function() {
   try {
     const n = localStorage.getItem('db_noticias');
     const e = localStorage.getItem('db_escaloes');
+    const g = localStorage.getItem('db_galeria');
     if (n) DB.noticias = JSON.parse(n);
     if (e) DB.escaloes = JSON.parse(e);
+    if (g) DB.galeria  = JSON.parse(g);
   } catch(e) {}
 })();

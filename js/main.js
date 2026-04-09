@@ -190,4 +190,69 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   } catch(e) {}
 
+  // Galeria
+  try {
+    const raw = localStorage.getItem('db_galeria');
+    if (raw) {
+      const lista = JSON.parse(raw).filter(f => f.url);
+      if (lista.length) {
+        const grid = document.getElementById('galleryGrid');
+        if (grid) {
+          grid.innerHTML = lista.slice(0, 5).map((f, i) => {
+            const tall = i === 0 ? ' gallery__item--tall' : '';
+            const wide = i === lista.length - 1 && lista.length >= 4 ? ' gallery__item--wide' : '';
+            return `<div class="gallery__item--img${tall}${wide}"
+                         style="background-image:url('${f.url}');background-size:${f.imgSize||'cover'};background-position:${f.imgPos||'center'}">
+                      <span class="gallery__caption">${f.titulo}</span>
+                    </div>`;
+          }).join('');
+        }
+      }
+    }
+  } catch(e) {}
+
 });
+
+// ---- HERO SLIDESHOW ----
+(function() {
+  try {
+    const cfg  = JSON.parse(localStorage.getItem('site_config') || '{}');
+    if (!cfg.heroSlideshow) return;
+
+    const noticias = JSON.parse(localStorage.getItem('db_noticias') || '[]')
+      .filter(n => n.publicada && n.imagem);
+    if (noticias.length < 1) return;
+
+    const hero    = document.querySelector('.hero');
+    const slideBg = document.getElementById('heroSlideBg');
+    if (!hero || !slideBg) return;
+
+    const overlay = cfg.heroOverlay !== undefined && cfg.heroOverlay !== '' ? cfg.heroOverlay : '0.65';
+    const speed   = parseInt(cfg.heroSlideSpeed) || 6000;
+    let   idx     = 0;
+
+    function applySlide(n) {
+      slideBg.style.backgroundImage = `linear-gradient(rgba(0,27,77,${overlay}),rgba(0,27,77,${overlay})),url('${n.imagem}')`;
+      slideBg.style.backgroundPosition = n.imagemPos || 'center';
+    }
+
+    function showSlide(n) {
+      slideBg.classList.remove('visible');
+      setTimeout(() => {
+        applySlide(n);
+        slideBg.classList.add('visible');
+      }, 400);
+    }
+
+    // Aplicar primeiro slide imediatamente
+    applySlide(noticias[0]);
+    slideBg.classList.add('visible');
+
+    if (noticias.length > 1) {
+      setInterval(() => {
+        idx = (idx + 1) % noticias.length;
+        showSlide(noticias[idx]);
+      }, speed);
+    }
+  } catch(e) {}
+})();

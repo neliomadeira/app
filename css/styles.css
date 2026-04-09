@@ -241,6 +241,19 @@ ul { list-style: none; }
   line-height: 1;
 }
 
+.hero__slide-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0;
+  transition: opacity 1.2s ease;
+  pointer-events: none;
+  z-index: 0;
+}
+.hero__slide-bg.visible { opacity: 1; }
+
 .hero__overlay {
   position: absolute;
   inset: 0;
@@ -706,6 +719,31 @@ ul { list-style: none; }
 
 .gallery__item--tall { grid-row: span 2; }
 .gallery__item--wide { grid-column: span 2; }
+
+.gallery__item--img {
+  position: relative;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  border-radius: var(--radius);
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+  cursor: pointer;
+  transition: transform var(--transition);
+}
+.gallery__item--img:hover { transform: scale(1.02); }
+.gallery__item--img .gallery__caption {
+  position: relative;
+  z-index: 2;
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 8px 12px;
+  width: 100%;
+  background: linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 100%);
+  letter-spacing: 0.5px;
+}
 
 /* ---- CONTACT ---- */
 .contact__grid {

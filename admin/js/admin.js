@@ -1641,6 +1641,7 @@ function loadPaginaInicialForm() {
   const fields = {
     cfgHeroTag: 'heroTag', cfgHeroTitle: 'heroTitle', cfgHeroDesc: 'heroDesc',
     cfgHeroImagem: 'heroImagem', cfgHeroImgPos: 'heroImgPos', cfgHeroOverlay: 'heroOverlay',
+    cfgHeroSlideSpeed: 'heroSlideSpeed',
     cfgStat1Num: 'stat1Num', cfgStat1Label: 'stat1Label',
     cfgStat2Num: 'stat2Num', cfgStat2Label: 'stat2Label',
     cfgStat3Num: 'stat3Num', cfgStat3Label: 'stat3Label',
@@ -1657,7 +1658,10 @@ function loadPaginaInicialForm() {
     const el = document.getElementById(elId);
     if (el && cfg[cfgKey] !== undefined) el.value = cfg[cfgKey];
   }
-  // Mostrar preview se já tem imagem
+  // Checkbox slideshow
+  const sl = document.getElementById('cfgHeroSlideshow');
+  if (sl) sl.checked = cfg.heroSlideshow === true || cfg.heroSlideshow === 'true';
+  // Preview imagem
   if (cfg.heroImagem) {
     const prev = document.getElementById('cfgHeroPreview');
     if (prev) { prev.style.display = ''; prev.querySelector('img').src = cfg.heroImagem; }
@@ -1669,6 +1673,7 @@ function guardarPaginaInicial() {
   const fields = {
     cfgHeroTag: 'heroTag', cfgHeroTitle: 'heroTitle', cfgHeroDesc: 'heroDesc',
     cfgHeroImagem: 'heroImagem', cfgHeroImgPos: 'heroImgPos', cfgHeroOverlay: 'heroOverlay',
+    cfgHeroSlideSpeed: 'heroSlideSpeed',
     cfgStat1Num: 'stat1Num', cfgStat1Label: 'stat1Label',
     cfgStat2Num: 'stat2Num', cfgStat2Label: 'stat2Label',
     cfgStat3Num: 'stat3Num', cfgStat3Label: 'stat3Label',
@@ -1685,6 +1690,9 @@ function guardarPaginaInicial() {
     const el = document.getElementById(elId);
     if (el) cfg[cfgKey] = el.value.trim();
   }
+  // Checkbox slideshow
+  const sl = document.getElementById('cfgHeroSlideshow');
+  if (sl) cfg.heroSlideshow = sl.checked;
   try {
     saveSiteConfig(cfg);
     showToast('✓ Alterações guardadas! Abra o site para ver as mudanças.', 'green');
@@ -1817,14 +1825,14 @@ function salvarFoto(idx) {
   if (!item.titulo) { showToast('Preencha o título', 'red'); return; }
   if (idx >= 0) DB.galeria[idx] = { ...DB.galeria[idx], ...item };
   else DB.galeria.unshift({ id: Date.now(), ...item });
-  closeModal(); renderGaleria();
+  saveDB(); closeModal(); renderGaleria();
   showToast(idx >= 0 ? 'Foto atualizada' : 'Foto adicionada', 'green');
 }
 
 function deleteFoto(idx) {
   if (!confirm('Remover esta foto?')) return;
   DB.galeria.splice(idx, 1);
-  renderGaleria();
+  saveDB(); renderGaleria();
   showToast('Foto removida', 'green');
 }
 

@@ -539,6 +539,24 @@
               <div>
                 <button type="button" class="btn btn-sm" onclick="removerHeroImagem()" style="color:#e53e3e;border-color:#e53e3e;background:none">🗑️ Remover imagem de fundo</button>
               </div>
+              <hr style="border:none;border-top:1px solid #e2e8f0;margin:4px 0">
+              <div style="background:#f0f4ff;border-radius:8px;padding:14px 16px;display:grid;gap:10px">
+                <div style="font-weight:700;font-size:13px;color:#003B8E">🎞️ Slideshow automático</div>
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px">
+                  <input type="checkbox" id="cfgHeroSlideshow" style="width:16px;height:16px" />
+                  Ativar slideshow com as imagens das últimas notícias
+                </label>
+                <small style="color:#64748b;font-size:11px;margin-top:-4px">Cicla automaticamente pelas imagens das notícias publicadas. A imagem de fundo manual é ignorada quando ativo.</small>
+                <div class="modal-field">
+                  <label class="form-label">Velocidade (segundos por imagem)</label>
+                  <select class="form-input" id="cfgHeroSlideSpeed">
+                    <option value="4000">Rápido — 4 seg</option>
+                    <option value="6000" selected>Normal — 6 seg</option>
+                    <option value="9000">Lento — 9 seg</option>
+                    <option value="12000">Muito lento — 12 seg</option>
+                  </select>
+                </div>
+              </div>
             </div>
           </div>
 

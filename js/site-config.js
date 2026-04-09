@@ -27,8 +27,8 @@
   setHtml('heroTitle', cfg.heroTitle);
   set('heroDesc', cfg.heroDesc);
 
-  // Hero background image
-  if (cfg.heroImagem) {
+  // Hero background image (ignorado se slideshow ativo — main.js trata disso)
+  if (cfg.heroImagem && !cfg.heroSlideshow) {
     const hero = document.querySelector('.hero');
     if (hero) {
       const opacity = cfg.heroOverlay !== undefined && cfg.heroOverlay !== '' ? cfg.heroOverlay : '0.7';
