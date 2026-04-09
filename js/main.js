@@ -130,4 +130,64 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // ---- CONTEÚDO DINÂMICO DO ADMIN ----
+  const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  function ptDate(str) {
+    if (!str) return '';
+    const d = new Date(str + 'T00:00:00');
+    return `${d.getDate()} de ${MESES[d.getMonth()]}, ${d.getFullYear()}`;
+  }
+
+  // Notícias
+  try {
+    const raw = localStorage.getItem('db_noticias');
+    if (raw) {
+      const lista = JSON.parse(raw).filter(n => n.publicada);
+      if (lista.length) {
+        const grid = document.getElementById('newsGrid');
+        if (grid) {
+          grid.innerHTML = lista.slice(0, 3).map((n, i) => `
+            <article class="news-card${i === 0 ? ' news-card--featured' : ''}">
+              <div class="news-card__img${n.imagem ? '' : ` news-card__img--${n.img || 1}`}"
+                   ${n.imagem ? `style="background-image:url('${n.imagem}');background-size:cover;background-position:center"` : ''}>
+                <span class="news-card__cat">${n.categoria || ''}</span>
+              </div>
+              <div class="news-card__body">
+                <time class="news-card__date">${ptDate(n.data)}</time>
+                <h3 class="news-card__title">${n.titulo}</h3>
+                ${n.resumo ? `<p class="news-card__excerpt">${n.resumo}</p>` : ''}
+                <a href="#" class="news-card__link">Ler mais &rarr;</a>
+              </div>
+            </article>`).join('');
+        }
+      }
+    }
+  } catch(e) {}
+
+  // Escalões
+  try {
+    const raw = localStorage.getItem('db_escaloes');
+    if (raw) {
+      const lista = JSON.parse(raw);
+      if (lista.length) {
+        const grid = document.getElementById('categoriesGrid');
+        if (grid) {
+          grid.innerHTML = lista.map(e => `
+            <div class="category-card${e.destaque ? ' category-card--featured' : ''}">
+              ${e.destaque ? '<div class="category-card__badge">Destaque</div>' : ''}
+              <div class="category-card__age">${e.nome}</div>
+              <h3 class="category-card__name">${e.designacao || ''}</h3>
+              <p class="category-card__age-range">${e.faixa || ''}</p>
+              ${e.descricao ? `<p class="category-card__desc">${e.descricao}</p>` : ''}
+              <ul class="category-card__list">
+                ${e.treinos ? `<li>${e.treinos}</li>` : ''}
+                ${e.treinador ? `<li>Treinador: ${e.treinador}</li>` : ''}
+                ${e.atletas ? `<li>${e.atletas} atletas inscritos</li>` : ''}
+              </ul>
+            </div>`).join('');
+        }
+      }
+    }
+  } catch(e) {}
+
 });

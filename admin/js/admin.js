@@ -589,7 +589,7 @@ window.saveNoticia = function(id) {
     if (n) Object.assign(n, dados);
     showToast('Notícia actualizada!', 'green');
   }
-  renderNoticias(); closeModal();
+  saveDB(); renderNoticias(); closeModal();
 };
 
 // manter retrocompatibilidade
@@ -605,7 +605,7 @@ window.removeNoticia = function (id) {
   if (!confirm('Eliminar esta notícia?')) return;
   const idx = DB.noticias.findIndex(x => x.id === id);
   if (idx > -1) DB.noticias.splice(idx, 1);
-  renderNoticias();
+  saveDB(); renderNoticias();
   showToast('Notícia eliminada.', 'red');
 };
 
@@ -755,14 +755,14 @@ window.salvarEscalao = function(idx) {
   if (!dados.nome) { showToast('Preencha o nome', 'red'); return; }
   if (idx >= 0) DB.escaloes[idx] = { ...DB.escaloes[idx], ...dados };
   else DB.escaloes.push({ id: Date.now(), ...dados });
-  renderEscaloes(); closeModal();
+  saveDB(); renderEscaloes(); closeModal();
   showToast(idx >= 0 ? 'Categoria atualizada!' : 'Categoria adicionada!', 'green');
 };
 
 window.deleteEscalao = function(idx) {
   if (!confirm('Eliminar esta categoria?')) return;
   DB.escaloes.splice(idx, 1);
-  renderEscaloes();
+  saveDB(); renderEscaloes();
   showToast('Categoria eliminada', 'red');
 };
 

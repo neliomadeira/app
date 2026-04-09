@@ -105,3 +105,21 @@ const DB = {
     { id:6, titulo:'Festa de Encerramento',       tipo:'Outro',   escalao:'Todos',  data:'2026-06-15', hora:'18:00', local:'Pavilhão Municipal',     descricao:'Festa de fim de época',            estado:'Agendado'  },
   ],
 };
+
+// Persistência no localStorage
+window.saveDB = function() {
+  try {
+    localStorage.setItem('db_noticias', JSON.stringify(DB.noticias));
+    localStorage.setItem('db_escaloes', JSON.stringify(DB.escaloes));
+  } catch(e) {}
+};
+
+// Carregar dados guardados (substituir mock se existirem dados guardados)
+(function() {
+  try {
+    const n = localStorage.getItem('db_noticias');
+    const e = localStorage.getItem('db_escaloes');
+    if (n) DB.noticias = JSON.parse(n);
+    if (e) DB.escaloes = JSON.parse(e);
+  } catch(e) {}
+})();
