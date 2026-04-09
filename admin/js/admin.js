@@ -1182,6 +1182,7 @@ window.saveNovoPatrocinador = function () {
     website: document.getElementById('mPWebsite').value,
     ativo:   true,
   });
+  saveDB();
   renderPatrocinadores();
   closeModal();
   showToast('Patrocinador adicionado!', 'green');
@@ -1222,6 +1223,7 @@ window.saveEditPatrocinador = function (id) {
   p.tier    = document.getElementById('mPTier').value;
   p.desde   = String(document.getElementById('mPDesde').value);
   p.website = document.getElementById('mPWebsite').value;
+  saveDB();
   renderPatrocinadores();
   closeModal();
   showToast('Patrocinador actualizado!', 'green');
@@ -1231,6 +1233,7 @@ window.togglePatrocinador = function (id) {
   const p = DB.patrocinadores.find(x => x.id === id);
   if (!p) return;
   p.ativo = !p.ativo;
+  saveDB();
   renderPatrocinadores();
   showToast(p.ativo ? 'Patrocinador activado.' : 'Patrocinador desactivado.', p.ativo ? 'green' : '');
 };
@@ -1239,6 +1242,7 @@ window.removePatrocinador = function (id) {
   if (!confirm('Eliminar este patrocinador?')) return;
   const idx = DB.patrocinadores.findIndex(x => x.id === id);
   if (idx > -1) DB.patrocinadores.splice(idx, 1);
+  saveDB();
   renderPatrocinadores();
   showToast('Patrocinador eliminado.', 'red');
 };
@@ -1868,7 +1872,7 @@ function renderTreinadores() {
 }
 
 function editTreinador(idx) {
-  const t = idx >= 0 ? DB.treinadores[idx] : { nome:'', cargo:'', escalao:'Todos', telefone:'', email:'', desde:'2026', ativo:true };
+  const t = idx >= 0 ? DB.treinadores[idx] : { nome:'', cargo:'', escalao:'Todos', telefone:'', email:'', desde:'2026', ativo:true, foto:'' };
   openModal(idx >= 0 ? 'Editar Membro' : 'Novo Membro', `
     <div class="modal-row">
       <div class="modal-field"><label>Nome completo</label>
@@ -1890,28 +1894,39 @@ function editTreinador(idx) {
       <div class="modal-field"><label>E-mail</label>
         <input class="form-input" id="mTEmail" value="${t.email}" /></div>
     </div>
+    <div class="modal-field"><label>Foto (URL ou upload)</label>
+      <input class="form-input" type="text" id="mTFoto" value="${t.foto||''}" placeholder="https://... ou carregar ficheiro" />
+      <input type="file" id="mTFotoFile" accept="image/*" style="display:none" />
+      <button type="button" class="btn-sm" style="margin-top:6px" onclick="document.getElementById('mTFotoFile').click()">&#128190; Carregar foto</button>
+      <div id="mTFotoPreview" style="${t.foto?'':'display:none'};margin-top:8px">
+        <img src="${t.foto||''}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:3px solid #003B8E" />
+      </div>
+    </div>
     <div class="modal-field"><label>Estado</label>
       <select class="form-input" id="mTAtivo">
         <option value="1" ${t.ativo?'selected':''}>Activo</option>
         <option value="0" ${!t.ativo?'selected':''}>Inactivo</option>
       </select></div>
-  `, `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="salvarTreinador(${idx})">Guardar</button>`);
+  `, `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn-save" onclick="salvarTreinador(${idx})">Guardar</button>`);
+  setupImageUpload('mTFotoFile', 'mTFoto', 'mTFotoPreview');
 }
 
 function salvarTreinador(idx) {
   const item = {
-    nome: document.getElementById('mTNome').value.trim(),
-    cargo: document.getElementById('mTCargo').value.trim(),
-    escalao: document.getElementById('mTEscalao').value,
-    desde: document.getElementById('mTDesde').value.trim(),
+    nome:     document.getElementById('mTNome').value.trim(),
+    cargo:    document.getElementById('mTCargo').value.trim(),
+    escalao:  document.getElementById('mTEscalao').value,
+    desde:    document.getElementById('mTDesde').value.trim(),
     telefone: document.getElementById('mTTel').value.trim(),
-    email: document.getElementById('mTEmail').value.trim(),
-    ativo: document.getElementById('mTAtivo').value === '1',
+    email:    document.getElementById('mTEmail').value.trim(),
+    foto:     document.getElementById('mTFoto').value.trim(),
+    ativo:    document.getElementById('mTAtivo').value === '1',
   };
   if (!item.nome) { showToast('Preencha o nome', 'red'); return; }
   if (idx >= 0) DB.treinadores[idx] = { ...DB.treinadores[idx], ...item };
   else DB.treinadores.unshift({ id: Date.now(), ...item });
+  saveDB();
   closeModal(); renderTreinadores();
   showToast(idx >= 0 ? 'Membro atualizado' : 'Membro adicionado', 'green');
 }
@@ -1919,6 +1934,7 @@ function salvarTreinador(idx) {
 function deleteTreinador(idx) {
   if (!confirm('Remover este membro?')) return;
   DB.treinadores.splice(idx, 1);
+  saveDB();
   renderTreinadores();
   showToast('Membro removido', 'green');
 }
@@ -2009,6 +2025,7 @@ function salvarEvento(idx) {
   if (!item.titulo || !item.data) { showToast('Preencha título e data', 'red'); return; }
   if (idx >= 0) DB.agenda[idx] = { ...DB.agenda[idx], ...item };
   else DB.agenda.unshift({ id: Date.now(), ...item });
+  saveDB();
   closeModal(); renderAgenda();
   showToast(idx >= 0 ? 'Evento atualizado' : 'Evento adicionado', 'green');
 }
@@ -2016,6 +2033,7 @@ function salvarEvento(idx) {
 function deleteEvento(idx) {
   if (!confirm('Remover este evento?')) return;
   DB.agenda.splice(idx, 1);
+  saveDB();
   renderAgenda();
   showToast('Evento removido', 'green');
 }
@@ -2109,10 +2127,12 @@ function exportarDados() {
     escaloes:     DB.escaloes,
     jogos:        DB.jogos,
     patrocinadores: DB.patrocinadores,
-    galeria:      DB.galeria,
-    treinadores:  DB.treinadores,
-    agenda:       DB.agenda,
-    siteConfig:   JSON.parse(localStorage.getItem('site_config') || '{}'),
+    galeria:        DB.galeria,
+    treinadores:    DB.treinadores,
+    agenda:         DB.agenda,
+    modalidades:    DB.modalidades,
+    patrocinadores: DB.patrocinadores,
+    siteConfig:     JSON.parse(localStorage.getItem('site_config') || '{}'),
   };
   const blob = new Blob([JSON.stringify(dados, null, 2)], { type: 'application/json' });
   const a    = document.createElement('a');
@@ -2142,6 +2162,8 @@ function processarImportBackup(e) {
       if (dados.galeria)        DB.galeria        = dados.galeria;
       if (dados.treinadores)    DB.treinadores    = dados.treinadores;
       if (dados.agenda)         DB.agenda         = dados.agenda;
+      if (dados.modalidades)    DB.modalidades    = dados.modalidades;
+      if (dados.patrocinadores) DB.patrocinadores = dados.patrocinadores;
       if (dados.siteConfig)     localStorage.setItem('site_config', JSON.stringify(dados.siteConfig));
       showToast('✓ Backup importado com sucesso! Recarregue a página.', 'green');
     } catch {

@@ -190,6 +190,93 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   } catch(e) {}
 
+  // Agenda pública
+  try {
+    const raw = localStorage.getItem('db_agenda');
+    if (raw) {
+      const MESES_CURTOS = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
+      const TIPO_CLS = { Jogo:'jogo', Torneio:'torneio', Treino:'treino', 'Reunião':'reuniao', Outro:'outro' };
+      const hoje = new Date(); hoje.setHours(0,0,0,0);
+      const lista = JSON.parse(raw)
+        .filter(e => new Date(e.data + 'T00:00:00') >= hoje)
+        .sort((a,b) => new Date(a.data) - new Date(b.data))
+        .slice(0, 6);
+      if (lista.length) {
+        const grid = document.getElementById('agendaPublicGrid');
+        if (grid) {
+          grid.innerHTML = lista.map(e => {
+            const d = new Date(e.data + 'T00:00:00');
+            const cls = TIPO_CLS[e.tipo] || 'outro';
+            return `<div class="agenda-card">
+              <div class="agenda-card__date-box">
+                <span class="agenda-card__day">${d.getDate()}</span>
+                <span class="agenda-card__month">${MESES_CURTOS[d.getMonth()]}</span>
+              </div>
+              <div class="agenda-card__body">
+                <span class="agenda-card__tipo agenda-card__tipo--${cls}">${e.tipo}</span>
+                <h4 class="agenda-card__title">${e.titulo}</h4>
+                <p class="agenda-card__meta">&#128337; ${e.hora} &nbsp;·&nbsp; &#128205; ${e.local}</p>
+                ${e.escalao && e.escalao !== 'Todos' ? `<p class="agenda-card__meta">&#127942; ${e.escalao}</p>` : ''}
+              </div>
+            </div>`;
+          }).join('');
+        }
+      }
+    }
+  } catch(e) {}
+
+  // Treinadores públicos
+  try {
+    const raw = localStorage.getItem('db_treinadores');
+    if (raw) {
+      const lista = JSON.parse(raw).filter(t => t.ativo !== false);
+      if (lista.length) {
+        const grid = document.getElementById('treinadoresPublicGrid');
+        if (grid) {
+          grid.innerHTML = lista.map(t => {
+            const initials = t.nome.split(' ').slice(0,2).map(p => p[0]).join('').toUpperCase();
+            const bgStyle = t.foto ? `style="background-image:url('${t.foto}');background-size:cover;background-position:center;font-size:0"` : '';
+            return `<div class="staff-card">
+              <div class="staff-card__avatar" ${bgStyle}>${t.foto ? '' : initials}</div>
+              <div class="staff-card__body">
+                <h3 class="staff-card__name">${t.nome}</h3>
+                <span class="staff-card__role">${t.cargo}</span>
+                <span class="staff-card__team">${t.escalao}</span>
+              </div>
+            </div>`;
+          }).join('');
+        }
+      }
+    }
+  } catch(e) {}
+
+  // Patrocinadores dinâmicos
+  try {
+    const raw = localStorage.getItem('db_patrocinadores');
+    if (raw) {
+      const lista = JSON.parse(raw).filter(p => p.ativo);
+      if (lista.length) {
+        const tiers = ['Ouro','Prata','Bronze'];
+        tiers.forEach(tier => {
+          const grupo = lista.filter(p => p.tier === tier);
+          const row = document.getElementById(`sponsorsRow${tier}`);
+          if (row && grupo.length) {
+            row.innerHTML = grupo.map(p => {
+              const logo = p.logo
+                ? `<div class="sponsor-card__logo" style="background-image:url('${p.logo}');background-size:contain;background-repeat:no-repeat;background-position:center"></div>`
+                : `<div class="sponsor-card__logo">${p.nome}</div>`;
+              const link = p.website ? `href="${p.website}" target="_blank" rel="noopener"` : '';
+              return `<a class="sponsor-card sponsor-card--${tier.toLowerCase()}" ${link} style="${link?'cursor:pointer':''}">
+                ${logo}
+                <span class="sponsor-card__name">${p.sector || ''}</span>
+              </a>`;
+            }).join('');
+          }
+        });
+      }
+    }
+  } catch(e) {}
+
   // Modalidades
   try {
     const raw = localStorage.getItem('db_modalidades');

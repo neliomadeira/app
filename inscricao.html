@@ -76,9 +76,39 @@
       <main class="insc-form-wrap">
         <form class="insc-form" id="inscForm">
 
+          <!-- PASSO 1: MODALIDADE -->
           <div class="insc-form__section">
             <h2 class="insc-form__section-title">
-              <span class="insc-step">1</span> Dados do Atleta
+              <span class="insc-step">1</span> Escolha a Modalidade
+            </h2>
+            <div class="modality-picker" id="modalidadePicker">
+              <label class="modality-pick modality-pick--active">
+                <input type="radio" name="modalidade" value="Futebol" checked />
+                <span class="modality-pick__icon">⚽</span>
+                <span class="modality-pick__name">Futebol</span>
+              </label>
+              <label class="modality-pick">
+                <input type="radio" name="modalidade" value="Futsal" />
+                <span class="modality-pick__icon">🏟️</span>
+                <span class="modality-pick__name">Futsal</span>
+              </label>
+              <label class="modality-pick">
+                <input type="radio" name="modalidade" value="Kickboxing" />
+                <span class="modality-pick__icon">🥊</span>
+                <span class="modality-pick__name">Kickboxing</span>
+              </label>
+              <label class="modality-pick">
+                <input type="radio" name="modalidade" value="Judo" />
+                <span class="modality-pick__icon">🥋</span>
+                <span class="modality-pick__name">Judo</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- PASSO 2: DADOS DO ATLETA -->
+          <div class="insc-form__section">
+            <h2 class="insc-form__section-title">
+              <span class="insc-step">2</span> Dados do Atleta
             </h2>
             <div class="form-row">
               <div class="form-group">
@@ -95,9 +125,10 @@
                 <label for="nifAtleta">NIF do atleta</label>
                 <input type="text" id="nifAtleta" name="nifAtleta" placeholder="000 000 000" maxlength="11" />
               </div>
-              <div class="form-group">
+              <!-- Escalão (futebol/futsal) -->
+              <div class="form-group" id="grpCategoria">
                 <label for="categoria">Escalão desejado *</label>
-                <select id="categoria" name="categoria" required>
+                <select id="categoria" name="categoria">
                   <option value="">Selecione...</option>
                   <option value="sub9">Sub-9 (7 a 9 anos)</option>
                   <option value="sub11">Sub-11 (10 a 11 anos)</option>
@@ -107,8 +138,20 @@
                   <option value="sub19">Sub-19 (18 a 19 anos)</option>
                 </select>
               </div>
+              <!-- Nível (artes marciais) -->
+              <div class="form-group" id="grpNivel" style="display:none">
+                <label for="nivel">Nível de experiência</label>
+                <select id="nivel" name="nivel">
+                  <option value="">Selecione...</option>
+                  <option value="iniciante">Iniciante — sem experiência prévia</option>
+                  <option value="basico">Básico — menos de 1 ano</option>
+                  <option value="intermedio">Intermédio — 1 a 3 anos</option>
+                  <option value="avancado">Avançado — mais de 3 anos</option>
+                </select>
+              </div>
             </div>
-            <div class="form-row">
+            <!-- Campos específicos futebol -->
+            <div class="form-row" id="grpFutebol">
               <div class="form-group">
                 <label for="posicao">Posição</label>
                 <select id="posicao" name="posicao">
@@ -151,7 +194,7 @@
 
           <div class="insc-form__section">
             <h2 class="insc-form__section-title">
-              <span class="insc-step">2</span> Dados do Encarregado de Educação
+              <span class="insc-step">3</span> Dados do Encarregado de Educação
             </h2>
             <p class="insc-form__note">Obrigatório para atletas menores de 18 anos.</p>
             <div class="form-row">
@@ -185,7 +228,7 @@
 
           <div class="insc-form__section">
             <h2 class="insc-form__section-title">
-              <span class="insc-step">3</span> Morada
+              <span class="insc-step">4</span> Morada
             </h2>
             <div class="form-row">
               <div class="form-group">

@@ -25,6 +25,7 @@
           <li><a href="#sobre" class="nav__link">Sobre</a></li>
           <li><a href="#categorias" class="nav__link">Categorias</a></li>
           <li><a href="#modalidades" class="nav__link">Modalidades</a></li>
+          <li><a href="#agenda" class="nav__link">Agenda</a></li>
           <li><a href="#noticias" class="nav__link">Notícias</a></li>
           <li><a href="#galeria" class="nav__link">Galeria</a></li>
           <li><a href="resultados.html" class="nav__link">Resultados</a></li>
@@ -260,6 +261,63 @@
     </div>
   </section>
 
+  <!-- AGENDA -->
+  <section class="section section--dark" id="agenda">
+    <div class="container">
+      <div class="section__header section__header--light">
+        <span class="section__tag">Próximos eventos</span>
+        <h2 class="section__title">Agenda</h2>
+      </div>
+      <div class="agenda__grid" id="agendaPublicGrid">
+        <!-- rendered by main.js or default below -->
+        <div class="agenda-card agenda-card--default">
+          <div class="agenda-card__date-box">
+            <span class="agenda-card__day">12</span>
+            <span class="agenda-card__month">ABR</span>
+          </div>
+          <div class="agenda-card__body">
+            <span class="agenda-card__tipo agenda-card__tipo--jogo">Jogo</span>
+            <h4 class="agenda-card__title">Jogo Sub-17 vs FC Tavira</h4>
+            <p class="agenda-card__meta">&#128337; 15:00 &nbsp;·&nbsp; &#128205; Est. Municipal Loulé</p>
+          </div>
+        </div>
+        <div class="agenda-card agenda-card--default">
+          <div class="agenda-card__date-box">
+            <span class="agenda-card__day">13</span>
+            <span class="agenda-card__month">ABR</span>
+          </div>
+          <div class="agenda-card__body">
+            <span class="agenda-card__tipo agenda-card__tipo--torneio">Torneio</span>
+            <h4 class="agenda-card__title">Torneio Primavera Sub-9</h4>
+            <p class="agenda-card__meta">&#128337; 09:00 &nbsp;·&nbsp; &#128205; Campo Sintético Loulé</p>
+          </div>
+        </div>
+        <div class="agenda-card agenda-card--default">
+          <div class="agenda-card__date-box">
+            <span class="agenda-card__day">15</span>
+            <span class="agenda-card__month">ABR</span>
+          </div>
+          <div class="agenda-card__body">
+            <span class="agenda-card__tipo agenda-card__tipo--reuniao">Reunião</span>
+            <h4 class="agenda-card__title">Reunião de Pais Sub-13</h4>
+            <p class="agenda-card__meta">&#128337; 19:00 &nbsp;·&nbsp; &#128205; Sede do Clube</p>
+          </div>
+        </div>
+        <div class="agenda-card agenda-card--default">
+          <div class="agenda-card__date-box">
+            <span class="agenda-card__day">11</span>
+            <span class="agenda-card__month">ABR</span>
+          </div>
+          <div class="agenda-card__body">
+            <span class="agenda-card__tipo agenda-card__tipo--jogo">Jogo</span>
+            <h4 class="agenda-card__title">Jogo Sub-19 vs Portimonense</h4>
+            <p class="agenda-card__meta">&#128337; 17:00 &nbsp;·&nbsp; &#128205; Est. Municipal Loulé</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- NOTICIAS -->
   <section class="section" id="noticias">
     <div class="container">
@@ -327,6 +385,50 @@
         </div>
         <div class="gallery__item gallery__item--wide gallery-placeholder">
           <span>Equipa Sub-19 – Campeão Distrital 2025</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TREINADORES -->
+  <section class="section" id="treinadores">
+    <div class="container">
+      <div class="section__header">
+        <span class="section__tag">A nossa equipa</span>
+        <h2 class="section__title">Treinadores &amp; Staff</h2>
+      </div>
+      <div class="staff__grid" id="treinadoresPublicGrid">
+        <div class="staff-card">
+          <div class="staff-card__avatar">CM</div>
+          <div class="staff-card__body">
+            <h3 class="staff-card__name">Carlos Mendes</h3>
+            <span class="staff-card__role">Director Técnico</span>
+            <span class="staff-card__team">Todos os escalões</span>
+          </div>
+        </div>
+        <div class="staff-card">
+          <div class="staff-card__avatar">JS</div>
+          <div class="staff-card__body">
+            <h3 class="staff-card__name">João Silva</h3>
+            <span class="staff-card__role">Treinador Principal</span>
+            <span class="staff-card__team">Sub-17</span>
+          </div>
+        </div>
+        <div class="staff-card">
+          <div class="staff-card__avatar">PA</div>
+          <div class="staff-card__body">
+            <h3 class="staff-card__name">Pedro Alves</h3>
+            <span class="staff-card__role">Treinador Principal</span>
+            <span class="staff-card__team">Sub-15</span>
+          </div>
+        </div>
+        <div class="staff-card">
+          <div class="staff-card__avatar">AR</div>
+          <div class="staff-card__body">
+            <h3 class="staff-card__name">Ana Rodrigues</h3>
+            <span class="staff-card__role">Preparadora Física</span>
+            <span class="staff-card__team">Todos os escalões</span>
+          </div>
         </div>
       </div>
     </div>
@@ -448,7 +550,7 @@
         <div class="sponsors-tier__label sponsors-tier__label--ouro">
           <span>&#9733; Ouro</span>
         </div>
-        <div class="sponsors-row sponsors-row--ouro">
+        <div class="sponsors-row sponsors-row--ouro" id="sponsorsRowOuro">
           <div class="sponsor-card sponsor-card--ouro">
             <div class="sponsor-card__logo">EMPRESA OURO 1</div>
             <span class="sponsor-card__name">Parceiro Principal</span>
@@ -464,7 +566,7 @@
         <div class="sponsors-tier__label sponsors-tier__label--prata">
           <span>&#9733; Prata</span>
         </div>
-        <div class="sponsors-row sponsors-row--prata">
+        <div class="sponsors-row sponsors-row--prata" id="sponsorsRowPrata">
           <div class="sponsor-card sponsor-card--prata">
             <div class="sponsor-card__logo">EMPRESA PRATA 1</div>
             <span class="sponsor-card__name">Apoiante</span>
@@ -484,7 +586,7 @@
         <div class="sponsors-tier__label sponsors-tier__label--bronze">
           <span>&#9733; Bronze</span>
         </div>
-        <div class="sponsors-row sponsors-row--bronze">
+        <div class="sponsors-row sponsors-row--bronze" id="sponsorsRowBronze">
           <div class="sponsor-card sponsor-card--bronze">
             <div class="sponsor-card__logo">EMPRESA B1</div>
           </div>

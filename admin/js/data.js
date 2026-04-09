@@ -115,10 +115,13 @@ const DB = {
 // Persistência no localStorage
 window.saveDB = function() {
   try {
-    localStorage.setItem('db_noticias',    JSON.stringify(DB.noticias));
-    localStorage.setItem('db_escaloes',    JSON.stringify(DB.escaloes));
-    localStorage.setItem('db_galeria',     JSON.stringify(DB.galeria));
-    localStorage.setItem('db_modalidades', JSON.stringify(DB.modalidades));
+    localStorage.setItem('db_noticias',      JSON.stringify(DB.noticias));
+    localStorage.setItem('db_escaloes',      JSON.stringify(DB.escaloes));
+    localStorage.setItem('db_galeria',       JSON.stringify(DB.galeria));
+    localStorage.setItem('db_modalidades',   JSON.stringify(DB.modalidades));
+    localStorage.setItem('db_agenda',        JSON.stringify(DB.agenda));
+    localStorage.setItem('db_patrocinadores',JSON.stringify(DB.patrocinadores));
+    localStorage.setItem('db_treinadores',   JSON.stringify(DB.treinadores));
   } catch(e) {}
 };
 
@@ -129,9 +132,15 @@ window.saveDB = function() {
     const e = localStorage.getItem('db_escaloes');
     const g = localStorage.getItem('db_galeria');
     const m = localStorage.getItem('db_modalidades');
-    if (n) DB.noticias    = JSON.parse(n);
-    if (e) DB.escaloes    = JSON.parse(e);
-    if (g) DB.galeria     = JSON.parse(g);
-    if (m) DB.modalidades = JSON.parse(m);
+    const a = localStorage.getItem('db_agenda');
+    const p = localStorage.getItem('db_patrocinadores');
+    const t = localStorage.getItem('db_treinadores');
+    if (n) DB.noticias       = JSON.parse(n);
+    if (e) DB.escaloes       = JSON.parse(e);
+    if (g) DB.galeria        = JSON.parse(g);
+    if (m) DB.modalidades    = JSON.parse(m);
+    if (a) DB.agenda         = JSON.parse(a);
+    if (p) DB.patrocinadores = JSON.parse(p);
+    if (t) DB.treinadores    = JSON.parse(t);
   } catch(e) {}
 })();
