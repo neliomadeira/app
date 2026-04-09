@@ -162,7 +162,7 @@ function goToPage(name) {
     jogos: 'Jogos', patrocinadores: 'Patrocinadores', facebook: 'Facebook',
     'pagina-inicial': 'Página Inicial',
     galeria: 'Galeria', treinadores: 'Treinadores & Staff',
-    agenda: 'Agenda & Eventos', configuracoes: 'Configurações',
+    agenda: 'Agenda & Eventos', modalidades: 'Modalidades', configuracoes: 'Configurações',
   };
   document.getElementById('topbarTitle').textContent = titles[name] || name;
   document.getElementById('sidebar').classList.remove('open');
@@ -172,6 +172,7 @@ function goToPage(name) {
   if (name === 'galeria') initGaleria();
   if (name === 'treinadores') initTreinadores();
   if (name === 'agenda') initAgenda();
+  if (name === 'modalidades') initModalidades();
   if (name === 'configuracoes') initConfiguracoes();
 }
 
@@ -259,9 +260,10 @@ function initAdmin() {
   renderPatrocinadores();
 
   // novos módulos — inicialização silenciosa para o dashboard funcionar
-  if (typeof renderGaleria === 'function')    renderGaleria();
-  if (typeof renderTreinadores === 'function') renderTreinadores();
-  if (typeof renderAgenda === 'function')     renderAgenda();
+  if (typeof renderGaleria === 'function')      renderGaleria();
+  if (typeof renderTreinadores === 'function')  renderTreinadores();
+  if (typeof renderAgenda === 'function')       renderAgenda();
+  if (typeof renderModalidades === 'function')  renderModalidades();
 
   // Date
   document.getElementById('pageDate').textContent =
@@ -2147,4 +2149,127 @@ function processarImportBackup(e) {
     }
   };
   reader.readAsText(file);
+}
+
+// =============================================
+// MODALIDADES
+// =============================================
+
+function initModalidades() {
+  renderModalidades();
+  document.getElementById('btnNovaModalidade')?.addEventListener('click', () => editModalidade(-1));
+}
+
+function renderModalidades() {
+  const tbody = document.querySelector('#modalidadesTable tbody');
+  if (!tbody) return;
+  const lista = DB.modalidades || [];
+  if (!lista.length) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#999;padding:32px">Sem modalidades. Clique em "+ Nova Modalidade" para adicionar.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = lista.map((m, i) => `
+    <tr>
+      <td style="font-size:1.5rem;text-align:center">${m.icone || '🏅'}</td>
+      <td><strong>${m.nome}</strong></td>
+      <td style="font-size:0.85rem">${m.treinos || '—'}</td>
+      <td style="font-size:0.85rem">${m.local || '—'}</td>
+      <td style="font-size:0.85rem">${m.responsavel || '—'}</td>
+      <td>${m.ativo !== false ? '<span class="status status--aprovado">Ativa</span>' : '<span class="status status--rejeitado">Inativa</span>'}</td>
+      <td>
+        <button class="btn-sm" onclick="editModalidade(${i})">Editar</button>
+        <button class="btn-sm btn-sm--danger" onclick="deleteModalidade(${i})">Remover</button>
+      </td>
+    </tr>`).join('');
+}
+
+function editModalidade(idx) {
+  const m = idx >= 0 ? DB.modalidades[idx] : { nome:'', icone:'🏅', descricao:'', treinos:'', local:'', responsavel:'', ativo:true, imagem:'', imagemPos:'center' };
+  openModal(
+    idx >= 0 ? 'Editar Modalidade' : 'Nova Modalidade',
+    `<div style="display:grid;gap:14px">
+      <div class="modal-field">
+        <label class="form-label">Nome da modalidade</label>
+        <input class="form-input" type="text" id="mNome" value="${m.nome}" placeholder="Ex: Kickboxing, Judo, Natação..." />
+      </div>
+      <div class="modal-field">
+        <label class="form-label">Ícone (emoji)</label>
+        <input class="form-input" type="text" id="mIcone" value="${m.icone || '🏅'}" placeholder="🥊" style="font-size:1.3rem" />
+      </div>
+      <div class="modal-field">
+        <label class="form-label">Descrição</label>
+        <textarea class="form-input" id="mDesc" rows="3" placeholder="Breve descrição da modalidade...">${m.descricao || ''}</textarea>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="modal-field">
+          <label class="form-label">Horários de treino</label>
+          <input class="form-input" type="text" id="mTreinos" value="${m.treinos || ''}" placeholder="3ª e 5ª — 19h00" />
+        </div>
+        <div class="modal-field">
+          <label class="form-label">Local</label>
+          <input class="form-input" type="text" id="mLocal" value="${m.local || ''}" placeholder="Pavilhão Municipal" />
+        </div>
+      </div>
+      <div class="modal-field">
+        <label class="form-label">Responsável / Treinador</label>
+        <input class="form-input" type="text" id="mResponsavel" value="${m.responsavel || ''}" placeholder="Nome do responsável" />
+      </div>
+      <div class="modal-field">
+        <label class="form-label">Imagem de fundo (URL ou upload)</label>
+        <input class="form-input" type="text" id="mImagem" value="${m.imagem || ''}" placeholder="https://..." />
+        <input type="file" id="mFicheiro" accept="image/*" style="display:none" />
+        <button type="button" class="btn-sm" style="margin-top:6px" onclick="document.getElementById('mFicheiro').click()">&#128190; Carregar imagem</button>
+        <div id="mPreview" style="${m.imagem ? '' : 'display:none'};margin-top:8px;position:relative;display:${m.imagem?'':'none'}">
+          <img src="${m.imagem || ''}" style="max-height:100px;border-radius:6px;object-fit:cover" />
+          <button type="button" class="btn-sm btn-sm--danger" style="margin-left:8px;vertical-align:top" onclick="document.getElementById('mImagem').value='';document.getElementById('mPreview').style.display='none'">Remover</button>
+        </div>
+      </div>
+      <div class="modal-field">
+        <label class="form-label">Posição da imagem</label>
+        <select class="form-input" id="mImgPos">
+          <option value="center" ${(m.imagemPos||'center')==='center'?'selected':''}>Centro</option>
+          <option value="top" ${m.imagemPos==='top'?'selected':''}>Topo</option>
+          <option value="bottom" ${m.imagemPos==='bottom'?'selected':''}>Base</option>
+        </select>
+      </div>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px">
+        <input type="checkbox" id="mAtivo" ${m.ativo !== false ? 'checked' : ''} style="width:16px;height:16px" />
+        Modalidade ativa (visível no site)
+      </label>
+    </div>`,
+    `<button class="btn-save" onclick="saveModalidade(${idx})">Guardar</button>
+     <button class="btn-cancel" onclick="closeModal()">Cancelar</button>`
+  );
+  setupImageUpload('mFicheiro', 'mImagem', 'mPreview');
+}
+
+function saveModalidade(idx) {
+  const nome = document.getElementById('mNome').value.trim();
+  if (!nome) { showToast('Introduza o nome da modalidade', 'red'); return; }
+  const obj = {
+    id:           idx >= 0 ? DB.modalidades[idx].id : (Date.now()),
+    nome,
+    icone:        document.getElementById('mIcone').value.trim() || '🏅',
+    descricao:    document.getElementById('mDesc').value.trim(),
+    treinos:      document.getElementById('mTreinos').value.trim(),
+    local:        document.getElementById('mLocal').value.trim(),
+    responsavel:  document.getElementById('mResponsavel').value.trim(),
+    imagem:       document.getElementById('mImagem').value.trim(),
+    imagemPos:    document.getElementById('mImgPos').value,
+    ativo:        document.getElementById('mAtivo').checked,
+  };
+  if (idx >= 0) DB.modalidades[idx] = obj;
+  else DB.modalidades.push(obj);
+  saveDB();
+  closeModal();
+  renderModalidades();
+  showToast(idx >= 0 ? 'Modalidade atualizada' : 'Modalidade adicionada', 'green');
+}
+
+function deleteModalidade(idx) {
+  if (!confirm('Remover esta modalidade?')) return;
+  DB.modalidades.splice(idx, 1);
+  saveDB();
+  renderModalidades();
+  showToast('Modalidade removida', 'green');
 }

@@ -104,14 +104,21 @@ const DB = {
     { id:5, titulo:'Jogo Sub-19 vs Portimonense', tipo:'Jogo',    escalao:'Sub-19', data:'2026-04-11', hora:'17:00', local:'Est. Municipal Loulé',  descricao:'Liga Nacional Juvenis',            estado:'Agendado'  },
     { id:6, titulo:'Festa de Encerramento',       tipo:'Outro',   escalao:'Todos',  data:'2026-06-15', hora:'18:00', local:'Pavilhão Municipal',     descricao:'Festa de fim de época',            estado:'Agendado'  },
   ],
+
+  modalidades: [
+    { id:1, nome:'Kickboxing', icone:'🥊', descricao:'Artes marciais de impacto que combinam técnicas de boxe e karaté. Aberto a todas as idades e níveis, com grupos adaptados.', treinos:'3ª e 5ª — 19h00', responsavel:'', local:'Pavilhão Municipal de Loulé', ativo:true, imagem:'', imagemPos:'center' },
+    { id:2, nome:'Judo',       icone:'🥋', descricao:'Arte marcial japonesa focada em técnicas de projeção e imobilização. Desenvolve disciplina, respeito e autoconfiança desde criança.', treinos:'2ª, 4ª e 6ª — 18h30', responsavel:'', local:'Pavilhão Municipal de Loulé', ativo:true, imagem:'', imagemPos:'center' },
+    { id:3, nome:'Futsal',     icone:'⚽', descricao:'Futebol em espaço reduzido que potencia a técnica e velocidade de decisão. Escalões de formação com competição distrital.', treinos:'2ª e 4ª — 20h00', responsavel:'', local:'Pavilhão Desportivo de Loulé', ativo:true, imagem:'', imagemPos:'center' },
+  ],
 };
 
 // Persistência no localStorage
 window.saveDB = function() {
   try {
-    localStorage.setItem('db_noticias', JSON.stringify(DB.noticias));
-    localStorage.setItem('db_escaloes', JSON.stringify(DB.escaloes));
-    localStorage.setItem('db_galeria',  JSON.stringify(DB.galeria));
+    localStorage.setItem('db_noticias',    JSON.stringify(DB.noticias));
+    localStorage.setItem('db_escaloes',    JSON.stringify(DB.escaloes));
+    localStorage.setItem('db_galeria',     JSON.stringify(DB.galeria));
+    localStorage.setItem('db_modalidades', JSON.stringify(DB.modalidades));
   } catch(e) {}
 };
 
@@ -121,8 +128,10 @@ window.saveDB = function() {
     const n = localStorage.getItem('db_noticias');
     const e = localStorage.getItem('db_escaloes');
     const g = localStorage.getItem('db_galeria');
-    if (n) DB.noticias = JSON.parse(n);
-    if (e) DB.escaloes = JSON.parse(e);
-    if (g) DB.galeria  = JSON.parse(g);
+    const m = localStorage.getItem('db_modalidades');
+    if (n) DB.noticias    = JSON.parse(n);
+    if (e) DB.escaloes    = JSON.parse(e);
+    if (g) DB.galeria     = JSON.parse(g);
+    if (m) DB.modalidades = JSON.parse(m);
   } catch(e) {}
 })();

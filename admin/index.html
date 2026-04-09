@@ -85,6 +85,9 @@
         <a href="#" class="nav-item" data-page="agenda">
           <span class="nav-icon">&#128336;</span> Agenda
         </a>
+        <a href="#" class="nav-item" data-page="modalidades">
+          <span class="nav-icon">&#127948;</span> Modalidades
+        </a>
         <a href="#" class="nav-item" data-page="facebook">
           <span class="nav-icon">&#128241;</span> Facebook
         </a>
@@ -723,6 +726,24 @@
             </select>
           </div>
           <div id="agendaList"></div>
+        </section>
+
+        <!-- ===== MODALIDADES ===== -->
+        <section class="page" id="page-modalidades" style="display:none">
+          <div class="page-header">
+            <h1>Modalidades</h1>
+            <button class="btn-primary" id="btnNovaModalidade">+ Nova Modalidade</button>
+          </div>
+          <div class="card">
+            <table class="table table--full" id="modalidadesTable">
+              <thead>
+                <tr>
+                  <th>Ícone</th><th>Nome</th><th>Treinos</th><th>Local</th><th>Responsável</th><th>Estado</th><th>Ações</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
         </section>
 
         <!-- ===== CONFIGURAÇÕES ===== -->

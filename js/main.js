@@ -190,6 +190,38 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   } catch(e) {}
 
+  // Modalidades
+  try {
+    const raw = localStorage.getItem('db_modalidades');
+    if (raw) {
+      const lista = JSON.parse(raw).filter(m => m.ativo !== false);
+      if (lista.length) {
+        const grid = document.getElementById('modalidadesGrid');
+        if (grid) {
+          grid.innerHTML = lista.map(m => {
+            const bgStyle = m.imagem
+              ? `style="background-image:url('${m.imagem}');background-size:cover;background-position:${m.imagemPos||'center'}"` : '';
+            return `
+              <div class="modality-card">
+                <div class="modality-card__icon-wrap" ${bgStyle}>
+                  <span class="modality-card__icon">${m.icone || '🏅'}</span>
+                </div>
+                <div class="modality-card__body">
+                  <h3 class="modality-card__name">${m.nome}</h3>
+                  ${m.descricao ? `<p class="modality-card__desc">${m.descricao}</p>` : ''}
+                  <div class="modality-card__info">
+                    ${m.treinos   ? `<span class="modality-card__info-item">&#128337; ${m.treinos}</span>` : ''}
+                    ${m.local     ? `<span class="modality-card__info-item">&#128205; ${m.local}</span>` : ''}
+                    ${m.responsavel ? `<span class="modality-card__info-item">&#128100; ${m.responsavel}</span>` : ''}
+                  </div>
+                </div>
+              </div>`;
+          }).join('');
+        }
+      }
+    }
+  } catch(e) {}
+
   // Galeria
   try {
     const raw = localStorage.getItem('db_galeria');

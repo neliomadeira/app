@@ -1141,3 +1141,100 @@ ul { list-style: none; }
   .gallery__grid { grid-template-columns: 1fr; }
   .gallery__item--wide { grid-column: auto; }
 }
+
+/* ===================================================
+   OUTRAS MODALIDADES
+   =================================================== */
+.modalities__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 28px;
+}
+
+.modality-card {
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.modality-card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-lg);
+}
+
+.modality-card__icon-wrap {
+  background: linear-gradient(135deg, var(--blue-dark), var(--blue));
+  height: 130px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+}
+
+.modality-card__icon-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(0,27,77,0.7), rgba(0,59,142,0.55));
+}
+
+.modality-card__icon {
+  position: relative;
+  z-index: 1;
+  font-size: 3.5rem;
+  filter: drop-shadow(0 2px 10px rgba(0,0,0,0.5));
+  line-height: 1;
+}
+
+.modality-card__body {
+  padding: 22px 20px 20px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.modality-card__name {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.6rem;
+  letter-spacing: 1px;
+  color: var(--blue-dark);
+  margin: 0;
+  line-height: 1;
+}
+
+.modality-card__desc {
+  font-size: 0.9rem;
+  color: #555;
+  line-height: 1.65;
+  flex: 1;
+  margin: 0;
+}
+
+.modality-card__info {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 4px;
+  padding-top: 14px;
+  border-top: 1px solid #eee;
+}
+
+.modality-card__info-item {
+  font-size: 0.82rem;
+  color: #666;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+@media (max-width: 640px) {
+  .modalities__grid { grid-template-columns: 1fr; }
+}
