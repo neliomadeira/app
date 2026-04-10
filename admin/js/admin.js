@@ -2057,6 +2057,28 @@ function initConfiguracoes() {
   if (clube.sigla)   document.getElementById('cfgClubSigla').value   = clube.sigla;
   if (clube.ano)     document.getElementById('cfgClubAno').value     = clube.ano;
   if (clube.estadio) document.getElementById('cfgClubEstadio').value = clube.estadio;
+
+  // Carregar configuração de email
+  const emailCfg = JSON.parse(localStorage.getItem('email_config') || '{}');
+  if (emailCfg.dest)         document.getElementById('cfgEmailDest').value         = emailCfg.dest;
+  if (emailCfg.publicKey)    document.getElementById('cfgEmailPublicKey').value    = emailCfg.publicKey;
+  if (emailCfg.serviceId)    document.getElementById('cfgEmailServiceId').value    = emailCfg.serviceId;
+  if (emailCfg.tplContacto)  document.getElementById('cfgEmailTplContacto').value  = emailCfg.tplContacto;
+  if (emailCfg.tplInscricao) document.getElementById('cfgEmailTplInscricao').value = emailCfg.tplInscricao;
+
+  // Mostrar estado actual
+  const statusEl = document.getElementById('emailConfigStatus');
+  if (statusEl) {
+    if (emailCfg.publicKey && emailCfg.serviceId) {
+      statusEl.style.display = '';
+      statusEl.style.cssText = 'display:block;background:#d4edda;border-left:4px solid #28a745;border-radius:6px;padding:10px 14px;font-size:13px;color:#155724';
+      statusEl.textContent   = '✓ Email configurado — formulários irão enviar emails reais.';
+    } else {
+      statusEl.style.display = '';
+      statusEl.style.cssText = 'display:block;background:#fff3cd;border-left:4px solid #ffc107;border-radius:6px;padding:10px 14px;font-size:13px;color:#856404';
+      statusEl.textContent   = '⚠ Sem configuração — formulários simulam envio (sem emails reais).';
+    }
+  }
 }
 
 async function guardarSeguranca() {
@@ -2295,3 +2317,80 @@ function deleteModalidade(idx) {
   renderModalidades();
   showToast('Modalidade removida', 'green');
 }
+
+// =============================================
+// EMAIL CONFIG (EmailJS)
+// =============================================
+
+function guardarEmailConfig() {
+  const cfg = {
+    dest:         document.getElementById('cfgEmailDest').value.trim(),
+    publicKey:    document.getElementById('cfgEmailPublicKey').value.trim(),
+    serviceId:    document.getElementById('cfgEmailServiceId').value.trim(),
+    tplContacto:  document.getElementById('cfgEmailTplContacto').value.trim(),
+    tplInscricao: document.getElementById('cfgEmailTplInscricao').value.trim(),
+  };
+  localStorage.setItem('email_config', JSON.stringify(cfg));
+
+  const statusEl = document.getElementById('emailConfigStatus');
+  if (statusEl) {
+    if (cfg.publicKey && cfg.serviceId) {
+      statusEl.style.cssText = 'display:block;background:#d4edda;border-left:4px solid #28a745;border-radius:6px;padding:10px 14px;font-size:13px;color:#155724';
+      statusEl.textContent   = '✓ Email configurado — formulários irão enviar emails reais.';
+    } else {
+      statusEl.style.cssText = 'display:block;background:#fff3cd;border-left:4px solid #ffc107;border-radius:6px;padding:10px 14px;font-size:13px;color:#856404';
+      statusEl.textContent   = '⚠ Sem configuração — formulários simulam envio (sem emails reais).';
+    }
+  }
+  showToast('✓ Configuração de email guardada', 'green');
+}
+
+async function testarEmail() {
+  const cfg = JSON.parse(localStorage.getItem('email_config') || '{}');
+  if (!cfg.publicKey || !cfg.serviceId || !cfg.tplContacto) {
+    showToast('Preencha Public Key, Service ID e Template de Contacto antes de testar.', 'red');
+    return;
+  }
+  const btn = document.getElementById('btnTestarEmail');
+  if (btn) { btn.textContent = 'A enviar...'; btn.disabled = true; }
+
+  try {
+    await loadEmailJS(cfg.publicKey);
+    await window.emailjs.send(cfg.serviceId, cfg.tplContacto, {
+      nome:     'Teste Admin',
+      email:    cfg.dest || 'admin@jscampinense.pt',
+      telefone: '+351 000 000 000',
+      assunto:  'Teste de email — JSC Admin',
+      mensagem: 'Este é um email de teste enviado pelo painel administrativo da Juventude Sport Campinense.',
+      to_email: cfg.dest,
+    });
+    showToast('✓ Email de teste enviado com sucesso!', 'green');
+  } catch(err) {
+    showToast('Erro ao enviar: ' + (err?.text || err?.message || JSON.stringify(err)), 'red');
+  } finally {
+    if (btn) { btn.textContent = '✉ Enviar email de teste'; btn.disabled = false; }
+  }
+}
+
+// Carrega o SDK do EmailJS dinamicamente (apenas uma vez)
+function loadEmailJS(publicKey) {
+  return new Promise((resolve, reject) => {
+    if (window.emailjs) {
+      window.emailjs.init({ publicKey });
+      resolve();
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js';
+    script.onload = () => {
+      window.emailjs.init({ publicKey });
+      resolve();
+    };
+    script.onerror = () => reject(new Error('Falha ao carregar EmailJS SDK'));
+    document.head.appendChild(script);
+  });
+}
+
+// Exportar para uso nos formulários públicos
+window.getEmailConfig    = () => JSON.parse(localStorage.getItem('email_config') || '{}');
+window.loadEmailJS       = loadEmailJS;

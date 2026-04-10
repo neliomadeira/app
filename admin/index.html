@@ -810,7 +810,7 @@
           </div>
 
           <!-- Aparência -->
-          <div class="card" style="max-width:520px">
+          <div class="card" style="margin-bottom:20px;max-width:520px">
             <div class="card-header"><h3>&#127912; Aparência</h3></div>
             <div style="padding:16px;display:grid;gap:12px">
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
@@ -825,6 +825,61 @@
               </div>
               <button class="btn-save" onclick="guardarAparencia()">Aplicar cores</button>
               <button class="btn-sm" onclick="resetarCores()">Repor cores originais</button>
+            </div>
+          </div>
+
+          <!-- Email / EmailJS -->
+          <div class="card" style="max-width:520px">
+            <div class="card-header"><h3>&#9993; Configuração de Email (EmailJS)</h3></div>
+            <div style="padding:16px;display:grid;gap:14px">
+
+              <!-- Info box -->
+              <div style="background:#e8f4fd;border-left:4px solid #003B8E;border-radius:6px;padding:12px 14px;font-size:12px;color:#333;line-height:1.6">
+                <strong>Como configurar:</strong><br>
+                1. Crie conta gratuita em <strong>emailjs.com</strong> (200 emails/mês grátis)<br>
+                2. Crie um <em>Email Service</em> com o seu Gmail/Outlook (anote o <strong>Service ID</strong>)<br>
+                3. Crie dois <em>Templates</em> — um para contacto e outro para inscrições<br>
+                4. Copie a <strong>Public Key</strong> em Account → API Keys<br>
+                5. Preencha os campos abaixo e clique em Guardar
+              </div>
+
+              <div class="modal-field">
+                <label class="form-label">Email de destino (recebe as mensagens)</label>
+                <input class="form-input" type="email" id="cfgEmailDest" placeholder="clube@email.pt" />
+              </div>
+
+              <hr style="border:none;border-top:1px solid #eee" />
+              <div style="font-size:12px;font-weight:700;color:#666;letter-spacing:0.5px;text-transform:uppercase">EmailJS — Credenciais</div>
+
+              <div class="modal-field">
+                <label class="form-label">Public Key</label>
+                <input class="form-input" type="text" id="cfgEmailPublicKey" placeholder="user_xxxxxxxxxxxxxxx" autocomplete="off" />
+              </div>
+              <div class="modal-field">
+                <label class="form-label">Service ID</label>
+                <input class="form-input" type="text" id="cfgEmailServiceId" placeholder="service_xxxxxxx" />
+              </div>
+
+              <hr style="border:none;border-top:1px solid #eee" />
+              <div style="font-size:12px;font-weight:700;color:#666;letter-spacing:0.5px;text-transform:uppercase">Templates</div>
+
+              <div class="modal-field">
+                <label class="form-label">Template — Formulário de Contacto</label>
+                <input class="form-input" type="text" id="cfgEmailTplContacto" placeholder="template_xxxxxxx" />
+                <small style="color:#999;font-size:11px;margin-top:4px;display:block">Variáveis disponíveis: {{nome}}, {{email}}, {{telefone}}, {{assunto}}, {{mensagem}}</small>
+              </div>
+              <div class="modal-field">
+                <label class="form-label">Template — Inscrição de Atleta</label>
+                <input class="form-input" type="text" id="cfgEmailTplInscricao" placeholder="template_xxxxxxx" />
+                <small style="color:#999;font-size:11px;margin-top:4px;display:block">Variáveis: {{nome}}, {{modalidade}}, {{escalao}}, {{nivel}}, {{telefone}}, {{email_resp}}</small>
+              </div>
+
+              <div id="emailConfigStatus" style="display:none;padding:10px 14px;border-radius:6px;font-size:13px"></div>
+
+              <div style="display:flex;gap:10px;flex-wrap:wrap">
+                <button class="btn-save" onclick="guardarEmailConfig()">Guardar configuração</button>
+                <button class="btn-sm" onclick="testarEmail()" id="btnTestarEmail">&#128231; Enviar email de teste</button>
+              </div>
             </div>
           </div>
         </section>

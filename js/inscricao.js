@@ -101,46 +101,59 @@ document.addEventListener('DOMContentLoaded', () => {
   const form    = document.getElementById('inscForm');
   const success = document.getElementById('inscSuccess');
 
-  form?.addEventListener('submit', (e) => {
+  form?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = form.querySelector('button[type="submit"]');
     btn.textContent = 'A enviar...';
     btn.disabled = true;
 
-    // Save to localStorage
+    const modalidade = document.querySelector('input[name="modalidade"]:checked')?.value || 'Futebol';
+    const insc = {
+      id:         Date.now(),
+      modalidade,
+      nome:       document.getElementById('nomeAtleta')?.value || '',
+      dataNasc:   document.getElementById('dataNasc')?.value || '',
+      escalao:    isFutebol() ? (document.getElementById('categoria')?.value || '') : '',
+      nivel:      !isFutebol() ? (document.getElementById('nivel')?.value || '') : '',
+      posicao:    document.getElementById('posicao')?.value || '',
+      telefone:   document.getElementById('telefoneResp')?.value || '',
+      email:      document.getElementById('emailResp')?.value || '',
+      data:       new Date().toISOString().slice(0, 10),
+      estado:     'Pendente',
+    };
+
+    // Guardar em localStorage
     try {
-      const modalidade = document.querySelector('input[name="modalidade"]:checked')?.value || 'Futebol';
-      const insc = {
-        id:         Date.now(),
-        modalidade,
-        nome:       document.getElementById('nomeAtleta')?.value || '',
-        dataNasc:   document.getElementById('dataNasc')?.value || '',
-        escalao:    isFutebol() ? (document.getElementById('categoria')?.value || '') : '',
-        nivel:      !isFutebol() ? (document.getElementById('nivel')?.value || '') : '',
-        posicao:    document.getElementById('posicao')?.value || '',
-        telefone:   document.getElementById('telefoneResp')?.value || '',
-        email:      document.getElementById('emailResp')?.value || '',
-        data:       new Date().toISOString().slice(0, 10),
-        estado:     'Pendente',
-      };
       const lst = JSON.parse(localStorage.getItem('db_inscricoes_modalidades') || '[]');
       lst.unshift(insc);
       localStorage.setItem('db_inscricoes_modalidades', JSON.stringify(lst));
     } catch(_) {}
 
-    setTimeout(() => {
-      form.reset();
-      // Reset modality picker visual
-      document.querySelectorAll('.modality-pick').forEach((l, i) => l.classList.toggle('modality-pick--active', i === 0));
-      applyModalidade();
-      btn.textContent = 'Enviar inscrição';
-      btn.disabled = false;
-      if (success) {
-        success.style.display = 'block';
-        success.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        setTimeout(() => { success.style.display = 'none'; }, 8000);
-      }
-    }, 1500);
+    // Enviar email de notificação (se configurado)
+    if (typeof sendEmail === 'function') {
+      await sendEmail('tplInscricao', {
+        nome:       insc.nome,
+        modalidade: insc.modalidade,
+        escalao:    insc.escalao || '—',
+        nivel:      insc.nivel   || '—',
+        posicao:    insc.posicao || '—',
+        telefone:   insc.telefone,
+        email_resp: insc.email,
+        data:       insc.data,
+      }).catch(() => {});
+    }
+
+    form.reset();
+    // Reset modality picker visual
+    document.querySelectorAll('.modality-pick').forEach((l, i) => l.classList.toggle('modality-pick--active', i === 0));
+    applyModalidade();
+    btn.textContent = 'Enviar inscrição';
+    btn.disabled = false;
+    if (success) {
+      success.style.display = 'block';
+      success.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => { success.style.display = 'none'; }, 8000);
+    }
   });
 
 });

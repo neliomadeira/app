@@ -57,22 +57,42 @@ document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('contactForm');
   const formSuccess = document.getElementById('formSuccess');
 
-  form?.addEventListener('submit', (e) => {
+  form?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = form.querySelector('button[type="submit"]');
     btn.textContent = 'Enviando...';
     btn.disabled = true;
 
-    // Simulate async send
-    setTimeout(() => {
-      form.reset();
-      btn.textContent = 'Enviar mensagem';
-      btn.disabled = false;
-      if (formSuccess) {
-        formSuccess.style.display = 'block';
-        setTimeout(() => { formSuccess.style.display = 'none'; }, 5000);
-      }
-    }, 1200);
+    const params = {
+      nome:     document.getElementById('nome')?.value || '',
+      email:    document.getElementById('email')?.value || '',
+      telefone: document.getElementById('telefone')?.value || '',
+      assunto:  document.getElementById('assunto')?.value || '',
+      mensagem: document.getElementById('mensagem')?.value || '',
+    };
+
+    let sent = false;
+    if (typeof sendEmail === 'function') {
+      sent = await sendEmail('tplContacto', params);
+    }
+
+    // Guardar mensagem em localStorage independentemente
+    try {
+      const msgs = JSON.parse(localStorage.getItem('db_contact_msgs') || '[]');
+      msgs.unshift({ ...params, data: new Date().toISOString().slice(0,10), estado: 'Não lida', id: Date.now() });
+      localStorage.setItem('db_contact_msgs', JSON.stringify(msgs));
+    } catch(_) {}
+
+    form.reset();
+    btn.textContent = 'Enviar mensagem';
+    btn.disabled = false;
+    if (formSuccess) {
+      formSuccess.textContent = sent
+        ? '✓ Mensagem enviada com sucesso! Entraremos em contacto em breve.'
+        : '✓ Mensagem recebida! Entraremos em contacto em breve.';
+      formSuccess.style.display = 'block';
+      setTimeout(() => { formSuccess.style.display = 'none'; }, 5000);
+    }
   });
 
   // ---- PHONE MASK ----
