@@ -828,19 +828,21 @@
             </div>
           </div>
 
-          <!-- Email / EmailJS -->
-          <div class="card" style="max-width:520px">
-            <div class="card-header"><h3>&#9993; Configuração de Email (EmailJS)</h3></div>
+          <!-- Email -->
+          <div class="card" style="max-width:580px">
+            <div class="card-header"><h3>&#9993; Configuração de Email</h3></div>
             <div style="padding:16px;display:grid;gap:14px">
 
-              <!-- Info box -->
-              <div style="background:#e8f4fd;border-left:4px solid #003B8E;border-radius:6px;padding:12px 14px;font-size:12px;color:#333;line-height:1.6">
-                <strong>Como configurar:</strong><br>
-                1. Crie conta gratuita em <strong>emailjs.com</strong> (200 emails/mês grátis)<br>
-                2. Crie um <em>Email Service</em> com o seu Gmail/Outlook (anote o <strong>Service ID</strong>)<br>
-                3. Crie dois <em>Templates</em> — um para contacto e outro para inscrições<br>
-                4. Copie a <strong>Public Key</strong> em Account → API Keys<br>
-                5. Preencha os campos abaixo e clique em Guardar
+              <!-- Modo selector -->
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <label style="display:flex;align-items:center;gap:8px;padding:12px;border:2px solid #003B8E;border-radius:8px;cursor:pointer;background:#e8f0fe;font-size:13px;font-weight:700;color:#003B8E">
+                  <input type="radio" name="emailMode" id="modeEmailJS" value="emailjs" checked style="accent-color:#003B8E" />
+                  &#9729; EmailJS (sem servidor)
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;padding:12px;border:2px solid #ddd;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;color:#555" id="modeLabelServer">
+                  <input type="radio" name="emailMode" id="modeServer" value="server" style="accent-color:#003B8E" />
+                  &#127757; Servidor PHP (SMTP)
+                </label>
               </div>
 
               <div class="modal-field">
@@ -848,30 +850,79 @@
                 <input class="form-input" type="email" id="cfgEmailDest" placeholder="clube@email.pt" />
               </div>
 
-              <hr style="border:none;border-top:1px solid #eee" />
-              <div style="font-size:12px;font-weight:700;color:#666;letter-spacing:0.5px;text-transform:uppercase">EmailJS — Credenciais</div>
-
-              <div class="modal-field">
-                <label class="form-label">Public Key</label>
-                <input class="form-input" type="text" id="cfgEmailPublicKey" placeholder="user_xxxxxxxxxxxxxxx" autocomplete="off" />
+              <!-- ── EMAILJS ── -->
+              <div id="panelEmailJS">
+                <div style="background:#e8f4fd;border-left:4px solid #003B8E;border-radius:6px;padding:11px 14px;font-size:12px;color:#333;line-height:1.6;margin-bottom:12px">
+                  <strong>Conta gratuita em emailjs.com</strong> (200 emails/mês) · Não precisa de servidor
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                  <div class="modal-field">
+                    <label class="form-label">Public Key</label>
+                    <input class="form-input" type="text" id="cfgEmailPublicKey" placeholder="user_xxxxxxxxxxxx" autocomplete="off" />
+                  </div>
+                  <div class="modal-field">
+                    <label class="form-label">Service ID</label>
+                    <input class="form-input" type="text" id="cfgEmailServiceId" placeholder="service_xxxxxxx" />
+                  </div>
+                </div>
+                <div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;margin:8px 0 6px">Templates EmailJS</div>
+                <div class="modal-field">
+                  <label class="form-label">Template — Contacto</label>
+                  <input class="form-input" type="text" id="cfgEmailTplContacto" placeholder="template_xxxxxxx" />
+                  <small style="color:#aaa;font-size:10px;margin-top:3px;display:block">Variáveis: {{nome}} {{email}} {{telefone}} {{assunto}} {{mensagem}}</small>
+                </div>
+                <div class="modal-field">
+                  <label class="form-label">Template — Inscrição</label>
+                  <input class="form-input" type="text" id="cfgEmailTplInscricao" placeholder="template_xxxxxxx" />
+                  <small style="color:#aaa;font-size:10px;margin-top:3px;display:block">Variáveis: {{nome}} {{modalidade}} {{escalao}} {{nivel}} {{telefone}} {{email_resp}}</small>
+                </div>
               </div>
-              <div class="modal-field">
-                <label class="form-label">Service ID</label>
-                <input class="form-input" type="text" id="cfgEmailServiceId" placeholder="service_xxxxxxx" />
-              </div>
 
-              <hr style="border:none;border-top:1px solid #eee" />
-              <div style="font-size:12px;font-weight:700;color:#666;letter-spacing:0.5px;text-transform:uppercase">Templates</div>
-
-              <div class="modal-field">
-                <label class="form-label">Template — Formulário de Contacto</label>
-                <input class="form-input" type="text" id="cfgEmailTplContacto" placeholder="template_xxxxxxx" />
-                <small style="color:#999;font-size:11px;margin-top:4px;display:block">Variáveis disponíveis: {{nome}}, {{email}}, {{telefone}}, {{assunto}}, {{mensagem}}</small>
-              </div>
-              <div class="modal-field">
-                <label class="form-label">Template — Inscrição de Atleta</label>
-                <input class="form-input" type="text" id="cfgEmailTplInscricao" placeholder="template_xxxxxxx" />
-                <small style="color:#999;font-size:11px;margin-top:4px;display:block">Variáveis: {{nome}}, {{modalidade}}, {{escalao}}, {{nivel}}, {{telefone}}, {{email_resp}}</small>
+              <!-- ── SERVIDOR PHP ── -->
+              <div id="panelServer" style="display:none">
+                <div style="background:#fff8e1;border-left:4px solid #ffc107;border-radius:6px;padding:11px 14px;font-size:12px;color:#333;line-height:1.6;margin-bottom:12px">
+                  <strong>Requer o ficheiro mail.php</strong> no servidor (incluído no projeto).<br>
+                  Para SMTP: instale PHPMailer com <code>composer require phpmailer/phpmailer</code>
+                </div>
+                <div class="modal-field">
+                  <label class="form-label">URL do mail.php no servidor</label>
+                  <input class="form-input" type="url" id="cfgServerUrl" placeholder="https://meusite.pt/mail.php" />
+                </div>
+                <div class="modal-field">
+                  <label class="form-label">Token secreto (deve coincidir com mail.php)</label>
+                  <input class="form-input" type="text" id="cfgServerToken" placeholder="Token definido no mail.php" autocomplete="off" />
+                  <small style="color:#aaa;font-size:10px;margin-top:3px;display:block">Defina em mail.php: $config['secret_token'] = 'o mesmo token aqui'</small>
+                </div>
+                <div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;margin:8px 0 6px">SMTP — configurar no mail.php ou env vars</div>
+                <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px">
+                  <div class="modal-field">
+                    <label class="form-label">Host SMTP</label>
+                    <input class="form-input" type="text" id="cfgSmtpHost" placeholder="smtp.gmail.com" />
+                  </div>
+                  <div class="modal-field">
+                    <label class="form-label">Porta</label>
+                    <input class="form-input" type="number" id="cfgSmtpPort" placeholder="587" value="587" />
+                  </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                  <div class="modal-field">
+                    <label class="form-label">Utilizador SMTP</label>
+                    <input class="form-input" type="email" id="cfgSmtpUser" placeholder="conta@gmail.com" />
+                  </div>
+                  <div class="modal-field">
+                    <label class="form-label">Password SMTP</label>
+                    <input class="form-input" type="password" id="cfgSmtpPass" placeholder="App password" />
+                  </div>
+                </div>
+                <div class="modal-field">
+                  <label class="form-label">Encriptação</label>
+                  <select class="form-input" id="cfgSmtpSecure">
+                    <option value="tls">TLS — porta 587 (recomendado)</option>
+                    <option value="ssl">SSL — porta 465</option>
+                    <option value="">Nenhuma — porta 25</option>
+                  </select>
+                </div>
+                <button class="btn-sm" style="width:100%" onclick="enviarConfigServidor()">&#128190; Guardar config SMTP no servidor</button>
               </div>
 
               <div id="emailConfigStatus" style="display:none;padding:10px 14px;border-radius:6px;font-size:13px"></div>

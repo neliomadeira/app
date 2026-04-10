@@ -2060,25 +2060,22 @@ function initConfiguracoes() {
 
   // Carregar configuração de email
   const emailCfg = JSON.parse(localStorage.getItem('email_config') || '{}');
-  if (emailCfg.dest)         document.getElementById('cfgEmailDest').value         = emailCfg.dest;
-  if (emailCfg.publicKey)    document.getElementById('cfgEmailPublicKey').value    = emailCfg.publicKey;
-  if (emailCfg.serviceId)    document.getElementById('cfgEmailServiceId').value    = emailCfg.serviceId;
-  if (emailCfg.tplContacto)  document.getElementById('cfgEmailTplContacto').value  = emailCfg.tplContacto;
-  if (emailCfg.tplInscricao) document.getElementById('cfgEmailTplInscricao').value = emailCfg.tplInscricao;
+  const setVal = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
+  setVal('cfgEmailDest',         emailCfg.dest);
+  setVal('cfgEmailPublicKey',    emailCfg.publicKey);
+  setVal('cfgEmailServiceId',    emailCfg.serviceId);
+  setVal('cfgEmailTplContacto',  emailCfg.tplContacto);
+  setVal('cfgEmailTplInscricao', emailCfg.tplInscricao);
+  setVal('cfgServerUrl',         emailCfg.serverUrl);
+  setVal('cfgServerToken',       emailCfg.serverToken);
 
-  // Mostrar estado actual
-  const statusEl = document.getElementById('emailConfigStatus');
-  if (statusEl) {
-    if (emailCfg.publicKey && emailCfg.serviceId) {
-      statusEl.style.display = '';
-      statusEl.style.cssText = 'display:block;background:#d4edda;border-left:4px solid #28a745;border-radius:6px;padding:10px 14px;font-size:13px;color:#155724';
-      statusEl.textContent   = '✓ Email configurado — formulários irão enviar emails reais.';
-    } else {
-      statusEl.style.display = '';
-      statusEl.style.cssText = 'display:block;background:#fff3cd;border-left:4px solid #ffc107;border-radius:6px;padding:10px 14px;font-size:13px;color:#856404';
-      statusEl.textContent   = '⚠ Sem configuração — formulários simulam envio (sem emails reais).';
-    }
+  // Activar modo correcto
+  if (emailCfg.mode === 'server') {
+    const rb = document.getElementById('modeServer');
+    if (rb) { rb.checked = true; rb.dispatchEvent(new Event('change')); }
   }
+
+  _updateEmailStatus(emailCfg);
 }
 
 async function guardarSeguranca() {
@@ -2319,56 +2316,125 @@ function deleteModalidade(idx) {
 }
 
 // =============================================
-// EMAIL CONFIG (EmailJS)
+// EMAIL CONFIG (EmailJS + Servidor PHP)
 // =============================================
 
+// Toggle painéis conforme o modo seleccionado
+document.querySelectorAll('input[name="emailMode"]').forEach(r => {
+  r.addEventListener('change', () => {
+    const isServer = r.value === 'server';
+    const pJS  = document.getElementById('panelEmailJS');
+    const pSrv = document.getElementById('panelServer');
+    if (pJS)  pJS.style.display  = isServer ? 'none' : '';
+    if (pSrv) pSrv.style.display = isServer ? '' : 'none';
+    // update label styles
+    document.querySelectorAll('input[name="emailMode"]').forEach(rb => {
+      const lbl = rb.closest('label');
+      if (!lbl) return;
+      lbl.style.borderColor = rb.checked ? '#003B8E' : '#ddd';
+      lbl.style.background  = rb.checked ? '#e8f0fe' : '';
+      lbl.style.color       = rb.checked ? '#003B8E' : '#555';
+    });
+  });
+});
+
 function guardarEmailConfig() {
+  const mode = document.querySelector('input[name="emailMode"]:checked')?.value || 'emailjs';
   const cfg = {
-    dest:         document.getElementById('cfgEmailDest').value.trim(),
-    publicKey:    document.getElementById('cfgEmailPublicKey').value.trim(),
-    serviceId:    document.getElementById('cfgEmailServiceId').value.trim(),
-    tplContacto:  document.getElementById('cfgEmailTplContacto').value.trim(),
-    tplInscricao: document.getElementById('cfgEmailTplInscricao').value.trim(),
+    mode,
+    dest:         document.getElementById('cfgEmailDest')?.value.trim()        || '',
+    // EmailJS
+    publicKey:    document.getElementById('cfgEmailPublicKey')?.value.trim()   || '',
+    serviceId:    document.getElementById('cfgEmailServiceId')?.value.trim()   || '',
+    tplContacto:  document.getElementById('cfgEmailTplContacto')?.value.trim() || '',
+    tplInscricao: document.getElementById('cfgEmailTplInscricao')?.value.trim()|| '',
+    // Servidor PHP
+    serverUrl:    document.getElementById('cfgServerUrl')?.value.trim()        || '',
+    serverToken:  document.getElementById('cfgServerToken')?.value.trim()      || '',
   };
   localStorage.setItem('email_config', JSON.stringify(cfg));
-
-  const statusEl = document.getElementById('emailConfigStatus');
-  if (statusEl) {
-    if (cfg.publicKey && cfg.serviceId) {
-      statusEl.style.cssText = 'display:block;background:#d4edda;border-left:4px solid #28a745;border-radius:6px;padding:10px 14px;font-size:13px;color:#155724';
-      statusEl.textContent   = '✓ Email configurado — formulários irão enviar emails reais.';
-    } else {
-      statusEl.style.cssText = 'display:block;background:#fff3cd;border-left:4px solid #ffc107;border-radius:6px;padding:10px 14px;font-size:13px;color:#856404';
-      statusEl.textContent   = '⚠ Sem configuração — formulários simulam envio (sem emails reais).';
-    }
-  }
+  _updateEmailStatus(cfg);
   showToast('✓ Configuração de email guardada', 'green');
+}
+
+function _updateEmailStatus(cfg) {
+  const statusEl = document.getElementById('emailConfigStatus');
+  if (!statusEl) return;
+  const ok = (cfg.mode === 'server' && cfg.serverUrl)
+          || (cfg.mode !== 'server' && cfg.publicKey && cfg.serviceId);
+  if (ok) {
+    statusEl.style.cssText = 'display:block;background:#d4edda;border-left:4px solid #28a745;border-radius:6px;padding:10px 14px;font-size:13px;color:#155724';
+    statusEl.textContent   = cfg.mode === 'server'
+      ? '✓ Modo servidor PHP — mail.php em ' + cfg.serverUrl
+      : '✓ Modo EmailJS — formulários irão enviar emails reais.';
+  } else {
+    statusEl.style.cssText = 'display:block;background:#fff3cd;border-left:4px solid #ffc107;border-radius:6px;padding:10px 14px;font-size:13px;color:#856404';
+    statusEl.textContent   = '⚠ Sem configuração completa — a enviar emails reais requer todos os campos preenchidos.';
+  }
 }
 
 async function testarEmail() {
   const cfg = JSON.parse(localStorage.getItem('email_config') || '{}');
-  if (!cfg.publicKey || !cfg.serviceId || !cfg.tplContacto) {
-    showToast('Preencha Public Key, Service ID e Template de Contacto antes de testar.', 'red');
-    return;
-  }
   const btn = document.getElementById('btnTestarEmail');
   if (btn) { btn.textContent = 'A enviar...'; btn.disabled = true; }
 
   try {
-    await loadEmailJS(cfg.publicKey);
-    await window.emailjs.send(cfg.serviceId, cfg.tplContacto, {
-      nome:     'Teste Admin',
-      email:    cfg.dest || 'admin@jscampinense.pt',
-      telefone: '+351 000 000 000',
-      assunto:  'Teste de email — JSC Admin',
-      mensagem: 'Este é um email de teste enviado pelo painel administrativo da Juventude Sport Campinense.',
-      to_email: cfg.dest,
-    });
+    if (cfg.mode === 'server') {
+      if (!cfg.serverUrl) throw new Error('Configure o URL do servidor antes de testar.');
+      const res = await fetch(cfg.serverUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Secret-Token': cfg.serverToken || '' },
+        body: JSON.stringify({
+          _tipo: 'contacto', _token: cfg.serverToken || '',
+          nome: 'Teste Admin', email: cfg.dest || 'admin@jscampinense.pt',
+          telefone: '+351 000 000 000', assunto: 'Teste', mensagem: 'Email de teste do painel JSC.',
+        }),
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error || 'Erro desconhecido');
+    } else {
+      if (!cfg.publicKey || !cfg.serviceId || !cfg.tplContacto)
+        throw new Error('Preencha Public Key, Service ID e Template de Contacto.');
+      await loadEmailJS(cfg.publicKey);
+      await window.emailjs.send(cfg.serviceId, cfg.tplContacto, {
+        nome: 'Teste Admin', email: cfg.dest || '', telefone: '+351 000 000 000',
+        assunto: 'Teste JSC Admin', mensagem: 'Email de teste do painel administrativo.',
+        to_email: cfg.dest,
+      });
+    }
     showToast('✓ Email de teste enviado com sucesso!', 'green');
   } catch(err) {
-    showToast('Erro ao enviar: ' + (err?.text || err?.message || JSON.stringify(err)), 'red');
+    showToast('Erro: ' + (err?.text || err?.message || JSON.stringify(err)), 'red');
   } finally {
     if (btn) { btn.textContent = '✉ Enviar email de teste'; btn.disabled = false; }
+  }
+}
+
+// Envia configuração SMTP ao servidor via POST (para escrita em .env ou validação)
+async function enviarConfigServidor() {
+  const url = document.getElementById('cfgServerUrl')?.value.trim();
+  if (!url) { showToast('Introduza primeiro o URL do servidor', 'red'); return; }
+  const smtpCfg = {
+    _action:     'save_smtp',
+    _token:      document.getElementById('cfgServerToken')?.value.trim() || '',
+    smtp_host:   document.getElementById('cfgSmtpHost')?.value.trim()   || '',
+    smtp_port:   document.getElementById('cfgSmtpPort')?.value          || '587',
+    smtp_user:   document.getElementById('cfgSmtpUser')?.value.trim()   || '',
+    smtp_pass:   document.getElementById('cfgSmtpPass')?.value          || '',
+    smtp_secure: document.getElementById('cfgSmtpSecure')?.value        || 'tls',
+    mail_to:     document.getElementById('cfgEmailDest')?.value.trim()  || '',
+  };
+  try {
+    const res  = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Secret-Token': smtpCfg._token },
+      body: JSON.stringify(smtpCfg),
+    });
+    const json = await res.json();
+    if (json.ok) showToast('✓ Configuração SMTP guardada no servidor', 'green');
+    else throw new Error(json.error);
+  } catch(e) {
+    showToast('Erro: ' + e.message, 'red');
   }
 }
 
