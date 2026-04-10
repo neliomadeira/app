@@ -168,6 +168,7 @@ function goToPage(name) {
   document.getElementById('topbarTitle').textContent = titles[name] || name;
   document.getElementById('sidebar').classList.remove('open');
 
+  if (name === 'noticias') renderNoticias();
   if (name === 'facebook') initFacebookPage();
   if (name === 'pagina-inicial') initPaginaInicial();
   if (name === 'galeria') initGaleria();
@@ -243,6 +244,9 @@ function fmtDate(str) {
 // INIT
 // ==================================================
 function initAdmin() {
+  // Persistir dados padrão se ainda não existem no localStorage
+  if (!localStorage.getItem('db_noticias')) saveDB();
+
   // Verificar se ainda usa password padrão → mostrar alerta
   (async function checkDefaultPassword() {
     const stored = JSON.parse(localStorage.getItem('admin_creds') || 'null');

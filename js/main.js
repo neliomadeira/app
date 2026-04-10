@@ -158,31 +158,39 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${d.getDate()} de ${MESES[d.getMonth()]}, ${d.getFullYear()}`;
   }
 
-  // Notícias
-  try {
-    const raw = localStorage.getItem('db_noticias');
-    if (raw) {
+  function renderNoticias() {
+    try {
+      const raw = localStorage.getItem('db_noticias');
+      if (!raw) return;
       const lista = JSON.parse(raw).filter(n => n.publicada);
-      if (lista.length) {
-        const grid = document.getElementById('newsGrid');
-        if (grid) {
-          grid.innerHTML = lista.slice(0, 3).map((n, i) => `
-            <article class="news-card${i === 0 ? ' news-card--featured' : ''}">
-              <div class="news-card__img${n.imagem ? '' : ` news-card__img--${n.img || 1}`}"
-                   ${n.imagem ? `style="background-image:url('${n.imagem}');background-size:${(n.imagemSize||'cover').replace('auto ','')};background-position:${n.imagemPos||'center'}"` : ''}>
-                <span class="news-card__cat">${n.categoria || ''}</span>
-              </div>
-              <div class="news-card__body">
-                <time class="news-card__date">${ptDate(n.data)}</time>
-                <h3 class="news-card__title">${n.titulo}</h3>
-                ${n.resumo ? `<p class="news-card__excerpt">${n.resumo}</p>` : ''}
-                <a href="#" class="news-card__link">Ler mais &rarr;</a>
-              </div>
-            </article>`).join('');
-        }
+      const grid = document.getElementById('newsGrid');
+      if (!grid) return;
+      if (!lista.length) {
+        grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:#888;padding:40px 0">Sem notícias publicadas de momento.</p>';
+        return;
       }
-    }
-  } catch(e) {}
+      grid.innerHTML = lista.slice(0, 3).map((n, i) => `
+        <article class="news-card${i === 0 ? ' news-card--featured' : ''}">
+          <div class="news-card__img${n.imagem ? '' : ` news-card__img--${n.img || 1}`}"
+               ${n.imagem ? `style="background-image:url('${n.imagem}');background-size:${(n.imagemSize||'cover').replace('auto ','')};background-position:${n.imagemPos||'center'}"` : ''}>
+            <span class="news-card__cat">${n.categoria || ''}</span>
+          </div>
+          <div class="news-card__body">
+            <time class="news-card__date">${ptDate(n.data)}</time>
+            <h3 class="news-card__title">${n.titulo}</h3>
+            ${n.resumo ? `<p class="news-card__excerpt">${n.resumo}</p>` : ''}
+            <a href="#" class="news-card__link">Ler mais &rarr;</a>
+          </div>
+        </article>`).join('');
+    } catch(e) {}
+  }
+
+  renderNoticias();
+
+  // Re-render when admin saves in another tab
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'db_noticias') renderNoticias();
+  });
 
   // Escalões
   try {
