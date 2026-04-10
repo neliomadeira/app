@@ -245,6 +245,48 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   } catch(e) {}
 
+  // Equipa Sénior
+  try {
+    const rawInfo = localStorage.getItem('db_seniores_info');
+    if (rawInfo) {
+      const info = JSON.parse(rawInfo);
+      const fields = { seniorLiga: 'liga', seniorTemporada: 'temporada', seniorTreinos: 'treinos', seniorEstadio: 'estadio' };
+      Object.entries(fields).forEach(([id, key]) => {
+        const el = document.getElementById(id);
+        if (el && info[key]) el.textContent = info[key];
+      });
+    }
+    const rawPlantel = localStorage.getItem('db_seniores');
+    if (rawPlantel) {
+      const plantel = JSON.parse(rawPlantel).filter(j => j.ativo !== false);
+      if (plantel.length) {
+        const grupos = [
+          { pos: 'GR',  label: 'Guarda-Redes' },
+          { pos: 'DEF', label: 'Defesas' },
+          { pos: 'MEI', label: 'Médios' },
+          { pos: 'AVA', label: 'Avançados' },
+        ];
+        grupos.forEach(({ pos, label }) => {
+          const container = document.getElementById('sg' + pos);
+          if (!container) return;
+          const jogadores = plantel.filter(j => j.posicao === pos);
+          if (!jogadores.length) { container.closest('.squad-group').style.display = 'none'; return; }
+          const initStr = j => j.nome.split(' ').slice(0,2).map(p => p[0]).join('').toUpperCase();
+          const avatarStyle = j => j.foto
+            ? `style="background-image:url('${j.foto}');background-size:cover;background-position:center;font-size:0"`
+            : '';
+          container.innerHTML = jogadores.map(j => `
+            <div class="player-card">
+              <span class="player-card__num">${j.numero || '—'}</span>
+              <div class="player-card__avatar" ${avatarStyle(j)}>${j.foto ? '' : initStr(j)}</div>
+              <span class="player-card__name">${j.nome}</span>
+              <span class="player-card__pos player-card__pos--${j.posicao}">${j.posicaoFull || j.posicao}</span>
+            </div>`).join('');
+        });
+      }
+    }
+  } catch(e) {}
+
   // Treinadores públicos
   try {
     const raw = localStorage.getItem('db_treinadores');

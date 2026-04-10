@@ -162,7 +162,8 @@ function goToPage(name) {
     jogos: 'Jogos', patrocinadores: 'Patrocinadores', facebook: 'Facebook',
     'pagina-inicial': 'Página Inicial',
     galeria: 'Galeria', treinadores: 'Treinadores & Staff',
-    agenda: 'Agenda & Eventos', modalidades: 'Modalidades', configuracoes: 'Configurações',
+    agenda: 'Agenda & Eventos', modalidades: 'Modalidades',
+    seniores: 'Equipa Sénior', configuracoes: 'Configurações',
   };
   document.getElementById('topbarTitle').textContent = titles[name] || name;
   document.getElementById('sidebar').classList.remove('open');
@@ -173,6 +174,7 @@ function goToPage(name) {
   if (name === 'treinadores') initTreinadores();
   if (name === 'agenda') initAgenda();
   if (name === 'modalidades') initModalidades();
+  if (name === 'seniores') initSeniores();
   if (name === 'configuracoes') initConfiguracoes();
 }
 
@@ -2460,3 +2462,193 @@ function loadEmailJS(publicKey) {
 // Exportar para uso nos formulários públicos
 window.getEmailConfig    = () => JSON.parse(localStorage.getItem('email_config') || '{}');
 window.loadEmailJS       = loadEmailJS;
+
+// =============================================
+// EQUIPA SÉNIOR — CRUD
+// =============================================
+
+function initSeniores() {
+  // Load info fields
+  const info = DB.senioresInfo || {};
+  ['Temporada','Liga','Treinador','Treinos','Estadio','Descricao'].forEach(key => {
+    const el = document.getElementById('seniorInfo' + key);
+    if (el) el.value = info[key.toLowerCase()] || '';
+  });
+
+  renderSeniores();
+
+  const btnInfo = document.getElementById('btnGuardarInfoSeniores');
+  if (btnInfo && !btnInfo._bound) {
+    btnInfo._bound = true;
+    btnInfo.addEventListener('click', guardarInfoSeniores);
+  }
+
+  const btnNovo = document.getElementById('btnNovoJogador');
+  if (btnNovo && !btnNovo._bound) {
+    btnNovo._bound = true;
+    btnNovo.addEventListener('click', () => editJogador(null));
+  }
+}
+
+function renderSeniores() {
+  const tbody = document.querySelector('#senioresTable tbody');
+  if (!tbody) return;
+  const plantel = DB.seniores || [];
+  if (!plantel.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#aaa;padding:24px">Nenhum jogador registado</td></tr>';
+    return;
+  }
+  const posOrder = { GR: 0, DEF: 1, MEI: 2, AVA: 3 };
+  const sorted = [...plantel].sort((a, b) => {
+    const pd = (posOrder[a.posicao] ?? 9) - (posOrder[b.posicao] ?? 9);
+    return pd !== 0 ? pd : (a.numero || 99) - (b.numero || 99);
+  });
+  tbody.innerHTML = sorted.map(j => `
+    <tr data-id="${j.id}">
+      <td><strong>${j.numero || '—'}</strong></td>
+      <td>${j.nome}</td>
+      <td><span class="badge" style="${posBadgeStyle(j.posicao)}">${j.posicaoFull || j.posicao}</span></td>
+      <td>${j.foto ? `<img src="${j.foto}" style="width:36px;height:36px;border-radius:50%;object-fit:cover">` : '<span style="color:#aaa">—</span>'}</td>
+      <td>${j.ativo !== false ? '<span class="badge badge--success">Ativo</span>' : '<span class="badge badge--danger">Inativo</span>'}</td>
+      <td>
+        <button class="btn-icon" onclick="editJogador('${j.id}')">&#9998;</button>
+        <button class="btn-icon btn-icon--danger" onclick="deleteJogador('${j.id}')">&#128465;</button>
+      </td>
+    </tr>`).join('');
+}
+
+function posBadgeStyle(pos) {
+  const styles = {
+    GR:  'background:rgba(34,197,94,0.15);color:#16a34a;padding:2px 8px;border-radius:20px',
+    DEF: 'background:rgba(59,130,246,0.15);color:#2563eb;padding:2px 8px;border-radius:20px',
+    MEI: 'background:rgba(251,191,36,0.15);color:#b45309;padding:2px 8px;border-radius:20px',
+    AVA: 'background:rgba(239,68,68,0.15);color:#dc2626;padding:2px 8px;border-radius:20px',
+  };
+  return styles[pos] || '';
+}
+
+function editJogador(id) {
+  const existing = id ? (DB.seniores || []).find(j => j.id === id) : null;
+  const j = existing || { id: 'j_' + Date.now(), nome: '', numero: '', posicao: 'DEF', posicaoFull: 'Defesa', foto: '', ativo: true };
+
+  const posicoes = [
+    { val: 'GR',  label: 'Guarda-Redes' },
+    { val: 'DEF', label: 'Defesa' },
+    { val: 'MEI', label: 'Médio' },
+    { val: 'AVA', label: 'Avançado' },
+  ];
+
+  openModal(
+    id ? 'Editar Jogador' : 'Novo Jogador',
+    `<div class="form-grid" style="grid-template-columns:1fr 1fr;gap:16px">
+        <div class="form-group">
+          <label class="form-label">Nome *</label>
+          <input class="form-control" id="fldJNome" value="${j.nome}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Número</label>
+          <input class="form-control" id="fldJNumero" type="number" min="1" max="99" value="${j.numero}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Posição</label>
+          <select class="form-control" id="fldJPosicao">
+            ${posicoes.map(p => `<option value="${p.val}" ${j.posicao===p.val?'selected':''}>${p.label}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Estado</label>
+          <select class="form-control" id="fldJAtivo">
+            <option value="1" ${j.ativo!==false?'selected':''}>Ativo</option>
+            <option value="0" ${j.ativo===false?'selected':''}>Inativo</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:12px">
+        <label class="form-label">Foto (URL ou upload)</label>
+        <div style="display:flex;gap:12px;align-items:center">
+          <input class="form-control" id="fldJFotoUrl" placeholder="https://..." value="${j.foto||''}" style="flex:1">
+          <label class="btn-icon" style="cursor:pointer;padding:8px 12px;background:#f0f0f0;border-radius:8px">
+            &#128247;
+            <input type="file" accept="image/*" id="fldJFotoFile" style="display:none">
+          </label>
+        </div>
+        <div id="fldJFotoPreview" style="margin-top:10px;${j.foto?'':'display:none'}">
+          <img id="fldJFotoImg" src="${j.foto||''}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:3px solid #e0e0e0">
+        </div>
+      </div>`,
+    `<button class="btn-save" onclick="saveJogador('${j.id}','${id||''}')">&#128190; Guardar</button>
+     <button class="btn-cancel" onclick="closeModal()">Cancelar</button>`
+  );
+
+  // Photo URL preview
+  document.getElementById('fldJFotoUrl').addEventListener('input', function() {
+    const preview = document.getElementById('fldJFotoPreview');
+    const img = document.getElementById('fldJFotoImg');
+    if (this.value) { img.src = this.value; preview.style.display = ''; }
+    else { preview.style.display = 'none'; }
+  });
+
+  // File upload
+  document.getElementById('fldJFotoFile').addEventListener('change', function() {
+    const file = this.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      document.getElementById('fldJFotoUrl').value = e.target.result;
+      document.getElementById('fldJFotoImg').src = e.target.result;
+      document.getElementById('fldJFotoPreview').style.display = '';
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function saveJogador(id, originalId) {
+  const nome = document.getElementById('fldJNome')?.value.trim();
+  if (!nome) { alert('O nome é obrigatório.'); return; }
+
+  const posEl = document.getElementById('fldJPosicao');
+  const posLabels = { GR: 'Guarda-Redes', DEF: 'Defesa', MEI: 'Médio', AVA: 'Avançado' };
+  const pos = posEl.value;
+
+  const jogador = {
+    id,
+    nome,
+    numero: parseInt(document.getElementById('fldJNumero')?.value) || '',
+    posicao: pos,
+    posicaoFull: posLabels[pos] || pos,
+    foto: document.getElementById('fldJFotoUrl')?.value.trim() || '',
+    ativo: document.getElementById('fldJAtivo')?.value === '1',
+  };
+
+  if (!DB.seniores) DB.seniores = [];
+  const idx = DB.seniores.findIndex(j => j.id === id);
+  if (idx >= 0) {
+    DB.seniores[idx] = jogador;
+  } else {
+    DB.seniores.push(jogador);
+  }
+
+  saveDB();
+  closeModal();
+  renderSeniores();
+}
+
+function deleteJogador(id) {
+  if (!confirm('Eliminar este jogador do plantel?')) return;
+  DB.seniores = (DB.seniores || []).filter(j => j.id !== id);
+  saveDB();
+  renderSeniores();
+}
+
+function guardarInfoSeniores() {
+  if (!DB.senioresInfo) DB.senioresInfo = {};
+  DB.senioresInfo.temporada = document.getElementById('seniorInfoTemporada')?.value.trim() || '';
+  DB.senioresInfo.liga      = document.getElementById('seniorInfoLiga')?.value.trim() || '';
+  DB.senioresInfo.treinador = document.getElementById('seniorInfoTreinador')?.value.trim() || '';
+  DB.senioresInfo.treinos   = document.getElementById('seniorInfoTreinos')?.value.trim() || '';
+  DB.senioresInfo.estadio   = document.getElementById('seniorInfoEstadio')?.value.trim() || '';
+  DB.senioresInfo.descricao = document.getElementById('seniorInfoDescricao')?.value.trim() || '';
+  saveDB();
+  const btn = document.getElementById('btnGuardarInfoSeniores');
+  if (btn) { btn.textContent = '✓ Guardado!'; setTimeout(() => { btn.textContent = '💾 Guardar Informações'; }, 2000); }
+}

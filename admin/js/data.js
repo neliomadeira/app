@@ -110,37 +110,73 @@ const DB = {
     { id:2, nome:'Judo',       icone:'🥋', descricao:'Arte marcial japonesa focada em técnicas de projeção e imobilização. Desenvolve disciplina, respeito e autoconfiança desde criança.', treinos:'2ª, 4ª e 6ª — 18h30', responsavel:'', local:'Pavilhão Municipal de Loulé', ativo:true, imagem:'', imagemPos:'center' },
     { id:3, nome:'Futsal',     icone:'⚽', descricao:'Futebol em espaço reduzido que potencia a técnica e velocidade de decisão. Escalões de formação com competição distrital.', treinos:'2ª e 4ª — 20h00', responsavel:'', local:'Pavilhão Desportivo de Loulé', ativo:true, imagem:'', imagemPos:'center' },
   ],
+
+  senioresInfo: {
+    temporada: '2025/2026',
+    liga: 'Campeonato de Portugal — Série F',
+    treinador: '',
+    treinos: '3ª, 5ª e 6ª — 20h00',
+    estadio: 'Estádio Municipal de Loulé',
+    descricao: 'A equipa principal do Sport Campinense de Loulé disputa o Campeonato de Portugal, o terceiro escalão do futebol português.',
+  },
+
+  seniores: [
+    // Guarda-redes
+    { id:1,  nome:'João Rodrigues',   numero:1,  posicao:'GR',  posicaoFull:'Guarda-redes', foto:'', ativo:true },
+    { id:2,  nome:'Tiago Melo',       numero:13, posicao:'GR',  posicaoFull:'Guarda-redes', foto:'', ativo:true },
+    // Defesas
+    { id:3,  nome:'Carlos Ferreira',  numero:2,  posicao:'DEF', posicaoFull:'Defesa Direito', foto:'', ativo:true },
+    { id:4,  nome:'André Sousa',      numero:4,  posicao:'DEF', posicaoFull:'Central', foto:'', ativo:true },
+    { id:5,  nome:'Rui Almeida',      numero:5,  posicao:'DEF', posicaoFull:'Central', foto:'', ativo:true },
+    { id:6,  nome:'Nuno Costa',       numero:3,  posicao:'DEF', posicaoFull:'Defesa Esquerdo', foto:'', ativo:true },
+    { id:7,  nome:'Pedro Gomes',      numero:22, posicao:'DEF', posicaoFull:'Defesa Direito', foto:'', ativo:true },
+    // Médios
+    { id:8,  nome:'Fábio Lopes',      numero:6,  posicao:'MEI', posicaoFull:'Médio Defensivo', foto:'', ativo:true },
+    { id:9,  nome:'Luís Tavares',     numero:8,  posicao:'MEI', posicaoFull:'Médio', foto:'', ativo:true },
+    { id:10, nome:'Ricardo Pinto',    numero:10, posicao:'MEI', posicaoFull:'Médio Ofensivo', foto:'', ativo:true },
+    { id:11, nome:'Diogo Marques',    numero:7,  posicao:'MEI', posicaoFull:'Extremo Direito', foto:'', ativo:true },
+    { id:12, nome:'Bruno Santos',     numero:11, posicao:'MEI', posicaoFull:'Extremo Esquerdo', foto:'', ativo:true },
+    // Avançados
+    { id:13, nome:'Vitor Cunha',      numero:9,  posicao:'AVA', posicaoFull:'Avançado', foto:'', ativo:true },
+    { id:14, nome:'Gonçalo Ferreira', numero:19, posicao:'AVA', posicaoFull:'Avançado', foto:'', ativo:true },
+    { id:15, nome:'Miguel Brito',     numero:17, posicao:'AVA', posicaoFull:'Ponta de Lança', foto:'', ativo:true },
+  ],
 };
 
 // Persistência no localStorage
 window.saveDB = function() {
   try {
-    localStorage.setItem('db_noticias',      JSON.stringify(DB.noticias));
-    localStorage.setItem('db_escaloes',      JSON.stringify(DB.escaloes));
-    localStorage.setItem('db_galeria',       JSON.stringify(DB.galeria));
-    localStorage.setItem('db_modalidades',   JSON.stringify(DB.modalidades));
-    localStorage.setItem('db_agenda',        JSON.stringify(DB.agenda));
-    localStorage.setItem('db_patrocinadores',JSON.stringify(DB.patrocinadores));
-    localStorage.setItem('db_treinadores',   JSON.stringify(DB.treinadores));
+    localStorage.setItem('db_noticias',       JSON.stringify(DB.noticias));
+    localStorage.setItem('db_escaloes',       JSON.stringify(DB.escaloes));
+    localStorage.setItem('db_galeria',        JSON.stringify(DB.galeria));
+    localStorage.setItem('db_modalidades',    JSON.stringify(DB.modalidades));
+    localStorage.setItem('db_agenda',         JSON.stringify(DB.agenda));
+    localStorage.setItem('db_patrocinadores', JSON.stringify(DB.patrocinadores));
+    localStorage.setItem('db_treinadores',    JSON.stringify(DB.treinadores));
+    localStorage.setItem('db_seniores',       JSON.stringify(DB.seniores));
+    localStorage.setItem('db_seniores_info',  JSON.stringify(DB.senioresInfo));
   } catch(e) {}
 };
 
-// Carregar dados guardados (substituir mock se existirem dados guardados)
 (function() {
   try {
-    const n = localStorage.getItem('db_noticias');
-    const e = localStorage.getItem('db_escaloes');
-    const g = localStorage.getItem('db_galeria');
-    const m = localStorage.getItem('db_modalidades');
-    const a = localStorage.getItem('db_agenda');
-    const p = localStorage.getItem('db_patrocinadores');
-    const t = localStorage.getItem('db_treinadores');
-    if (n) DB.noticias       = JSON.parse(n);
-    if (e) DB.escaloes       = JSON.parse(e);
-    if (g) DB.galeria        = JSON.parse(g);
-    if (m) DB.modalidades    = JSON.parse(m);
-    if (a) DB.agenda         = JSON.parse(a);
-    if (p) DB.patrocinadores = JSON.parse(p);
-    if (t) DB.treinadores    = JSON.parse(t);
+    const n  = localStorage.getItem('db_noticias');
+    const e  = localStorage.getItem('db_escaloes');
+    const g  = localStorage.getItem('db_galeria');
+    const m  = localStorage.getItem('db_modalidades');
+    const a  = localStorage.getItem('db_agenda');
+    const p  = localStorage.getItem('db_patrocinadores');
+    const t  = localStorage.getItem('db_treinadores');
+    const s  = localStorage.getItem('db_seniores');
+    const si = localStorage.getItem('db_seniores_info');
+    if (n)  DB.noticias       = JSON.parse(n);
+    if (e)  DB.escaloes       = JSON.parse(e);
+    if (g)  DB.galeria        = JSON.parse(g);
+    if (m)  DB.modalidades    = JSON.parse(m);
+    if (a)  DB.agenda         = JSON.parse(a);
+    if (p)  DB.patrocinadores = JSON.parse(p);
+    if (t)  DB.treinadores    = JSON.parse(t);
+    if (s)  DB.seniores       = JSON.parse(s);
+    if (si) DB.senioresInfo   = JSON.parse(si);
   } catch(e) {}
 })();

@@ -23,6 +23,7 @@
       <nav class="nav" id="nav">
         <ul class="nav__list">
           <li><a href="#sobre" class="nav__link">Sobre</a></li>
+          <li><a href="#seniores" class="nav__link">Seniores</a></li>
           <li><a href="#categorias" class="nav__link">Categorias</a></li>
           <li><a href="#modalidades" class="nav__link">Modalidades</a></li>
           <li><a href="#agenda" class="nav__link">Agenda</a></li>
@@ -125,6 +126,87 @@
             <div class="about__card-footer">
               <span>Loulé · Algarve · Portugal</span>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SENIORES -->
+  <section class="section section--dark" id="seniores">
+    <div class="container">
+      <div class="section__header section__header--light">
+        <span class="section__tag">Equipa Principal</span>
+        <h2 class="section__title">Seniores</h2>
+      </div>
+
+      <!-- Info da equipa -->
+      <div class="senior-info" id="seniorInfoBar">
+        <div class="senior-info__item">
+          <span class="senior-info__icon">&#127942;</span>
+          <div>
+            <span class="senior-info__label">Liga</span>
+            <span class="senior-info__val" id="seniorLiga">Campeonato de Portugal — Série F</span>
+          </div>
+        </div>
+        <div class="senior-info__item">
+          <span class="senior-info__icon">&#128197;</span>
+          <div>
+            <span class="senior-info__label">Temporada</span>
+            <span class="senior-info__val" id="seniorTemporada">2025/2026</span>
+          </div>
+        </div>
+        <div class="senior-info__item">
+          <span class="senior-info__icon">&#128337;</span>
+          <div>
+            <span class="senior-info__label">Treinos</span>
+            <span class="senior-info__val" id="seniorTreinos">3ª, 5ª e 6ª — 20h00</span>
+          </div>
+        </div>
+        <div class="senior-info__item">
+          <span class="senior-info__icon">&#128205;</span>
+          <div>
+            <span class="senior-info__label">Estádio</span>
+            <span class="senior-info__val" id="seniorEstadio">Estádio Municipal de Loulé</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Plantel por posição -->
+      <div id="seniorPlantel">
+        <div class="squad-group">
+          <h3 class="squad-group__title"><span class="squad-pos-badge squad-pos-badge--gr">GR</span> Guarda-redes</h3>
+          <div class="squad-grid squad-grid--gr" id="sgGR">
+            <div class="player-card"><div class="player-card__num">1</div><div class="player-card__avatar">JR</div><div class="player-card__name">João Rodrigues</div><div class="player-card__pos">Guarda-redes</div></div>
+            <div class="player-card"><div class="player-card__num">13</div><div class="player-card__avatar">TM</div><div class="player-card__name">Tiago Melo</div><div class="player-card__pos">Guarda-redes</div></div>
+          </div>
+        </div>
+        <div class="squad-group">
+          <h3 class="squad-group__title"><span class="squad-pos-badge squad-pos-badge--def">DEF</span> Defesas</h3>
+          <div class="squad-grid" id="sgDEF">
+            <div class="player-card"><div class="player-card__num">2</div><div class="player-card__avatar">CF</div><div class="player-card__name">Carlos Ferreira</div><div class="player-card__pos">Defesa Direito</div></div>
+            <div class="player-card"><div class="player-card__num">4</div><div class="player-card__avatar">AS</div><div class="player-card__name">André Sousa</div><div class="player-card__pos">Central</div></div>
+            <div class="player-card"><div class="player-card__num">5</div><div class="player-card__avatar">RA</div><div class="player-card__name">Rui Almeida</div><div class="player-card__pos">Central</div></div>
+            <div class="player-card"><div class="player-card__num">3</div><div class="player-card__avatar">NC</div><div class="player-card__name">Nuno Costa</div><div class="player-card__pos">Defesa Esquerdo</div></div>
+            <div class="player-card"><div class="player-card__num">22</div><div class="player-card__avatar">PG</div><div class="player-card__name">Pedro Gomes</div><div class="player-card__pos">Defesa Direito</div></div>
+          </div>
+        </div>
+        <div class="squad-group">
+          <h3 class="squad-group__title"><span class="squad-pos-badge squad-pos-badge--mei">MEI</span> Médios</h3>
+          <div class="squad-grid" id="sgMEI">
+            <div class="player-card"><div class="player-card__num">6</div><div class="player-card__avatar">FL</div><div class="player-card__name">Fábio Lopes</div><div class="player-card__pos">Médio Defensivo</div></div>
+            <div class="player-card"><div class="player-card__num">8</div><div class="player-card__avatar">LT</div><div class="player-card__name">Luís Tavares</div><div class="player-card__pos">Médio</div></div>
+            <div class="player-card"><div class="player-card__num">10</div><div class="player-card__avatar">RP</div><div class="player-card__name">Ricardo Pinto</div><div class="player-card__pos">Médio Ofensivo</div></div>
+            <div class="player-card"><div class="player-card__num">7</div><div class="player-card__avatar">DM</div><div class="player-card__name">Diogo Marques</div><div class="player-card__pos">Extremo Direito</div></div>
+            <div class="player-card"><div class="player-card__num">11</div><div class="player-card__avatar">BS</div><div class="player-card__name">Bruno Santos</div><div class="player-card__pos">Extremo Esquerdo</div></div>
+          </div>
+        </div>
+        <div class="squad-group">
+          <h3 class="squad-group__title"><span class="squad-pos-badge squad-pos-badge--ava">AVA</span> Avançados</h3>
+          <div class="squad-grid" id="sgAVA">
+            <div class="player-card"><div class="player-card__num">9</div><div class="player-card__avatar">VC</div><div class="player-card__name">Vitor Cunha</div><div class="player-card__pos">Avançado</div></div>
+            <div class="player-card"><div class="player-card__num">19</div><div class="player-card__avatar">GF</div><div class="player-card__name">Gonçalo Ferreira</div><div class="player-card__pos">Avançado</div></div>
+            <div class="player-card"><div class="player-card__num">17</div><div class="player-card__avatar">MB</div><div class="player-card__name">Miguel Brito</div><div class="player-card__pos">Ponta de Lança</div></div>
           </div>
         </div>
       </div>
