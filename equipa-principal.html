@@ -134,6 +134,39 @@
     </div>
   </section>
 
+  <!-- PUBLICAÇÕES DA EQUIPA PRINCIPAL -->
+  <section class="section" id="seniorPosts">
+    <div class="container">
+      <div class="section__header">
+        <span class="section__tag">Equipa Principal</span>
+        <h2 class="section__title">Publicações</h2>
+      </div>
+      <div class="senior-posts__grid" id="seniorPostsGrid">
+        <!-- preenchido por main.js -->
+        <div class="senior-posts__empty" id="seniorPostsEmpty">
+          <p>Sem publicações de momento. As novidades da equipa principal aparecem aqui.</p>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:36px">
+        <button class="btn-outline" id="btnVerTodosPosts" style="display:none"
+                onclick="openNewsArchive('Seniores')">
+          Ver todas as publicações &darr;
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Modal arquivo notícias (reutilizado) -->
+  <div class="news-archive" id="newsArchive" role="dialog" aria-modal="true">
+    <div class="news-archive__panel">
+      <div class="news-archive__header">
+        <div id="newsArchiveTitle" class="news-archive__title">Publicações</div>
+        <button class="news-archive__close" id="newsArchiveClose" aria-label="Fechar">&times;</button>
+      </div>
+      <div class="news-archive__body" id="newsArchiveBody"></div>
+    </div>
+  </div>
+
   <!-- FOOTER -->
   <footer class="footer">
     <div class="container footer__inner">
@@ -179,5 +212,6 @@
   <script src="js/security.js"></script>
   <script src="js/site-config.js"></script>
   <script src="js/main.js"></script>
+  <script src="js/senior-posts.js"></script>
 </body>
 </html>

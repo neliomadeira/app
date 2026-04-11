@@ -675,7 +675,7 @@ function abrirModalNoticia(n = null) {
   const pos      = n?.imagemPos  || 'center';
   const sz       = n?.imagemSize || 'cover';
   const publicada = n?.publicada ?? false;
-  const cats = ['Resultado','Seleção','Conquista','Clube','Evento','Formação'];
+  const cats = ['Resultado','Seleção','Conquista','Clube','Evento','Formação','Seniores'];
 
   openModal(isNew ? 'Nova Notícia' : 'Editar Notícia', `
     <div class="modal-field">
