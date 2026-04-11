@@ -156,8 +156,25 @@ window.saveDB = function() {
     localStorage.setItem('db_seniores',       JSON.stringify(DB.seniores));
     localStorage.setItem('db_seniores_info',  JSON.stringify(DB.senioresInfo));
   } catch(e) {
-    // Mostrar erro visível se localStorage falhar (ex: quota excedida, bloqueado)
-    alert('ERRO ao guardar dados: ' + e.message + '\nAs alterações não foram guardadas.');
+    if (e.name === 'QuotaExceededError' || e.code === 22) {
+      const libertar = confirm(
+        'Armazenamento cheio! As imagens carregadas por ficheiro ocupam demasiado espaço.\n\n' +
+        'Clicar OK remove as imagens guardadas localmente das notícias (as que usam URL externo ficam intactas).\n' +
+        'Depois use URLs de imagem em vez de ficheiros locais.'
+      );
+      if (libertar) {
+        DB.noticias.forEach(n => { if (n.imagem && n.imagem.startsWith('data:')) n.imagem = ''; });
+        try {
+          localStorage.setItem('db_noticias', JSON.stringify(DB.noticias));
+          localStorage.setItem('db_galeria',  JSON.stringify(DB.galeria));
+          localStorage.setItem('db_treinadores', JSON.stringify(DB.treinadores));
+          localStorage.setItem('db_seniores', JSON.stringify(DB.seniores));
+          alert('Espaço libertado. As notícias foram guardadas sem as imagens locais.');
+        } catch(_) {}
+      }
+    } else {
+      alert('ERRO ao guardar dados: ' + e.message + '\nAs alterações não foram guardadas.');
+    }
   }
 };
 

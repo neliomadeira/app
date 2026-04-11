@@ -593,6 +593,27 @@ window.removeAtleta = function (id) {
 // ==================================================
 // UTILITÁRIO: UPLOAD DE IMAGEM
 // ==================================================
+
+// Comprime uma imagem para máx. 800px e qualidade 0.75 (JPEG)
+// Evita exceder a quota do localStorage (5MB)
+function compressImage(file, callback) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 800;
+      let w = img.width, h = img.height;
+      if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      callback(canvas.toDataURL('image/jpeg', 0.75));
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
 function setupImageUpload(fileInputId, urlInputId, previewId) {
   const fileEl = document.getElementById(fileInputId);
   const urlEl  = document.getElementById(urlInputId);
@@ -608,17 +629,15 @@ function setupImageUpload(fileInputId, urlInputId, previewId) {
   fileEl?.addEventListener('change', function() {
     const file = this.files[0];
     if (!file) return;
-    if (file.size > 3 * 1024 * 1024) {
-      showToast('Imagem demasiado grande (máx 3MB)', 'red');
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('Imagem demasiado grande (máx 5MB)', 'red');
       this.value = '';
       return;
     }
-    const reader = new FileReader();
-    reader.onload = ev => {
-      if (urlEl) urlEl.value = ev.target.result;
-      updatePreview(ev.target.result);
-    };
-    reader.readAsDataURL(file);
+    compressImage(file, dataUrl => {
+      if (urlEl) urlEl.value = dataUrl;
+      updatePreview(dataUrl);
+    });
   });
 
   urlEl?.addEventListener('input', function() { updatePreview(this.value); });
@@ -2616,13 +2635,11 @@ function editJogador(id) {
   document.getElementById('fldJFotoFile').addEventListener('change', function() {
     const file = this.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = e => {
-      document.getElementById('fldJFotoUrl').value = e.target.result;
-      document.getElementById('fldJFotoImg').src = e.target.result;
+    compressImage(file, dataUrl => {
+      document.getElementById('fldJFotoUrl').value = dataUrl;
+      document.getElementById('fldJFotoImg').src = dataUrl;
       document.getElementById('fldJFotoPreview').style.display = '';
-    };
-    reader.readAsDataURL(file);
+    });
   });
 }
 
