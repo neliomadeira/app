@@ -734,7 +734,7 @@ function abrirModalNoticia(n = null) {
       </label>
     </div>`,
     `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
-     <button class="btn-save" onclick="saveNoticia(${n?.id ?? 'null'})">${isNew ? 'Criar Notícia' : 'Guardar'}</button>`
+     <button class="btn-save" onclick="saveNoticia(${n?.id ?? null})">${isNew ? 'Criar Notícia' : 'Guardar'}</button>`
   );
   setupImageUpload('mFicheiro', 'mImagem', 'mImagemPreview');
 }
