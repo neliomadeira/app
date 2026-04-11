@@ -23,8 +23,15 @@
       <nav class="nav" id="nav">
         <ul class="nav__list">
           <li><a href="#sobre" class="nav__link">Sobre</a></li>
-          <li><a href="#seniores" class="nav__link">Seniores</a></li>
-          <li><a href="#categorias" class="nav__link">Categorias</a></li>
+          <li class="nav__dropdown">
+            <button class="nav__link nav__dropdown-toggle" aria-haspopup="true" aria-expanded="false">
+              Futebol <span class="nav__chevron">&#9662;</span>
+            </button>
+            <ul class="nav__submenu">
+              <li><a href="#seniores" class="nav__sublink">&#9917; Equipa Principal</a></li>
+              <li><a href="#categorias" class="nav__sublink">&#128100; Formação</a></li>
+            </ul>
+          </li>
           <li><a href="#modalidades" class="nav__link">Modalidades</a></li>
           <li><a href="#agenda" class="nav__link">Agenda</a></li>
           <li><a href="#noticias" class="nav__link">Notícias</a></li>

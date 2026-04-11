@@ -13,11 +13,45 @@ document.addEventListener('DOMContentLoaded', () => {
     nav.classList.toggle('open');
   });
 
+  // ---- DROPDOWN FUTEBOL ----
+  document.querySelectorAll('.nav__dropdown').forEach(dropdown => {
+    const toggle = dropdown.querySelector('.nav__dropdown-toggle');
+    toggle?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = dropdown.classList.contains('open');
+      // close all dropdowns first
+      document.querySelectorAll('.nav__dropdown.open').forEach(d => d.classList.remove('open'));
+      if (!isOpen) {
+        dropdown.classList.add('open');
+        toggle.setAttribute('aria-expanded', 'true');
+      } else {
+        toggle.setAttribute('aria-expanded', 'false');
+      }
+    });
+  });
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', () => {
+    document.querySelectorAll('.nav__dropdown.open').forEach(d => {
+      d.classList.remove('open');
+      d.querySelector('.nav__dropdown-toggle')?.setAttribute('aria-expanded', 'false');
+    });
+  });
+
+  // Close dropdown + mobile nav when a submenu link is clicked
+  document.querySelectorAll('.nav__sublink').forEach(link => {
+    link.addEventListener('click', () => {
+      document.querySelectorAll('.nav__dropdown.open').forEach(d => d.classList.remove('open'));
+      hamburger?.classList.remove('open');
+      nav?.classList.remove('open');
+    });
+  });
+
   // Close nav on link click (mobile)
   nav?.querySelectorAll('a').forEach(link => {
     link.addEventListener('click', () => {
-      hamburger.classList.remove('open');
-      nav.classList.remove('open');
+      hamburger?.classList.remove('open');
+      nav?.classList.remove('open');
     });
   });
 
