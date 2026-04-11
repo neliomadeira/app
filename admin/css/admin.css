@@ -403,6 +403,9 @@ ul { list-style: none; }
 .news-admin-img {
   height: 120px;
   display: flex; align-items: flex-end; padding: 10px;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 .news-admin-img--1 { background: linear-gradient(135deg, #002A6B, #003B8E); }
 .news-admin-img--2 { background: linear-gradient(135deg, #1a1a2e, #16213e); }
