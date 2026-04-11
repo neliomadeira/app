@@ -762,13 +762,23 @@ window.saveNoticia = function(id) {
 
   if (isNew) {
     DB.noticias.unshift({ id: Date.now(), img: Math.ceil(Math.random()*3), ...dados });
-    showToast('Notícia criada!', 'green');
   } else {
     const n = DB.noticias.find(x => x.id == id); // == para aceitar int ou string
     if (n) Object.assign(n, dados);
-    showToast('Notícia actualizada!', 'green');
   }
-  saveDB(); renderNoticias(); closeModal();
+
+  saveDB();
+
+  // Verificar se foi realmente guardado no localStorage
+  const verificacao = JSON.parse(localStorage.getItem('db_noticias') || '[]');
+  const publicadas = verificacao.filter(n => n.publicada).length;
+  if (isNew) {
+    showToast(`Notícia criada! ${publicadas} publicada(s) no site.`, 'green');
+  } else {
+    showToast(`Notícia actualizada! ${publicadas} publicada(s) no site.`, 'green');
+  }
+
+  renderNoticias(); closeModal();
 };
 
 // manter retrocompatibilidade

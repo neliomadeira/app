@@ -230,7 +230,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const btn = document.getElementById('btnVerTodasNoticias');
       if (btn) btn.style.display = lista.length > 3 ? '' : 'none';
-    } catch(e) {}
+    } catch(e) {
+      // Erro ao renderizar noticias — mantém HTML estático
+    }
   }
 
   // ---- News archive overlay ----

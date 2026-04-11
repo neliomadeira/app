@@ -155,7 +155,10 @@ window.saveDB = function() {
     localStorage.setItem('db_treinadores',    JSON.stringify(DB.treinadores));
     localStorage.setItem('db_seniores',       JSON.stringify(DB.seniores));
     localStorage.setItem('db_seniores_info',  JSON.stringify(DB.senioresInfo));
-  } catch(e) {}
+  } catch(e) {
+    // Mostrar erro visível se localStorage falhar (ex: quota excedida, bloqueado)
+    alert('ERRO ao guardar dados: ' + e.message + '\nAs alterações não foram guardadas.');
+  }
 };
 
 (function() {
