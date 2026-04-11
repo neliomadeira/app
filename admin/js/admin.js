@@ -674,7 +674,7 @@ function abrirModalNoticia(n = null) {
   const imagem   = n?.imagem     || '';
   const pos      = n?.imagemPos  || 'center';
   const sz       = n?.imagemSize || 'cover';
-  const publicada = n?.publicada ?? false;
+  const publicada = isNew ? true : (n.publicada ?? false);
   const cats = ['Resultado','Seleção','Conquista','Clube','Evento','Formação','Seniores'];
 
   openModal(isNew ? 'Nova Notícia' : 'Editar Notícia', `
