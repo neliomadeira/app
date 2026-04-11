@@ -742,23 +742,29 @@ function abrirModalNoticia(n = null) {
 document.getElementById('btnNovaNoticia')?.addEventListener('click', () => abrirModalNoticia());
 
 window.saveNoticia = function(id) {
-  const titulo = document.getElementById('mTitulo').value.trim();
+  const titulo = document.getElementById('mTitulo')?.value.trim();
   if (!titulo) { showToast('Introduza o título.', 'red'); return; }
+
+  const publicadaEl = document.getElementById('mPublicada');
   const dados = {
     titulo,
-    categoria:  document.getElementById('mCat').value,
-    data:       document.getElementById('mData').value,
-    resumo:     document.getElementById('mResumo').value.trim(),
-    imagem:     document.getElementById('mImagem').value.trim(),
+    categoria:  document.getElementById('mCat')?.value || 'Resultado',
+    data:       document.getElementById('mData')?.value || new Date().toISOString().split('T')[0],
+    resumo:     document.getElementById('mResumo')?.value.trim() || '',
+    imagem:     document.getElementById('mImagem')?.value.trim() || '',
     imagemPos:  document.getElementById('mImagemPos')?.value  || 'center',
     imagemSize: document.getElementById('mImagemSize')?.value || 'cover',
-    publicada:  document.getElementById('mPublicada').checked,
+    publicada:  publicadaEl ? publicadaEl.checked : true,
   };
-  if (id === null) {
+
+  // aceita null, 'null' (string por cache do browser), undefined ou 0
+  const isNew = !id || id === 'null' || id === null;
+
+  if (isNew) {
     DB.noticias.unshift({ id: Date.now(), img: Math.ceil(Math.random()*3), ...dados });
     showToast('Notícia criada!', 'green');
   } else {
-    const n = DB.noticias.find(x => x.id === id);
+    const n = DB.noticias.find(x => x.id == id); // == para aceitar int ou string
     if (n) Object.assign(n, dados);
     showToast('Notícia actualizada!', 'green');
   }
