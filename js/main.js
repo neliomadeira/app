@@ -210,13 +210,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const grid = document.getElementById('newsGrid');
       if (!grid) return;
       if (!lista.length) {
-        grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:#888;padding:40px 0">Sem notícias publicadas de momento.</p>';
-        document.getElementById('btnVerTodasNoticias').style.display = 'none';
+        // Sem artigos publicados — mantém HTML estático como fallback
+        const btn = document.getElementById('btnVerTodasNoticias');
+        if (btn) btn.style.display = 'none';
         return;
       }
       grid.innerHTML = lista.slice(0, 3).map((n, i) => `
         <article class="news-card${i === 0 ? ' news-card--featured' : ''}" style="cursor:pointer" onclick="openNewsArticle(${n.id})">
-          <div class="news-card__img${n.imagem ? '' : ` news-card__img--${n.img || 1}`}" ${newsCardImg(n)}>
+          <div class="news-card__img${n.imagem ? '' : ` news-card__img--${(i % 3) + 1}`}" ${newsCardImg(n)}>
             <span class="news-card__cat">${n.categoria || ''}</span>
           </div>
           <div class="news-card__body">
@@ -255,10 +256,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const body  = document.getElementById('newsArchiveBody');
     document.getElementById('newsArchiveTitle').textContent = 'Todas as Notícias';
     body.innerHTML = `<div class="news-archive__list">${
-      lista.map(n => `
+      lista.map((n, i) => `
         <div class="news-archive__item" onclick="openNewsArticle(${n.id})">
           ${archiveDateBox(n.data)}
-          <div class="news-archive__img news-card__img--${n.img||1}"
+          <div class="news-archive__img${n.imagem ? '' : ` news-card__img--${(i % 3) + 1}`}"
                ${n.imagem ? `style="background-image:url('${n.imagem}');background-size:cover;background-position:${n.imagemPos||'center'}"` : ''}></div>
           <div class="news-archive__info">
             <span class="news-archive__cat">${n.categoria || ''}</span>

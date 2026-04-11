@@ -297,7 +297,7 @@ function updateBadges() {
   document.getElementById('inscPendentes').textContent  = pendentes;
   document.getElementById('msgNovos').textContent       = naoLidas;
   document.getElementById('totalJogos').textContent     = jogosmes;
-  document.getElementById('totalNoticias').textContent  = (DB.noticias || []).filter(n => n.estado === 'Publicada').length;
+  document.getElementById('totalNoticias').textContent  = (DB.noticias || []).filter(n => n.publicada).length;
   document.getElementById('totalPatrocinadores').textContent = (DB.patrocinadores || []).filter(p => p.ativo).length;
 }
 
