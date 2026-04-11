@@ -2241,7 +2241,11 @@ function editModalidade(idx) {
       </div>
       <div class="modal-field">
         <label class="form-label">Ícone (emoji)</label>
-        <input class="form-input" type="text" id="mIcone" value="${m.icone || '🏅'}" placeholder="🥊" style="font-size:1.3rem" />
+        <div style="display:flex;align-items:center;gap:10px">
+          <button type="button" id="mIconeBtn" class="emoji-picker-trigger" onclick="toggleEmojiPicker('mIcone','mIconeBtn')" title="Escolher emoji">${m.icone || '🏅'}</button>
+          <input class="form-input" type="text" id="mIcone" value="${m.icone || '🏅'}" placeholder="🥊" style="font-size:1.3rem;width:90px" oninput="document.getElementById('mIconeBtn').textContent=this.value||'🏅'" />
+        </div>
+        <div id="emojiPickerRoot"></div>
       </div>
       <div class="modal-field">
         <label class="form-label">Descrição</label>
@@ -2656,3 +2660,127 @@ function guardarInfoSeniores() {
   const btn = document.getElementById('btnGuardarInfoSeniores');
   if (btn) { btn.textContent = '✓ Guardado!'; setTimeout(() => { btn.textContent = '💾 Guardar Informações'; }, 2000); }
 }
+
+// =============================================
+// EMOJI PICKER — componente reutilizável
+// =============================================
+(function() {
+  const CATS = [
+    {
+      label: '⚽ Desporto',
+      emojis: ['⚽','🏀','🏈','⚾','🥎','🎾','🏐','🏉','🥏','🎱','🏓','🏸','🥅','⛳','🏹','🎣','🤿','🥊','🥋','🎽','🛹','🛼','🛷','⛸','🥌','🎿','⛷','🏂','🪂','🏋','🤼','🤸','⛹','🤺','🤾','🏌','🏇','🧘','🏄','🏊','🤽','🚣','🧗','🚴','🏆','🥇','🥈','🥉','🏅','🎖','🎗']
+    },
+    {
+      label: '🏃 Atividade',
+      emojis: ['🏃','🚶','🧍','🧎','🧗','🏇','🤸','🏋','🤼','🤺','🤾','⛹','🏌','🏊','🚴','🛹','🛼','🤼','🧘','💃','🕺','🚵','🪄','🎯','🎳','🎮','🕹','🎲','🎰','🎭','🎨','🖼','🎬','🎤']
+    },
+    {
+      label: '🌟 Geral',
+      emojis: ['⭐','🌟','💫','✨','🔥','💥','🎉','🎊','🏟','🌍','🌎','🌏','🌈','☀','🌙','⚡','🌊','🍀','🌸','🏔','🦁','🐯','🦅','🦋','💪','🫶','👊','✌','🤝','👏','🙌','❤','🧡','💛','💙','💚','💜','🖤','🤍']
+    },
+    {
+      label: '👥 Pessoas',
+      emojis: ['👤','👥','🧑','👨','👩','🧒','👦','👧','🧑‍🤝‍🧑','👫','👬','👭','🫂','🤜','🤛','👋','🤚','✋','🖐','👐','🙏','🤲','💪','🦾','👀','🧠','🦷','🦴','👅','👂','👃']
+    },
+    {
+      label: '📦 Objetos',
+      emojis: ['🎽','👟','🥿','👠','🧢','🎒','🏋','🎸','🎺','🎻','🥁','🎙','📢','📣','📡','🔭','🔬','🧪','🧫','💊','🩺','🩹','🌡','🧲','⚙','🔧','🔨','🪓','🛠','🗡','⚔','🛡','🪃','🪁','🎪','🎠']
+    },
+  ];
+
+  let _anchorId = null;
+  let _inputId  = null;
+
+  function buildPicker() {
+    const el = document.createElement('div');
+    el.className = 'emoji-picker';
+    el.id = 'emojiPickerPopup';
+    el.innerHTML = `
+      <div class="emoji-picker__search-wrap">
+        <input class="emoji-picker__search" id="emojiSearch" placeholder="🔍 Pesquisar emoji..." autocomplete="off" />
+      </div>
+      <div class="emoji-picker__tabs" id="emojiTabs">
+        ${CATS.map((c,i) => `<button class="emoji-picker__tab${i===0?' active':''}" data-cat="${i}">${c.label.split(' ')[0]}</button>`).join('')}
+      </div>
+      <div class="emoji-picker__grid" id="emojiGrid"></div>`;
+    return el;
+  }
+
+  function renderGrid(emojis) {
+    const grid = document.getElementById('emojiGrid');
+    if (!grid) return;
+    grid.innerHTML = emojis.map(e =>
+      `<button type="button" class="emoji-picker__emoji" title="${e}">${e}</button>`
+    ).join('');
+    grid.querySelectorAll('.emoji-picker__emoji').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const input = document.getElementById(_inputId);
+        const anchor = document.getElementById(_anchorId);
+        if (input)  { input.value = btn.textContent; input.dispatchEvent(new Event('input')); }
+        if (anchor) anchor.textContent = btn.textContent;
+        closeEmojiPicker();
+      });
+    });
+  }
+
+  function openPicker(inputId, anchorId, rootId) {
+    _inputId  = inputId;
+    _anchorId = anchorId;
+
+    let existing = document.getElementById('emojiPickerPopup');
+    if (existing) existing.remove();
+
+    const root = document.getElementById(rootId || 'emojiPickerRoot');
+    if (!root) return;
+
+    const picker = buildPicker();
+    root.appendChild(picker);
+
+    let activeCat = 0;
+    renderGrid(CATS[0].emojis);
+
+    picker.querySelector('#emojiTabs').addEventListener('click', (e) => {
+      const btn = e.target.closest('.emoji-picker__tab');
+      if (!btn) return;
+      picker.querySelectorAll('.emoji-picker__tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeCat = +btn.dataset.cat;
+      document.getElementById('emojiSearch').value = '';
+      renderGrid(CATS[activeCat].emojis);
+    });
+
+    picker.querySelector('#emojiSearch').addEventListener('input', function() {
+      const q = this.value.trim().toLowerCase();
+      if (!q) { renderGrid(CATS[activeCat].emojis); return; }
+      const all = CATS.flatMap(c => c.emojis);
+      // basic filter — shows all; proper search needs a names DB, so just show all
+      renderGrid(all);
+    });
+
+    // Close on outside click
+    setTimeout(() => {
+      document.addEventListener('click', _outsideClick);
+    }, 10);
+  }
+
+  function _outsideClick(e) {
+    const popup = document.getElementById('emojiPickerPopup');
+    if (popup && !popup.contains(e.target) && e.target.id !== _anchorId) {
+      closeEmojiPicker();
+    }
+  }
+
+  function closeEmojiPicker() {
+    const popup = document.getElementById('emojiPickerPopup');
+    if (popup) popup.remove();
+    document.removeEventListener('click', _outsideClick);
+  }
+
+  window.toggleEmojiPicker = function(inputId, anchorId, rootId) {
+    const existing = document.getElementById('emojiPickerPopup');
+    if (existing) { closeEmojiPicker(); return; }
+    openPicker(inputId, anchorId, rootId);
+  };
+
+  window.closeEmojiPicker = closeEmojiPicker;
+})();
