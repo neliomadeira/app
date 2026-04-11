@@ -442,8 +442,24 @@
           </div>
         </article>
       </div>
+      <div style="text-align:center;margin-top:36px">
+        <button class="btn-outline" id="btnVerTodasNoticias" style="display:none" onclick="openNewsArchive()">
+          Ver todas as notícias &darr;
+        </button>
+      </div>
     </div>
   </section>
+
+  <!-- MODAL ARQUIVO NOTÍCIAS -->
+  <div class="news-archive" id="newsArchive" role="dialog" aria-modal="true" aria-label="Arquivo de notícias">
+    <div class="news-archive__panel">
+      <div class="news-archive__header">
+        <div id="newsArchiveTitle" class="news-archive__title">Todas as Notícias</div>
+        <button class="news-archive__close" id="newsArchiveClose" aria-label="Fechar">&times;</button>
+      </div>
+      <div class="news-archive__body" id="newsArchiveBody"></div>
+    </div>
+  </div>
 
   <!-- GALERIA -->
   <section class="section section--gray" id="galeria">

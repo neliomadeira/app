@@ -158,32 +158,131 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${d.getDate()} de ${MESES[d.getMonth()]}, ${d.getFullYear()}`;
   }
 
+  const MESES_CURTOS = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
+
+  function newsCardImg(n) {
+    if (n.imagem) {
+      return `style="background-image:url('${n.imagem}');background-size:${(n.imagemSize||'cover').replace('auto ','')};background-position:${n.imagemPos||'center'}"`;
+    }
+    return '';
+  }
+
   function renderNoticias() {
     try {
       const raw = localStorage.getItem('db_noticias');
       if (!raw) return;
-      const lista = JSON.parse(raw).filter(n => n.publicada);
+      const lista = JSON.parse(raw).filter(n => n.publicada)
+                      .sort((a,b) => (b.data||'').localeCompare(a.data||''));
       const grid = document.getElementById('newsGrid');
       if (!grid) return;
       if (!lista.length) {
         grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:#888;padding:40px 0">Sem notícias publicadas de momento.</p>';
+        document.getElementById('btnVerTodasNoticias').style.display = 'none';
         return;
       }
       grid.innerHTML = lista.slice(0, 3).map((n, i) => `
-        <article class="news-card${i === 0 ? ' news-card--featured' : ''}">
-          <div class="news-card__img${n.imagem ? '' : ` news-card__img--${n.img || 1}`}"
-               ${n.imagem ? `style="background-image:url('${n.imagem}');background-size:${(n.imagemSize||'cover').replace('auto ','')};background-position:${n.imagemPos||'center'}"` : ''}>
+        <article class="news-card${i === 0 ? ' news-card--featured' : ''}" style="cursor:pointer" onclick="openNewsArticle(${n.id})">
+          <div class="news-card__img${n.imagem ? '' : ` news-card__img--${n.img || 1}`}" ${newsCardImg(n)}>
             <span class="news-card__cat">${n.categoria || ''}</span>
           </div>
           <div class="news-card__body">
             <time class="news-card__date">${ptDate(n.data)}</time>
             <h3 class="news-card__title">${n.titulo}</h3>
             ${n.resumo ? `<p class="news-card__excerpt">${n.resumo}</p>` : ''}
-            <a href="#" class="news-card__link">Ler mais &rarr;</a>
+            <span class="news-card__link">Ler mais &rarr;</span>
           </div>
         </article>`).join('');
+
+      const btn = document.getElementById('btnVerTodasNoticias');
+      if (btn) btn.style.display = lista.length > 3 ? '' : 'none';
     } catch(e) {}
   }
+
+  // ---- News archive overlay ----
+  function getNoticiasLista() {
+    try {
+      const raw = localStorage.getItem('db_noticias');
+      return raw ? JSON.parse(raw).filter(n => n.publicada)
+                    .sort((a,b) => (b.data||'').localeCompare(a.data||'')) : [];
+    } catch(e) { return []; }
+  }
+
+  function archiveDateBox(data) {
+    if (!data) return '<div class="news-archive__date-box"></div>';
+    const d = new Date(data + 'T00:00:00');
+    return `<div class="news-archive__date-box">
+      <span class="news-archive__day">${d.getDate()}</span>
+      <span class="news-archive__month">${MESES_CURTOS[d.getMonth()]}</span>
+    </div>`;
+  }
+
+  function showArchiveList() {
+    const lista = getNoticiasLista();
+    const body  = document.getElementById('newsArchiveBody');
+    document.getElementById('newsArchiveTitle').textContent = 'Todas as Notícias';
+    body.innerHTML = `<div class="news-archive__list">${
+      lista.map(n => `
+        <div class="news-archive__item" onclick="openNewsArticle(${n.id})">
+          ${archiveDateBox(n.data)}
+          <div class="news-archive__img news-card__img--${n.img||1}"
+               ${n.imagem ? `style="background-image:url('${n.imagem}');background-size:cover;background-position:${n.imagemPos||'center'}"` : ''}></div>
+          <div class="news-archive__info">
+            <span class="news-archive__cat">${n.categoria || ''}</span>
+            <div class="news-archive__heading">${n.titulo}</div>
+            ${n.resumo ? `<p class="news-archive__excerpt">${n.resumo}</p>` : ''}
+          </div>
+        </div>`).join('')
+    }</div>`;
+  }
+
+  window.showArchiveList = showArchiveList;
+
+  window.openNewsArchive = function() {
+    showArchiveList();
+    document.getElementById('newsArchive').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  };
+
+  window.openNewsArticle = function(id) {
+    const lista = getNoticiasLista();
+    const n = lista.find(x => x.id == id);
+    if (!n) return;
+
+    const archive = document.getElementById('newsArchive');
+    const body    = document.getElementById('newsArchiveBody');
+    document.getElementById('newsArchiveTitle').textContent = n.categoria || 'Notícia';
+
+    body.innerHTML = `
+      <button class="news-archive__back" onclick="showArchiveList();document.getElementById('newsArchiveTitle').textContent='Todas as Notícias'">
+        &#8592; Voltar à lista
+      </button>
+      <div class="news-article">
+        ${n.imagem ? `<div class="news-article__img" style="background-image:url('${n.imagem}');background-size:${(n.imagemSize||'cover').replace('auto ','')};background-position:${n.imagemPos||'center'}"></div>` : ''}
+        <h2 class="news-article__title">${n.titulo}</h2>
+        <div class="news-article__meta">
+          <span class="news-article__cat-badge">${n.categoria || ''}</span>
+          <time>${ptDate(n.data)}</time>
+        </div>
+        <div class="news-article__body">${n.resumo || '<em style="color:#aaa">Sem texto disponível.</em>'}</div>
+      </div>`;
+
+    archive.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    body.scrollTop = 0;
+  };
+
+  // Close archive
+  function closeNewsArchive() {
+    document.getElementById('newsArchive').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+  document.getElementById('newsArchiveClose')?.addEventListener('click', closeNewsArchive);
+  document.getElementById('newsArchive')?.addEventListener('click', (e) => {
+    if (e.target === document.getElementById('newsArchive')) closeNewsArchive();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeNewsArchive();
+  });
 
   renderNoticias();
 
@@ -222,7 +321,6 @@ document.addEventListener('DOMContentLoaded', () => {
   try {
     const raw = localStorage.getItem('db_agenda');
     if (raw) {
-      const MESES_CURTOS = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
       const TIPO_CLS = { Jogo:'jogo', Torneio:'torneio', Treino:'treino', 'Reunião':'reuniao', Outro:'outro' };
       const hoje = new Date(); hoje.setHours(0,0,0,0);
       const lista = JSON.parse(raw)
