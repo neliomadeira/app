@@ -2048,3 +2048,380 @@ ul { list-style: none; }
   .senior-posts__grid { grid-template-columns: 1fr; }
   .senior-post-card--featured { grid-row: auto; }
 }
+
+/* =============================================
+   TEMA CLARO — REDESIGN PROFISSIONAL
+   Inspirado em sites de clubes modernos:
+   header branco, secções claras, cards limpos
+   ============================================= */
+
+/* ---- Header: branco com sombra ---- */
+.header {
+  background: rgba(255,255,255,0.97);
+  border-bottom: 3px solid var(--yellow);
+  box-shadow: 0 2px 18px rgba(0,0,0,0.08);
+  backdrop-filter: blur(16px);
+}
+
+.logo__name {
+  color: var(--blue-dark);
+}
+
+.nav__link {
+  color: var(--blue-dark);
+}
+
+.nav__link:hover {
+  color: var(--blue);
+}
+
+.nav__link::after {
+  background: var(--blue);
+}
+
+.nav__submenu {
+  background: var(--white);
+  border: 1px solid rgba(0,59,142,0.1);
+  box-shadow: 0 16px 40px rgba(0,0,0,0.12);
+}
+
+.nav__sublink {
+  color: var(--blue-dark);
+}
+
+.nav__sublink:hover {
+  background: var(--gray-light);
+  color: var(--blue);
+}
+
+.hamburger span {
+  background: var(--blue-dark);
+}
+
+/* Mobile nav: branco */
+@media (max-width: 768px) {
+  .nav {
+    background: var(--white);
+    border-bottom: 3px solid var(--yellow);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.10);
+  }
+  .nav__link { color: var(--blue-dark); }
+  .nav__link:hover { color: var(--blue); }
+  .nav__submenu {
+    background: #F0F4FF;
+    border-radius: 8px;
+  }
+  .nav__sublink { color: var(--blue-dark); }
+}
+
+/* ---- Secções escuras → fundo cinza-claro ---- */
+.section--dark {
+  background: #F5F7FA;
+}
+
+.section--dark .section__title,
+.section__header--light .section__title {
+  color: #111;
+}
+
+.section--dark .section__tag {
+  color: var(--blue);
+}
+
+/* ---- Decorativo: tag com barra amarela ---- */
+.section__tag {
+  position: relative;
+  padding-left: 14px;
+}
+
+.section__tag::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 14px;
+  background: var(--yellow);
+  border-radius: 2px;
+}
+
+/* Linha decorativa sob título de secção */
+.section__header .section__title::after {
+  content: '';
+  display: block;
+  width: 48px;
+  height: 3px;
+  background: var(--yellow);
+  margin: 14px auto 0;
+  border-radius: 2px;
+}
+
+/* ---- Agenda: cards brancos ---- */
+.agenda-card {
+  background: var(--white);
+  border: 1px solid #E8EEF8;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+}
+
+.agenda-card:hover {
+  background: var(--white);
+  border-color: rgba(0,59,142,0.25);
+  box-shadow: 0 8px 28px rgba(0,59,142,0.12);
+  transform: translateY(-3px);
+}
+
+.agenda-card__title {
+  color: #111;
+}
+
+.agenda-card__meta {
+  color: var(--gray-mid);
+}
+
+/* ---- Escalões de Formação: cards claros ---- */
+.category-card {
+  background: var(--white);
+  border: 2px solid #E8EEF8;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.06);
+}
+
+.category-card:hover {
+  border-color: var(--blue);
+  box-shadow: 0 10px 36px rgba(0,59,142,0.14);
+  transform: translateY(-6px);
+}
+
+.category-card__age {
+  color: var(--blue);
+}
+
+.category-card__name {
+  color: #111;
+}
+
+.category-card__age-range {
+  color: var(--gray-mid);
+}
+
+.category-card__desc {
+  color: #555;
+}
+
+.category-card__list {
+  border-color: #E8EEF8;
+}
+
+.category-card__list li {
+  color: #555;
+}
+
+.category-card__list li::before {
+  color: var(--blue);
+}
+
+/* Card em destaque: azul vibrante */
+.category-card--featured {
+  background: var(--blue);
+  border-color: var(--blue);
+}
+
+.category-card--featured:hover {
+  background: var(--blue-dark);
+  border-color: var(--blue-dark);
+  box-shadow: 0 12px 40px rgba(0,59,142,0.3);
+}
+
+.category-card--featured .category-card__age  { color: var(--yellow); }
+.category-card--featured .category-card__name { color: var(--white); }
+.category-card--featured .category-card__age-range { color: rgba(255,255,255,0.55); }
+.category-card--featured .category-card__desc { color: rgba(255,255,255,0.75); }
+.category-card--featured .category-card__list { border-color: rgba(255,255,255,0.15); }
+.category-card--featured .category-card__list li { color: rgba(255,255,255,0.75); }
+.category-card--featured .category-card__list li::before { color: var(--yellow); }
+
+/* ---- Equipa Sénior: info bar e plantel ---- */
+.senior-info__item {
+  background: var(--white);
+  border: 1px solid #E8EEF8;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+}
+
+.senior-info__icon {
+  font-size: 1.6rem;
+  line-height: 1;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  background: var(--blue);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.senior-info__label {
+  color: var(--gray-mid);
+}
+
+.senior-info__val {
+  color: var(--blue-dark);
+}
+
+/* ---- Plantel ---- */
+.squad-group__title {
+  color: #555;
+  border-bottom-color: #E8EEF8;
+  font-size: 0.95rem;
+  letter-spacing: 2px;
+}
+
+.player-card {
+  background: var(--white);
+  border: 1px solid #E8EEF8;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.player-card:hover {
+  background: var(--white);
+  border-color: rgba(0,59,142,0.2);
+  box-shadow: 0 8px 24px rgba(0,59,142,0.12);
+}
+
+.player-card__avatar {
+  background: linear-gradient(135deg, var(--blue-dark), var(--blue));
+  border-color: var(--yellow);
+  color: rgba(255,255,255,0.7);
+}
+
+.player-card__name {
+  color: #111;
+}
+
+/* Badges de posição — versão clara */
+.player-card__pos--GR  { background: #dcfce7; color: #16a34a; }
+.player-card__pos--DEF { background: #dbeafe; color: #1d4ed8; }
+.player-card__pos--MEI { background: #fef9c3; color: #854d0e; }
+.player-card__pos--AVA { background: #fee2e2; color: #dc2626; }
+
+/* Badges no título do grupo */
+.squad-pos-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  letter-spacing: 1px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.squad-pos-badge--gr  { background: #dcfce7; color: #16a34a; }
+.squad-pos-badge--def { background: #dbeafe; color: #1d4ed8; }
+.squad-pos-badge--mei { background: #fef9c3; color: #854d0e; }
+.squad-pos-badge--ava { background: #fee2e2; color: #dc2626; }
+
+/* ---- Galeria: tons claros ---- */
+.gallery-placeholder {
+  background: linear-gradient(135deg, #E8EEF8 0%, #C8D6F0 100%);
+  color: rgba(0,59,142,0.35);
+  border: 2px solid transparent;
+}
+
+.gallery-placeholder:hover {
+  border-color: var(--blue);
+  color: var(--blue);
+  background: linear-gradient(135deg, #dce5f8 0%, #b8c9e8 100%);
+}
+
+/* ---- About card — destaque sobre fundo branco ---- */
+.about__card {
+  background: linear-gradient(145deg, var(--blue-dark) 0%, var(--blue) 100%);
+  border: 3px solid var(--yellow);
+  box-shadow: 0 16px 48px rgba(0,59,142,0.25);
+}
+
+/* ---- Hero — gradiente ligeiramente mais profundo ---- */
+.hero {
+  background: linear-gradient(150deg, #000e2e 0%, #002060 40%, var(--blue) 80%, #1a4fa8 100%);
+}
+
+/* ---- Botão outline — estilo claro ---- */
+.btn--outline {
+  color: var(--blue);
+  border-color: var(--blue);
+}
+
+.btn--outline:hover {
+  background: var(--blue);
+  color: var(--white);
+  border-color: var(--blue);
+}
+
+/* ---- Secção de galeria — branco em vez de cinza ---- */
+.section--gray {
+  background: #F8F9FC;
+}
+
+/* ---- Staff cards — sombra mais pronunciada ---- */
+.staff-card {
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  border: 1px solid #F0F3FA;
+}
+
+.staff-card:hover {
+  box-shadow: 0 12px 36px rgba(0,59,142,0.15);
+  border-color: rgba(0,59,142,0.15);
+}
+
+/* ---- Patrocinadores CTA ---- */
+.sponsors-cta {
+  background: linear-gradient(135deg, var(--blue-dark) 0%, var(--blue) 100%);
+  border: 3px solid var(--yellow);
+}
+
+/* ---- Notícias: separador azul no link ---- */
+.news-card__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--blue);
+  font-weight: 700;
+  border-bottom: 2px solid transparent;
+  transition: border-color var(--transition);
+}
+
+.news-card__link:hover {
+  border-bottom-color: var(--blue);
+}
+
+/* ---- Contacto: ícone com estilo ---- */
+.contact__icon {
+  background: var(--blue);
+  color: var(--white);
+  font-size: 1.2rem;
+}
+
+/* ---- Senior info: label e val em bloco ---- */
+.senior-info__label { display: block; }
+.senior-info__val   { display: block; }
+
+/* ---- Hero: ajuste de padding pós-header branco ---- */
+.hero__content { padding-top: 80px; }
+
+/* ---- Btn.lg ---- */
+.btn--lg {
+  padding: 16px 40px;
+  font-size: 1rem;
+}
+
+/* ---- Squad grid mínimo ---- */
+.squad-grid--gr {
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+}
