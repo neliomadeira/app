@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Equipa Principal – Juventude Sport Campinense</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="header" id="header">
+    <div class="container header__inner">
+      <a href="index.html" class="logo">
+        <img src="images/logo.png" alt="JS Campinense" class="logo__img" />
+        <div class="logo__text">
+          <span class="logo__name">JS Campinense</span>
+          <span class="logo__sub">Juventude</span>
+        </div>
+      </a>
+      <nav class="nav" id="nav">
+        <ul class="nav__list">
+          <li><a href="index.html#sobre" class="nav__link">Sobre</a></li>
+          <li class="nav__dropdown">
+            <button class="nav__link nav__dropdown-toggle" aria-haspopup="true" aria-expanded="false">
+              Futebol <span class="nav__chevron">&#9662;</span>
+            </button>
+            <ul class="nav__submenu">
+              <li><a href="equipa-principal.html" class="nav__sublink" style="color:var(--yellow)">&#9917; Equipa Principal</a></li>
+              <li><a href="formacao.html" class="nav__sublink">&#128100; Formação</a></li>
+            </ul>
+          </li>
+          <li><a href="index.html#modalidades" class="nav__link">Modalidades</a></li>
+          <li><a href="index.html#agenda" class="nav__link">Agenda</a></li>
+          <li><a href="index.html#noticias" class="nav__link">Notícias</a></li>
+          <li><a href="index.html#galeria" class="nav__link">Galeria</a></li>
+          <li><a href="resultados.html" class="nav__link">Resultados</a></li>
+          <li><a href="index.html#contato" class="nav__link">Contacto</a></li>
+          <li><a href="inscricao.html" class="btn btn--nav">Inscrever</a></li>
+        </ul>
+      </nav>
+      <button class="hamburger" id="hamburger" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- PAGE HERO -->
+  <div class="page-hero page-hero--dark">
+    <div class="container page-hero__content">
+      <p class="page-hero__tag">Futebol</p>
+      <h1 class="page-hero__title">Equipa Principal</h1>
+      <p class="page-hero__desc" id="seniorDescricao">A equipa principal do Juventude Sport Campinense representa o clube nas competições seniores.</p>
+    </div>
+  </div>
+
+  <!-- EQUIPA SÉNIOR -->
+  <section class="section section--dark" id="seniores">
+    <div class="container">
+
+      <!-- Info da equipa -->
+      <div class="senior-info" id="seniorInfoBar">
+        <div class="senior-info__item">
+          <span class="senior-info__icon">&#127942;</span>
+          <div>
+            <span class="senior-info__label">Liga</span>
+            <span class="senior-info__val" id="seniorLiga">Campeonato de Portugal — Série F</span>
+          </div>
+        </div>
+        <div class="senior-info__item">
+          <span class="senior-info__icon">&#128197;</span>
+          <div>
+            <span class="senior-info__label">Temporada</span>
+            <span class="senior-info__val" id="seniorTemporada">2025/2026</span>
+          </div>
+        </div>
+        <div class="senior-info__item">
+          <span class="senior-info__icon">&#128337;</span>
+          <div>
+            <span class="senior-info__label">Treinos</span>
+            <span class="senior-info__val" id="seniorTreinos">3ª, 5ª e 6ª — 20h00</span>
+          </div>
+        </div>
+        <div class="senior-info__item">
+          <span class="senior-info__icon">&#128205;</span>
+          <div>
+            <span class="senior-info__label">Estádio</span>
+            <span class="senior-info__val" id="seniorEstadio">Estádio Municipal de Loulé</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Plantel por posição -->
+      <div id="seniorPlantel">
+        <div class="squad-group">
+          <h3 class="squad-group__title"><span class="squad-pos-badge squad-pos-badge--gr">GR</span> Guarda-redes</h3>
+          <div class="squad-grid squad-grid--gr" id="sgGR">
+            <div class="player-card"><span class="player-card__num">1</span><div class="player-card__avatar">JR</div><span class="player-card__name">João Rodrigues</span><span class="player-card__pos player-card__pos--GR">Guarda-redes</span></div>
+            <div class="player-card"><span class="player-card__num">13</span><div class="player-card__avatar">TM</div><span class="player-card__name">Tiago Melo</span><span class="player-card__pos player-card__pos--GR">Guarda-redes</span></div>
+          </div>
+        </div>
+        <div class="squad-group">
+          <h3 class="squad-group__title"><span class="squad-pos-badge squad-pos-badge--def">DEF</span> Defesas</h3>
+          <div class="squad-grid" id="sgDEF">
+            <div class="player-card"><span class="player-card__num">2</span><div class="player-card__avatar">CF</div><span class="player-card__name">Carlos Ferreira</span><span class="player-card__pos player-card__pos--DEF">Defesa Direito</span></div>
+            <div class="player-card"><span class="player-card__num">4</span><div class="player-card__avatar">AS</div><span class="player-card__name">André Sousa</span><span class="player-card__pos player-card__pos--DEF">Central</span></div>
+            <div class="player-card"><span class="player-card__num">5</span><div class="player-card__avatar">RA</div><span class="player-card__name">Rui Almeida</span><span class="player-card__pos player-card__pos--DEF">Central</span></div>
+            <div class="player-card"><span class="player-card__num">3</span><div class="player-card__avatar">NC</div><span class="player-card__name">Nuno Costa</span><span class="player-card__pos player-card__pos--DEF">Defesa Esquerdo</span></div>
+            <div class="player-card"><span class="player-card__num">22</span><div class="player-card__avatar">PG</div><span class="player-card__name">Pedro Gomes</span><span class="player-card__pos player-card__pos--DEF">Defesa Direito</span></div>
+          </div>
+        </div>
+        <div class="squad-group">
+          <h3 class="squad-group__title"><span class="squad-pos-badge squad-pos-badge--mei">MEI</span> Médios</h3>
+          <div class="squad-grid" id="sgMEI">
+            <div class="player-card"><span class="player-card__num">6</span><div class="player-card__avatar">FL</div><span class="player-card__name">Fábio Lopes</span><span class="player-card__pos player-card__pos--MEI">Médio Defensivo</span></div>
+            <div class="player-card"><span class="player-card__num">8</span><div class="player-card__avatar">LT</div><span class="player-card__name">Luís Tavares</span><span class="player-card__pos player-card__pos--MEI">Médio</span></div>
+            <div class="player-card"><span class="player-card__num">10</span><div class="player-card__avatar">RP</div><span class="player-card__name">Ricardo Pinto</span><span class="player-card__pos player-card__pos--MEI">Médio Ofensivo</span></div>
+            <div class="player-card"><span class="player-card__num">7</span><div class="player-card__avatar">DM</div><span class="player-card__name">Diogo Marques</span><span class="player-card__pos player-card__pos--MEI">Extremo Direito</span></div>
+            <div class="player-card"><span class="player-card__num">11</span><div class="player-card__avatar">BS</div><span class="player-card__name">Bruno Santos</span><span class="player-card__pos player-card__pos--MEI">Extremo Esquerdo</span></div>
+          </div>
+        </div>
+        <div class="squad-group">
+          <h3 class="squad-group__title"><span class="squad-pos-badge squad-pos-badge--ava">AVA</span> Avançados</h3>
+          <div class="squad-grid" id="sgAVA">
+            <div class="player-card"><span class="player-card__num">9</span><div class="player-card__avatar">VC</div><span class="player-card__name">Vitor Cunha</span><span class="player-card__pos player-card__pos--AVA">Avançado</span></div>
+            <div class="player-card"><span class="player-card__num">19</span><div class="player-card__avatar">GF</div><span class="player-card__name">Gonçalo Ferreira</span><span class="player-card__pos player-card__pos--AVA">Avançado</span></div>
+            <div class="player-card"><span class="player-card__num">17</span><div class="player-card__avatar">MB</div><span class="player-card__name">Miguel Brito</span><span class="player-card__pos player-card__pos--AVA">Ponta de Lança</span></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container footer__inner">
+      <div class="footer__brand">
+        <div class="logo">
+          <img src="images/logo.png" alt="JS Campinense" class="logo__img logo__img--small" />
+          <div class="logo__text">
+            <span class="logo__name">JS Campinense</span>
+            <span class="logo__sub">Juventude</span>
+          </div>
+        </div>
+        <p class="footer__tagline">Formando campeões dentro e fora do campo.</p>
+      </div>
+      <div class="footer__links">
+        <h4>Links rápidos</h4>
+        <ul>
+          <li><a href="index.html#sobre">Sobre</a></li>
+          <li><a href="formacao.html">Formação</a></li>
+          <li><a href="index.html#noticias">Notícias</a></li>
+          <li><a href="inscricao.html">Inscrição</a></li>
+        </ul>
+      </div>
+      <div class="footer__links">
+        <h4>Futebol</h4>
+        <ul>
+          <li><a href="equipa-principal.html">Equipa Principal</a></li>
+          <li><a href="formacao.html">Escalões de Formação</a></li>
+          <li><a href="resultados.html">Resultados</a></li>
+        </ul>
+      </div>
+      <div class="footer__contact">
+        <h4>Contacto</h4>
+        <p>Estádio Municipal de Loulé, Algarve</p>
+        <p>+351 289 000 000</p>
+        <p id="footerEmail">juventude@sportcampinense.pt</p>
+      </div>
+    </div>
+    <div class="footer__bottom">
+      <p>&copy; 2026 Juventude Sport Campinense – Loulé. Todos os direitos reservados.</p>
+    </div>
+  </footer>
+
+  <script src="js/security.js"></script>
+  <script src="js/site-config.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Formação – Juventude Sport Campinense</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="header" id="header">
+    <div class="container header__inner">
+      <a href="index.html" class="logo">
+        <img src="images/logo.png" alt="JS Campinense" class="logo__img" />
+        <div class="logo__text">
+          <span class="logo__name">JS Campinense</span>
+          <span class="logo__sub">Juventude</span>
+        </div>
+      </a>
+      <nav class="nav" id="nav">
+        <ul class="nav__list">
+          <li><a href="index.html#sobre" class="nav__link">Sobre</a></li>
+          <li class="nav__dropdown">
+            <button class="nav__link nav__dropdown-toggle" aria-haspopup="true" aria-expanded="false">
+              Futebol <span class="nav__chevron">&#9662;</span>
+            </button>
+            <ul class="nav__submenu">
+              <li><a href="equipa-principal.html" class="nav__sublink">&#9917; Equipa Principal</a></li>
+              <li><a href="formacao.html" class="nav__sublink" style="color:var(--yellow)">&#128100; Formação</a></li>
+            </ul>
+          </li>
+          <li><a href="index.html#modalidades" class="nav__link">Modalidades</a></li>
+          <li><a href="index.html#agenda" class="nav__link">Agenda</a></li>
+          <li><a href="index.html#noticias" class="nav__link">Notícias</a></li>
+          <li><a href="index.html#galeria" class="nav__link">Galeria</a></li>
+          <li><a href="resultados.html" class="nav__link">Resultados</a></li>
+          <li><a href="index.html#contato" class="nav__link">Contacto</a></li>
+          <li><a href="inscricao.html" class="btn btn--nav">Inscrever</a></li>
+        </ul>
+      </nav>
+      <button class="hamburger" id="hamburger" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- PAGE HERO -->
+  <div class="page-hero page-hero--blue">
+    <div class="container page-hero__content">
+      <p class="page-hero__tag">Futebol</p>
+      <h1 class="page-hero__title">Escalões de Formação</h1>
+      <p class="page-hero__desc">Do Sub-9 ao Sub-19, formamos atletas e cidadãos. Inscrições abertas para a época 2025/2026.</p>
+    </div>
+  </div>
+
+  <!-- ESCALÕES -->
+  <section class="section section--dark" id="categorias">
+    <div class="container">
+      <div class="section__header section__header--light">
+        <span class="section__tag">Os nossos escalões</span>
+        <h2 class="section__title">Formação</h2>
+      </div>
+      <div class="categories__grid" id="categoriesGrid">
+        <div class="category-card">
+          <div class="category-card__age">Sub-9</div>
+          <h3 class="category-card__name">Petizes</h3>
+          <p class="category-card__age-range">7 a 9 anos</p>
+          <p class="category-card__desc">Iniciação ao futebol com foco no divertimento, coordenação motora e amor pelo desporto.</p>
+          <ul class="category-card__list">
+            <li>Treinos 3x por semana</li>
+            <li>Foco nos fundamentos</li>
+            <li>Acompanhamento pedagógico</li>
+          </ul>
+        </div>
+        <div class="category-card">
+          <div class="category-card__age">Sub-11</div>
+          <h3 class="category-card__name">Traquinas</h3>
+          <p class="category-card__age-range">10 a 11 anos</p>
+          <p class="category-card__desc">Desenvolvimento técnico inicial com participação em torneios distritais.</p>
+          <ul class="category-card__list">
+            <li>Treinos 4x por semana</li>
+            <li>Técnica individual</li>
+            <li>Primeiros torneios</li>
+          </ul>
+        </div>
+        <div class="category-card category-card--featured">
+          <div class="category-card__badge">Destaque</div>
+          <div class="category-card__age">Sub-13</div>
+          <h3 class="category-card__name">Benjamins</h3>
+          <p class="category-card__age-range">12 a 13 anos</p>
+          <p class="category-card__desc">Tática e técnica unem-se na formação de futuros profissionais do futebol algarvio.</p>
+          <ul class="category-card__list">
+            <li>Treinos 5x por semana</li>
+            <li>Tática coletiva</li>
+            <li>Campeonato Distrital AF Algarve</li>
+          </ul>
+        </div>
+        <div class="category-card">
+          <div class="category-card__age">Sub-15</div>
+          <h3 class="category-card__name">Infantis</h3>
+          <p class="category-card__age-range">14 a 15 anos</p>
+          <p class="category-card__desc">Alta competição distrital com preparação física e mental aprofundada.</p>
+          <ul class="category-card__list">
+            <li>Treinos 5x por semana</li>
+            <li>Preparação física</li>
+            <li>Campeonato Nacional</li>
+          </ul>
+        </div>
+        <div class="category-card">
+          <div class="category-card__age">Sub-17</div>
+          <h3 class="category-card__name">Iniciados</h3>
+          <p class="category-card__age-range">16 a 17 anos</p>
+          <p class="category-card__desc">Porta de entrada para o futebol profissional, com visibilidade a nível nacional.</p>
+          <ul class="category-card__list">
+            <li>Treinos 6x por semana</li>
+            <li>Alto rendimento</li>
+            <li>Campeonato Nacional AF</li>
+          </ul>
+        </div>
+        <div class="category-card">
+          <div class="category-card__age">Sub-19</div>
+          <h3 class="category-card__name">Juvenis</h3>
+          <p class="category-card__age-range">18 a 19 anos</p>
+          <p class="category-card__desc">Última etapa da formação antes do futebol sénior. Competições de alto nível.</p>
+          <ul class="category-card__list">
+            <li>Regime semi-profissional</li>
+            <li>Campeonato Nacional Juvenis</li>
+            <li>Integração na equipa sénior</li>
+          </ul>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:48px">
+        <a href="inscricao.html" class="btn btn--primary">Inscrever agora &rarr;</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container footer__inner">
+      <div class="footer__brand">
+        <div class="logo">
+          <img src="images/logo.png" alt="JS Campinense" class="logo__img logo__img--small" />
+          <div class="logo__text">
+            <span class="logo__name">JS Campinense</span>
+            <span class="logo__sub">Juventude</span>
+          </div>
+        </div>
+        <p class="footer__tagline">Formando campeões dentro e fora do campo.</p>
+      </div>
+      <div class="footer__links">
+        <h4>Links rápidos</h4>
+        <ul>
+          <li><a href="index.html#sobre">Sobre</a></li>
+          <li><a href="equipa-principal.html">Equipa Principal</a></li>
+          <li><a href="index.html#noticias">Notícias</a></li>
+          <li><a href="inscricao.html">Inscrição</a></li>
+        </ul>
+      </div>
+      <div class="footer__links">
+        <h4>Escalões</h4>
+        <ul>
+          <li><a href="formacao.html">Sub-9 | Sub-11</a></li>
+          <li><a href="formacao.html">Sub-13 | Sub-15</a></li>
+          <li><a href="formacao.html">Sub-17 | Sub-19</a></li>
+        </ul>
+      </div>
+      <div class="footer__contact">
+        <h4>Contacto</h4>
+        <p>Estádio Municipal de Loulé, Algarve</p>
+        <p>+351 289 000 000</p>
+        <p id="footerEmail">juventude@sportcampinense.pt</p>
+      </div>
+    </div>
+    <div class="footer__bottom">
+      <p>&copy; 2026 Juventude Sport Campinense – Loulé. Todos os direitos reservados.</p>
+    </div>
+  </footer>
+
+  <script src="js/security.js"></script>
+  <script src="js/site-config.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

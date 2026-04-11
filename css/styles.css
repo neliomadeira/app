@@ -1899,3 +1899,54 @@ ul { list-style: none; }
   line-height: 1.75;
   white-space: pre-wrap;
 }
+
+/* ===================================================
+   PAGE HERO (equipa-principal, formacao, etc.)
+   =================================================== */
+.page-hero {
+  padding: 120px 0 64px;
+  background: var(--blue-dark);
+  position: relative;
+  overflow: hidden;
+}
+.page-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url('images/logo.png') right -60px center / 420px no-repeat;
+  opacity: 0.04;
+  pointer-events: none;
+}
+.page-hero--dark  { background: linear-gradient(135deg, #001133 0%, var(--blue-dark) 100%); }
+.page-hero--blue  { background: linear-gradient(135deg, var(--blue-dark) 0%, var(--blue-mid) 100%); }
+
+.page-hero__content { position: relative; z-index: 1; }
+
+.page-hero__tag {
+  display: inline-block;
+  background: var(--yellow);
+  color: var(--blue-dark);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 2.5px;
+  padding: 5px 14px;
+  border-radius: 20px;
+  margin-bottom: 16px;
+}
+
+.page-hero__title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(3rem, 7vw, 5.5rem);
+  color: var(--white);
+  letter-spacing: 2px;
+  line-height: 1;
+  margin-bottom: 16px;
+}
+
+.page-hero__desc {
+  font-size: 1.05rem;
+  color: rgba(255,255,255,0.7);
+  max-width: 560px;
+  line-height: 1.6;
+}
