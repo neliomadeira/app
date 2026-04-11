@@ -203,7 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderNoticias() {
     try {
-      const raw = localStorage.getItem('db_noticias');
+      const raw = localStorage.getItem('jsc_noticias');
       if (!raw) return;
       const lista = JSON.parse(raw).filter(n => n.publicada)
                       .sort((a,b) => (b.data||'').localeCompare(a.data||''));
@@ -238,7 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ---- News archive overlay ----
   function getNoticiasLista() {
     try {
-      const raw = localStorage.getItem('db_noticias');
+      const raw = localStorage.getItem('jsc_noticias');
       return raw ? JSON.parse(raw).filter(n => n.publicada)
                     .sort((a,b) => (b.data||'').localeCompare(a.data||'')) : [];
     } catch(e) { return []; }
@@ -325,7 +325,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Re-render when admin saves in another tab
   window.addEventListener('storage', (e) => {
-    if (e.key === 'db_noticias') renderNoticias();
+    if (e.key === 'jsc_noticias') renderNoticias();
   });
 
   // Escalões
@@ -543,7 +543,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const cfg  = JSON.parse(localStorage.getItem('site_config') || '{}');
     if (!cfg.heroSlideshow) return;
 
-    const noticias = JSON.parse(localStorage.getItem('db_noticias') || '[]')
+    const noticias = JSON.parse(localStorage.getItem('jsc_noticias') || '[]')
       .filter(n => n.publicada && n.imagem);
     if (noticias.length < 1) return;
 

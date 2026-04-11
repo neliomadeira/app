@@ -245,7 +245,8 @@ function fmtDate(str) {
 // ==================================================
 function initAdmin() {
   // Persistir dados padrão se ainda não existem no localStorage
-  if (!localStorage.getItem('db_noticias')) saveDB();
+  // Inicializar noticias se ainda não existem
+  if (!localStorage.getItem(NEWS_KEY)) saveNoticias([]);
 
   // Verificar se ainda usa password padrão → mostrar alerta
   (async function checkDefaultPassword() {
@@ -297,7 +298,7 @@ function updateBadges() {
   document.getElementById('inscPendentes').textContent  = pendentes;
   document.getElementById('msgNovos').textContent       = naoLidas;
   document.getElementById('totalJogos').textContent     = jogosmes;
-  document.getElementById('totalNoticias').textContent  = (DB.noticias || []).filter(n => n.publicada).length;
+  document.getElementById('totalNoticias').textContent  = loadNoticias().filter(n => n.publicada).length;
   document.getElementById('totalPatrocinadores').textContent = (DB.patrocinadores || []).filter(p => p.ativo).length;
 }
 
@@ -644,118 +645,93 @@ function setupImageUpload(fileInputId, urlInputId, previewId) {
 }
 
 // ==================================================
-// NOTÍCIAS
+// NOTÍCIAS — sistema limpo (chave localStorage: jsc_noticias)
 // ==================================================
+const NEWS_KEY = 'jsc_noticias';
+
+function loadNoticias() {
+  try { return JSON.parse(localStorage.getItem(NEWS_KEY) || '[]'); } catch(e) { return []; }
+}
+
+function saveNoticias(arr) {
+  try {
+    localStorage.setItem(NEWS_KEY, JSON.stringify(arr));
+    return true;
+  } catch(e) {
+    showToast('ERRO: armazenamento cheio. Apague notícias antigas.', 'red');
+    return false;
+  }
+}
+
 function renderNoticias() {
   const grid = document.getElementById('newsAdminGrid');
+  if (!grid) return;
+  const lista = loadNoticias();
   grid.innerHTML = [
-    { id: 0, titulo: '+ Nova Notícia', categoria: '', data: '', publicada: null, imagem: null, novo: true },
-    ...DB.noticias
-  ].map(n => {
-    if (n.novo) return `
-      <div class="news-admin-card" style="display:flex;align-items:center;justify-content:center;
-        min-height:240px;border:2px dashed #e2e8f0;background:#f4f6fb;cursor:pointer"
-        onclick="document.getElementById('btnNovaNoticia').click()">
-        <div style="text-align:center;color:#64748b">
-          <div style="font-size:2.5rem;margin-bottom:8px">+</div>
-          <div style="font-weight:700;font-size:0.9rem">Nova Notícia</div>
-        </div>
-      </div>`;
-    const imgStyle = n.imagem
-      ? `background-image:url('${n.imagem}');background-size:${n.imagemSize||'cover'};background-position:${n.imagemPos||'center'}`
-      : '';
-    return `
+    `<div class="news-admin-card" style="display:flex;align-items:center;justify-content:center;
+      min-height:240px;border:2px dashed #e2e8f0;background:#f4f6fb;cursor:pointer"
+      onclick="abrirModalNoticia()">
+      <div style="text-align:center;color:#64748b">
+        <div style="font-size:2.5rem;margin-bottom:8px">+</div>
+        <div style="font-weight:700;font-size:0.9rem">Nova Notícia</div>
+      </div>
+    </div>`,
+    ...lista.map((n, i) => `
       <div class="news-admin-card">
-        <div class="news-admin-img news-admin-img--${n.img || 1}" style="${imgStyle}">
-          <span class="news-cat-badge">${n.categoria}</span>
+        <div class="news-admin-img news-admin-img--${(i % 3) + 1}"
+             style="${n.imagem ? `background-image:url('${n.imagem}');background-size:cover;background-position:center;background-repeat:no-repeat` : ''}">
+          <span class="news-cat-badge">${n.categoria || ''}</span>
         </div>
         <div class="news-admin-body">
           <div class="news-admin-title">${n.titulo}</div>
           <div class="news-admin-date">${fmtDate(n.data)} · ${n.publicada
             ? '<span style="color:#16a34a;font-weight:700">✓ Publicada</span>'
             : '<span style="color:#d97706;font-weight:700">⏸ Rascunho</span>'}</div>
-          ${n.imagem ? `<div style="font-size:11px;color:#888;margin-top:4px">🖼 Com imagem</div>` : ''}
         </div>
         <div class="news-admin-footer">
           <button class="btn-icon" onclick="editNoticia(${n.id})" title="Editar">&#9998;</button>
           <button class="btn-icon btn-icon--red" onclick="removeNoticia(${n.id})" title="Eliminar">&#128465;</button>
         </div>
-      </div>`;
-  }).join('');
+      </div>`)
+  ].join('');
 }
 
-function abrirModalNoticia(n = null) {
+function abrirModalNoticia(n) {
   const isNew = !n;
-  const titulo   = n?.titulo     || '';
-  const cat      = n?.categoria  || 'Resultado';
-  const data     = n?.data       || new Date().toISOString().split('T')[0];
-  const resumo   = n?.resumo     || '';
-  const imagem   = n?.imagem     || '';
-  const pos      = n?.imagemPos  || 'center';
-  const sz       = n?.imagemSize || 'cover';
-  const publicada = isNew ? true : (n.publicada ?? false);
-  const cats = ['Resultado','Seleção','Conquista','Clube','Evento','Formação','Seniores'];
-
+  const cats  = ['Resultado','Seleção','Conquista','Clube','Evento','Formação','Seniores'];
   openModal(isNew ? 'Nova Notícia' : 'Editar Notícia', `
     <div class="modal-field">
-      <label>Título</label>
-      <input type="text" class="form-input" id="mTitulo" value="${titulo}" placeholder="Título da notícia" />
+      <label>Título *</label>
+      <input type="text" class="form-input" id="mTitulo" value="${n?.titulo || ''}" placeholder="Título da notícia" />
     </div>
     <div class="modal-row">
       <div class="modal-field"><label>Categoria</label>
         <select class="form-input" id="mCat">
-          ${cats.map(c => `<option ${c===cat?'selected':''}>${c}</option>`).join('')}
+          ${cats.map(c => `<option${c === (n?.categoria || 'Resultado') ? ' selected' : ''}>${c}</option>`).join('')}
         </select>
       </div>
       <div class="modal-field"><label>Data</label>
-        <input type="date" class="form-input" id="mData" value="${data}" />
+        <input type="date" class="form-input" id="mData" value="${n?.data || new Date().toISOString().split('T')[0]}" />
       </div>
     </div>
     <div class="modal-field">
       <label>Resumo / Texto</label>
-      <textarea class="form-input" id="mResumo" rows="4" placeholder="Texto da notícia...">${resumo}</textarea>
+      <textarea class="form-input" id="mResumo" rows="4" placeholder="Texto da notícia...">${n?.resumo || ''}</textarea>
     </div>
     <div class="modal-field">
-      <label>Imagem</label>
-      <div class="img-upload-box">
-        <label class="img-upload-btn" for="mFicheiro">📁 Escolher ficheiro</label>
-        <input type="file" id="mFicheiro" accept="image/*" style="display:none">
-        <input type="text" class="form-input" id="mImagem" value="${imagem}" placeholder="ou cole URL da imagem..." />
-      </div>
-      <small style="color:#888;font-size:11px;margin-top:4px;display:block">JPG, PNG, WebP — máx. 3MB</small>
-    </div>
-    <div id="mImagemPreview" style="margin-top:8px;${imagem?'':'display:none'}">
-      <img src="${imagem}" style="max-width:100%;max-height:160px;border-radius:8px;object-fit:cover" onerror="this.parentElement.style.display='none'" />
-    </div>
-    <div class="modal-row" style="margin-top:8px">
-      <div class="modal-field"><label>Posição da imagem</label>
-        <select class="form-input" id="mImagemPos">
-          <option value="center" ${pos==='center'?'selected':''}>Centro</option>
-          <option value="top" ${pos==='top'?'selected':''}>Topo</option>
-          <option value="bottom" ${pos==='bottom'?'selected':''}>Baixo</option>
-          <option value="left center" ${pos==='left center'?'selected':''}>Esquerda</option>
-          <option value="right center" ${pos==='right center'?'selected':''}>Direita</option>
-        </select>
-      </div>
-      <div class="modal-field"><label>Tamanho</label>
-        <select class="form-input" id="mImagemSize">
-          <option value="cover"   ${sz==='cover'?'selected':''}>Preencher — recortar bordas</option>
-          <option value="contain" ${sz==='contain'?'selected':''}>Mostrar tudo — com margens</option>
-          <option value="110%"    ${sz==='110%'?'selected':''}>Zoom 110%</option>
-          <option value="140%"    ${sz==='140%'?'selected':''}>Zoom 140%</option>
-        </select>
-      </div>
+      <label>URL da Imagem <small style="color:#888;font-weight:400">(link externo — ex: https://...)</small></label>
+      <input type="url" class="form-input" id="mImagem" value="${n?.imagem || ''}" placeholder="https://exemplo.com/imagem.jpg" />
+      ${n?.imagem ? `<img src="${n.imagem}" style="max-width:100%;max-height:100px;border-radius:6px;margin-top:6px;object-fit:cover" onerror="this.style.display='none'" />` : ''}
     </div>
     <div class="modal-field" style="margin-top:8px">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-        <input type="checkbox" id="mPublicada" ${publicada?'checked':''} />
-        Publicar imediatamente
+        <input type="checkbox" id="mPublicada" ${isNew || n?.publicada ? 'checked' : ''} />
+        Publicar no site
       </label>
     </div>`,
     `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
-     <button class="btn-save" onclick="saveNoticia(${n?.id ?? null})">${isNew ? 'Criar Notícia' : 'Guardar'}</button>`
+     <button class="btn-save" onclick="saveNoticia(${isNew ? 'null' : n.id})">${isNew ? 'Criar Notícia' : 'Guardar'}</button>`
   );
-  setupImageUpload('mFicheiro', 'mImagem', 'mImagemPreview');
 }
 
 document.getElementById('btnNovaNoticia')?.addEventListener('click', () => abrirModalNoticia());
@@ -764,56 +740,42 @@ window.saveNoticia = function(id) {
   const titulo = document.getElementById('mTitulo')?.value.trim();
   if (!titulo) { showToast('Introduza o título.', 'red'); return; }
 
-  const publicadaEl = document.getElementById('mPublicada');
   const dados = {
     titulo,
-    categoria:  document.getElementById('mCat')?.value || 'Resultado',
-    data:       document.getElementById('mData')?.value || new Date().toISOString().split('T')[0],
-    resumo:     document.getElementById('mResumo')?.value.trim() || '',
-    imagem:     document.getElementById('mImagem')?.value.trim() || '',
-    imagemPos:  document.getElementById('mImagemPos')?.value  || 'center',
-    imagemSize: document.getElementById('mImagemSize')?.value || 'cover',
-    publicada:  publicadaEl ? publicadaEl.checked : true,
+    categoria: document.getElementById('mCat')?.value          || 'Resultado',
+    data:      document.getElementById('mData')?.value          || new Date().toISOString().split('T')[0],
+    resumo:    document.getElementById('mResumo')?.value.trim() || '',
+    imagem:    document.getElementById('mImagem')?.value.trim() || '',
+    publicada: document.getElementById('mPublicada')?.checked   ?? true,
   };
 
-  // aceita null, 'null' (string por cache do browser), undefined ou 0
-  const isNew = !id || id === 'null' || id === null;
+  const lista = loadNoticias();
 
-  if (isNew) {
-    DB.noticias.unshift({ id: Date.now(), img: Math.ceil(Math.random()*3), ...dados });
+  if (id === null) {
+    lista.unshift({ id: Date.now(), ...dados });
   } else {
-    const n = DB.noticias.find(x => x.id == id); // == para aceitar int ou string
-    if (n) Object.assign(n, dados);
+    const idx = lista.findIndex(n => n.id == id);
+    if (idx > -1) lista[idx] = { ...lista[idx], ...dados };
   }
 
-  saveDB();
+  if (!saveNoticias(lista)) return;
 
-  // Verificar se foi realmente guardado no localStorage
-  const verificacao = JSON.parse(localStorage.getItem('db_noticias') || '[]');
-  const publicadas = verificacao.filter(n => n.publicada).length;
-  if (isNew) {
-    showToast(`Notícia criada! ${publicadas} publicada(s) no site.`, 'green');
-  } else {
-    showToast(`Notícia actualizada! ${publicadas} publicada(s) no site.`, 'green');
-  }
-
-  renderNoticias(); closeModal();
+  const pub = lista.filter(n => n.publicada).length;
+  showToast(`${id === null ? 'Notícia criada' : 'Notícia actualizada'}! ${pub} publicada(s) no site.`, 'green');
+  renderNoticias();
+  closeModal();
 };
 
-// manter retrocompatibilidade
-window.saveNovaNoticia = () => window.saveNoticia(null);
-
-window.editNoticia = function (id) {
-  const n = DB.noticias.find(x => x.id === id);
-  if (!n) return;
-  abrirModalNoticia(n);
+window.editNoticia = function(id) {
+  const n = loadNoticias().find(n => n.id === id);
+  if (n) abrirModalNoticia(n);
 };
 
-window.removeNoticia = function (id) {
+window.removeNoticia = function(id) {
   if (!confirm('Eliminar esta notícia?')) return;
-  const idx = DB.noticias.findIndex(x => x.id === id);
-  if (idx > -1) DB.noticias.splice(idx, 1);
-  saveDB(); renderNoticias();
+  const lista = loadNoticias().filter(n => n.id !== id);
+  saveNoticias(lista);
+  renderNoticias();
   showToast('Notícia eliminada.', 'red');
 };
 
@@ -2182,7 +2144,7 @@ function exportarDados() {
     exportadoEm: new Date().toISOString(),
     inscricoes:   DB.inscricoes,
     atletas:      DB.atletas,
-    noticias:     DB.noticias,
+    noticias:     loadNoticias(),
     mensagens:    DB.mensagens,
     escaloes:     DB.escaloes,
     jogos:        DB.jogos,
@@ -2215,7 +2177,7 @@ function processarImportBackup(e) {
       const dados = JSON.parse(ev.target.result);
       if (dados.inscricoes)     DB.inscricoes     = dados.inscricoes;
       if (dados.atletas)        DB.atletas        = dados.atletas;
-      if (dados.noticias)       DB.noticias       = dados.noticias;
+      if (dados.noticias)       saveNoticias(dados.noticias);
       if (dados.mensagens)      DB.mensagens      = dados.mensagens;
       if (dados.jogos)          DB.jogos          = dados.jogos;
       if (dados.patrocinadores) DB.patrocinadores = dados.patrocinadores;
