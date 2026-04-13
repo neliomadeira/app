@@ -1,0 +1,109 @@
+{
+  "torneios": [
+    {
+      "id": "torneio-primavera-2026",
+      "nome": "Torneio Primavera 2026",
+      "descricao": "Torneio Distrital de Futebol 7 para escalão Sub-9",
+      "data_inicio": "2026-04-13",
+      "data_fim": "2026-04-13",
+      "local": "Campo Sintético de Loulé",
+      "escalao": "Sub-9",
+      "estado": "em_curso",
+      "formato": "grupos_e_eliminatoria",
+      "grupos": [
+        {
+          "id": "A",
+          "nome": "Grupo A",
+          "equipas": [
+            { "nome": "JS Campinense", "abrev": "JSC", "sc": true },
+            { "nome": "FC Quarteira", "abrev": "QUA" },
+            { "nome": "CD Tavira", "abrev": "TAV" },
+            { "nome": "GD Silves", "abrev": "SIL" }
+          ],
+          "jogos": [
+            { "id": "A1", "casa": "JS Campinense", "fora": "FC Quarteira", "gcasa": 2, "gfora": 1, "hora": "09:00", "estado": "realizado" },
+            { "id": "A2", "casa": "CD Tavira", "fora": "GD Silves", "gcasa": 0, "gfora": 2, "hora": "09:30", "estado": "realizado" },
+            { "id": "A3", "casa": "JS Campinense", "fora": "CD Tavira", "gcasa": 3, "gfora": 0, "hora": "10:30", "estado": "realizado" },
+            { "id": "A4", "casa": "FC Quarteira", "fora": "GD Silves", "gcasa": 1, "gfora": 1, "hora": "11:00", "estado": "realizado" },
+            { "id": "A5", "casa": "GD Silves", "fora": "JS Campinense", "gcasa": 1, "gfora": 2, "hora": "11:30", "estado": "realizado" },
+            { "id": "A6", "casa": "CD Tavira", "fora": "FC Quarteira", "gcasa": 0, "gfora": 3, "hora": "12:00", "estado": "realizado" }
+          ]
+        },
+        {
+          "id": "B",
+          "nome": "Grupo B",
+          "equipas": [
+            { "nome": "Olhanense", "abrev": "OLH" },
+            { "nome": "SC Farense", "abrev": "FAR" },
+            { "nome": "AD Lagoa", "abrev": "LAG" },
+            { "nome": "FC Moncarapacho", "abrev": "MON" }
+          ],
+          "jogos": [
+            { "id": "B1", "casa": "Olhanense", "fora": "AD Lagoa", "gcasa": 3, "gfora": 0, "hora": "09:00", "estado": "realizado" },
+            { "id": "B2", "casa": "SC Farense", "fora": "FC Moncarapacho", "gcasa": 2, "gfora": 1, "hora": "09:30", "estado": "realizado" },
+            { "id": "B3", "casa": "Olhanense", "fora": "SC Farense", "gcasa": 1, "gfora": 1, "hora": "10:30", "estado": "realizado" },
+            { "id": "B4", "casa": "AD Lagoa", "fora": "FC Moncarapacho", "gcasa": 2, "gfora": 0, "hora": "11:00", "estado": "realizado" },
+            { "id": "B5", "casa": "SC Farense", "fora": "AD Lagoa", "gcasa": null, "gfora": null, "hora": "11:30", "estado": "agendado" },
+            { "id": "B6", "casa": "FC Moncarapacho", "fora": "Olhanense", "gcasa": null, "gfora": null, "hora": "12:00", "estado": "agendado" }
+          ]
+        }
+      ],
+      "eliminatoria": {
+        "fases": [
+          { "id": "meias", "nome": "Meias-Finais", "jogos": [
+            { "id": "S1", "label": "1º A vs 2º B", "equipa1": "JS Campinense", "equipa2": "SC Farense", "g1": null, "g2": null, "hora": "14:00", "estado": "agendado" },
+            { "id": "S2", "label": "1º B vs 2º A", "equipa1": "Olhanense", "equipa2": "FC Quarteira", "g1": null, "g2": null, "hora": "14:30", "estado": "agendado" }
+          ]},
+          { "id": "terceiro", "nome": "3º Lugar", "jogos": [
+            { "id": "T1", "label": "Perdedores das Meias", "equipa1": "—", "equipa2": "—", "g1": null, "g2": null, "hora": "15:30", "estado": "agendado" }
+          ]},
+          { "id": "final", "nome": "Final", "jogos": [
+            { "id": "F1", "label": "Vencedores das Meias", "equipa1": "—", "equipa2": "—", "g1": null, "g2": null, "hora": "16:00", "estado": "agendado" }
+          ]}
+        ]
+      }
+    },
+    {
+      "id": "torneio-verao-2025",
+      "nome": "Torneio Verão 2025",
+      "descricao": "Torneio de verão para escalão Sub-11 – Edição 2025",
+      "data_inicio": "2025-07-12",
+      "data_fim": "2025-07-12",
+      "local": "Estádio Municipal de Loulé",
+      "escalao": "Sub-11",
+      "estado": "concluido",
+      "formato": "grupos_e_eliminatoria",
+      "grupos": [
+        { "id": "A", "nome": "Grupo A",
+          "equipas": [ { "nome": "JS Campinense", "abrev": "JSC", "sc": true }, { "nome": "Olhanense", "abrev": "OLH" }, { "nome": "FC Quarteira", "abrev": "QUA" } ],
+          "jogos": [
+            { "id": "A1", "casa": "JS Campinense", "fora": "Olhanense", "gcasa": 2, "gfora": 0, "hora": "09:00", "estado": "realizado" },
+            { "id": "A2", "casa": "FC Quarteira", "fora": "JS Campinense", "gcasa": 1, "gfora": 3, "hora": "10:00", "estado": "realizado" },
+            { "id": "A3", "casa": "Olhanense", "fora": "FC Quarteira", "gcasa": 1, "gfora": 2, "hora": "11:00", "estado": "realizado" }
+          ]
+        },
+        { "id": "B", "nome": "Grupo B",
+          "equipas": [ { "nome": "SC Farense", "abrev": "FAR" }, { "nome": "CD Tavira", "abrev": "TAV" }, { "nome": "GD Silves", "abrev": "SIL" } ],
+          "jogos": [
+            { "id": "B1", "casa": "SC Farense", "fora": "CD Tavira", "gcasa": 3, "gfora": 1, "hora": "09:30", "estado": "realizado" },
+            { "id": "B2", "casa": "GD Silves", "fora": "SC Farense", "gcasa": 0, "gfora": 2, "hora": "10:30", "estado": "realizado" },
+            { "id": "B3", "casa": "CD Tavira", "fora": "GD Silves", "gcasa": 2, "gfora": 2, "hora": "11:30", "estado": "realizado" }
+          ]
+        }
+      ],
+      "eliminatoria": { "fases": [
+        { "id": "meias", "nome": "Meias-Finais", "jogos": [
+          { "id": "S1", "equipa1": "JS Campinense", "equipa2": "CD Tavira", "g1": 3, "g2": 0, "hora": "13:00", "estado": "realizado" },
+          { "id": "S2", "equipa1": "SC Farense", "equipa2": "FC Quarteira", "g1": 2, "g2": 1, "hora": "13:30", "estado": "realizado" }
+        ]},
+        { "id": "terceiro", "nome": "3º Lugar", "jogos": [
+          { "id": "T1", "equipa1": "CD Tavira", "equipa2": "FC Quarteira", "g1": 1, "g2": 2, "hora": "15:00", "estado": "realizado" }
+        ]},
+        { "id": "final", "nome": "Final", "jogos": [
+          { "id": "F1", "equipa1": "JS Campinense", "equipa2": "SC Farense", "g1": 2, "g2": 1, "hora": "16:00", "estado": "realizado" }
+        ]}
+      ]},
+      "vencedor": "JS Campinense"
+    }
+  ]
+}

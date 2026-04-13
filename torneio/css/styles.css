@@ -1,0 +1,63 @@
+/* Torneio App – Base Styles */
+:root {
+  --yellow: #FFD100;
+  --yellow-dark: #E6B800;
+  --blue: #003B8E;
+  --blue-dark: #002A6B;
+  --blue-mid: #1a4fa8;
+  --blue-bg: #001f4d;
+  --gray-mid: #666666;
+  --gray-light: #f5f7fa;
+  --white: #ffffff;
+  --font-display: 'Bebas Neue', sans-serif;
+  --font-body: 'Roboto', sans-serif;
+  --radius: 8px;
+  --radius-lg: 16px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.10);
+  --transition: 0.25s ease;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { font-family: var(--font-body); color: #111; background: var(--white); line-height: 1.6; }
+img { display: block; max-width: 100%; }
+a { text-decoration: none; color: inherit; }
+ul { list-style: none; }
+.container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; padding: 14px 32px; border-radius: var(--radius); font-family: var(--font-body); font-weight: 700; font-size: 0.95rem; cursor: pointer; border: 2px solid transparent; transition: all var(--transition); }
+.btn--primary { background: var(--yellow); color: var(--blue); border-color: var(--yellow); }
+.btn--primary:hover { background: var(--yellow-dark); transform: translateY(-2px); }
+.btn--nav { background: var(--yellow); color: var(--blue); padding: 10px 22px; font-size: 0.85rem; }
+.btn--nav:hover { background: var(--yellow-dark); }
+.header { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: rgba(0,27,77,0.96); backdrop-filter: blur(12px); border-bottom: 3px solid var(--yellow); transition: background var(--transition); }
+.header__inner { display: flex; align-items: center; justify-content: space-between; height: 72px; }
+.logo { display: flex; align-items: center; gap: 12px; }
+.logo__img { width: 48px; height: 48px; object-fit: contain; flex-shrink: 0; }
+.logo__img--small { width: 36px; height: 36px; }
+.logo__text { display: flex; flex-direction: column; line-height: 1.1; }
+.logo__name { font-family: var(--font-display); color: var(--white); font-size: 1.1rem; letter-spacing: 1px; }
+.logo__sub { font-size: 0.7rem; color: var(--yellow); font-weight: 700; text-transform: uppercase; letter-spacing: 2px; }
+.nav__list { display: flex; align-items: center; gap: 8px; }
+.nav__link { color: rgba(255,255,255,0.8); font-size: 0.9rem; font-weight: 500; padding: 8px 14px; border-radius: var(--radius); transition: all var(--transition); }
+.nav__link:hover { color: var(--yellow); }
+.hamburger { display: none; flex-direction: column; gap: 5px; background: none; border: none; cursor: pointer; padding: 8px; }
+.hamburger span { display: block; width: 24px; height: 2px; background: var(--white); border-radius: 2px; transition: all var(--transition); }
+.hamburger.open span:nth-child(1) { transform: rotate(45deg) translate(5px, 5px); }
+.hamburger.open span:nth-child(2) { opacity: 0; }
+.hamburger.open span:nth-child(3) { transform: rotate(-45deg) translate(5px, -5px); }
+@media (max-width: 768px) {
+  .hamburger { display: flex; }
+  .nav { display: none; position: fixed; top: 72px; left: 0; right: 0; background: rgba(0,27,77,0.98); padding: 20px 24px; }
+  .nav.open { display: block; }
+  .nav__list { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .nav__link { display: block; padding: 12px 0; font-size: 1rem; border-bottom: 1px solid rgba(255,255,255,0.08); width: 100%; }
+}
+.footer { background: var(--blue-bg); padding: 48px 0 0; }
+.footer__inner { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; padding-bottom: 40px; }
+.footer__brand .logo__name { font-size: 1rem; }
+.footer__tagline { color: rgba(255,255,255,0.5); font-size: 0.85rem; margin-top: 8px; }
+.footer__links h4 { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--yellow); margin-bottom: 14px; }
+.footer__links ul { display: flex; flex-direction: column; gap: 8px; }
+.footer__links a { color: rgba(255,255,255,0.6); font-size: 0.88rem; transition: color 0.2s; }
+.footer__links a:hover { color: var(--white); }
+.footer__bottom { border-top: 1px solid rgba(255,255,255,0.08); padding: 16px 24px; text-align: center; color: rgba(255,255,255,0.35); font-size: 0.78rem; }
+@media (max-width: 600px) { .footer__inner { grid-template-columns: 1fr; gap: 24px; } }

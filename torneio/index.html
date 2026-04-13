@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Torneios de Futebol</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/torneio.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <header class="header" id="header">
+    <div class="container header__inner">
+      <a href="index.html" class="logo">
+        <img src="images/logo.svg" alt="Logo" class="logo__img" />
+        <div class="logo__text">
+          <span class="logo__name">Torneios</span>
+          <span class="logo__sub">Futebol</span>
+        </div>
+      </a>
+      <nav class="nav" id="nav">
+        <ul class="nav__list">
+          <li><a href="index.html" class="nav__link" style="color:var(--yellow)">Torneios</a></li>
+          <li><a href="admin/index.html" class="btn btn--nav">Admin</a></li>
+        </ul>
+      </nav>
+      <button class="hamburger" id="hamburger" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <div class="torneio-hero">
+    <div class="torneio-hero__overlay"></div>
+    <div class="container torneio-hero__content" id="torneioHeroContent">
+      <span class="torneio-hero__tag">Torneios</span>
+      <h1 class="torneio-hero__title">Torneios<br><span>de Futebol</span></h1>
+    </div>
+  </div>
+
+  <div class="torneio-selector-bar">
+    <div class="container">
+      <div class="torneio-selector-inner" id="torneioTabsInner">
+        <div style="padding:16px 24px;color:var(--gray-mid);font-size:0.85rem">A carregar...</div>
+      </div>
+    </div>
+  </div>
+
+  <section class="torneio-section">
+    <div class="container">
+      <div class="section-tabs" id="sectionTabs">
+        <button class="section-tab active">&#128202; Classificação</button>
+        <button class="section-tab">&#9917; Jogos</button>
+        <button class="section-tab">&#127942; Eliminatória</button>
+      </div>
+      <div class="torneio-grid">
+        <div>
+          <div id="torneioMain">
+            <div class="t-card">
+              <div class="t-empty" style="padding:60px 20px">
+                <div class="t-empty__icon" style="font-size:2rem;margin-bottom:12px">&#9917;</div>
+                <p style="color:var(--gray-mid)">A carregar torneio...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="torneio-sidebar" id="torneioSidebar">
+          <div class="widget">
+            <div class="widget__header"><span class="widget__title">Informações</span></div>
+            <div class="widget__body"><p style="color:var(--gray-mid);font-size:0.85rem">A carregar...</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container footer__inner">
+      <div class="footer__brand">
+        <div class="logo">
+          <img src="images/logo.svg" alt="Logo" class="logo__img logo__img--small" />
+          <div class="logo__text">
+            <span class="logo__name">Torneios</span>
+            <span class="logo__sub">Futebol</span>
+          </div>
+        </div>
+        <p class="footer__tagline">Resultados e classificações online.</p>
+      </div>
+      <div class="footer__links">
+        <h4>Links</h4>
+        <ul>
+          <li><a href="index.html">Torneios</a></li>
+          <li><a href="admin/index.html">Administração</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer__bottom">
+      <p>&copy; 2026 Torneios de Futebol. Todos os direitos reservados.</p>
+    </div>
+  </footer>
+
+  <script src="js/main.js?v=1"></script>
+  <script src="js/torneio.js?v=1"></script>
+</body>
+</html>
