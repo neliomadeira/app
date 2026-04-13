@@ -164,6 +164,7 @@ function goToPage(name) {
     galeria: 'Galeria', treinadores: 'Treinadores & Staff',
     agenda: 'Agenda & Eventos', modalidades: 'Modalidades',
     seniores: 'Equipa Sénior', configuracoes: 'Configurações',
+    torneios: 'Torneios',
   };
   document.getElementById('topbarTitle').textContent = titles[name] || name;
   document.getElementById('sidebar').classList.remove('open');
@@ -177,6 +178,7 @@ function goToPage(name) {
   if (name === 'modalidades') initModalidades();
   if (name === 'seniores') initSeniores();
   if (name === 'configuracoes') initConfiguracoes();
+  if (name === 'torneios') initTorneioAdmin();
 }
 
 document.querySelectorAll('.nav-item[data-page]').forEach(item => {

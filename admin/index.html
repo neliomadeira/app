@@ -73,6 +73,9 @@
         <a href="#" class="nav-item" data-page="jogos">
           <span class="nav-icon">&#128197;</span> Jogos
         </a>
+        <a href="#" class="nav-item" data-page="torneios">
+          <span class="nav-icon">&#127942;</span> Torneios
+        </a>
         <a href="#" class="nav-item" data-page="patrocinadores">
           <span class="nav-icon">&#11088;</span> Patrocinadores
         </a>
@@ -991,9 +994,129 @@
           </div>
         </section>
 
+        <!-- ===== TORNEIOS ===== -->
+        <section class="page" id="page-torneios" style="display:none">
+          <div class="page-header">
+            <h1>&#127942; Torneios</h1>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+              <button class="btn-primary" onclick="openNewTorneio()">+ Novo Torneio</button>
+              <button class="btn-sm" onclick="exportTorneioJSON()">&#8595; Exportar JSON</button>
+              <label class="btn-sm" style="cursor:pointer">
+                &#8593; Importar JSON
+                <input type="file" accept=".json" style="display:none" onchange="importTorneioJSON(this.files[0])" />
+              </label>
+            </div>
+          </div>
+
+          <!-- Toast for torneio ops -->
+          <div id="torneioToast" class="torneio-toast"></div>
+
+          <!-- Dashboard list of torneios -->
+          <div id="torneioDashboard"></div>
+
+          <div class="torneio-admin-info card" style="margin-top:20px">
+            <h3 style="margin-bottom:8px;font-size:0.95rem;color:var(--blue)">&#128161; Como publicar os resultados no site</h3>
+            <ol style="font-size:0.84rem;color:#555;padding-left:20px;line-height:2">
+              <li>Insira os resultados usando o botão <strong>⚽ Inserir Resultados</strong></li>
+              <li>Clique em <strong>↓ Exportar JSON</strong> para gerar o ficheiro <code>torneio-data.json</code></li>
+              <li>Coloque o ficheiro na pasta <code>data/</code> do servidor</li>
+              <li>A página pública <a href="../torneio.html" target="_blank">torneio.html</a> actualiza-se automaticamente</li>
+            </ol>
+          </div>
+        </section>
+
       </main>
     </div><!-- end main-wrap -->
   </div><!-- end admin-layout -->
+
+  <!-- TORNEIO EDITOR MODAL -->
+  <div class="torneio-modal-overlay" id="torneioEditorModal">
+    <div class="torneio-modal">
+      <div class="torneio-modal__header">
+        <h2 id="torneioEditorTitle">Novo Torneio</h2>
+        <button class="torneio-modal__close" onclick="closeTorneioEditor()">&times;</button>
+      </div>
+      <div class="torneio-modal__body">
+        <div class="torneio-form-grid">
+          <div class="admin-form-group">
+            <label class="admin-form-label">Nome do Torneio *</label>
+            <input type="text" id="tEdit_nome" class="admin-input" placeholder="Ex: Torneio Primavera 2026" />
+          </div>
+          <div class="admin-form-group">
+            <label class="admin-form-label">Escalão</label>
+            <select id="tEdit_escalao" class="admin-input">
+              <option>Sub-9</option><option>Sub-11</option><option>Sub-13</option>
+              <option>Sub-15</option><option>Sub-17</option><option>Sub-19</option><option>Sénior</option>
+            </select>
+          </div>
+          <div class="admin-form-group">
+            <label class="admin-form-label">Data de Início</label>
+            <input type="date" id="tEdit_data_inicio" class="admin-input" />
+          </div>
+          <div class="admin-form-group">
+            <label class="admin-form-label">Data de Fim</label>
+            <input type="date" id="tEdit_data_fim" class="admin-input" />
+          </div>
+          <div class="admin-form-group">
+            <label class="admin-form-label">Local</label>
+            <input type="text" id="tEdit_local" class="admin-input" placeholder="Ex: Campo Sintético de Loulé" />
+          </div>
+          <div class="admin-form-group">
+            <label class="admin-form-label">Estado</label>
+            <select id="tEdit_estado" class="admin-input">
+              <option value="agendado">Agendado</option>
+              <option value="em_curso">Em Curso</option>
+              <option value="concluido">Concluído</option>
+            </select>
+          </div>
+          <div class="admin-form-group">
+            <label class="admin-form-label">Formato</label>
+            <select id="tEdit_formato" class="admin-input">
+              <option value="grupos_e_eliminatoria">Grupos + Eliminatória</option>
+              <option value="liga">Liga (todos contra todos)</option>
+              <option value="eliminatoria">Eliminatória Directa</option>
+            </select>
+          </div>
+          <div class="admin-form-group">
+            <label class="admin-form-label">Vencedor (opcional)</label>
+            <input type="text" id="tEdit_vencedor" class="admin-input" placeholder="Nome da equipa vencedora" />
+          </div>
+        </div>
+        <div class="admin-form-group" style="margin-top:4px">
+          <label class="admin-form-label">Descrição</label>
+          <textarea id="tEdit_descricao" class="admin-input" rows="2" placeholder="Descrição breve do torneio..."></textarea>
+        </div>
+
+        <!-- GRUPOS -->
+        <div style="margin-top:20px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <h3 style="font-size:0.95rem;font-weight:700;color:var(--blue)">Grupos &amp; Equipas</h3>
+            <button class="admin-btn admin-btn--outline admin-btn--sm" onclick="addGrupo()">+ Adicionar Grupo</button>
+          </div>
+          <div id="tEdit_grupos"></div>
+        </div>
+      </div>
+      <div class="torneio-modal__footer">
+        <button class="admin-btn admin-btn--outline" onclick="closeTorneioEditor()">Cancelar</button>
+        <button class="admin-btn admin-btn--primary" onclick="saveTorneioEditor()">&#128190; Guardar Torneio</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESULTADOS EDITOR MODAL -->
+  <div class="torneio-modal-overlay" id="resultadosEditorModal">
+    <div class="torneio-modal torneio-modal--wide">
+      <div class="torneio-modal__header">
+        <h2 id="resultadosEditorTitle">Inserir Resultados</h2>
+        <button class="torneio-modal__close" onclick="closeResultadosEditor()">&times;</button>
+      </div>
+      <div class="torneio-modal__body" id="resultadosEditorBody"></div>
+      <div class="torneio-modal__footer">
+        <button class="admin-btn admin-btn--outline" onclick="closeResultadosEditor()">Fechar</button>
+        <button class="admin-btn admin-btn--primary" onclick="saveResultados()">&#128190; Guardar Resultados</button>
+      </div>
+    </div>
+  </div>
 
   <!-- MODAL -->
   <div class="modal-overlay" id="modalOverlay" style="display:none">
@@ -1012,6 +1135,7 @@
 
   <script src="js/data.js?v=20260413"></script>
   <script src="js/admin.js?v=20260413"></script>
+  <script src="js/torneio-admin.js?v=20260413"></script>
   <script>
     // Mostrar estado de bloqueio ao carregar a página
     (function() {
