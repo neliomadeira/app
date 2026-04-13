@@ -2048,3 +2048,48 @@ ul { list-style: none; }
   .senior-posts__grid { grid-template-columns: 1fr; }
   .senior-post-card--featured { grid-row: auto; }
 }
+
+/* =============================================
+   ANIVERSÁRIOS DO DIA
+   ============================================= */
+.section--birthday {
+  background: linear-gradient(135deg, var(--blue) 0%, #0055cc 100%);
+}
+.birthday__grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: center;
+}
+.birthday__card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 16px 24px;
+  border-radius: 14px;
+  backdrop-filter: blur(4px);
+  min-width: 220px;
+}
+.birthday__icon {
+  font-size: 2.4rem;
+  line-height: 1;
+}
+.birthday__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.birthday__nome {
+  color: var(--yellow);
+  font-size: 1rem;
+  font-weight: 700;
+}
+.birthday__detalhe {
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.85rem;
+}
+@media (max-width: 640px) {
+  .birthday__card { min-width: 160px; padding: 12px 16px; }
+}

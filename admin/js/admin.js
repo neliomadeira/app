@@ -462,17 +462,36 @@ window.rejeitarInscricao = function (id) {
 // ==================================================
 // ATLETAS
 // ==================================================
+function calcIdade(dataNascimento) {
+  if (!dataNascimento) return null;
+  const hoje = new Date();
+  const n    = new Date(dataNascimento + 'T00:00:00');
+  let idade  = hoje.getFullYear() - n.getFullYear();
+  if (hoje.getMonth() < n.getMonth() || (hoje.getMonth() === n.getMonth() && hoje.getDate() < n.getDate())) idade--;
+  return idade;
+}
+
+function fmtNasc(dataNascimento) {
+  if (!dataNascimento) return '—';
+  const d = new Date(dataNascimento + 'T00:00:00');
+  return d.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
 function renderAtletas(query = '') {
   const tbody = document.querySelector('#atletasTable tbody');
   let data = DB.atletas;
   if (query) data = data.filter(a => a.nome.toLowerCase().includes(query.toLowerCase()));
 
-  tbody.innerHTML = data.map(a => `
-    <tr>
-      <td><strong>${a.nome}</strong></td>
+  const hoje = new Date();
+  tbody.innerHTML = data.map(a => {
+    const idade = calcIdade(a.dataNascimento);
+    const nasc  = a.dataNascimento ? new Date(a.dataNascimento + 'T00:00:00') : null;
+    const isAniversario = nasc && nasc.getDate() === hoje.getDate() && nasc.getMonth() === hoje.getMonth();
+    return `<tr${isAniversario ? ' style="background:#fffbeb"' : ''}>
+      <td><strong>${a.nome}</strong>${isAniversario ? ' 🎂' : ''}</td>
       <td>${a.escalao}</td>
       <td>${a.posicao || '—'}</td>
-      <td>${a.idade} anos</td>
+      <td>${fmtNasc(a.dataNascimento)}${idade !== null ? ` <small style="color:#888">(${idade} anos)</small>` : ''}</td>
       <td>${a.encarregado}</td>
       <td>${statusBadge(a.estado)}</td>
       <td>
@@ -481,7 +500,8 @@ function renderAtletas(query = '') {
           <button class="btn-icon btn-icon--red" onclick="removeAtleta(${a.id})" title="Remover">&#128465;</button>
         </div>
       </td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 }
 
 document.getElementById('searchAtleta')?.addEventListener('input', function () {
@@ -491,9 +511,9 @@ document.getElementById('searchAtleta')?.addEventListener('input', function () {
 document.getElementById('btnNovoAtleta')?.addEventListener('click', () => {
   openModal('Novo Atleta', `
     <div class="modal-row">
-      <div class="modal-field"><label>Nome completo</label><input type="text" id="mNome" placeholder="Nome do atleta" /></div>
+      <div class="modal-field"><label>Nome completo</label><input type="text" class="form-input" id="mNome" placeholder="Nome do atleta" /></div>
       <div class="modal-field"><label>Escalão</label>
-        <select id="mEscalao">
+        <select class="form-input" id="mEscalao">
           <option>Sub-9</option><option>Sub-11</option><option>Sub-13</option>
           <option>Sub-15</option><option>Sub-17</option><option>Sub-19</option>
         </select>
@@ -501,18 +521,20 @@ document.getElementById('btnNovoAtleta')?.addEventListener('click', () => {
     </div>
     <div class="modal-row">
       <div class="modal-field"><label>Posição</label>
-        <select id="mPosicao">
+        <select class="form-input" id="mPosicao">
           <option value="">—</option>
           <option>Guarda-redes</option><option>Defesa Direito</option><option>Defesa Esquerdo</option>
           <option>Central</option><option>Médio Defensivo</option><option>Médio</option>
           <option>Extremo</option><option>Avançado</option>
         </select>
       </div>
-      <div class="modal-field"><label>Idade</label><input type="number" id="mIdade" min="5" max="20" /></div>
+      <div class="modal-field"><label>Data de Nascimento</label>
+        <input type="date" class="form-input" id="mDataNasc" />
+      </div>
     </div>
     <div class="modal-row">
-      <div class="modal-field"><label>Encarregado</label><input type="text" id="mEnc" placeholder="Nome do encarregado" /></div>
-      <div class="modal-field"><label>Telefone</label><input type="tel" id="mTel" placeholder="+351 9XX XXX XXX" /></div>
+      <div class="modal-field"><label>Encarregado</label><input type="text" class="form-input" id="mEnc" placeholder="Nome do encarregado" /></div>
+      <div class="modal-field"><label>Telefone</label><input type="tel" class="form-input" id="mTel" placeholder="+351 9XX XXX XXX" /></div>
     </div>`,
     `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
      <button class="btn-save" onclick="saveNovoAtleta()">Guardar</button>`
@@ -523,14 +545,16 @@ window.saveNovoAtleta = function () {
   const nome = document.getElementById('mNome').value.trim();
   if (!nome) { showToast('Introduza o nome do atleta.', 'red'); return; }
   DB.atletas.push({
-    id: DB.atletas.length + 1,
-    nome, escalao: document.getElementById('mEscalao').value,
-    posicao: document.getElementById('mPosicao').value,
-    idade: Number(document.getElementById('mIdade').value) || 0,
-    encarregado: document.getElementById('mEnc').value || '—',
-    telefone: document.getElementById('mTel').value,
+    id: Date.now(),
+    nome,
+    escalao:        document.getElementById('mEscalao').value,
+    posicao:        document.getElementById('mPosicao').value,
+    dataNascimento: document.getElementById('mDataNasc').value || '',
+    encarregado:    document.getElementById('mEnc').value || '—',
+    telefone:       document.getElementById('mTel').value,
     estado: 'Activo'
   });
+  saveDB();
   renderAtletas();
   updateBadges();
   closeModal();
@@ -542,25 +566,35 @@ window.editAtleta = function (id) {
   if (!a) return;
   openModal(`Editar — ${a.nome}`, `
     <div class="modal-row">
-      <div class="modal-field"><label>Nome completo</label><input type="text" id="mNome" value="${a.nome}" /></div>
+      <div class="modal-field"><label>Nome completo</label>
+        <input type="text" class="form-input" id="mNome" value="${a.nome}" />
+      </div>
       <div class="modal-field"><label>Escalão</label>
-        <select id="mEscalao">
+        <select class="form-input" id="mEscalao">
           ${['Sub-9','Sub-11','Sub-13','Sub-15','Sub-17','Sub-19'].map(e =>
-            `<option ${e===a.escalao?'selected':''}>${e}</option>`).join('')}
+            `<option${e===a.escalao?' selected':''}>${e}</option>`).join('')}
         </select>
       </div>
     </div>
     <div class="modal-row">
       <div class="modal-field"><label>Posição</label>
-        <select id="mPosicao">
+        <select class="form-input" id="mPosicao">
           ${['—','Guarda-redes','Defesa Direito','Defesa Esquerdo','Central','Médio Defensivo','Médio','Extremo','Avançado'].map(p =>
-            `<option ${p===a.posicao?'selected':''}>${p}</option>`).join('')}
+            `<option${(p===(a.posicao||'—'))?' selected':''}>${p}</option>`).join('')}
         </select>
       </div>
+      <div class="modal-field"><label>Data de Nascimento</label>
+        <input type="date" class="form-input" id="mDataNasc" value="${a.dataNascimento || ''}" />
+      </div>
+    </div>
+    <div class="modal-row">
+      <div class="modal-field"><label>Encarregado</label>
+        <input type="text" class="form-input" id="mEnc" value="${a.encarregado || ''}" />
+      </div>
       <div class="modal-field"><label>Estado</label>
-        <select id="mEstado">
-          <option ${a.estado==='Activo'?'selected':''}>Activo</option>
-          <option ${a.estado==='Inactivo'?'selected':''}>Inactivo</option>
+        <select class="form-input" id="mEstado">
+          <option${a.estado==='Activo'?' selected':''}>Activo</option>
+          <option${a.estado==='Inactivo'?' selected':''}>Inactivo</option>
         </select>
       </div>
     </div>`,
@@ -572,10 +606,13 @@ window.editAtleta = function (id) {
 window.saveEditAtleta = function (id) {
   const a = DB.atletas.find(x => x.id === id);
   if (!a) return;
-  a.nome    = document.getElementById('mNome').value.trim() || a.nome;
-  a.escalao = document.getElementById('mEscalao').value;
-  a.posicao = document.getElementById('mPosicao').value === '—' ? '' : document.getElementById('mPosicao').value;
-  a.estado  = document.getElementById('mEstado').value;
+  a.nome           = document.getElementById('mNome').value.trim()    || a.nome;
+  a.escalao        = document.getElementById('mEscalao').value;
+  a.posicao        = document.getElementById('mPosicao').value === '—' ? '' : document.getElementById('mPosicao').value;
+  a.dataNascimento = document.getElementById('mDataNasc').value        || a.dataNascimento || '';
+  a.encarregado    = document.getElementById('mEnc').value             || a.encarregado;
+  a.estado         = document.getElementById('mEstado').value;
+  saveDB();
   renderAtletas();
   updateBadges();
   closeModal();
@@ -586,6 +623,7 @@ window.removeAtleta = function (id) {
   if (!confirm('Tem a certeza que pretende remover este atleta?')) return;
   const idx = DB.atletas.findIndex(x => x.id === id);
   if (idx > -1) DB.atletas.splice(idx, 1);
+  saveDB();
   renderAtletas();
   updateBadges();
   showToast('Atleta removido.', 'red');

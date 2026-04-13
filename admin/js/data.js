@@ -14,17 +14,17 @@ const DB = {
   ],
 
   atletas: [
-    { id: 1,  nome: 'Diogo Nunes Marques',       escalao: 'Sub-9',  posicao: '',             idade: 8,  encarregado: 'Carlos Nunes',       telefone: '+351 915 678 901', estado: 'Activo'   },
-    { id: 2,  nome: 'Rui Sousa Carvalho',         escalao: 'Sub-11', posicao: 'Médio',        idade: 10, encarregado: 'Ana Carvalho',        telefone: '+351 962 789 012', estado: 'Activo'   },
-    { id: 3,  nome: 'Luís Tavares Brito',         escalao: 'Sub-11', posicao: 'Avançado',     idade: 11, encarregado: 'Mário Tavares',       telefone: '+351 935 111 222', estado: 'Activo'   },
-    { id: 4,  nome: 'Rafael Castro Mota',         escalao: 'Sub-13', posicao: 'Extremo',      idade: 12, encarregado: 'Paulo Castro',        telefone: '+351 912 222 333', estado: 'Activo'   },
-    { id: 5,  nome: 'Gonçalo Pires Mendes',       escalao: 'Sub-13', posicao: 'Central',      idade: 13, encarregado: 'Sofia Pires',         telefone: '+351 963 333 444', estado: 'Activo'   },
-    { id: 6,  nome: 'Tiago Ferreira Lima',        escalao: 'Sub-15', posicao: 'Defesa Dir.',  idade: 14, encarregado: 'Jorge Ferreira',      telefone: '+351 934 444 555', estado: 'Activo'   },
-    { id: 7,  nome: 'Bernardo Santos Cruz',       escalao: 'Sub-15', posicao: 'Médio Def.',   idade: 15, encarregado: 'Carla Santos',        telefone: '+351 916 555 666', estado: 'Activo'   },
-    { id: 8,  nome: 'Francisco Lopes Vaz',        escalao: 'Sub-17', posicao: 'Avançado',     idade: 16, encarregado: 'António Lopes',       telefone: '+351 962 666 777', estado: 'Activo'   },
-    { id: 9,  nome: 'Martim Costa Azevedo',       escalao: 'Sub-17', posicao: 'Extremo',      idade: 17, encarregado: 'Rosa Costa',          telefone: '+351 933 777 888', estado: 'Activo'   },
-    { id: 10, nome: 'Pedro Gomes Rodrigues',      escalao: 'Sub-19', posicao: 'Guarda-redes', idade: 18, encarregado: '-',                   telefone: '+351 916 901 234', estado: 'Activo'   },
-    { id: 11, nome: 'Rodrigo Alves Monteiro',     escalao: 'Sub-19', posicao: 'Médio',        idade: 19, encarregado: '-',                   telefone: '+351 915 888 999', estado: 'Inactivo' },
+    { id: 1,  nome: 'Diogo Nunes Marques',       escalao: 'Sub-9',  posicao: '',             dataNascimento: '2018-04-13', encarregado: 'Carlos Nunes',    telefone: '+351 915 678 901', estado: 'Activo'   },
+    { id: 2,  nome: 'Rui Sousa Carvalho',         escalao: 'Sub-11', posicao: 'Médio',        dataNascimento: '2016-07-22', encarregado: 'Ana Carvalho',    telefone: '+351 962 789 012', estado: 'Activo'   },
+    { id: 3,  nome: 'Luís Tavares Brito',         escalao: 'Sub-11', posicao: 'Avançado',     dataNascimento: '2015-11-08', encarregado: 'Mário Tavares',   telefone: '+351 935 111 222', estado: 'Activo'   },
+    { id: 4,  nome: 'Rafael Castro Mota',         escalao: 'Sub-13', posicao: 'Extremo',      dataNascimento: '2014-03-30', encarregado: 'Paulo Castro',    telefone: '+351 912 222 333', estado: 'Activo'   },
+    { id: 5,  nome: 'Gonçalo Pires Mendes',       escalao: 'Sub-13', posicao: 'Central',      dataNascimento: '2013-09-15', encarregado: 'Sofia Pires',     telefone: '+351 963 333 444', estado: 'Activo'   },
+    { id: 6,  nome: 'Tiago Ferreira Lima',        escalao: 'Sub-15', posicao: 'Defesa Dir.',  dataNascimento: '2012-06-01', encarregado: 'Jorge Ferreira',  telefone: '+351 934 444 555', estado: 'Activo'   },
+    { id: 7,  nome: 'Bernardo Santos Cruz',       escalao: 'Sub-15', posicao: 'Médio Def.',   dataNascimento: '2011-02-19', encarregado: 'Carla Santos',    telefone: '+351 916 555 666', estado: 'Activo'   },
+    { id: 8,  nome: 'Francisco Lopes Vaz',        escalao: 'Sub-17', posicao: 'Avançado',     dataNascimento: '2010-08-05', encarregado: 'António Lopes',   telefone: '+351 962 666 777', estado: 'Activo'   },
+    { id: 9,  nome: 'Martim Costa Azevedo',       escalao: 'Sub-17', posicao: 'Extremo',      dataNascimento: '2009-12-27', encarregado: 'Rosa Costa',      telefone: '+351 933 777 888', estado: 'Activo'   },
+    { id: 10, nome: 'Pedro Gomes Rodrigues',      escalao: 'Sub-19', posicao: 'Guarda-redes', dataNascimento: '2008-05-14', encarregado: '-',               telefone: '+351 916 901 234', estado: 'Activo'   },
+    { id: 11, nome: 'Rodrigo Alves Monteiro',     escalao: 'Sub-19', posicao: 'Médio',        dataNascimento: '2007-10-03', encarregado: '-',               telefone: '+351 915 888 999', estado: 'Inactivo' },
   ],
 
   noticias: [
@@ -146,6 +146,7 @@ const DB = {
 // Persistência no localStorage
 window.saveDB = function() {
   try {
+    localStorage.setItem('db_atletas',        JSON.stringify(DB.atletas));
     localStorage.setItem('db_escaloes',       JSON.stringify(DB.escaloes));
     localStorage.setItem('db_galeria',        JSON.stringify(DB.galeria));
     localStorage.setItem('db_modalidades',    JSON.stringify(DB.modalidades));
@@ -183,6 +184,7 @@ window.saveDB = function() {
   try { localStorage.removeItem('db_noticias'); } catch(_) {}
 
   try {
+    const at = localStorage.getItem('db_atletas');
     const e  = localStorage.getItem('db_escaloes');
     const g  = localStorage.getItem('db_galeria');
     const m  = localStorage.getItem('db_modalidades');
@@ -191,6 +193,7 @@ window.saveDB = function() {
     const t  = localStorage.getItem('db_treinadores');
     const s  = localStorage.getItem('db_seniores');
     const si = localStorage.getItem('db_seniores_info');
+    if (at) DB.atletas        = JSON.parse(at);
     if (e)  DB.escaloes       = JSON.parse(e);
     if (g)  DB.galeria        = JSON.parse(g);
     if (m)  DB.modalidades    = JSON.parse(m);

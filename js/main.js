@@ -322,11 +322,48 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   renderNoticias();
+  renderAniversarios();
 
   // Re-render when admin saves in another tab
   window.addEventListener('storage', (e) => {
     if (e.key === 'jsc_noticias') renderNoticias();
+    if (e.key === 'db_atletas')   renderAniversarios();
   });
+
+  // Aniversários do dia
+  function renderAniversarios() {
+    try {
+      const atletas = JSON.parse(localStorage.getItem('db_atletas') || '[]');
+      const hoje    = new Date();
+      const dia     = hoje.getDate();
+      const mes     = hoje.getMonth(); // 0-11
+
+      const lista = atletas.filter(a => {
+        if (!a.dataNascimento || a.estado === 'Inactivo') return false;
+        const n = new Date(a.dataNascimento + 'T00:00:00');
+        return n.getDate() === dia && n.getMonth() === mes;
+      });
+
+      const section = document.getElementById('aniversariosSection');
+      if (!section) return;
+
+      if (!lista.length) { section.style.display = 'none'; return; }
+
+      section.style.display = '';
+      document.getElementById('aniversariosLista').innerHTML = lista.map(a => {
+        const nasc  = new Date(a.dataNascimento + 'T00:00:00');
+        const idade = hoje.getFullYear() - nasc.getFullYear();
+        return `
+          <div class="birthday__card">
+            <div class="birthday__icon">🎂</div>
+            <div class="birthday__info">
+              <strong class="birthday__nome">${a.nome}</strong>
+              <span class="birthday__detalhe">${a.escalao} &middot; faz ${idade} anos hoje</span>
+            </div>
+          </div>`;
+      }).join('');
+    } catch(e) {}
+  }
 
   // Escalões
   try {
