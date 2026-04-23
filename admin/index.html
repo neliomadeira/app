@@ -351,17 +351,17 @@
                 <option value="">Todos</option>
                 <option>Agendado</option><option>Realizado</option>
               </select>
-              <button class="btn-fpf" id="btnImportarFPF">&#128203; Classificação</button>
+              <button class="btn-fpf" id="btnImportarFPF">&#128203; Classificação &amp; Jogos</button>
               <button class="btn-primary" id="btnNovoJogo">+ Novo Jogo</button>
             </div>
           </div>
 
-          <!-- CLASSIFICAÇÃO SYNC PANEL -->
+          <!-- CLASSIFICAÇÃO & JOGOS SYNC PANEL -->
           <div class="fpf-import-panel" id="fpfImportPanel" style="display:none">
             <div class="fpf-import-header">
               <div>
-                <strong>Atualizar Classificação</strong>
-                <p>Vai a <a href="https://afalgarve.pt/competicoes/" target="_blank" rel="noopener" style="color:var(--blue)">afalgarve.pt/competicoes/</a>, abre a competição, selecciona e copia a tabela de classificação, e cola aqui.</p>
+                <strong>Atualizar Classificação &amp; Jogos</strong>
+                <p>Vai a <a href="https://afalgarve.pt/competicoes/" target="_blank" rel="noopener" style="color:var(--blue)">afalgarve.pt/competicoes/</a>, selecciona e copia a tabela (classificação ou jogos) e cola por escalão.</p>
               </div>
               <button class="modal-close" onclick="document.getElementById('fpfImportPanel').style.display='none'">&times;</button>
             </div>
@@ -370,7 +370,8 @@
                 <thead>
                   <tr style="background:var(--blue);color:#fff">
                     <th style="padding:10px 14px;text-align:left">Escalão</th>
-                    <th style="padding:10px 14px;text-align:left">Última atualização</th>
+                    <th style="padding:10px 14px;text-align:left">Classificação</th>
+                    <th style="padding:10px 14px;text-align:left">Jogos</th>
                     <th style="padding:10px 14px"></th>
                   </tr>
                 </thead>
@@ -378,28 +379,23 @@
               </table>
             </div>
             <div class="fpf-import-footer">
-              <div style="font-size:0.8rem;color:#888">Copie a tabela do site (Ctrl+A na tabela, depois Ctrl+C) e cole no campo de cada escalão.</div>
+              <div style="font-size:0.8rem;color:#888">Selecciona as linhas da tabela no site, copia (Ctrl+C), e cola no botão do escalão correspondente.</div>
             </div>
           </div>
 
-          <!-- MODAL: COLAR CLASSIFICAÇÃO -->
+          <!-- MODAL: COLAR CLASSIFICAÇÃO / JOGOS -->
           <div id="colarClassModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;padding:16px">
-            <div style="background:#fff;border-radius:12px;width:100%;max-width:680px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.25)">
+            <div style="background:#fff;border-radius:12px;width:100%;max-width:700px;max-height:92vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.25)">
               <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:2px solid var(--yellow);background:var(--blue)">
                 <span id="colarClassTitle" style="font-family:var(--font-display);font-size:1.3rem;color:#fff;letter-spacing:1px"></span>
                 <button onclick="fecharColarClass()" style="background:none;border:none;color:#fff;font-size:1.4rem;cursor:pointer;line-height:1">&times;</button>
               </div>
               <div style="padding:20px">
                 <div style="background:#e8f4fd;border:1px solid #b3d9f7;border-radius:8px;padding:14px;margin-bottom:16px;font-size:0.85rem;color:#1a5276;line-height:1.6">
-                  <strong>Como fazer:</strong><br>
-                  1. Abre <a href="https://afalgarve.pt/competicoes/" target="_blank" rel="noopener">afalgarve.pt/competicoes/</a> (ou <a href="https://resultados.fpf.pt" target="_blank" rel="noopener">resultados.fpf.pt</a>)<br>
-                  2. Navega até à classificação do escalão correcto<br>
-                  3. Clica na primeira linha da tabela, depois Shift+clique na última linha, copia (Ctrl+C)<br>
-                  4. Cola aqui (Ctrl+V) e clica em "Pré-visualizar"
+                  <strong>Como fazer:</strong> <span id="colarClassHint"></span>
                 </div>
                 <textarea id="colarClassTA" rows="10"
-                  style="width:100%;box-sizing:border-box;padding:10px;border:1.5px solid #ddd;border-radius:8px;font-family:monospace;font-size:0.82rem;resize:vertical"
-                  placeholder="Cole aqui o texto copiado da tabela de classificação..."></textarea>
+                  style="width:100%;box-sizing:border-box;padding:10px;border:1.5px solid #ddd;border-radius:8px;font-family:monospace;font-size:0.82rem;resize:vertical"></textarea>
                 <div style="display:flex;gap:10px;margin-top:12px">
                   <button class="btn-save" onclick="previewColarClass()">&#128269; Pré-visualizar</button>
                   <button class="btn-primary" onclick="guardarColarClass()">&#10003; Guardar</button>
