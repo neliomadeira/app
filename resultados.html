@@ -27,7 +27,7 @@
       <nav class="nav" id="nav">
         <ul class="nav__list">
           <li><a href="index.html#sobre"      class="nav__link">Sobre</a></li>
-          <li><a href="formacao.html" class="nav__link">Formação</a></li>
+          <li><a href="formacao.html"          class="nav__link">Formação</a></li>
           <li><a href="resultados.html"        class="nav__link" style="color:var(--yellow)">Resultados</a></li>
           <li><a href="index.html#noticias"   class="nav__link">Notícias</a></li>
           <li><a href="index.html#contato"    class="nav__link">Contacto</a></li>
@@ -49,51 +49,74 @@
     </div>
   </div>
 
-  <!-- COMPETIÇÕES FPF -->
+  <!-- TABS -->
+  <div class="tabs-bar">
+    <div class="container tabs-inner">
+      <button class="tab active" data-escalao="Sub-17">Sub-17</button>
+      <button class="tab" data-escalao="Sub-15">Sub-15</button>
+      <button class="tab" data-escalao="Sub-13">Sub-13</button>
+      <button class="tab" data-escalao="Sub-19">Sub-19</button>
+      <button class="tab" data-escalao="Sub-11">Sub-11</button>
+    </div>
+  </div>
+
+  <!-- CONTEÚDO PRINCIPAL -->
   <section class="section res-section">
     <div class="container">
+      <div class="res-container">
 
-      <div class="fpf-intro">
-        <p>Consulte os resultados e classificações oficiais de todas as nossas equipas diretamente no site da <strong>Federação Portuguesa de Futebol</strong>.</p>
-      </div>
+        <!-- COLUNA PRINCIPAL: CLASSIFICAÇÃO + RESULTADOS -->
+        <div class="res-col--main">
 
-      <div class="fpf-cards">
-
-        <a href="https://resultados.fpf.pt/Competition/Details?competitionId=28148&seasonId=105" target="_blank" rel="noopener" class="fpf-card">
-          <div class="fpf-card__badge">Sub-17</div>
-          <div class="fpf-card__body">
-            <h3 class="fpf-card__title">Liga 1 Algarve<br>Futebol Juvenis</h3>
-            <p class="fpf-card__desc">Campeonato Distrital AF Algarve<br>Época 2025/2026</p>
+          <!-- CLASSIFICAÇÃO -->
+          <div class="res-card" style="margin-bottom:24px">
+            <div class="res-card__header">
+              <span class="res-card__title">Classificação</span>
+              <span class="res-competicao" id="resCompeticao"></span>
+            </div>
+            <div class="table-wrap">
+              <table class="class-table">
+                <thead>
+                  <tr>
+                    <th class="pos-col">#</th>
+                    <th class="team-col">Equipa</th>
+                    <th title="Jogos">J</th>
+                    <th title="Vitórias">V</th>
+                    <th title="Empates">E</th>
+                    <th title="Derrotas">D</th>
+                    <th title="Golos marcados">GM</th>
+                    <th title="Golos sofridos">GS</th>
+                    <th title="Diferença de golos">DG</th>
+                    <th class="pts-col" title="Pontos">Pts</th>
+                    <th class="forma-col">Forma</th>
+                  </tr>
+                </thead>
+                <tbody id="classTable"></tbody>
+              </table>
+            </div>
           </div>
-          <div class="fpf-card__action">
-            Ver Classificação &amp; Resultados →
-          </div>
-        </a>
 
-        <a href="https://resultados.fpf.pt" target="_blank" rel="noopener" class="fpf-card fpf-card--secondary">
-          <div class="fpf-card__badge fpf-card__badge--gray">Todas</div>
-          <div class="fpf-card__body">
-            <h3 class="fpf-card__title">Outras Competições</h3>
-            <p class="fpf-card__desc">Sub-9, Sub-11, Sub-13, Sub-15, Sub-19<br>Pesquise por "Sport Campinense" no site da FPF</p>
+          <!-- RESULTADOS -->
+          <div class="res-card">
+            <div class="res-card__header">
+              <span class="res-card__title">Últimos Resultados</span>
+            </div>
+            <div class="jogos-list" id="resultadosJogos"></div>
           </div>
-          <div class="fpf-card__action">
-            Aceder ao site da FPF →
-          </div>
-        </a>
 
-      </div>
-
-      <div class="fpf-cta-box">
-        <img src="https://resultados.fpf.pt/Images/SocialMedia/img-fb-share-generica-centro-resultados-partilha.png" alt="FPF Resultados" class="fpf-cta-logo" onerror="this.style.display='none'" />
-        <div class="fpf-cta-text">
-          <h4>Resultados FPF — AF Algarve</h4>
-          <p>Classificações, resultados, jogos e estatísticas oficiais actualizados em tempo real.</p>
-          <a href="https://resultados.fpf.pt" target="_blank" rel="noopener" class="btn btn--primary btn--lg">
-            Abrir resultados.fpf.pt
-          </a>
         </div>
-      </div>
 
+        <!-- COLUNA LATERAL: PRÓXIMOS JOGOS -->
+        <div>
+          <div class="res-card">
+            <div class="res-card__header">
+              <span class="res-card__title">Próximos Jogos</span>
+            </div>
+            <div class="jogos-list" id="proximosJogos"></div>
+          </div>
+        </div>
+
+      </div>
     </div>
   </section>
 
@@ -122,9 +145,9 @@
       <div class="footer__links">
         <h4>Escalões</h4>
         <ul>
-          <li><a href="#">Sub-9 | Sub-11</a></li>
-          <li><a href="#">Sub-13 | Sub-15</a></li>
-          <li><a href="#">Sub-17 | Sub-19</a></li>
+          <li><a href="formacao.html">Sub-9 | Sub-11</a></li>
+          <li><a href="formacao.html">Sub-13 | Sub-15</a></li>
+          <li><a href="formacao.html">Sub-17 | Sub-19</a></li>
         </ul>
       </div>
       <div class="footer__contact">
