@@ -2524,6 +2524,15 @@ function abrirFormPostMod(modId, modNome, postId) {
           <img id="mpPreviewImg" src="${p.imagem || ''}" style="max-height:80px;border-radius:6px;object-fit:cover" />
         </div>
       </div>
+      <div class="modal-field">
+        <label class="form-label">Tamanho da imagem</label>
+        <select class="form-input" id="mpImagemSize">
+          <option value="cover"   ${(p.imagemSize||'cover')==='cover'   ?'selected':''}>Cover (preencher)</option>
+          <option value="contain" ${p.imagemSize==='contain'            ?'selected':''}>Contain (imagem completa)</option>
+          <option value="110%"    ${p.imagemSize==='110%'               ?'selected':''}>110%</option>
+          <option value="140%"    ${p.imagemSize==='140%'               ?'selected':''}>140%</option>
+        </select>
+      </div>
     </div>`,
     `<button class="btn-save" onclick="savePostMod(${modId},'${modNome.replace(/'/g,"\\'")}',${postId||null})">Guardar</button>
      <button class="btn-cancel" onclick="gerirPostsMod(${modId},'${modNome.replace(/'/g,"\\'")}')">&#8592; Voltar</button>`
@@ -2556,8 +2565,9 @@ function savePostMod(modId, modNome, postId) {
     titulo,
     texto:     document.getElementById('mpTexto')?.value.trim() || '',
     data:      document.getElementById('mpData')?.value || '',
-    imagem:    document.getElementById('mpImagem')?.value.trim() || '',
-    publicada: document.getElementById('mpPublicada')?.value === '1',
+    imagem:      document.getElementById('mpImagem')?.value.trim() || '',
+    imagemSize:  document.getElementById('mpImagemSize')?.value || 'cover',
+    publicada:   document.getElementById('mpPublicada')?.value === '1',
   };
   const posts = loadModPosts();
   const idx = posts.findIndex(x => x.id == postId);
