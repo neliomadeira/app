@@ -289,18 +289,34 @@ document.addEventListener('DOMContentLoaded', () => {
     const body    = document.getElementById('newsArchiveBody');
     document.getElementById('newsArchiveTitle').textContent = n.categoria || 'Notícia';
 
+    const imgPos  = n.imagemPos  || 'top';
+    const imgSize = (n.imagemSize || 'cover').replace('auto ', '');
+    const imgStyle = n.imagem
+      ? `background-image:url('${n.imagem}');background-size:${imgSize};background-position:center;background-repeat:no-repeat`
+      : '';
+    const imgHtml = n.imagem
+      ? `<div class="news-article__img news-article__img--${imgPos}" style="${imgStyle}"></div>`
+      : '';
+    const topImg  = imgHtml && (imgPos === 'top'  )  ? imgHtml : '';
+    const midImg  = imgHtml && (imgPos === 'center') ? imgHtml : '';
+    const bodyImg = imgHtml && (imgPos === 'left' || imgPos === 'right') ? imgHtml : '';
+
     body.innerHTML = `
       <button class="news-archive__back" onclick="showArchiveList();document.getElementById('newsArchiveTitle').textContent='Todas as Notícias'">
         &#8592; Voltar à lista
       </button>
       <div class="news-article">
-        ${n.imagem ? `<div class="news-article__img" style="background-image:url('${n.imagem}');background-size:${(n.imagemSize||'cover').replace('auto ','')};background-position:${n.imagemPos||'center'}"></div>` : ''}
+        ${topImg}
         <h2 class="news-article__title">${n.titulo}</h2>
         <div class="news-article__meta">
           <span class="news-article__cat-badge">${n.categoria || ''}</span>
           <time>${ptDate(n.data)}</time>
         </div>
-        <div class="news-article__body">${n.resumo || '<em style="color:#aaa">Sem texto disponível.</em>'}</div>
+        ${midImg}
+        <div class="news-article__body">
+          ${bodyImg}${n.resumo || '<em style="color:#aaa">Sem texto disponível.</em>'}
+        </div>
+        <div style="clear:both"></div>
       </div>`;
 
     archive.classList.add('open');

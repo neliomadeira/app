@@ -737,6 +737,9 @@ function renderNoticias() {
 function abrirModalNoticia(n) {
   const isNew = !n;
   const cats  = ['Resultado','Seleção','Conquista','Clube','Evento','Formação','Seniores'];
+  const pos   = n?.imagemPos  || 'top';
+  const sz    = n?.imagemSize || 'cover';
+
   openModal(isNew ? 'Nova Notícia' : 'Editar Notícia', `
     <div class="modal-field">
       <label>Título *</label>
@@ -754,13 +757,57 @@ function abrirModalNoticia(n) {
     </div>
     <div class="modal-field">
       <label>Resumo / Texto</label>
-      <textarea class="form-input" id="mResumo" rows="4" placeholder="Texto da notícia...">${n?.resumo || ''}</textarea>
+      <textarea class="form-input" id="mResumo" rows="5" placeholder="Texto da notícia...">${n?.resumo || ''}</textarea>
     </div>
+
     <div class="modal-field">
-      <label>URL da Imagem <small style="color:#888;font-weight:400">(link externo — ex: https://...)</small></label>
-      <input type="url" class="form-input" id="mImagem" value="${n?.imagem || ''}" placeholder="https://exemplo.com/imagem.jpg" />
-      ${n?.imagem ? `<img src="${n.imagem}" style="max-width:100%;max-height:100px;border-radius:6px;margin-top:6px;object-fit:cover" onerror="this.style.display='none'" />` : ''}
+      <label>Imagem</label>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
+        <label class="img-upload-btn" for="mFicheiro" style="cursor:pointer;background:var(--blue);color:#fff;padding:6px 14px;border-radius:6px;font-size:0.82rem;font-weight:600">
+          📁 Escolher ficheiro
+        </label>
+        <input type="file" id="mFicheiro" accept="image/*" style="display:none" onchange="previewNoticiaImg(this)">
+        <span style="color:#888;font-size:0.8rem">ou</span>
+        <input type="url" class="form-input" id="mImagem" value="${n?.imagem || ''}" placeholder="https://..." style="flex:1;min-width:160px" oninput="previewNoticiaUrl(this.value)" />
+      </div>
+      <div id="mImagemPreview" style="${n?.imagem ? '' : 'display:none'}">
+        <img id="mImagemPreviewImg" src="${n?.imagem || ''}" style="max-width:100%;max-height:140px;border-radius:8px;object-fit:cover;display:block" onerror="this.parentElement.style.display='none'" />
+        <div id="mImagemTamanho" style="font-size:11px;color:#888;margin-top:3px"></div>
+      </div>
     </div>
+
+    <div class="modal-row" style="margin-top:4px">
+      <div class="modal-field">
+        <label>Posição no artigo</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px" id="mPosGroup">
+          ${[
+            ['top',    '▬ Topo',     'Largura total antes do texto'],
+            ['center', '▬ Centro',   'Largura total entre parágrafos'],
+            ['left',   '◧ Esquerda', 'Texto flui à direita'],
+            ['right',  '◨ Direita',  'Texto flui à esquerda'],
+          ].map(([val, label, desc]) => `
+            <label style="display:flex;align-items:center;gap:6px;padding:8px 10px;border:2px solid ${val===pos?'var(--blue)':'#e2e8f0'};border-radius:8px;cursor:pointer;font-size:0.82rem;background:${val===pos?'#eff6ff':'#fff'}" onclick="selectImagePos('${val}')">
+              <input type="radio" name="mImagemPos" value="${val}" ${val===pos?'checked':''} style="display:none">
+              <span style="font-size:1rem">${label.split(' ')[0]}</span>
+              <span><strong>${label.split(' ').slice(1).join(' ')}</strong><br><small style="color:#888">${desc}</small></span>
+            </label>`).join('')}
+        </div>
+        <input type="hidden" id="mImagemPos" value="${pos}">
+      </div>
+      <div class="modal-field">
+        <label>Tamanho da imagem</label>
+        <select class="form-input" id="mImagemSize" style="margin-top:4px">
+          <option value="cover"   ${sz==='cover'  ?'selected':''}>Preencher (corta bordas)</option>
+          <option value="contain" ${sz==='contain'?'selected':''}>Mostrar tudo</option>
+          <option value="110%"    ${sz==='110%'   ?'selected':''}>Zoom 110%</option>
+          <option value="140%"    ${sz==='140%'   ?'selected':''}>Zoom 140%</option>
+        </select>
+        <div style="margin-top:6px;font-size:0.78rem;color:#888">
+          Máx. 5MB — comprimido automaticamente
+        </div>
+      </div>
+    </div>
+
     <div class="modal-field" style="margin-top:8px">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
         <input type="checkbox" id="mPublicada" ${isNew || n?.publicada ? 'checked' : ''} />
@@ -772,6 +819,40 @@ function abrirModalNoticia(n) {
   );
 }
 
+window.previewNoticiaImg = function(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { showToast('Ficheiro demasiado grande (máx 5MB)', 'red'); input.value = ''; return; }
+  compressImage(file, dataUrl => {
+    document.getElementById('mImagem').value = dataUrl;
+    const prev = document.getElementById('mImagemPreview');
+    const img  = document.getElementById('mImagemPreviewImg');
+    const info = document.getElementById('mImagemTamanho');
+    prev.style.display = '';
+    img.src = dataUrl;
+    const kb = Math.round(dataUrl.length * 0.75 / 1024);
+    if (info) info.textContent = `Tamanho comprimido: ~${kb} KB`;
+  });
+};
+
+window.previewNoticiaUrl = function(url) {
+  const prev = document.getElementById('mImagemPreview');
+  const img  = document.getElementById('mImagemPreviewImg');
+  if (url) { prev.style.display = ''; img.src = url; }
+  else { prev.style.display = 'none'; }
+};
+
+window.selectImagePos = function(val) {
+  document.getElementById('mImagemPos').value = val;
+  document.querySelectorAll('#mPosGroup label').forEach(lbl => {
+    const radio = lbl.querySelector('input[type=radio]');
+    const isSelected = radio.value === val;
+    radio.checked = isSelected;
+    lbl.style.borderColor  = isSelected ? 'var(--blue)' : '#e2e8f0';
+    lbl.style.background   = isSelected ? '#eff6ff'     : '#fff';
+  });
+};
+
 document.getElementById('btnNovaNoticia')?.addEventListener('click', () => abrirModalNoticia());
 
 window.saveNoticia = function(id) {
@@ -780,11 +861,13 @@ window.saveNoticia = function(id) {
 
   const dados = {
     titulo,
-    categoria: document.getElementById('mCat')?.value          || 'Resultado',
-    data:      document.getElementById('mData')?.value          || new Date().toISOString().split('T')[0],
-    resumo:    document.getElementById('mResumo')?.value.trim() || '',
-    imagem:    document.getElementById('mImagem')?.value.trim() || '',
-    publicada: document.getElementById('mPublicada')?.checked   ?? true,
+    categoria:  document.getElementById('mCat')?.value          || 'Resultado',
+    data:       document.getElementById('mData')?.value          || new Date().toISOString().split('T')[0],
+    resumo:     document.getElementById('mResumo')?.value.trim() || '',
+    imagem:     document.getElementById('mImagem')?.value.trim() || '',
+    imagemPos:  document.getElementById('mImagemPos')?.value     || 'top',
+    imagemSize: document.getElementById('mImagemSize')?.value    || 'cover',
+    publicada:  document.getElementById('mPublicada')?.checked   ?? true,
   };
 
   const lista = loadNoticias();
