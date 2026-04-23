@@ -1372,262 +1372,198 @@ window.removePatrocinador = function (id) {
 };
 
 // ==================================================
-// SINCRONIZAR FPF — parse do HTML da página
+// CLASSIFICAÇÃO — IMPORTAR POR COLAR TABELA
 // ==================================================
+// Como usar: vai a afalgarve.pt/competicoes/, selecciona a tabela,
+// copia (Ctrl+C), e cola aqui. Funciona com qualquer fonte.
 
-const FPF_ESCALOES = [
-  { escalao: 'Sub-17', compId: '28148', seasonId: '105' },
-  { escalao: 'Sub-15', compId: '',      seasonId: '105' },
-  { escalao: 'Sub-13', compId: '',      seasonId: '105' },
-  { escalao: 'Sub-19', compId: '',      seasonId: '105' },
-  { escalao: 'Sub-11', compId: '',      seasonId: '105' },
-];
+const CLASS_ESCALOES = ['Sub-17','Sub-15','Sub-13','Sub-19','Sub-11'];
+const CLASS_CONFIG_KEY = 'fpf_sync_config';
 
-const FPF_CONFIG_KEY = 'fpf_sync_config';
-
-function loadFpfConfig() {
-  try { return JSON.parse(localStorage.getItem(FPF_CONFIG_KEY) || '{}'); } catch(e) { return {}; }
+function loadClassConfig() {
+  try { return JSON.parse(localStorage.getItem(CLASS_CONFIG_KEY) || '{}'); } catch(e) { return {}; }
 }
-function saveFpfConfig(cfg) {
-  localStorage.setItem(FPF_CONFIG_KEY, JSON.stringify(cfg));
+function saveClassConfig(cfg) {
+  localStorage.setItem(CLASS_CONFIG_KEY, JSON.stringify(cfg));
 }
 
-function renderFpfSyncRows() {
+function renderClassSyncRows() {
   const tbody = document.getElementById('fpfSyncRows');
   if (!tbody) return;
-  const cfg = loadFpfConfig();
-  tbody.innerHTML = FPF_ESCALOES.map(row => {
-    const saved   = cfg[row.escalao] || {};
-    const compId  = saved.compId   || row.compId   || '';
-    const seasonId= saved.seasonId || row.seasonId || '105';
-    const lastSync= saved.lastSync ? new Date(saved.lastSync).toLocaleString('pt-PT') : '—';
-    const key     = row.escalao.replace('-','');
+  const cfg = loadClassConfig();
+  tbody.innerHTML = CLASS_ESCALOES.map(escalao => {
+    const saved    = cfg[escalao] || {};
+    const lastSync = saved.lastSync ? new Date(saved.lastSync).toLocaleString('pt-PT') : '—';
+    const nTeams   = saved.nTeams  ? `${saved.nTeams} equipas` : '';
+    const key      = escalao.replace('-','');
     return `
       <tr style="border-bottom:1px solid #eee">
-        <td style="padding:10px 14px;font-weight:700">${row.escalao}</td>
-        <td style="padding:8px 14px">
-          <input id="fpfCid_${key}" type="text" value="${compId}" placeholder="ex: 28148"
-            style="width:110px;padding:6px 8px;border:1.5px solid #ddd;border-radius:6px;font-size:0.85rem"
-            onchange="saveFpfField('${row.escalao}','compId',this.value)" />
+        <td style="padding:10px 14px;font-weight:700">${escalao}</td>
+        <td style="padding:8px 14px;font-size:0.8rem;color:#555" id="fpfStatus_${key}">
+          ${lastSync}${nTeams ? ' · <strong>'+nTeams+'</strong>' : ''}
         </td>
-        <td style="padding:8px 14px">
-          <input id="fpfSid_${key}" type="text" value="${seasonId}" placeholder="ex: 105"
-            style="width:80px;padding:6px 8px;border:1.5px solid #ddd;border-radius:6px;font-size:0.85rem"
-            onchange="saveFpfField('${row.escalao}','seasonId',this.value)" />
-        </td>
-        <td style="padding:8px 14px;font-size:0.8rem;color:#666" id="fpfStatus_${key}">${lastSync}</td>
-        <td style="padding:8px 14px">
-          <button class="btn-sm" onclick="sincronizarEscalao('${row.escalao}')">&#8635; Sincronizar</button>
+        <td style="padding:8px 14px;text-align:right">
+          <button class="btn-sm" onclick="abrirColarClass('${escalao}')">&#128203; Colar tabela</button>
+          ${saved.lastSync ? `<button class="btn-sm" style="margin-left:6px;color:#c00" onclick="limparClass('${escalao}')">&#x2715; Limpar</button>` : ''}
         </td>
       </tr>`;
   }).join('');
 }
 
-window.saveFpfField = function(escalao, field, val) {
-  const cfg = loadFpfConfig();
-  if (!cfg[escalao]) cfg[escalao] = {};
-  cfg[escalao][field] = val.trim();
-  saveFpfConfig(cfg);
-};
-
 document.getElementById('btnImportarFPF')?.addEventListener('click', () => {
   const panel = document.getElementById('fpfImportPanel');
   const open  = panel.style.display !== 'none';
   panel.style.display = open ? 'none' : 'block';
-  if (!open) { renderFpfSyncRows(); renderFpfIframeButtons(); }
+  if (!open) renderClassSyncRows();
 });
 
-function renderFpfIframeButtons() {
-  const el  = document.getElementById('fpfIframeButtons');
-  if (!el) return;
-  const cfg = loadFpfConfig();
-  el.innerHTML = FPF_ESCALOES.map(row => {
-    const saved  = cfg[row.escalao] || {};
-    const cid    = saved.compId || row.compId;
-    const sid    = saved.seasonId || row.seasonId || '105';
-    if (!cid) return '';
-    const fpfUrl = `https://resultados.fpf.pt/Competition/Details?competitionId=${cid}&seasonId=${sid}`;
-    return `<a href="${fpfUrl}" target="_blank" rel="noopener" class="btn-sm"
-      style="text-decoration:none;display:inline-flex;align-items:center;gap:4px">
-      &#128279; ${row.escalao}
-    </a>`;
-  }).join('');
-}
+window.limparClass = function(escalao) {
+  if (!confirm(`Limpar classificação do ${escalao}?`)) return;
+  localStorage.removeItem(`fpf_class_${escalao}`);
+  localStorage.removeItem(`fpf_jogos_${escalao}`);
+  const cfg = loadClassConfig();
+  delete cfg[escalao];
+  saveClassConfig(cfg);
+  renderClassSyncRows();
+  showToast(`${escalao}: dados limpos`, 'green');
+};
 
-// Fetch HTML da página FPF via CORS proxy
-async function fetchFpfHtml(compId, seasonId) {
-  const fpfUrl = `https://resultados.fpf.pt/Competition/Details?competitionId=${encodeURIComponent(compId)}&seasonId=${encodeURIComponent(seasonId)}`;
-  // Also try the embed/widget URL which is simpler HTML
-  const embedUrl = `https://resultados.fpf.pt/Embed/Competition?competitionId=${encodeURIComponent(compId)}&seasonId=${encodeURIComponent(seasonId)}`;
+let _colarEscalao = '';
 
-  const proxies = [
-    // allorigins get (returns JSON wrapper with http_code for diagnostics)
-    u => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
-    // corsproxy
-    u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
-    // codetabs
-    u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
-  ];
+window.abrirColarClass = function(escalao) {
+  _colarEscalao = escalao;
+  const m = document.getElementById('colarClassModal');
+  if (!m) return;
+  m.querySelector('#colarClassTitle').textContent = `Colar Classificação — ${escalao}`;
+  m.querySelector('#colarClassTA').value = '';
+  m.querySelector('#colarClassPreview').innerHTML = '';
+  m.style.display = 'flex';
+};
 
-  for (const targetUrl of [fpfUrl, embedUrl]) {
-    for (const makeProxy of proxies) {
-      try {
-        const proxy = makeProxy(targetUrl);
-        const res = await fetch(proxy, { signal: AbortSignal.timeout(12000) });
-        if (!res.ok) continue;
-        const text = await res.text();
+window.fecharColarClass = function() {
+  const m = document.getElementById('colarClassModal');
+  if (m) m.style.display = 'none';
+};
 
-        // allorigins /get returns JSON wrapper
-        let html = text;
-        if (text.trim().startsWith('{')) {
-          try {
-            const j = JSON.parse(text);
-            if (j.status?.http_code && j.status.http_code !== 200) continue;
-            html = j.contents || text;
-          } catch(e) {}
-        }
+function parsePastedTable(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const rows = [];
 
-        if (html && html.length > 500) return { ok: true, html, url: targetUrl };
-      } catch(e) { continue; }
+  for (const line of lines) {
+    let parts = line.includes('\t')
+      ? line.split('\t').map(p => p.trim())
+      : line.split(/\s{2,}/).map(p => p.trim());
+    parts = parts.filter(Boolean);
+
+    if (parts.length < 5) continue;
+
+    const numRe = /^[-+]?\d+(\.\d+)?$/;
+    const nameIdx = parts.findIndex(p => !numRe.test(p) && p.replace(/[^a-zA-Z\u00C0-\u017E\s]/g,'').trim().length > 1);
+    if (nameIdx < 0) continue;
+
+    const nome = parts[nameIdx].replace(/\*/g,'').trim();
+    const nums = parts.filter((_, i) => i !== nameIdx)
+      .map(p => parseInt(p.replace(/[^\d-]/g,'')))
+      .filter(n => !isNaN(n));
+
+    let seq = nums;
+    if (seq.length >= 8 && seq[0] === rows.length + 1) seq = seq.slice(1);
+
+    if (seq.length < 7) continue;
+
+    let j, v, e, d, gm, gs, pts;
+    if (seq.length >= 8) {
+      [j, v, e, d, gm, gs, , pts] = seq;
+    } else {
+      [j, v, e, d, gm, gs, pts] = seq;
     }
+
+    if (Math.abs(j - (v + e + d)) > 2) continue;
+
+    rows.push({
+      equipa: nome,
+      abrev:  nome.replace(/^(fc|sc|cd|cf|sl|gd|os|ad|af)\s*/i,'').slice(0,3).toUpperCase(),
+      j: j||0, v: v||0, e: e||0, d: d||0,
+      gm: gm||0, gs: gs||0,
+      dg: (gm||0)-(gs||0),
+      pts: pts||0,
+      forma: '',
+    });
   }
-  return { ok: false };
+  return rows;
 }
 
-// Extrair classificação de tabelas HTML
-function parseFpfHtml(html) {
-  const parser = new DOMParser();
-  const doc    = parser.parseFromString(html, 'text/html');
-
-  // 1. Tentar JSON embutido em script tags
-  for (const s of doc.querySelectorAll('script')) {
-    const t = s.textContent || '';
-    for (const pat of [
-      /(?:classificacao|standings|table|classificacaoData)\s*[:=]\s*(\[[\s\S]+?\])\s*[,;]/i,
-      /window\.__(?:INITIAL_STATE|DATA|APP)__\s*=\s*(\{[\s\S]+?\})\s*;/i,
-    ]) {
-      const m = t.match(pat);
-      if (m) { try { return { type: 'json', raw: JSON.parse(m[1]) }; } catch(e) {} }
-    }
-  }
-
-  // 2. Tentar parse de tabela HTML
-  const tables = Array.from(doc.querySelectorAll('table'));
-  for (const table of tables) {
-    const rows = Array.from(table.querySelectorAll('tr'));
-    if (rows.length < 3) continue;
-
-    const headerCells = Array.from(rows[0].querySelectorAll('th,td')).map(c => c.textContent.trim().toLowerCase());
-    // Verificar se parece uma tabela de classificação
-    const hasJ   = headerCells.some(h => h === 'j' || h === 'pj' || h === 'jg');
-    const hasPts = headerCells.some(h => h === 'pts' || h === 'p' || h === 'pontos');
-    if (!hasJ && !hasPts) continue;
-
-    const standings = rows.slice(1).map(row => {
-      const cells = Array.from(row.querySelectorAll('td')).map(c => c.textContent.trim());
-      if (cells.length < 5) return null;
-      // Heurística: pos, equipa, J, V, E, D, GM, GS, [DG,] Pts
-      const nums = cells.map(c => parseInt(c)).filter(n => !isNaN(n));
-      const nome = cells.find(c => c.length > 2 && isNaN(parseInt(c))) || `Equipa`;
-      if (nums.length < 4) return null;
-      const [j, v, e, d, gm, gs, ...rest] = nums.slice(nums.length > 7 ? 1 : 0);
-      const pts = rest.find(n => n === v * 3 + e) ?? rest[rest.length - 1] ?? (v * 3 + e);
-      return { equipa: nome, abrev: nome.slice(0,3).toUpperCase(), j: j||0, v: v||0, e: e||0, d: d||0, gm: gm||0, gs: gs||0, forma: 'DDDDD', pts };
-    }).filter(Boolean);
-
-    if (standings.length >= 3) return { type: 'table', standings };
-  }
-
-  // 3. Retornar prévia do HTML para diagnóstico
-  const preview = doc.body?.innerText?.slice(0, 400) || html.slice(0, 400);
-  return { type: 'unknown', preview };
-}
-
-const SC_NAMES = ['sport campinense', 'campinense'];
-function markSC(standings) {
+function markSCRows(standings) {
+  const SC = ['sport campinense','campinense','js campinense'];
   return standings.map(r => ({
     ...r,
-    sc: SC_NAMES.some(n => (r.equipa || '').toLowerCase().includes(n)) || undefined,
+    sc: SC.some(n => (r.equipa || '').toLowerCase().includes(n)) || undefined,
   }));
 }
 
-window.sincronizarEscalao = async function(escalao) {
-  const key    = escalao.replace('-','');
-  const cfg    = loadFpfConfig();
-  const saved  = cfg[escalao] || {};
-  const compId = document.getElementById(`fpfCid_${key}`)?.value.trim() || saved.compId || '';
-  const seasId = document.getElementById(`fpfSid_${key}`)?.value.trim() || saved.seasonId || '105';
-  const statusEl = document.getElementById(`fpfStatus_${key}`);
+window.previewColarClass = function() {
+  const ta  = document.getElementById('colarClassTA');
+  const div = document.getElementById('colarClassPreview');
+  if (!ta || !div) return;
 
-  if (!compId) {
-    if (statusEl) statusEl.textContent = '⚠️ Sem Competition ID';
-    showToast('Introduza o Competition ID da FPF', 'red');
-    return;
-  }
-  if (statusEl) statusEl.innerHTML = '<em style="color:#888">A sincronizar...</em>';
-
-  const result = await fetchFpfHtml(compId, seasId);
-
-  if (!result.ok) {
-    if (statusEl) statusEl.innerHTML = '<span style="color:#e05">✗ Sem resposta do proxy</span>';
-    showToast(`${escalao}: proxy inacessível. Tente novamente.`, 'red');
+  const rows = parsePastedTable(ta.value);
+  if (!rows.length) {
+    div.innerHTML = `<p style="color:#c00;font-size:0.85rem">&#9888; N\u00e3o foi poss\u00edvel reconhecer dados de classifica\u00e7\u00e3o.<br>
+    Certifique-se de que copiou a tabela completa (incluindo colunas J, V, E, D, GM, GS, Pts).</p>`;
     return;
   }
 
-  const parsed = parseFpfHtml(result.html);
+  const marked = markSCRows(rows);
+  div.innerHTML = `
+    <p style="color:#22a75e;font-size:0.85rem;margin-bottom:8px">&#10003; ${rows.length} equipas reconhecidas</p>
+    <div style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:0.8rem">
+      <thead><tr style="background:#001b4d;color:#fff">
+        <th style="padding:6px 8px">#</th>
+        <th style="padding:6px 8px;text-align:left">Equipa</th>
+        <th style="padding:6px 8px">J</th><th style="padding:6px 8px">V</th>
+        <th style="padding:6px 8px">E</th><th style="padding:6px 8px">D</th>
+        <th style="padding:6px 8px">GM</th><th style="padding:6px 8px">GS</th>
+        <th style="padding:6px 8px">Pts</th>
+      </tr></thead>
+      <tbody>${marked.map((r,i) => `
+        <tr style="background:${r.sc ? 'rgba(255,209,0,0.12)' : i%2===0 ? '#f9f9f9' : '#fff'};${r.sc ? 'font-weight:700' : ''}">
+          <td style="padding:5px 8px;text-align:center">${i+1}</td>
+          <td style="padding:5px 8px">${r.equipa}${r.sc ? ' &#11088;' : ''}</td>
+          <td style="padding:5px 8px;text-align:center">${r.j}</td>
+          <td style="padding:5px 8px;text-align:center">${r.v}</td>
+          <td style="padding:5px 8px;text-align:center">${r.e}</td>
+          <td style="padding:5px 8px;text-align:center">${r.d}</td>
+          <td style="padding:5px 8px;text-align:center">${r.gm}</td>
+          <td style="padding:5px 8px;text-align:center">${r.gs}</td>
+          <td style="padding:5px 8px;text-align:center;font-weight:700;color:#001b4d">${r.pts}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>
+    <p style="font-size:0.78rem;color:#888;margin-top:8px">Confira os dados antes de guardar. A equipa com &#11088; foi identificada como JS Campinense.</p>`;
+};
 
-  if (parsed.type === 'unknown') {
-    const prev = (parsed.preview || '').replace(/</g,'&lt;').slice(0,300);
-    if (statusEl) statusEl.innerHTML = `<span style="color:#e05">✗ Página sem tabela de classificação</span>`;
-    // Show diagnostic in a separate area
-    const diagEl = document.getElementById('fpfDiag');
-    if (diagEl) {
-      diagEl.style.display = 'block';
-      diagEl.innerHTML = `<strong>Diagnóstico:</strong> A página da FPF foi recebida mas não tem tabela de classificação reconhecível (é uma SPA — os dados são carregados via JavaScript que o proxy não executa).<br><br>
-      <strong>Prévia do que foi recebido:</strong><br><pre style="font-size:0.75rem;overflow:auto;max-height:100px;background:#f5f5f5;padding:8px;border-radius:4px">${prev || '(vazio)'}</pre><br>
-      <strong>Solução alternativa:</strong> Use o botão "Ver FPF" para abrir a página da FPF num iframe, ou introduza os dados manualmente na tabela.`;
-    }
-    showToast(`${escalao}: a FPF usa SPA — dados não acessíveis por proxy. Ver diagnóstico.`, 'red');
-    return;
-  }
+window.guardarColarClass = function() {
+  const ta  = document.getElementById('colarClassTA');
+  if (!ta) return;
+  const rows = parsePastedTable(ta.value);
+  if (!rows.length) { showToast('Nenhum dado v\u00e1lido para guardar', 'red'); return; }
 
-  let standings = [];
-  if (parsed.type === 'table') standings = parsed.standings;
-  else if (parsed.type === 'json') {
-    const raw = parsed.raw;
-    standings = Array.isArray(raw) ? raw : (raw.table || raw.standings || raw.classificacao || []);
-  }
-
-  if (!standings.length) {
-    if (statusEl) statusEl.innerHTML = '<span style="color:#e05">✗ Tabela vazia</span>';
-    showToast(`${escalao}: tabela vazia no resultado.`, 'red');
-    return;
-  }
-
-  const final = markSC(standings);
-  localStorage.setItem(`fpf_class_${escalao}`, JSON.stringify(final));
+  const final = markSCRows(rows);
+  localStorage.setItem(`fpf_class_${_colarEscalao}`, JSON.stringify(final));
 
   const now = new Date().toISOString();
-  if (!cfg[escalao]) cfg[escalao] = {};
-  cfg[escalao].compId   = compId;
-  cfg[escalao].seasonId = seasId;
-  cfg[escalao].lastSync = now;
-  saveFpfConfig(cfg);
+  const cfg = loadClassConfig();
+  if (!cfg[_colarEscalao]) cfg[_colarEscalao] = {};
+  cfg[_colarEscalao].lastSync = now;
+  cfg[_colarEscalao].nTeams  = final.length;
+  saveClassConfig(cfg);
 
-  if (statusEl) {
-    statusEl.textContent = `✓ ${new Date(now).toLocaleString('pt-PT')} (${final.length} equipas)`;
-    statusEl.style.color = '#22a75e';
-  }
-  showToast(`${escalao}: ${final.length} equipas sincronizadas da FPF`, 'green');
+  fecharColarClass();
+  renderClassSyncRows();
+  showToast(`${_colarEscalao}: ${final.length} equipas guardadas com sucesso`, 'green');
 };
 
-window.sincronizarTodosFPF = async function() {
-  for (const row of FPF_ESCALOES) {
-    const cfg    = loadFpfConfig();
-    const compId = (cfg[row.escalao] || {}).compId || row.compId;
-    if (compId) await sincronizarEscalao(row.escalao);
-  }
-};
 
 // =============================================
 // FACEBOOK ADMIN

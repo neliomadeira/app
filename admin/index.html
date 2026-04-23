@@ -351,16 +351,17 @@
                 <option value="">Todos</option>
                 <option>Agendado</option><option>Realizado</option>
               </select>
-              <button class="btn-fpf" id="btnImportarFPF">&#8635; Sincronizar FPF</button>
+              <button class="btn-fpf" id="btnImportarFPF">&#128203; Classificação</button>
               <button class="btn-primary" id="btnNovoJogo">+ Novo Jogo</button>
             </div>
           </div>
-          <!-- FPF SYNC PANEL -->
+
+          <!-- CLASSIFICAÇÃO SYNC PANEL -->
           <div class="fpf-import-panel" id="fpfImportPanel" style="display:none">
             <div class="fpf-import-header">
               <div>
-                <strong>Sincronizar da FPF</strong>
-                <p>Busca a classificação e resultados directamente de <code>resultados.fpf.pt</code></p>
+                <strong>Atualizar Classificação</strong>
+                <p>Vai a <a href="https://afalgarve.pt/competicoes/" target="_blank" rel="noopener" style="color:var(--blue)">afalgarve.pt/competicoes/</a>, abre a competição, selecciona e copia a tabela de classificação, e cola aqui.</p>
               </div>
               <button class="modal-close" onclick="document.getElementById('fpfImportPanel').style.display='none'">&times;</button>
             </div>
@@ -369,25 +370,46 @@
                 <thead>
                   <tr style="background:var(--blue);color:#fff">
                     <th style="padding:10px 14px;text-align:left">Escalão</th>
-                    <th style="padding:10px 14px;text-align:left">Competition ID</th>
-                    <th style="padding:10px 14px;text-align:left">Season ID</th>
-                    <th style="padding:10px 14px;text-align:left">Última sincronização</th>
+                    <th style="padding:10px 14px;text-align:left">Última atualização</th>
                     <th style="padding:10px 14px"></th>
                   </tr>
                 </thead>
                 <tbody id="fpfSyncRows"></tbody>
               </table>
             </div>
-            <div class="fpf-import-footer" style="justify-content:space-between">
-              <div style="font-size:0.8rem;color:#888">Os IDs estão no URL da FPF: <code>?competitionId=<b>28148</b>&seasonId=<b>105</b></code></div>
-              <button class="btn-save" onclick="sincronizarTodosFPF()">&#8635; Sincronizar todos</button>
-            </div>
-            <div id="fpfDiag" style="display:none;background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:14px;margin:12px 16px;font-size:0.83rem;line-height:1.6;color:#555"></div>
-            <div style="padding:12px 16px 16px;border-top:1px solid #eee;background:#f9f9f9;border-radius:0 0 8px 8px">
-              <strong style="font-size:0.85rem">&#128279; Ver classificação da FPF directamente:</strong>
-              <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap" id="fpfIframeButtons"></div>
+            <div class="fpf-import-footer">
+              <div style="font-size:0.8rem;color:#888">Copie a tabela do site (Ctrl+A na tabela, depois Ctrl+C) e cole no campo de cada escalão.</div>
             </div>
           </div>
+
+          <!-- MODAL: COLAR CLASSIFICAÇÃO -->
+          <div id="colarClassModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;padding:16px">
+            <div style="background:#fff;border-radius:12px;width:100%;max-width:680px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.25)">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:2px solid var(--yellow);background:var(--blue)">
+                <span id="colarClassTitle" style="font-family:var(--font-display);font-size:1.3rem;color:#fff;letter-spacing:1px"></span>
+                <button onclick="fecharColarClass()" style="background:none;border:none;color:#fff;font-size:1.4rem;cursor:pointer;line-height:1">&times;</button>
+              </div>
+              <div style="padding:20px">
+                <div style="background:#e8f4fd;border:1px solid #b3d9f7;border-radius:8px;padding:14px;margin-bottom:16px;font-size:0.85rem;color:#1a5276;line-height:1.6">
+                  <strong>Como fazer:</strong><br>
+                  1. Abre <a href="https://afalgarve.pt/competicoes/" target="_blank" rel="noopener">afalgarve.pt/competicoes/</a> (ou <a href="https://resultados.fpf.pt" target="_blank" rel="noopener">resultados.fpf.pt</a>)<br>
+                  2. Navega até à classificação do escalão correcto<br>
+                  3. Clica na primeira linha da tabela, depois Shift+clique na última linha, copia (Ctrl+C)<br>
+                  4. Cola aqui (Ctrl+V) e clica em "Pré-visualizar"
+                </div>
+                <textarea id="colarClassTA" rows="10"
+                  style="width:100%;box-sizing:border-box;padding:10px;border:1.5px solid #ddd;border-radius:8px;font-family:monospace;font-size:0.82rem;resize:vertical"
+                  placeholder="Cole aqui o texto copiado da tabela de classificação..."></textarea>
+                <div style="display:flex;gap:10px;margin-top:12px">
+                  <button class="btn-save" onclick="previewColarClass()">&#128269; Pré-visualizar</button>
+                  <button class="btn-primary" onclick="guardarColarClass()">&#10003; Guardar</button>
+                  <button class="btn-sm" onclick="fecharColarClass()" style="margin-left:auto">Cancelar</button>
+                </div>
+                <div id="colarClassPreview" style="margin-top:16px"></div>
+              </div>
+            </div>
+          </div>
+
           </div>
           <div class="card">
             <table class="table table--full" id="jogosTable">
