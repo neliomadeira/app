@@ -196,7 +196,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function newsCardImg(n) {
     if (n.imagem) {
-      return `style="background-image:url('${n.imagem}');background-size:${(n.imagemSize||'cover').replace('auto ','')};background-position:${n.imagemPos||'center'}"`;
+      const size = (n.imagemSize || 'cover').replace('auto ', '');
+      return `style="background-image:url('${n.imagem}');background-size:${size};background-position:center;background-repeat:no-repeat"`;
     }
     return '';
   }
@@ -262,7 +263,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="news-archive__item" onclick="openNewsArticle(${n.id})">
           ${archiveDateBox(n.data)}
           <div class="news-archive__img${n.imagem ? '' : ` news-card__img--${(i % 3) + 1}`}"
-               ${n.imagem ? `style="background-image:url('${n.imagem}');background-size:cover;background-position:${n.imagemPos||'center'}"` : ''}></div>
+               ${n.imagem ? `style="background-image:url('${n.imagem}');background-size:cover;background-position:center;background-repeat:no-repeat"` : ''}></div>
           <div class="news-archive__info">
             <span class="news-archive__cat">${n.categoria || ''}</span>
             <div class="news-archive__heading">${n.titulo}</div>
