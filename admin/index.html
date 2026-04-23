@@ -351,62 +351,38 @@
                 <option value="">Todos</option>
                 <option>Agendado</option><option>Realizado</option>
               </select>
-              <button class="btn-fpf" id="btnImportarFPF">&#8659; Importar FPF</button>
+              <button class="btn-fpf" id="btnImportarFPF">&#8635; Sincronizar FPF</button>
               <button class="btn-primary" id="btnNovoJogo">+ Novo Jogo</button>
             </div>
           </div>
-          <!-- FPF IMPORT PANEL -->
+          <!-- FPF SYNC PANEL -->
           <div class="fpf-import-panel" id="fpfImportPanel" style="display:none">
             <div class="fpf-import-header">
               <div>
-                <strong>Importar dados de resultados.fpf.pt</strong>
-                <p>Cole o JSON gerado pelo scraper, ou carregue o ficheiro <code>fpf-data.json</code></p>
+                <strong>Sincronizar da FPF</strong>
+                <p>Busca a classificação e resultados directamente de <code>resultados.fpf.pt</code></p>
               </div>
               <button class="modal-close" onclick="document.getElementById('fpfImportPanel').style.display='none'">&times;</button>
             </div>
-            <div class="fpf-import-body">
-              <div class="fpf-tabs">
-                <button class="fpf-tab fpf-tab--active" data-ftab="json">Colar JSON</button>
-                <button class="fpf-tab" data-ftab="file">Carregar ficheiro</button>
-                <button class="fpf-tab" data-ftab="url">URL directo</button>
-              </div>
-              <div class="fpf-tab-content" id="ftab-json">
-                <textarea id="fpfJsonInput" placeholder='Cole aqui o conteúdo do ficheiro fpf-data.json gerado pelo scraper...'></textarea>
-              </div>
-              <div class="fpf-tab-content" id="ftab-file" style="display:none">
-                <label class="fpf-file-label">
-                  <input type="file" id="fpfFileInput" accept=".json" />
-                  <span>&#128193; Selecionar fpf-data.json</span>
-                </label>
-                <div id="fpfFileName" style="margin-top:8px;font-size:0.85rem;color:var(--gray-text)"></div>
-              </div>
-              <div class="fpf-tab-content" id="ftab-url" style="display:none">
-                <div style="display:flex;gap:10px;align-items:flex-end">
-                  <div style="flex:1">
-                    <label style="font-size:0.82rem;font-weight:700;display:block;margin-bottom:6px">URL do ficheiro JSON (servidor local ou CDN)</label>
-                    <input type="url" id="fpfUrlInput" placeholder="http://localhost:3000/fpf-data.json" style="width:100%;padding:10px 13px;border:2px solid var(--gray-border);border-radius:var(--radius);font-size:0.9rem;outline:none" />
-                  </div>
-                  <button class="btn-save" onclick="importarFPFUrl()">Carregar</button>
-                </div>
-                <p style="margin-top:10px;font-size:0.8rem;color:var(--gray-text)">
-                  ⚠️ O URL deve estar acessível pelo browser (sem CORS). Use o scraper para gerar o JSON e sirva-o localmente.
-                </p>
-              </div>
-              <div class="fpf-import-footer">
-                <div class="fpf-import-info" id="fpfImportInfo"></div>
-                <button class="btn-save" onclick="processarImportFPF()">&#9889; Importar dados</button>
-              </div>
+            <div class="fpf-import-body" style="padding:0">
+              <table style="width:100%;border-collapse:collapse;font-size:0.88rem">
+                <thead>
+                  <tr style="background:var(--blue);color:#fff">
+                    <th style="padding:10px 14px;text-align:left">Escalão</th>
+                    <th style="padding:10px 14px;text-align:left">Competition ID</th>
+                    <th style="padding:10px 14px;text-align:left">Season ID</th>
+                    <th style="padding:10px 14px;text-align:left">Última sincronização</th>
+                    <th style="padding:10px 14px"></th>
+                  </tr>
+                </thead>
+                <tbody id="fpfSyncRows"></tbody>
+              </table>
             </div>
-            <div class="fpf-instructions">
-              <strong>Como usar o scraper:</strong>
-              <ol>
-                <li>Na pasta <code>scraper/</code> execute: <code>npm install</code></li>
-                <li>Descubra o ID da AF Algarve: <code>node fpf-scraper.js --descobrir-af</code></li>
-                <li>Liste as competições: <code>node fpf-scraper.js --listar</code></li>
-                <li>Importe: <code>node fpf-scraper.js --competicao ID</code></li>
-                <li>Cole o conteúdo de <code>fpf-data.json</code> acima e clique em Importar</li>
-              </ol>
+            <div class="fpf-import-footer" style="justify-content:space-between">
+              <div style="font-size:0.8rem;color:#888">Os IDs estão no URL da FPF: <code>?competitionId=<b>28148</b>&seasonId=<b>105</b></code></div>
+              <button class="btn-save" onclick="sincronizarTodosFPF()">&#8635; Sincronizar todos</button>
             </div>
+          </div>
           </div>
           <div class="card">
             <table class="table table--full" id="jogosTable">

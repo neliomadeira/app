@@ -1372,142 +1372,212 @@ window.removePatrocinador = function (id) {
 };
 
 // ==================================================
-// IMPORTAR FPF
+// SINCRONIZAR FPF
 // ==================================================
 
-// Toggle painel
+const FPF_ESCALOES = [
+  { escalao: 'Sub-17', compId: '28148', seasonId: '105' },
+  { escalao: 'Sub-15', compId: '',      seasonId: '105' },
+  { escalao: 'Sub-13', compId: '',      seasonId: '105' },
+  { escalao: 'Sub-19', compId: '',      seasonId: '105' },
+  { escalao: 'Sub-11', compId: '',      seasonId: '105' },
+];
+
+const FPF_CONFIG_KEY = 'fpf_sync_config';
+const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+
+function loadFpfConfig() {
+  try { return JSON.parse(localStorage.getItem(FPF_CONFIG_KEY) || '{}'); } catch(e) { return {}; }
+}
+function saveFpfConfig(cfg) {
+  localStorage.setItem(FPF_CONFIG_KEY, JSON.stringify(cfg));
+}
+
+// Render sync rows table
+function renderFpfSyncRows() {
+  const tbody = document.getElementById('fpfSyncRows');
+  if (!tbody) return;
+  const cfg = loadFpfConfig();
+  tbody.innerHTML = FPF_ESCALOES.map(row => {
+    const saved   = cfg[row.escalao] || {};
+    const compId  = saved.compId  || row.compId  || '';
+    const seasonId= saved.seasonId|| row.seasonId|| '105';
+    const lastSync= saved.lastSync ? new Date(saved.lastSync).toLocaleString('pt-PT') : '—';
+    const key     = row.escalao.replace('-','');
+    return `
+      <tr style="border-bottom:1px solid #eee">
+        <td style="padding:10px 14px;font-weight:700">${row.escalao}</td>
+        <td style="padding:8px 14px">
+          <input id="fpfCid_${key}" type="text" value="${compId}" placeholder="ex: 28148"
+            style="width:110px;padding:6px 8px;border:1.5px solid #ddd;border-radius:6px;font-size:0.85rem"
+            onchange="saveFpfField('${row.escalao}','compId',this.value)" />
+        </td>
+        <td style="padding:8px 14px">
+          <input id="fpfSid_${key}" type="text" value="${seasonId}" placeholder="ex: 105"
+            style="width:80px;padding:6px 8px;border:1.5px solid #ddd;border-radius:6px;font-size:0.85rem"
+            onchange="saveFpfField('${row.escalao}','seasonId',this.value)" />
+        </td>
+        <td style="padding:8px 14px;font-size:0.8rem;color:#666" id="fpfStatus_${key}">${lastSync}</td>
+        <td style="padding:8px 14px">
+          <button class="btn-sm" onclick="sincronizarEscalao('${row.escalao}')">&#8635; Sincronizar</button>
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+window.saveFpfField = function(escalao, field, val) {
+  const cfg = loadFpfConfig();
+  if (!cfg[escalao]) cfg[escalao] = {};
+  cfg[escalao][field] = val.trim();
+  saveFpfConfig(cfg);
+};
+
 document.getElementById('btnImportarFPF')?.addEventListener('click', () => {
   const panel = document.getElementById('fpfImportPanel');
-  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  const open  = panel.style.display !== 'none';
+  panel.style.display = open ? 'none' : 'block';
+  if (!open) renderFpfSyncRows();
 });
 
-// Tabs do painel
-document.querySelectorAll('.fpf-tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.fpf-tab').forEach(t => t.classList.remove('fpf-tab--active'));
-    document.querySelectorAll('.fpf-tab-content').forEach(c => c.style.display = 'none');
-    tab.classList.add('fpf-tab--active');
-    const target = document.getElementById(`ftab-${tab.dataset.ftab}`);
-    if (target) target.style.display = 'block';
-  });
-});
-
-// Carregar ficheiro
-document.getElementById('fpfFileInput')?.addEventListener('change', function () {
-  const file = this.files[0];
-  if (!file) return;
-  document.getElementById('fpfFileName').textContent = `📄 ${file.name}`;
-  const reader = new FileReader();
-  reader.onload = e => {
-    document.getElementById('fpfJsonInput').value = e.target.result;
-    // Switch para tab JSON
-    document.querySelectorAll('.fpf-tab').forEach(t => t.classList.remove('fpf-tab--active'));
-    document.querySelectorAll('.fpf-tab-content').forEach(c => c.style.display = 'none');
-    document.querySelector('.fpf-tab[data-ftab="json"]').classList.add('fpf-tab--active');
-    document.getElementById('ftab-json').style.display = 'block';
-    infoImport(`✓ Ficheiro carregado: ${file.name}`, 'ok');
-  };
-  reader.readAsText(file);
-});
-
-// Carregar via URL
-window.importarFPFUrl = async function () {
-  const url = document.getElementById('fpfUrlInput').value.trim();
-  if (!url) { infoImport('Introduza um URL válido.', 'err'); return; }
-  infoImport('A carregar...', '');
-  try {
-    const res  = await fetch(url);
-    const json = await res.text();
-    document.getElementById('fpfJsonInput').value = json;
-    document.querySelectorAll('.fpf-tab').forEach(t => t.classList.remove('fpf-tab--active'));
-    document.querySelectorAll('.fpf-tab-content').forEach(c => c.style.display = 'none');
-    document.querySelector('.fpf-tab[data-ftab="json"]').classList.add('fpf-tab--active');
-    document.getElementById('ftab-json').style.display = 'block';
-    infoImport('✓ JSON carregado com sucesso.', 'ok');
-  } catch (e) {
-    infoImport(`Erro: ${e.message}`, 'err');
-  }
-};
-
-function infoImport(msg, tipo) {
-  const el = document.getElementById('fpfImportInfo');
-  el.textContent = msg;
-  el.className = 'fpf-import-info' + (tipo ? ` ${tipo}` : '');
-}
-
-// Processar importação
-window.processarImportFPF = function () {
-  const raw = document.getElementById('fpfJsonInput').value.trim();
-  if (!raw) { infoImport('Cole o JSON gerado pelo scraper.', 'err'); return; }
-
-  let dados;
-  try {
-    dados = JSON.parse(raw);
-  } catch (e) {
-    infoImport('JSON inválido: ' + e.message, 'err');
-    return;
-  }
-
-  if (!dados.competicoes || !Array.isArray(dados.competicoes)) {
-    infoImport('Formato inválido. O JSON deve ter a chave "competicoes".', 'err');
-    return;
-  }
-
-  let totalJogos = 0;
-  let idCounter = Date.now();
-
-  dados.competicoes.forEach(comp => {
-    const escalao = extrairEscalao(comp.nome || comp.escalao || '');
-
-    // Importar jogos
-    (comp.jogos || []).forEach(j => {
-      // Evitar duplicados por data+equipas
-      const jaExiste = DB.jogos.find(x =>
-        x.data === j.data && x.casa === j.casa && x.fora === j.fora
-      );
-      if (!jaExiste) {
-        DB.jogos.push({
-          id:      ++idCounter,
-          escalao: escalao || comp.escalao || 'Sub-17',
-          casa:    j.casa,
-          fora:    j.fora,
-          gcasa:   j.gcasa,
-          gfora:   j.gfora,
-          data:    j.data,
-          hora:    j.hora || '—',
-          local:   j.local || '—',
-          estado:  j.estado || (j.gcasa !== null ? 'Realizado' : 'Agendado'),
-        });
-        totalJogos++;
-      }
-    });
-  });
-
-  renderJogos();
-  document.getElementById('fpfImportPanel').style.display = 'none';
-  document.getElementById('fpfJsonInput').value = '';
-
-  const gerado = dados.geradoEm
-    ? ` (dados de ${new Date(dados.geradoEm).toLocaleDateString('pt-PT')})`
-    : '';
-  showToast(`✓ ${totalJogos} jogos importados da FPF${gerado}`, 'green');
-};
-
-// Tenta extrair escalão do nome da competição
-function extrairEscalao(nome) {
-  const mapa = [
-    [/sub.?19|juveni/i,   'Sub-19'],
-    [/sub.?17|iniciado/i, 'Sub-17'],
-    [/sub.?15|infantil/i, 'Sub-15'],
-    [/sub.?13|benjamin/i, 'Sub-13'],
-    [/sub.?11|traquina/i, 'Sub-11'],
-    [/sub.?9|petiz/i,     'Sub-9'],
+// Fetch FPF data via CORS proxy, trying multiple endpoint patterns
+async function fetchFpfJson(compId, seasonId, tipo) {
+  const base = 'https://resultados.fpf.pt';
+  const endpoints = tipo === 'standings' ? [
+    `${base}/Competition/GetCompetitionStandings?competitionId=${compId}&seasonId=${seasonId}`,
+    `${base}/Competition/GetLeagueTable?competitionId=${compId}&seasonId=${seasonId}`,
+    `${base}/League/GetStandings?leagueId=${compId}&seasonId=${seasonId}`,
+  ] : [
+    `${base}/Competition/GetCompetitionGames?competitionId=${compId}&seasonId=${seasonId}`,
+    `${base}/Game/GetGamesByCompetition?competitionId=${compId}&seasonId=${seasonId}`,
+    `${base}/Competition/GetGames?competitionId=${compId}&seasonId=${seasonId}`,
   ];
-  for (const [re, label] of mapa) {
-    if (re.test(nome)) return label;
+
+  for (const url of endpoints) {
+    try {
+      const proxyUrl = CORS_PROXY + encodeURIComponent(url);
+      const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) });
+      if (!res.ok) continue;
+      const text = await res.text();
+      if (!text || text.trim()[0] !== '[' && text.trim()[0] !== '{') continue;
+      return { ok: true, data: JSON.parse(text), endpoint: url };
+    } catch(e) { continue; }
   }
-  return null;
+  return { ok: false };
 }
+
+// Parse FPF standings response into our format
+function parseFpfStandings(data, escalao) {
+  // data may be array or {table:[...]} or {standings:[...]} etc.
+  let rows = Array.isArray(data) ? data
+    : data.table || data.standings || data.classificacao || data.Standings || data.Table || [];
+  if (!rows.length) return null;
+
+  const SC_NAMES = ['sport campinense','campinense','sc loulé'];
+  return rows.map((r, i) => {
+    const nome = r.TeamName || r.teamName || r.equipa || r.Equipa || r.name || r.Name || `Equipa ${i+1}`;
+    const abrev = r.TeamAbbreviation || r.abbreviation || r.abrev || nome.substring(0,3).toUpperCase();
+    const j  = r.TotalGamesPlayed ?? r.GamesPlayed ?? r.jogos ?? r.j ?? 0;
+    const v  = r.TotalWins  ?? r.Wins   ?? r.vitorias ?? r.v ?? 0;
+    const e  = r.TotalDraws ?? r.Draws  ?? r.empates  ?? r.e ?? 0;
+    const d  = r.TotalLosses?? r.Losses ?? r.derrotas ?? r.d ?? 0;
+    const gm = r.TotalGoalsScored    ?? r.GoalsFor     ?? r.gm ?? 0;
+    const gs = r.TotalGoalsConceded  ?? r.GoalsAgainst ?? r.gs ?? 0;
+    const pts= r.TotalPoints ?? r.Points ?? r.pts ?? (v * 3 + e);
+    // Last 5 form
+    const last5 = r.Last5 || r.last5 || r.forma || [];
+    const formaStr = Array.isArray(last5)
+      ? last5.slice(-5).map(x => {
+          const res = (x.Result || x.result || x.r || '').toUpperCase();
+          return res === 'W' || res === 'V' ? 'V' : res === 'D' || res === 'E' ? 'E' : 'D';
+        }).join('')
+      : String(last5).replace(/W/g,'V').replace(/L/g,'D').toUpperCase().slice(0,5);
+    const issc = SC_NAMES.some(n => nome.toLowerCase().includes(n));
+    return { equipa: nome, abrev, j, v, e, d, gm, gs, forma: formaStr || 'DDDDD', sc: issc || undefined };
+  });
+}
+
+// Parse FPF games response into our format
+function parseFpfGames(data) {
+  let games = Array.isArray(data) ? data
+    : data.games || data.Games || data.jogos || data.results || [];
+  if (!games.length) return null;
+
+  return games.map((g, i) => {
+    const casa  = g.HomeTeamName  || g.homeTeamName  || g.casa  || g.home || `Casa ${i}`;
+    const fora  = g.AwayTeamName  || g.awayTeamName  || g.fora  || g.away || `Fora ${i}`;
+    const gcasa = g.HomeScore ?? g.homeScore ?? g.gcasa ?? null;
+    const gfora = g.AwayScore ?? g.awayScore ?? g.gfora ?? null;
+    const dateRaw = g.StartDate  || g.startDate  || g.GameDate || g.data || g.date || '';
+    const data  = dateRaw ? dateRaw.slice(0,10) : '';
+    const hora  = g.StartTime  || g.startTime  || g.hora  || (dateRaw.length > 10 ? dateRaw.slice(11,16) : '—');
+    const local = g.VenueName  || g.venueName  || g.local || g.venue || '—';
+    const realizado = gcasa !== null && gfora !== null;
+    return { id: Date.now() + i, casa, fora, gcasa, gfora, data, hora, local, estado: realizado ? 'Realizado' : 'Agendado' };
+  });
+}
+
+window.sincronizarEscalao = async function(escalao) {
+  const key    = escalao.replace('-','');
+  const cfg    = loadFpfConfig();
+  const saved  = cfg[escalao] || {};
+  const compId = document.getElementById(`fpfCid_${key}`)?.value.trim() || saved.compId || '';
+  const seasId = document.getElementById(`fpfSid_${key}`)?.value.trim() || saved.seasonId || '105';
+  const statusEl = document.getElementById(`fpfStatus_${key}`);
+
+  if (!compId) {
+    if (statusEl) statusEl.textContent = '⚠️ Sem Competition ID';
+    return;
+  }
+  if (statusEl) statusEl.innerHTML = '<em>A sincronizar...</em>';
+
+  const [standRes, gamesRes] = await Promise.all([
+    fetchFpfJson(compId, seasId, 'standings'),
+    fetchFpfJson(compId, seasId, 'games'),
+  ]);
+
+  let ok = false;
+
+  if (standRes.ok) {
+    const parsed = parseFpfStandings(standRes.data, escalao);
+    if (parsed && parsed.length) {
+      localStorage.setItem(`fpf_class_${escalao}`, JSON.stringify(parsed));
+      ok = true;
+    }
+  }
+
+  if (gamesRes.ok) {
+    const parsed = parseFpfGames(gamesRes.data);
+    if (parsed && parsed.length) {
+      localStorage.setItem(`fpf_jogos_${escalao}`, JSON.stringify(parsed));
+      ok = true;
+    }
+  }
+
+  const now = new Date().toISOString();
+  if (!cfg[escalao]) cfg[escalao] = {};
+  cfg[escalao].compId   = compId;
+  cfg[escalao].seasonId = seasId;
+  if (ok) cfg[escalao].lastSync = now;
+  saveFpfConfig(cfg);
+
+  if (statusEl) {
+    statusEl.textContent = ok
+      ? `✓ ${new Date(now).toLocaleString('pt-PT')}`
+      : '✗ Sem dados (verifique o ID)';
+    statusEl.style.color = ok ? '#22a75e' : '#e05';
+  }
+
+  if (ok) showToast(`${escalao} sincronizado da FPF`, 'green');
+  else    showToast(`${escalao}: sem dados. Verifique o Competition ID.`, 'red');
+};
+
+window.sincronizarTodosFPF = async function() {
+  for (const row of FPF_ESCALOES) {
+    const cfg = loadFpfConfig();
+    const compId = (cfg[row.escalao] || {}).compId || row.compId;
+    if (compId) await sincronizarEscalao(row.escalao);
+  }
+};
 
 // =============================================
 // FACEBOOK ADMIN

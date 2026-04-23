@@ -123,10 +123,39 @@ function resultadoSC(jogo, escalao) {
   return 'd';
 }
 
+// ---- CARREGAR DADOS (localStorage FPF > estáticos) ---- //
+function getDados(escalao) {
+  const base = DADOS[escalao] || { competicao: escalao, classificacao: [], jogos: [] };
+  try {
+    const cls = localStorage.getItem(`fpf_class_${escalao}`);
+    const jgs = localStorage.getItem(`fpf_jogos_${escalao}`);
+    if (cls || jgs) {
+      return {
+        competicao:    base.competicao,
+        classificacao: cls ? JSON.parse(cls) : base.classificacao,
+        jogos:         jgs ? JSON.parse(jgs) : base.jogos,
+        fromFPF:       true,
+      };
+    }
+  } catch(e) {}
+  return base;
+}
+
+function syncBadge(escalao) {
+  const cfg = JSON.parse(localStorage.getItem('fpf_sync_config') || '{}');
+  const t   = (cfg[escalao] || {}).lastSync;
+  const el  = document.getElementById('resSyncBadge');
+  if (!el) return;
+  el.textContent = t
+    ? `FPF · ${new Date(t).toLocaleDateString('pt-PT', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}`
+    : 'Dados locais';
+  el.title = t ? `Última sincronização: ${new Date(t).toLocaleString('pt-PT')}` : '';
+}
+
 // ---- RENDER CLASSIFICAÇÃO ---- //
 function renderClass(escalao) {
-  const dados = DADOS[escalao];
-  if (!dados) return;
+  const dados = getDados(escalao);
+  syncBadge(escalao);
 
   document.getElementById('resCompeticao').textContent = dados.competicao;
 
@@ -165,7 +194,7 @@ function renderClass(escalao) {
 
 // ---- RENDER JOGOS ---- //
 function renderJogos(escalao) {
-  const dados = DADOS[escalao];
+  const dados = getDados(escalao);
   if (!dados) return;
 
   const realizados = dados.jogos.filter(j => j.estado === 'Realizado')
