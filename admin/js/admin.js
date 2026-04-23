@@ -2333,7 +2333,9 @@ function renderModalidades() {
     tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#999;padding:32px">Sem modalidades. Clique em "+ Nova Modalidade" para adicionar.</td></tr>`;
     return;
   }
-  tbody.innerHTML = lista.map((m, i) => `
+  tbody.innerHTML = lista.map((m, i) => {
+    const nPosts = (JSON.parse(localStorage.getItem('db_mod_posts') || '[]')).filter(p => p.modalidadeId == m.id).length;
+    return `
     <tr>
       <td style="font-size:1.5rem;text-align:center">${m.icone || '🏅'}</td>
       <td><strong>${m.nome}</strong></td>
@@ -2342,10 +2344,12 @@ function renderModalidades() {
       <td style="font-size:0.85rem">${m.responsavel || '—'}</td>
       <td>${m.ativo !== false ? '<span class="status status--aprovado">Ativa</span>' : '<span class="status status--rejeitado">Inativa</span>'}</td>
       <td>
+        <button class="btn-sm" onclick="gerirPostsMod(${m.id}, '${m.nome.replace(/'/g,"\\'")}')">&#128196; Posts${nPosts ? ' ('+nPosts+')' : ''}</button>
         <button class="btn-sm" onclick="editModalidade(${i})">Editar</button>
         <button class="btn-sm btn-sm--danger" onclick="deleteModalidade(${i})">Remover</button>
       </td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 }
 
 function editModalidade(idx) {
@@ -2441,6 +2445,137 @@ function deleteModalidade(idx) {
   saveDB();
   renderModalidades();
   showToast('Modalidade removida', 'green');
+}
+
+// =============================================
+// POSTS DE MODALIDADE
+// =============================================
+
+function loadModPosts() {
+  try { return JSON.parse(localStorage.getItem('db_mod_posts') || '[]'); } catch(e) { return []; }
+}
+function saveModPosts(arr) {
+  try { localStorage.setItem('db_mod_posts', JSON.stringify(arr)); return true; }
+  catch(e) { showToast('ERRO: armazenamento cheio.', 'red'); return false; }
+}
+
+function gerirPostsMod(modId, modNome) {
+  function buildList() {
+    const posts = loadModPosts().filter(p => p.modalidadeId == modId)
+      .sort((a, b) => (b.data || '').localeCompare(a.data || ''));
+    const rows = posts.length
+      ? posts.map(p => `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #eee;gap:10px">
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:600;font-size:0.93rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.titulo}</div>
+              <div style="font-size:0.78rem;color:#888">${p.data || ''} · ${p.publicada ? '<span style="color:#22a75e">Publicado</span>' : '<span style="color:#e05">Rascunho</span>'}</div>
+            </div>
+            <div style="display:flex;gap:6px;flex-shrink:0">
+              <button class="btn-sm" onclick="abrirFormPostMod(${modId},'${modNome.replace(/'/g,"\\'")}',${p.id})">Editar</button>
+              <button class="btn-sm btn-sm--danger" onclick="deletePostMod(${modId},'${modNome.replace(/'/g,"\\'")}',${p.id})">&#128465;</button>
+            </div>
+          </div>`).join('')
+      : `<p style="color:#999;text-align:center;padding:24px 0">Sem publicações. Crie a primeira!</p>`;
+    return `<div style="max-height:320px;overflow-y:auto">${rows}</div>`;
+  }
+
+  openModal(
+    `Publicações — ${modNome}`,
+    buildList(),
+    `<button class="btn-save" onclick="abrirFormPostMod(${modId},'${modNome.replace(/'/g,"\\'")}',null)">+ Nova publicação</button>
+     <a href="../modalidade.html?id=${modId}" target="_blank" class="btn-cancel" style="text-decoration:none">Ver página &#8599;</a>
+     <button class="btn-cancel" onclick="closeModal()">Fechar</button>`
+  );
+}
+
+function abrirFormPostMod(modId, modNome, postId) {
+  const posts = loadModPosts();
+  const p = postId ? (posts.find(x => x.id == postId) || {}) : {};
+  openModal(
+    postId ? 'Editar Publicação' : 'Nova Publicação',
+    `<div style="display:grid;gap:14px">
+      <div class="modal-field">
+        <label class="form-label">Título *</label>
+        <input class="form-input" type="text" id="mpTitulo" value="${(p.titulo||'').replace(/"/g,'&quot;')}" placeholder="Título da publicação" />
+      </div>
+      <div class="modal-field">
+        <label class="form-label">Texto / Conteúdo</label>
+        <textarea class="form-input" id="mpTexto" rows="5" placeholder="Conteúdo da publicação...">${p.texto || ''}</textarea>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="modal-field">
+          <label class="form-label">Data</label>
+          <input class="form-input" type="date" id="mpData" value="${p.data || new Date().toISOString().slice(0,10)}" />
+        </div>
+        <div class="modal-field">
+          <label class="form-label">Estado</label>
+          <select class="form-input" id="mpPublicada">
+            <option value="1" ${p.publicada ? 'selected' : ''}>Publicado</option>
+            <option value="0" ${!p.publicada && postId ? 'selected' : ''}>Rascunho</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-field">
+        <label class="form-label">Imagem (URL ou upload)</label>
+        <input class="form-input" type="text" id="mpImagem" value="${p.imagem || ''}" placeholder="https://..." oninput="previewModPostImg(this.value)" />
+        <input type="file" id="mpFicheiro" accept="image/*" style="display:none" onchange="uploadModPostImg(this)" />
+        <button type="button" class="btn-sm" style="margin-top:6px" onclick="document.getElementById('mpFicheiro').click()">&#128190; Carregar</button>
+        <div id="mpPreview" style="${p.imagem ? '' : 'display:none'};margin-top:8px">
+          <img id="mpPreviewImg" src="${p.imagem || ''}" style="max-height:80px;border-radius:6px;object-fit:cover" />
+        </div>
+      </div>
+    </div>`,
+    `<button class="btn-save" onclick="savePostMod(${modId},'${modNome.replace(/'/g,"\\'")}',${postId||null})">Guardar</button>
+     <button class="btn-cancel" onclick="gerirPostsMod(${modId},'${modNome.replace(/'/g,"\\'")}')">&#8592; Voltar</button>`
+  );
+}
+
+function previewModPostImg(url) {
+  const prev = document.getElementById('mpPreview');
+  const img  = document.getElementById('mpPreviewImg');
+  if (!prev || !img) return;
+  if (url) { img.src = url; prev.style.display = ''; }
+  else { prev.style.display = 'none'; }
+}
+
+function uploadModPostImg(input) {
+  if (!input.files || !input.files[0]) return;
+  compressImage(input.files[0], function(dataUrl, sizeKb) {
+    document.getElementById('mpImagem').value = dataUrl;
+    previewModPostImg(dataUrl);
+    showToast('Imagem carregada (' + sizeKb + ' KB)', 'green');
+  });
+}
+
+function savePostMod(modId, modNome, postId) {
+  const titulo = document.getElementById('mpTitulo')?.value.trim();
+  if (!titulo) { showToast('Introduza o título.', 'red'); return; }
+  const post = {
+    id:           postId || Date.now(),
+    modalidadeId: modId,
+    titulo,
+    texto:     document.getElementById('mpTexto')?.value.trim() || '',
+    data:      document.getElementById('mpData')?.value || '',
+    imagem:    document.getElementById('mpImagem')?.value.trim() || '',
+    publicada: document.getElementById('mpPublicada')?.value === '1',
+  };
+  const posts = loadModPosts();
+  const idx = posts.findIndex(x => x.id == postId);
+  if (idx >= 0) posts[idx] = post;
+  else posts.unshift(post);
+  if (!saveModPosts(posts)) return;
+  showToast(postId ? 'Publicação atualizada' : 'Publicação criada', 'green');
+  renderModalidades();
+  gerirPostsMod(modId, modNome);
+}
+
+function deletePostMod(modId, modNome, postId) {
+  if (!confirm('Remover esta publicação?')) return;
+  const posts = loadModPosts().filter(p => p.id != postId);
+  saveModPosts(posts);
+  showToast('Publicação removida', 'green');
+  renderModalidades();
+  gerirPostsMod(modId, modNome);
 }
 
 // =============================================

@@ -559,6 +559,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${m.local     ? `<span class="modality-card__info-item">&#128205; ${m.local}</span>` : ''}
                     ${m.responsavel ? `<span class="modality-card__info-item">&#128100; ${m.responsavel}</span>` : ''}
                   </div>
+                  <a href="modalidade.html?id=${m.id}" class="modality-card__link">Ver mais &rarr;</a>
                 </div>
               </div>`;
           }).join('');
