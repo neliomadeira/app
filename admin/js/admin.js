@@ -1372,7 +1372,7 @@ window.removePatrocinador = function (id) {
 };
 
 // ==================================================
-// SINCRONIZAR FPF
+// SINCRONIZAR FPF — parse do HTML da página
 // ==================================================
 
 const FPF_ESCALOES = [
@@ -1384,7 +1384,6 @@ const FPF_ESCALOES = [
 ];
 
 const FPF_CONFIG_KEY = 'fpf_sync_config';
-const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
 
 function loadFpfConfig() {
   try { return JSON.parse(localStorage.getItem(FPF_CONFIG_KEY) || '{}'); } catch(e) { return {}; }
@@ -1393,15 +1392,14 @@ function saveFpfConfig(cfg) {
   localStorage.setItem(FPF_CONFIG_KEY, JSON.stringify(cfg));
 }
 
-// Render sync rows table
 function renderFpfSyncRows() {
   const tbody = document.getElementById('fpfSyncRows');
   if (!tbody) return;
   const cfg = loadFpfConfig();
   tbody.innerHTML = FPF_ESCALOES.map(row => {
     const saved   = cfg[row.escalao] || {};
-    const compId  = saved.compId  || row.compId  || '';
-    const seasonId= saved.seasonId|| row.seasonId|| '105';
+    const compId  = saved.compId   || row.compId   || '';
+    const seasonId= saved.seasonId || row.seasonId || '105';
     const lastSync= saved.lastSync ? new Date(saved.lastSync).toLocaleString('pt-PT') : '—';
     const key     = row.escalao.replace('-','');
     return `
@@ -1439,81 +1437,79 @@ document.getElementById('btnImportarFPF')?.addEventListener('click', () => {
   if (!open) renderFpfSyncRows();
 });
 
-// Fetch FPF data via CORS proxy, trying multiple endpoint patterns
-async function fetchFpfJson(compId, seasonId, tipo) {
-  const base = 'https://resultados.fpf.pt';
-  const endpoints = tipo === 'standings' ? [
-    `${base}/Competition/GetCompetitionStandings?competitionId=${compId}&seasonId=${seasonId}`,
-    `${base}/Competition/GetLeagueTable?competitionId=${compId}&seasonId=${seasonId}`,
-    `${base}/League/GetStandings?leagueId=${compId}&seasonId=${seasonId}`,
-  ] : [
-    `${base}/Competition/GetCompetitionGames?competitionId=${compId}&seasonId=${seasonId}`,
-    `${base}/Game/GetGamesByCompetition?competitionId=${compId}&seasonId=${seasonId}`,
-    `${base}/Competition/GetGames?competitionId=${compId}&seasonId=${seasonId}`,
+// Fetch HTML da página FPF via CORS proxy
+async function fetchFpfHtml(compId, seasonId) {
+  const fpfUrl = `https://resultados.fpf.pt/Competition/Details?competitionId=${encodeURIComponent(compId)}&seasonId=${encodeURIComponent(seasonId)}`;
+  const proxies = [
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(fpfUrl)}`,
+    `https://corsproxy.io/?${encodeURIComponent(fpfUrl)}`,
   ];
-
-  for (const url of endpoints) {
+  for (const proxy of proxies) {
     try {
-      const proxyUrl = CORS_PROXY + encodeURIComponent(url);
-      const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) });
+      const res = await fetch(proxy, { signal: AbortSignal.timeout(12000) });
       if (!res.ok) continue;
-      const text = await res.text();
-      if (!text || text.trim()[0] !== '[' && text.trim()[0] !== '{') continue;
-      return { ok: true, data: JSON.parse(text), endpoint: url };
+      const html = await res.text();
+      if (html && html.length > 200) return { ok: true, html };
     } catch(e) { continue; }
   }
   return { ok: false };
 }
 
-// Parse FPF standings response into our format
-function parseFpfStandings(data, escalao) {
-  // data may be array or {table:[...]} or {standings:[...]} etc.
-  let rows = Array.isArray(data) ? data
-    : data.table || data.standings || data.classificacao || data.Standings || data.Table || [];
-  if (!rows.length) return null;
+// Extrair classificação de tabelas HTML
+function parseFpfHtml(html) {
+  const parser = new DOMParser();
+  const doc    = parser.parseFromString(html, 'text/html');
 
-  const SC_NAMES = ['sport campinense','campinense','sc loulé'];
-  return rows.map((r, i) => {
-    const nome = r.TeamName || r.teamName || r.equipa || r.Equipa || r.name || r.Name || `Equipa ${i+1}`;
-    const abrev = r.TeamAbbreviation || r.abbreviation || r.abrev || nome.substring(0,3).toUpperCase();
-    const j  = r.TotalGamesPlayed ?? r.GamesPlayed ?? r.jogos ?? r.j ?? 0;
-    const v  = r.TotalWins  ?? r.Wins   ?? r.vitorias ?? r.v ?? 0;
-    const e  = r.TotalDraws ?? r.Draws  ?? r.empates  ?? r.e ?? 0;
-    const d  = r.TotalLosses?? r.Losses ?? r.derrotas ?? r.d ?? 0;
-    const gm = r.TotalGoalsScored    ?? r.GoalsFor     ?? r.gm ?? 0;
-    const gs = r.TotalGoalsConceded  ?? r.GoalsAgainst ?? r.gs ?? 0;
-    const pts= r.TotalPoints ?? r.Points ?? r.pts ?? (v * 3 + e);
-    // Last 5 form
-    const last5 = r.Last5 || r.last5 || r.forma || [];
-    const formaStr = Array.isArray(last5)
-      ? last5.slice(-5).map(x => {
-          const res = (x.Result || x.result || x.r || '').toUpperCase();
-          return res === 'W' || res === 'V' ? 'V' : res === 'D' || res === 'E' ? 'E' : 'D';
-        }).join('')
-      : String(last5).replace(/W/g,'V').replace(/L/g,'D').toUpperCase().slice(0,5);
-    const issc = SC_NAMES.some(n => nome.toLowerCase().includes(n));
-    return { equipa: nome, abrev, j, v, e, d, gm, gs, forma: formaStr || 'DDDDD', sc: issc || undefined };
-  });
+  // 1. Tentar JSON embutido em script tags
+  for (const s of doc.querySelectorAll('script')) {
+    const t = s.textContent || '';
+    for (const pat of [
+      /(?:classificacao|standings|table|classificacaoData)\s*[:=]\s*(\[[\s\S]+?\])\s*[,;]/i,
+      /window\.__(?:INITIAL_STATE|DATA|APP)__\s*=\s*(\{[\s\S]+?\})\s*;/i,
+    ]) {
+      const m = t.match(pat);
+      if (m) { try { return { type: 'json', raw: JSON.parse(m[1]) }; } catch(e) {} }
+    }
+  }
+
+  // 2. Tentar parse de tabela HTML
+  const tables = Array.from(doc.querySelectorAll('table'));
+  for (const table of tables) {
+    const rows = Array.from(table.querySelectorAll('tr'));
+    if (rows.length < 3) continue;
+
+    const headerCells = Array.from(rows[0].querySelectorAll('th,td')).map(c => c.textContent.trim().toLowerCase());
+    // Verificar se parece uma tabela de classificação
+    const hasJ   = headerCells.some(h => h === 'j' || h === 'pj' || h === 'jg');
+    const hasPts = headerCells.some(h => h === 'pts' || h === 'p' || h === 'pontos');
+    if (!hasJ && !hasPts) continue;
+
+    const standings = rows.slice(1).map(row => {
+      const cells = Array.from(row.querySelectorAll('td')).map(c => c.textContent.trim());
+      if (cells.length < 5) return null;
+      // Heurística: pos, equipa, J, V, E, D, GM, GS, [DG,] Pts
+      const nums = cells.map(c => parseInt(c)).filter(n => !isNaN(n));
+      const nome = cells.find(c => c.length > 2 && isNaN(parseInt(c))) || `Equipa`;
+      if (nums.length < 4) return null;
+      const [j, v, e, d, gm, gs, ...rest] = nums.slice(nums.length > 7 ? 1 : 0);
+      const pts = rest.find(n => n === v * 3 + e) ?? rest[rest.length - 1] ?? (v * 3 + e);
+      return { equipa: nome, abrev: nome.slice(0,3).toUpperCase(), j: j||0, v: v||0, e: e||0, d: d||0, gm: gm||0, gs: gs||0, forma: 'DDDDD', pts };
+    }).filter(Boolean);
+
+    if (standings.length >= 3) return { type: 'table', standings };
+  }
+
+  // 3. Retornar prévia do HTML para diagnóstico
+  const preview = doc.body?.innerText?.slice(0, 400) || html.slice(0, 400);
+  return { type: 'unknown', preview };
 }
 
-// Parse FPF games response into our format
-function parseFpfGames(data) {
-  let games = Array.isArray(data) ? data
-    : data.games || data.Games || data.jogos || data.results || [];
-  if (!games.length) return null;
-
-  return games.map((g, i) => {
-    const casa  = g.HomeTeamName  || g.homeTeamName  || g.casa  || g.home || `Casa ${i}`;
-    const fora  = g.AwayTeamName  || g.awayTeamName  || g.fora  || g.away || `Fora ${i}`;
-    const gcasa = g.HomeScore ?? g.homeScore ?? g.gcasa ?? null;
-    const gfora = g.AwayScore ?? g.awayScore ?? g.gfora ?? null;
-    const dateRaw = g.StartDate  || g.startDate  || g.GameDate || g.data || g.date || '';
-    const data  = dateRaw ? dateRaw.slice(0,10) : '';
-    const hora  = g.StartTime  || g.startTime  || g.hora  || (dateRaw.length > 10 ? dateRaw.slice(11,16) : '—');
-    const local = g.VenueName  || g.venueName  || g.local || g.venue || '—';
-    const realizado = gcasa !== null && gfora !== null;
-    return { id: Date.now() + i, casa, fora, gcasa, gfora, data, hora, local, estado: realizado ? 'Realizado' : 'Agendado' };
-  });
+const SC_NAMES = ['sport campinense', 'campinense'];
+function markSC(standings) {
+  return standings.map(r => ({
+    ...r,
+    sc: SC_NAMES.some(n => (r.equipa || '').toLowerCase().includes(n)) || undefined,
+  }));
 }
 
 window.sincronizarEscalao = async function(escalao) {
@@ -1526,54 +1522,60 @@ window.sincronizarEscalao = async function(escalao) {
 
   if (!compId) {
     if (statusEl) statusEl.textContent = '⚠️ Sem Competition ID';
+    showToast('Introduza o Competition ID da FPF', 'red');
     return;
   }
-  if (statusEl) statusEl.innerHTML = '<em>A sincronizar...</em>';
+  if (statusEl) statusEl.innerHTML = '<em style="color:#888">A sincronizar...</em>';
 
-  const [standRes, gamesRes] = await Promise.all([
-    fetchFpfJson(compId, seasId, 'standings'),
-    fetchFpfJson(compId, seasId, 'games'),
-  ]);
+  const result = await fetchFpfHtml(compId, seasId);
 
-  let ok = false;
-
-  if (standRes.ok) {
-    const parsed = parseFpfStandings(standRes.data, escalao);
-    if (parsed && parsed.length) {
-      localStorage.setItem(`fpf_class_${escalao}`, JSON.stringify(parsed));
-      ok = true;
-    }
+  if (!result.ok) {
+    if (statusEl) statusEl.innerHTML = '<span style="color:#e05">✗ Sem resposta do proxy</span>';
+    showToast(`${escalao}: proxy inacessível. Tente novamente.`, 'red');
+    return;
   }
 
-  if (gamesRes.ok) {
-    const parsed = parseFpfGames(gamesRes.data);
-    if (parsed && parsed.length) {
-      localStorage.setItem(`fpf_jogos_${escalao}`, JSON.stringify(parsed));
-      ok = true;
-    }
+  const parsed = parseFpfHtml(result.html);
+
+  if (parsed.type === 'unknown') {
+    if (statusEl) statusEl.innerHTML = `<span style="color:#e05" title="${parsed.preview.replace(/"/g,'&quot;')}">✗ Formato desconhecido (ID correcto?)</span>`;
+    showToast(`${escalao}: não foi possível ler os dados. Verifique os IDs.`, 'red');
+    return;
   }
+
+  let standings = [];
+  if (parsed.type === 'table') standings = parsed.standings;
+  else if (parsed.type === 'json') {
+    const raw = parsed.raw;
+    standings = Array.isArray(raw) ? raw : (raw.table || raw.standings || raw.classificacao || []);
+  }
+
+  if (!standings.length) {
+    if (statusEl) statusEl.innerHTML = '<span style="color:#e05">✗ Tabela vazia</span>';
+    showToast(`${escalao}: tabela vazia no resultado.`, 'red');
+    return;
+  }
+
+  const final = markSC(standings);
+  localStorage.setItem(`fpf_class_${escalao}`, JSON.stringify(final));
 
   const now = new Date().toISOString();
   if (!cfg[escalao]) cfg[escalao] = {};
   cfg[escalao].compId   = compId;
   cfg[escalao].seasonId = seasId;
-  if (ok) cfg[escalao].lastSync = now;
+  cfg[escalao].lastSync = now;
   saveFpfConfig(cfg);
 
   if (statusEl) {
-    statusEl.textContent = ok
-      ? `✓ ${new Date(now).toLocaleString('pt-PT')}`
-      : '✗ Sem dados (verifique o ID)';
-    statusEl.style.color = ok ? '#22a75e' : '#e05';
+    statusEl.textContent = `✓ ${new Date(now).toLocaleString('pt-PT')} (${final.length} equipas)`;
+    statusEl.style.color = '#22a75e';
   }
-
-  if (ok) showToast(`${escalao} sincronizado da FPF`, 'green');
-  else    showToast(`${escalao}: sem dados. Verifique o Competition ID.`, 'red');
+  showToast(`${escalao}: ${final.length} equipas sincronizadas da FPF`, 'green');
 };
 
 window.sincronizarTodosFPF = async function() {
   for (const row of FPF_ESCALOES) {
-    const cfg = loadFpfConfig();
+    const cfg    = loadFpfConfig();
     const compId = (cfg[row.escalao] || {}).compId || row.compId;
     if (compId) await sincronizarEscalao(row.escalao);
   }
