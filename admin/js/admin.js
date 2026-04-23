@@ -1434,23 +1434,62 @@ document.getElementById('btnImportarFPF')?.addEventListener('click', () => {
   const panel = document.getElementById('fpfImportPanel');
   const open  = panel.style.display !== 'none';
   panel.style.display = open ? 'none' : 'block';
-  if (!open) renderFpfSyncRows();
+  if (!open) { renderFpfSyncRows(); renderFpfIframeButtons(); }
 });
+
+function renderFpfIframeButtons() {
+  const el  = document.getElementById('fpfIframeButtons');
+  if (!el) return;
+  const cfg = loadFpfConfig();
+  el.innerHTML = FPF_ESCALOES.map(row => {
+    const saved  = cfg[row.escalao] || {};
+    const cid    = saved.compId || row.compId;
+    const sid    = saved.seasonId || row.seasonId || '105';
+    if (!cid) return '';
+    const fpfUrl = `https://resultados.fpf.pt/Competition/Details?competitionId=${cid}&seasonId=${sid}`;
+    return `<a href="${fpfUrl}" target="_blank" rel="noopener" class="btn-sm"
+      style="text-decoration:none;display:inline-flex;align-items:center;gap:4px">
+      &#128279; ${row.escalao}
+    </a>`;
+  }).join('');
+}
 
 // Fetch HTML da página FPF via CORS proxy
 async function fetchFpfHtml(compId, seasonId) {
   const fpfUrl = `https://resultados.fpf.pt/Competition/Details?competitionId=${encodeURIComponent(compId)}&seasonId=${encodeURIComponent(seasonId)}`;
+  // Also try the embed/widget URL which is simpler HTML
+  const embedUrl = `https://resultados.fpf.pt/Embed/Competition?competitionId=${encodeURIComponent(compId)}&seasonId=${encodeURIComponent(seasonId)}`;
+
   const proxies = [
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(fpfUrl)}`,
-    `https://corsproxy.io/?${encodeURIComponent(fpfUrl)}`,
+    // allorigins get (returns JSON wrapper with http_code for diagnostics)
+    u => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
+    // corsproxy
+    u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+    // codetabs
+    u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
   ];
-  for (const proxy of proxies) {
-    try {
-      const res = await fetch(proxy, { signal: AbortSignal.timeout(12000) });
-      if (!res.ok) continue;
-      const html = await res.text();
-      if (html && html.length > 200) return { ok: true, html };
-    } catch(e) { continue; }
+
+  for (const targetUrl of [fpfUrl, embedUrl]) {
+    for (const makeProxy of proxies) {
+      try {
+        const proxy = makeProxy(targetUrl);
+        const res = await fetch(proxy, { signal: AbortSignal.timeout(12000) });
+        if (!res.ok) continue;
+        const text = await res.text();
+
+        // allorigins /get returns JSON wrapper
+        let html = text;
+        if (text.trim().startsWith('{')) {
+          try {
+            const j = JSON.parse(text);
+            if (j.status?.http_code && j.status.http_code !== 200) continue;
+            html = j.contents || text;
+          } catch(e) {}
+        }
+
+        if (html && html.length > 500) return { ok: true, html, url: targetUrl };
+      } catch(e) { continue; }
+    }
   }
   return { ok: false };
 }
@@ -1538,8 +1577,17 @@ window.sincronizarEscalao = async function(escalao) {
   const parsed = parseFpfHtml(result.html);
 
   if (parsed.type === 'unknown') {
-    if (statusEl) statusEl.innerHTML = `<span style="color:#e05" title="${parsed.preview.replace(/"/g,'&quot;')}">✗ Formato desconhecido (ID correcto?)</span>`;
-    showToast(`${escalao}: não foi possível ler os dados. Verifique os IDs.`, 'red');
+    const prev = (parsed.preview || '').replace(/</g,'&lt;').slice(0,300);
+    if (statusEl) statusEl.innerHTML = `<span style="color:#e05">✗ Página sem tabela de classificação</span>`;
+    // Show diagnostic in a separate area
+    const diagEl = document.getElementById('fpfDiag');
+    if (diagEl) {
+      diagEl.style.display = 'block';
+      diagEl.innerHTML = `<strong>Diagnóstico:</strong> A página da FPF foi recebida mas não tem tabela de classificação reconhecível (é uma SPA — os dados são carregados via JavaScript que o proxy não executa).<br><br>
+      <strong>Prévia do que foi recebido:</strong><br><pre style="font-size:0.75rem;overflow:auto;max-height:100px;background:#f5f5f5;padding:8px;border-radius:4px">${prev || '(vazio)'}</pre><br>
+      <strong>Solução alternativa:</strong> Use o botão "Ver FPF" para abrir a página da FPF num iframe, ou introduza os dados manualmente na tabela.`;
+    }
+    showToast(`${escalao}: a FPF usa SPA — dados não acessíveis por proxy. Ver diagnóstico.`, 'red');
     return;
   }
 
