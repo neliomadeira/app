@@ -1571,9 +1571,78 @@ function parseScore(s) {
 }
 
 function parsePastedJogos(text) {
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const raw    = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const idBase = { v: Date.now() };
+  const next   = () => idBase.v++;
+
+  // ── Detect format ──────────────────────────────
+  // Multi-line (AF Algarve): some lines are ONLY a date or ONLY a time.
+  // e.g. "3 mai", "11:00", "Js Campinense", "Cdr Quarteirense", "Campo Municipal..."
+  const dateOnlyLines = raw.filter(l => /^\d{1,2}\s+[A-Za-zÀ-ž]{3,}(\s+\d{4})?$/.test(l) && parseDate(l));
+  const isMultiLine   = dateOnlyLines.length > 0;
+
+  if (isMultiLine) return parseMultiLineJogos(raw, next);
+  return parseSingleLineJogos(raw, next);
+}
+
+// ── Multi-line format (AF Algarve) ─────────────
+// Structure per game (5 lines):
+//   Home Team
+//   Date          ← anchor
+//   Time OR Score
+//   Away Team
+//   Venue (optional)
+function parseMultiLineJogos(lines, next) {
   const jogos = [];
-  let idBase  = Date.now();
+
+  // Find all lines that are dates
+  const dateIdxs = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (parseDate(lines[i]) && /^\d{1,2}[\s\/\-]/.test(lines[i])) dateIdxs.push(i);
+  }
+
+  for (const d of dateIdxs) {
+    if (d < 1) continue;               // need at least one line before for home team
+    if (d + 2 >= lines.length) continue; // need at least time + away
+
+    const home      = lines[d - 1].trim();
+    const dateStr   = parseDate(lines[d]);
+    const mid       = lines[d + 1].trim(); // time OR score
+    const away      = lines[d + 2].trim();
+    const venueRaw  = lines[d + 3] ? lines[d + 3].trim() : '';
+
+    // mid can be time (11:00) or score (2 - 1)
+    const timeObj  = parseTime(mid);
+    const scoreObj = !timeObj ? parseScore(mid) : null;
+
+    // Sanity: home and away should not be dates or times/scores
+    if (parseDate(home) || parseDate(away)) continue;
+    if (parseTime(home) || parseScore(home)) continue;
+
+    // venue: only use if it doesn't look like another home team (i.e. next dateIdx is d+5 or more)
+    const nextDateIdx = dateIdxs.find(i => i > d);
+    const venueIsGame = nextDateIdx !== undefined && nextDateIdx <= d + 4;
+    const local = (!venueIsGame && venueRaw && !parseDate(venueRaw) && !parseTime(venueRaw) && !parseScore(venueRaw))
+      ? venueRaw : '';
+
+    jogos.push({
+      id:    next(),
+      casa:  home,
+      fora:  away,
+      gcasa: scoreObj ? scoreObj.gcasa : null,
+      gfora: scoreObj ? scoreObj.gfora : null,
+      data:  dateStr,
+      hora:  timeObj || '15:00',
+      local,
+      estado: scoreObj ? 'Realizado' : 'Agendado',
+    });
+  }
+  return jogos;
+}
+
+// ── Single-line format (tab or multi-space) ────
+function parseSingleLineJogos(lines, next) {
+  const jogos = [];
 
   for (const line of lines) {
     let parts = line.includes('\t')
@@ -1583,12 +1652,11 @@ function parsePastedJogos(text) {
 
     if (parts.length < 3) continue;
 
-    // Identify each column role
-    let dateIdx  = -1, scoreIdx = -1, timeIdx = -1;
+    let dateIdx = -1, scoreIdx = -1, timeIdx = -1;
     for (let i = 0; i < parts.length; i++) {
-      if (dateIdx  < 0 && parseDate(parts[i]))  dateIdx  = i;
-      else if (scoreIdx < 0 && parseScore(parts[i])) scoreIdx = i;
-      else if (timeIdx  < 0 && parseTime(parts[i]))  timeIdx  = i;
+      if (dateIdx  < 0 && parseDate(parts[i]))  { dateIdx  = i; continue; }
+      if (scoreIdx < 0 && parseScore(parts[i])) { scoreIdx = i; continue; }
+      if (timeIdx  < 0 && parseTime(parts[i]))  { timeIdx  = i; continue; }
     }
 
     if (dateIdx < 0) continue;
@@ -1597,40 +1665,35 @@ function parsePastedJogos(text) {
     const horaStr  = timeIdx >= 0 ? parseTime(parts[timeIdx]) : '15:00';
     const scoreObj = scoreIdx >= 0 ? parseScore(parts[scoreIdx]) : null;
 
-    // Collect remaining parts as team names / local
     const used = new Set([dateIdx, scoreIdx, timeIdx].filter(i => i >= 0));
-    const rest  = parts.filter((_, i) => !used.has(i));
+    const rest = parts.filter((_, i) => !used.has(i));
 
-    // The part just before the score column is the home team, just after is away
-    // If no score, first two non-used parts are home/away
     let casa, fora, local;
     if (scoreIdx >= 0) {
-      // Find the non-used part immediately before scoreIdx
-      let prevNonUsed = -1, nextNonUsed = -1;
-      for (let i = scoreIdx-1; i >= 0; i--) { if (!used.has(i)) { prevNonUsed = i; break; } }
-      for (let i = scoreIdx+1; i < parts.length; i++) { if (!used.has(i)) { nextNonUsed = i; break; } }
-      casa  = prevNonUsed >= 0 ? parts[prevNonUsed] : rest[0];
-      fora  = nextNonUsed >= 0 ? parts[nextNonUsed] : rest[1];
-      const teamIndices = new Set([prevNonUsed, nextNonUsed].filter(i => i >= 0));
-      local = parts.filter((_, i) => !used.has(i) && !teamIndices.has(i))[0] || '';
+      let prev = -1, nx = -1;
+      for (let i = scoreIdx-1; i >= 0; i--) { if (!used.has(i)) { prev = i; break; } }
+      for (let i = scoreIdx+1; i < parts.length; i++) { if (!used.has(i)) { nx = i; break; } }
+      casa  = prev >= 0 ? parts[prev] : rest[0];
+      fora  = nx   >= 0 ? parts[nx]   : rest[1];
+      const ti = new Set([prev, nx].filter(i => i >= 0));
+      local = parts.filter((_, i) => !used.has(i) && !ti.has(i))[0] || '';
     } else {
-      // upcoming: rest = [home, away, ...local]
       const vsIdx = rest.findIndex(p => /^vs\.?$/i.test(p));
       if (vsIdx >= 0) { casa = rest.slice(0,vsIdx).join(' '); fora = rest.slice(vsIdx+1).join(' '); local = ''; }
-      else            { [casa, fora, local=''] = rest; }
+      else            { [casa='', fora='', local=''] = rest; }
     }
 
     if (!casa || !fora) continue;
 
     jogos.push({
-      id:     idBase++,
-      casa:   casa.trim(),
-      fora:   fora.trim(),
-      gcasa:  scoreObj ? scoreObj.gcasa : null,
-      gfora:  scoreObj ? scoreObj.gfora : null,
-      data:   dateStr,
-      hora:   horaStr,
-      local:  (local||'').trim(),
+      id:    next(),
+      casa:  casa.trim(),
+      fora:  fora.trim(),
+      gcasa: scoreObj ? scoreObj.gcasa : null,
+      gfora: scoreObj ? scoreObj.gfora : null,
+      data:  dateStr,
+      hora:  horaStr,
+      local: (local||'').trim(),
       estado: scoreObj ? 'Realizado' : 'Agendado',
     });
   }
