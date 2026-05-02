@@ -1074,7 +1074,8 @@ function renderJogos(filterEscalao = '', filterEstado = '') {
   data.sort((a, b) => b.data.localeCompare(a.data));
 
   tbody.innerHTML = data.map(j => {
-    const sc = j.casa === 'Sport Campinense' || j.fora === 'Sport Campinense';
+    const scRe = /sport campinense|js campinense|campinense/i;
+    const sc = scRe.test(j.casa) || scRe.test(j.fora);
     const resultado = j.estado === 'Realizado'
       ? `<strong>${j.gcasa} – ${j.gfora}</strong>`
       : `<span style="color:var(--gray-text)">—</span>`;
@@ -1085,8 +1086,8 @@ function renderJogos(filterEscalao = '', filterEstado = '') {
       <tr>
         <td>${fmtDataJogo(j.data)}<br/><span style="font-size:0.75rem;color:var(--gray-text)">${j.hora}</span></td>
         <td>${j.escalao}</td>
-        <td style="${j.casa==='Sport Campinense'?'font-weight:700;color:var(--blue)':''}">${j.casa}</td>
-        <td style="${j.fora==='Sport Campinense'?'font-weight:700;color:var(--blue)':''}">${j.fora}</td>
+        <td style="${scRe.test(j.casa)?'font-weight:700;color:var(--blue)':''}">${j.casa}</td>
+        <td style="${scRe.test(j.fora)?'font-weight:700;color:var(--blue)':''}">${j.fora}</td>
         <td style="text-align:center;font-size:1.1rem">${resultado}</td>
         <td style="font-size:0.8rem;color:var(--gray-text)">${j.local}</td>
         <td>${estadoBadge}</td>
@@ -1795,13 +1796,53 @@ window.guardarColarClass = function() {
   } else {
     const jogos = parsePastedJogos(ta.value);
     if (!jogos.length) { showToast('Nenhum jogo válido para guardar', 'red'); return; }
+
+    // Save to fpf_jogos (public results page)
     localStorage.setItem(`fpf_jogos_${_colarEscalao}`, JSON.stringify(jogos));
+
+    // Also merge into DB.jogos (admin games table)
+    const escalao = _colarEscalao;
+    let added = 0, updated = 0;
+    for (const j of jogos) {
+      const key = (n => n.toLowerCase().trim());
+      const existing = DB.jogos.find(e =>
+        e.data === j.data &&
+        key(e.casa) === key(j.casa) &&
+        key(e.fora) === key(j.fora)
+      );
+      if (existing) {
+        // Update result if now available
+        if (j.estado === 'Realizado' && existing.estado === 'Agendado') {
+          existing.gcasa  = j.gcasa;
+          existing.gfora  = j.gfora;
+          existing.estado = 'Realizado';
+          updated++;
+        }
+      } else {
+        DB.jogos.push({
+          id:      Date.now() + Math.floor(Math.random() * 10000),
+          escalao,
+          casa:    j.casa,
+          fora:    j.fora,
+          gcasa:   j.gcasa,
+          gfora:   j.gfora,
+          data:    j.data,
+          hora:    j.hora,
+          local:   j.local,
+          estado:  j.estado,
+        });
+        added++;
+      }
+    }
+    saveDB();
+    renderJogos();
+
     cfg[_colarEscalao].lastJogos = now;
     cfg[_colarEscalao].nJogos   = jogos.length;
     saveClassConfig(cfg);
     fecharColarClass();
     renderClassSyncRows();
-    showToast(`${_colarEscalao}: ${jogos.length} jogos guardados`, 'green');
+    showToast(`${escalao}: ${added} jogos adicionados${updated ? ', ' + updated + ' actualizados' : ''}`, 'green');
   }
 };
 
