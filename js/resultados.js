@@ -113,11 +113,19 @@ function formaHTML(forma) {
   }).join('');
 }
 
-function resultadoSC(jogo, escalao) {
+function isSC(name) {
+  return /sport campinense|js campinense|campinense/i.test(name || '');
+}
+
+function scClass(name) {
+  return isSC(name) ? ' jogo-equipa--sc' : '';
+}
+
+function resultadoSC(jogo) {
   if (jogo.estado !== 'Realizado') return null;
-  const sc = jogo.casa === 'Sport Campinense';
-  const gcSC = sc ? jogo.gcasa : jogo.gfora;
-  const gcAdv = sc ? jogo.gfora : jogo.gcasa;
+  const scCasa = isSC(jogo.casa);
+  const gcSC  = scCasa ? jogo.gcasa : jogo.gfora;
+  const gcAdv = scCasa ? jogo.gfora : jogo.gcasa;
   if (gcSC > gcAdv) return 'v';
   if (gcSC === gcAdv) return 'e';
   return 'd';
@@ -208,9 +216,8 @@ function renderJogos(escalao) {
     resEl.innerHTML = '<p class="jogo-empty">Sem resultados registados.</p>';
   } else {
     resEl.innerHTML = realizados.map(j => {
-      const d = fmtData(j.data);
-      const sc = j.casa === 'Sport Campinense';
-      const res = resultadoSC(j, escalao);
+      const d        = fmtData(j.data);
+      const res      = resultadoSC(j);
       const resLabel = res === 'v' ? 'Vitória' : res === 'e' ? 'Empate' : 'Derrota';
       return `
         <div class="jogo-item">
@@ -221,15 +228,17 @@ function renderJogos(escalao) {
           <div class="jogo-divider"></div>
           <div class="jogo-info">
             <div class="jogo-equipas">
-              <span class="jogo-equipa${j.casa==='Sport Campinense'?' jogo-equipa--sc':''}">${j.casa}</span>
-              <span class="vs">vs</span>
-              <span class="jogo-equipa${j.fora==='Sport Campinense'?' jogo-equipa--sc':''}">${j.fora}</span>
+              <span class="jogo-equipa${scClass(j.casa)}">${j.casa}</span>
+              <div class="jogo-equipa-row">
+                <span class="vs">vs</span>
+                <span class="jogo-equipa${scClass(j.fora)}">${j.fora}</span>
+              </div>
             </div>
-            <div class="jogo-meta">${j.local}</div>
+            ${j.local ? `<div class="jogo-meta">${j.local}</div>` : ''}
           </div>
           <div class="jogo-resultado">
-            <div class="resultado-placar">${j.gcasa} – ${j.gfora}</div>
-            <div class="resultado-badge resultado-badge--${res}">${resLabel}</div>
+            <div class="resultado-placar">${j.gcasa}–${j.gfora}</div>
+            ${res ? `<div class="resultado-badge resultado-badge--${res}">${resLabel}</div>` : ''}
           </div>
         </div>`;
     }).join('');
@@ -251,11 +260,13 @@ function renderJogos(escalao) {
           <div class="jogo-divider"></div>
           <div class="jogo-info">
             <div class="jogo-equipas">
-              <span class="jogo-equipa${j.casa==='Sport Campinense'?' jogo-equipa--sc':''}">${j.casa}</span>
-              <span class="vs">vs</span>
-              <span class="jogo-equipa${j.fora==='Sport Campinense'?' jogo-equipa--sc':''}">${j.fora}</span>
+              <span class="jogo-equipa${scClass(j.casa)}">${j.casa}</span>
+              <div class="jogo-equipa-row">
+                <span class="vs">vs</span>
+                <span class="jogo-equipa${scClass(j.fora)}">${j.fora}</span>
+              </div>
             </div>
-            <div class="jogo-meta">${j.hora} · ${j.local}</div>
+            ${j.local ? `<div class="jogo-meta">${j.local}</div>` : ''}
           </div>
           <div class="jogo-agendado">
             <div class="jogo-hora">${j.hora}</div>
