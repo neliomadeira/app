@@ -131,39 +131,51 @@ function resultadoSC(jogo) {
   return 'd';
 }
 
-// ---- CARREGAR DADOS (localStorage FPF > estáticos) ---- //
-function getDados(escalao) {
-  const base = DADOS[escalao] || { competicao: escalao, classificacao: [], jogos: [] };
+// ---- MULTI-EQUIPA: ler equipas configuradas por escalão ---- //
+function getTeams(escalao) {
   try {
-    const cls = localStorage.getItem(`fpf_class_${escalao}`);
-    const jgs = localStorage.getItem(`fpf_jogos_${escalao}`);
+    const cfg   = JSON.parse(localStorage.getItem('fpf_sync_config') || '{}');
+    const teams = (cfg[escalao] || {}).teams || {};
+    return Object.entries(teams).map(([key, t]) => ({ key, nome: t.nome || key }));
+  } catch(e) { return []; }
+}
+
+// ---- CARREGAR DADOS (localStorage FPF > estáticos) ---- //
+function getDados(escalao, teamKey) {
+  const base    = DADOS[escalao] || { competicao: escalao, classificacao: [], jogos: [] };
+  const clsKey  = teamKey ? `fpf_class_${escalao}__${teamKey}` : `fpf_class_${escalao}`;
+  const jgsKey  = teamKey ? `fpf_jogos_${escalao}__${teamKey}` : `fpf_jogos_${escalao}`;
+  try {
+    const cls = localStorage.getItem(clsKey);
+    const jgs = localStorage.getItem(jgsKey);
     if (cls || jgs) {
       return {
         competicao:    base.competicao,
-        classificacao: cls ? JSON.parse(cls) : base.classificacao,
-        jogos:         jgs ? JSON.parse(jgs) : base.jogos,
+        classificacao: cls ? JSON.parse(cls) : (teamKey ? [] : base.classificacao),
+        jogos:         jgs ? JSON.parse(jgs) : (teamKey ? [] : base.jogos),
         fromFPF:       true,
       };
     }
   } catch(e) {}
-  return base;
+  return teamKey ? { competicao: escalao, classificacao: [], jogos: [] } : base;
 }
 
-function syncBadge(escalao) {
-  const cfg = JSON.parse(localStorage.getItem('fpf_sync_config') || '{}');
-  const t   = (cfg[escalao] || {}).lastSync;
-  const el  = document.getElementById('resSyncBadge');
+function syncBadge(escalao, teamKey) {
+  const cfg   = JSON.parse(localStorage.getItem('fpf_sync_config') || '{}');
+  const tCfg  = teamKey ? (cfg[escalao]?.teams?.[teamKey] || {}) : (cfg[escalao] || {});
+  const t     = tCfg.lastSync || tCfg.lastJogos;
+  const el    = document.getElementById('resSyncBadge');
   if (!el) return;
   el.textContent = t
-    ? `FPF · ${new Date(t).toLocaleDateString('pt-PT', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}`
+    ? `${new Date(t).toLocaleDateString('pt-PT', { day:'2-digit', month:'short' })}`
     : 'Dados locais';
-  el.title = t ? `Última sincronização: ${new Date(t).toLocaleString('pt-PT')}` : '';
+  el.title = t ? `Última actualização: ${new Date(t).toLocaleString('pt-PT')}` : '';
 }
 
 // ---- RENDER CLASSIFICAÇÃO ---- //
 function renderClass(escalao) {
-  const dados = getDados(escalao);
-  syncBadge(escalao);
+  const dados = getDados(escalao, teamActivo);
+  syncBadge(escalao, teamActivo);
 
   document.getElementById('resCompeticao').textContent = dados.competicao;
 
@@ -202,7 +214,7 @@ function renderClass(escalao) {
 
 // ---- RENDER JOGOS ---- //
 function renderJogos(escalao) {
-  const dados = getDados(escalao);
+  const dados = getDados(escalao, teamActivo);
   if (!dados) return;
 
   const realizados = dados.jogos.filter(j => j.estado === 'Realizado')
@@ -277,6 +289,39 @@ function renderJogos(escalao) {
   }
 }
 
+// ---- TEAM SELECTOR ---- //
+let teamActivo = '';
+
+function renderTeamSelector(escalao) {
+  const teams = getTeams(escalao);
+  const bar   = document.getElementById('teamsBar');
+  const inner = document.getElementById('teamsInner');
+  if (!bar || !inner) return;
+
+  if (teams.length <= 1) {
+    bar.style.display = 'none';
+    teamActivo = teams[0]?.key || '';
+    return;
+  }
+
+  // Keep previous selection if valid, else default to first
+  if (!teams.find(t => t.key === teamActivo)) teamActivo = teams[0].key;
+
+  bar.style.display = 'block';
+  inner.innerHTML = teams.map(t =>
+    `<button class="team-tab${t.key === teamActivo ? ' active' : ''}" data-team="${t.key}">${t.nome}</button>`
+  ).join('');
+
+  inner.querySelectorAll('.team-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      teamActivo = btn.dataset.team;
+      inner.querySelectorAll('.team-tab').forEach(b => b.classList.toggle('active', b === btn));
+      renderClass(escalaoActivo);
+      renderJogos(escalaoActivo);
+    });
+  });
+}
+
 // ---- TABS ---- //
 let escalaoActivo = 'Sub-17';
 
@@ -285,11 +330,14 @@ document.querySelectorAll('.tab').forEach(btn => {
     document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     escalaoActivo = btn.dataset.escalao;
+    teamActivo    = '';
+    renderTeamSelector(escalaoActivo);
     renderClass(escalaoActivo);
     renderJogos(escalaoActivo);
   });
 });
 
 // ---- INIT ---- //
+renderTeamSelector(escalaoActivo);
 renderClass(escalaoActivo);
 renderJogos(escalaoActivo);

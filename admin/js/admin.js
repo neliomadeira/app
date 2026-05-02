@@ -1373,47 +1373,72 @@ window.removePatrocinador = function (id) {
 };
 
 // ==================================================
-// CLASSIFICAÇÃO & JOGOS — IMPORTAR POR COLAR TABELA
+// CLASSIFICAÇÃO & JOGOS — MULTI-EQUIPA POR ESCALÃO
 // ==================================================
+// Config: cfg['Sub-17'].teams = { 'A': { nome, lastSync, nTeams, lastJogos, nJogos }, ... }
+// Storage keys: fpf_class_Sub-17__A  /  fpf_jogos_Sub-17__A
 
-const CLASS_ESCALOES = ['Sub-17','Sub-15','Sub-13','Sub-19','Sub-11'];
+const CLASS_ESCALOES   = ['Sub-17','Sub-15','Sub-13','Sub-19','Sub-11'];
 const CLASS_CONFIG_KEY = 'fpf_sync_config';
 
-function loadClassConfig() {
-  try { return JSON.parse(localStorage.getItem(CLASS_CONFIG_KEY) || '{}'); } catch(e) { return {}; }
-}
-function saveClassConfig(cfg) {
-  localStorage.setItem(CLASS_CONFIG_KEY, JSON.stringify(cfg));
+function loadClassConfig()     { try { return JSON.parse(localStorage.getItem(CLASS_CONFIG_KEY)||'{}'); } catch(e){ return {}; } }
+function saveClassConfig(cfg)  { localStorage.setItem(CLASS_CONFIG_KEY, JSON.stringify(cfg)); }
+
+function teamStorageKey(escalao, teamKey, tipo) {
+  // tipo: 'class' or 'jogos'
+  const prefix = tipo === 'class' ? 'fpf_class_' : 'fpf_jogos_';
+  return teamKey ? `${prefix}${escalao}__${teamKey}` : `${prefix}${escalao}`;
 }
 
+// ── Render sync rows ──────────────────────────────
 function renderClassSyncRows() {
   const tbody = document.getElementById('fpfSyncRows');
   if (!tbody) return;
   const cfg = loadClassConfig();
-  tbody.innerHTML = CLASS_ESCALOES.map(escalao => {
-    const saved     = cfg[escalao] || {};
-    const lastClass = saved.lastSync  ? new Date(saved.lastSync).toLocaleDateString('pt-PT')  + (saved.nTeams  ? ` (${saved.nTeams} eq.)` : '')  : '—';
-    const lastJogos = saved.lastJogos ? new Date(saved.lastJogos).toLocaleDateString('pt-PT') + (saved.nJogos  ? ` (${saved.nJogos} jg.)`  : '')  : '—';
-    const hasAny    = saved.lastSync || saved.lastJogos;
-    const key       = escalao.replace('-','');
-    return `
-      <tr style="border-bottom:1px solid #eee">
-        <td style="padding:10px 14px;font-weight:700">${escalao}</td>
-        <td style="padding:8px 14px;font-size:0.8rem;color:#555">
-          <span style="color:#888;font-size:0.72rem;display:block;margin-bottom:2px">Classificação</span>
-          <span id="fpfStatusClass_${key}">${lastClass}</span>
-        </td>
-        <td style="padding:8px 14px;font-size:0.8rem;color:#555">
-          <span style="color:#888;font-size:0.72rem;display:block;margin-bottom:2px">Jogos</span>
-          <span id="fpfStatusJogos_${key}">${lastJogos}</span>
-        </td>
-        <td style="padding:8px 14px;text-align:right;white-space:nowrap;display:flex;gap:6px;justify-content:flex-end;align-items:center">
-          <button class="btn-sm" onclick="abrirColar('${escalao}','class')">&#128203; Classificação</button>
-          <button class="btn-sm" onclick="abrirColar('${escalao}','jogos')">&#128197; Jogos</button>
-          ${hasAny ? `<button class="btn-sm" style="color:#c00" onclick="limparClass('${escalao}')">&#x2715;</button>` : ''}
-        </td>
-      </tr>`;
-  }).join('');
+
+  let html = '';
+  for (const escalao of CLASS_ESCALOES) {
+    const escCfg   = cfg[escalao] || {};
+    const teams    = escCfg.teams  || {};
+    const teamKeys = Object.keys(teams);
+
+    html += `<tr style="background:var(--blue);color:#fff">
+      <td colspan="4" style="padding:8px 14px;font-weight:700;letter-spacing:0.5px;display:flex;align-items:center;justify-content:space-between">
+        <span>${escalao}</span>
+        <button class="btn-sm" style="background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3)"
+          onclick="adicionarEquipa('${escalao}')">+ Equipa / Série</button>
+      </td>
+    </tr>`;
+
+    if (!teamKeys.length) {
+      html += `<tr><td colspan="4" style="padding:10px 20px;color:#aaa;font-size:0.82rem;font-style:italic">
+        Nenhuma equipa configurada — clique em "+ Equipa / Série" para adicionar.
+      </td></tr>`;
+    } else {
+      for (const tk of teamKeys) {
+        const t         = teams[tk];
+        const lastClass = t.lastSync  ? new Date(t.lastSync).toLocaleDateString('pt-PT')  + (t.nTeams ? ` (${t.nTeams} eq.)` : '')  : '—';
+        const lastJogos = t.lastJogos ? new Date(t.lastJogos).toLocaleDateString('pt-PT') + (t.nJogos ? ` (${t.nJogos} jg.)` : '')  : '—';
+        html += `<tr style="border-bottom:1px solid #eee">
+          <td style="padding:8px 14px 8px 24px;font-weight:700">${t.nome || tk}
+            ${t.compLabel ? `<div style="font-size:0.72rem;color:#888;font-weight:400">${t.compLabel}</div>` : ''}
+          </td>
+          <td style="padding:8px 14px;font-size:0.8rem;color:#555">
+            <span style="color:#999;font-size:0.7rem">Classificação</span><br>${lastClass}
+          </td>
+          <td style="padding:8px 14px;font-size:0.8rem;color:#555">
+            <span style="color:#999;font-size:0.7rem">Jogos</span><br>${lastJogos}
+          </td>
+          <td style="padding:8px 14px;text-align:right;white-space:nowrap;display:flex;gap:5px;justify-content:flex-end">
+            <button class="btn-sm" onclick="abrirColar('${escalao}','class','${tk}')">&#128203; Classificação</button>
+            <button class="btn-sm" onclick="abrirColar('${escalao}','jogos','${tk}')">&#128197; Jogos</button>
+            <button class="btn-sm" style="color:#c00" onclick="limparEquipa('${escalao}','${tk}')">&#x2715;</button>
+          </td>
+        </tr>`;
+      }
+    }
+  }
+  tbody.innerHTML = html;
 }
 
 document.getElementById('btnImportarFPF')?.addEventListener('click', () => {
@@ -1423,428 +1448,293 @@ document.getElementById('btnImportarFPF')?.addEventListener('click', () => {
   if (!open) renderClassSyncRows();
 });
 
-window.limparClass = function(escalao) {
-  if (!confirm(`Limpar todos os dados de ${escalao}?`)) return;
-  localStorage.removeItem(`fpf_class_${escalao}`);
-  localStorage.removeItem(`fpf_jogos_${escalao}`);
+// ── Adicionar / remover equipa ────────────────────
+window.adicionarEquipa = function(escalao) {
+  const nome = prompt(`Nome da equipa ou série em ${escalao}:\n(ex: "Equipa A", "Série Norte", "Divisão 2")`);
+  if (!nome || !nome.trim()) return;
   const cfg = loadClassConfig();
-  delete cfg[escalao];
+  if (!cfg[escalao]) cfg[escalao] = {};
+  if (!cfg[escalao].teams) cfg[escalao].teams = {};
+  const tk = nome.trim().replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,20) || ('t'+Date.now());
+  if (cfg[escalao].teams[tk]) { showToast('Já existe uma equipa com esse nome', 'red'); return; }
+  cfg[escalao].teams[tk] = { nome: nome.trim(), compLabel: '' };
   saveClassConfig(cfg);
   renderClassSyncRows();
-  showToast(`${escalao}: dados limpos`, 'green');
+  showToast(`${escalao}: "${nome.trim()}" adicionada`, 'green');
 };
 
-// ── Modal unificado (modo 'class' ou 'jogos') ──
+window.limparEquipa = function(escalao, tk) {
+  const cfg  = loadClassConfig();
+  const nome = cfg[escalao]?.teams?.[tk]?.nome || tk;
+  if (!confirm(`Remover "${nome}" (${escalao})? Todos os dados serão apagados.`)) return;
+  localStorage.removeItem(teamStorageKey(escalao, tk, 'class'));
+  localStorage.removeItem(teamStorageKey(escalao, tk, 'jogos'));
+  if (cfg[escalao]?.teams) delete cfg[escalao].teams[tk];
+  saveClassConfig(cfg);
+  renderClassSyncRows();
+  showToast(`${escalao}: "${nome}" removida`, 'green');
+};
+
+// ── Modal unificado ───────────────────────────────
 let _colarEscalao = '';
 let _colarMode    = 'class';
+let _colarTeam    = '';
 
 const COLAR_CONFIG = {
   class: {
-    title: esc => `Colar Classificação — ${esc}`,
-    hint:  `Vai a <a href="https://afalgarve.pt/competicoes/" target="_blank" rel="noopener">afalgarve.pt/competicoes/</a>, navega até à classificação, selecciona todas as linhas da tabela (da 1ª à última equipa), copia (Ctrl+C) e cola aqui.`,
-    ph:    'Cole aqui o texto copiado da tabela de classificação...\n\nExemplo:\n1\tOlhanense\t14\t11\t1\t2\t38\t14\t+24\t34\n2\tSport Campinense\t14\t10\t2\t2\t35\t16\t+19\t32',
+    title: (esc, team) => `Colar Classificação — ${esc}${team ? ' · '+team : ''}`,
+    hint: `Vai a <a href="https://afalgarve.pt/competicoes/" target="_blank" rel="noopener">afalgarve.pt/competicoes/</a>, navega até à classificação, selecciona todas as linhas, copia (Ctrl+C) e cola aqui.`,
+    ph:   'Cole aqui o texto copiado da tabela de classificação...',
   },
   jogos: {
-    title: esc => `Colar Jogos — ${esc}`,
-    hint:  `Vai ao calendário/resultados na página da competição, selecciona as linhas dos jogos (realizados e agendados), copia (Ctrl+C) e cola aqui.<br><strong>Formato esperado:</strong> cada linha deve ter data, equipa casa, resultado (ou "–"), equipa fora. A hora e local são opcionais.`,
-    ph:    'Cole aqui o texto copiado da lista de jogos...\n\nExemplo:\n22/03/2026\tSport Campinense\t3 - 1\tCD Tavira\t10:30\tEst. Municipal Loulé\n12/04/2026\tSport Campinense\t–\tOlhanense\t10:30\tEst. Municipal Loulé',
+    title: (esc, team) => `Colar Jogos — ${esc}${team ? ' · '+team : ''}`,
+    hint: `Vai ao calendário da competição, selecciona as linhas dos jogos (realizados e agendados), copia (Ctrl+C) e cola aqui.<br><strong>Formato AF Algarve:</strong> cada jogo é 5 linhas (equipa casa / data / hora ou resultado / equipa fora / local).`,
+    ph:   'Cole aqui o texto copiado da lista de jogos...',
   },
 };
 
-window.abrirColar = function(escalao, mode) {
+window.abrirColar = function(escalao, mode, teamKey) {
   _colarEscalao = escalao;
   _colarMode    = mode;
-  const m   = document.getElementById('colarClassModal');
-  const cfg = COLAR_CONFIG[mode];
-  if (!m || !cfg) return;
-  m.querySelector('#colarClassTitle').textContent   = cfg.title(escalao);
-  m.querySelector('#colarClassHint').innerHTML       = cfg.hint;
-  m.querySelector('#colarClassTA').value             = '';
-  m.querySelector('#colarClassTA').placeholder       = cfg.ph;
-  m.querySelector('#colarClassPreview').innerHTML    = '';
+  _colarTeam    = teamKey || '';
+  const cfg  = loadClassConfig();
+  const teamNome = teamKey ? (cfg[escalao]?.teams?.[teamKey]?.nome || teamKey) : '';
+  const c    = COLAR_CONFIG[mode];
+  const m    = document.getElementById('colarClassModal');
+  if (!m || !c) return;
+  m.querySelector('#colarClassTitle').textContent  = c.title(escalao, teamNome);
+  m.querySelector('#colarClassHint').innerHTML      = c.hint;
+  m.querySelector('#colarClassTA').value            = '';
+  m.querySelector('#colarClassTA').placeholder      = c.ph;
+  m.querySelector('#colarClassPreview').innerHTML   = '';
   m.style.display = 'flex';
 };
-
-// backward-compat alias
-window.abrirColarClass = esc => abrirColar(esc, 'class');
 
 window.fecharColarClass = function() {
   const m = document.getElementById('colarClassModal');
   if (m) m.style.display = 'none';
 };
 
-// ── Parser — Classificação ──────────────────────
+// ── Parsers ───────────────────────────────────────
 function parsePastedTable(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   const rows  = [];
-
   for (const line of lines) {
-    let parts = line.includes('\t')
-      ? line.split('\t').map(p => p.trim())
-      : line.split(/\s{2,}/).map(p => p.trim());
+    let parts = line.includes('\t') ? line.split('\t').map(p=>p.trim()) : line.split(/\s{2,}/).map(p=>p.trim());
     parts = parts.filter(Boolean);
-
     if (parts.length < 5) continue;
-
     const numRe   = /^[-+]?\d+(\.\d+)?$/;
     const nameIdx = parts.findIndex(p => !numRe.test(p) && p.replace(/[^a-zA-ZÀ-ž\s]/g,'').trim().length > 1);
     if (nameIdx < 0) continue;
-
     const nome = parts[nameIdx].replace(/\*/g,'').trim();
-    const nums = parts.filter((_, i) => i !== nameIdx)
-      .map(p => parseInt(p.replace(/[^\d-]/g,'')))
-      .filter(n => !isNaN(n));
-
+    const nums = parts.filter((_,i)=>i!==nameIdx).map(p=>parseInt(p.replace(/[^\d-]/g,''))).filter(n=>!isNaN(n));
     let seq = nums;
-    if (seq.length >= 8 && seq[0] === rows.length + 1) seq = seq.slice(1);
+    if (seq.length >= 8 && seq[0] === rows.length+1) seq = seq.slice(1);
     if (seq.length < 7) continue;
-
-    let j, v, e, d, gm, gs, pts;
-    if (seq.length >= 8) { [j, v, e, d, gm, gs, , pts] = seq; }
-    else                  { [j, v, e, d, gm, gs,   pts] = seq; }
-
-    if (Math.abs(j - (v + e + d)) > 2) continue;
-
-    rows.push({
-      equipa: nome,
-      abrev:  nome.replace(/^(fc|sc|cd|cf|sl|gd|os|ad|af)\s*/i,'').slice(0,3).toUpperCase(),
-      j: j||0, v: v||0, e: e||0, d: d||0,
-      gm: gm||0, gs: gs||0, dg: (gm||0)-(gs||0),
-      pts: pts||0, forma: '',
-    });
+    let j,v,e,d,gm,gs,pts;
+    if (seq.length >= 8) { [j,v,e,d,gm,gs,,pts] = seq; } else { [j,v,e,d,gm,gs,pts] = seq; }
+    if (Math.abs(j-(v+e+d)) > 2) continue;
+    rows.push({ equipa:nome, abrev:nome.replace(/^(fc|sc|cd|cf|sl|gd|os|ad|af)\s*/i,'').slice(0,3).toUpperCase(),
+      j:j||0,v:v||0,e:e||0,d:d||0,gm:gm||0,gs:gs||0,dg:(gm||0)-(gs||0),pts:pts||0,forma:'' });
   }
   return rows;
 }
 
 function markSCRows(arr) {
   const SC = ['sport campinense','campinense','js campinense'];
-  return arr.map(r => ({
-    ...r,
-    sc: SC.some(n => (r.equipa||'').toLowerCase().includes(n)) || undefined,
-  }));
+  return arr.map(r => ({ ...r, sc: SC.some(n=>(r.equipa||'').toLowerCase().includes(n))||undefined }));
 }
 
-// ── Parser — Jogos ──────────────────────────────
-const MESES_PT = {
-  jan:1,fev:2,mar:3,abr:4,mai:5,jun:6,
-  jul:7,ago:8,set:9,out:10,nov:11,dez:12,
-  janeiro:1,fevereiro:2,'março':3,abril:4,maio:5,junho:6,
-  julho:7,agosto:8,setembro:9,outubro:10,novembro:11,dezembro:12,
-};
+const MESES_PT = { jan:1,fev:2,mar:3,abr:4,mai:5,jun:6,jul:7,ago:8,set:9,out:10,nov:11,dez:12,
+  janeiro:1,fevereiro:2,'março':3,abril:4,maio:5,junho:6,julho:7,agosto:8,setembro:9,outubro:10,novembro:11,dezembro:12 };
 
 function parseDate(s) {
-  s = (s||'').trim();
+  s=(s||'').trim();
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  let m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
-  if (m) {
-    const [,d,mo,y] = m;
-    const yr = y.length===2 ? '20'+y : y;
-    return `${yr}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`;
-  }
-  m = s.match(/^(\d{1,2})[\/\-](\d{1,2})$/);
-  if (m) return `2026-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
-  m = s.match(/^(\d{1,2})\s+([A-Za-zÀ-ž]+)(?:\s+(\d{2,4}))?$/);
-  if (m) {
-    const mo = MESES_PT[(m[2]||'').toLowerCase().slice(0,3)];
-    if (mo) {
-      const yr = m[3] ? (m[3].length===2?'20'+m[3]:m[3]) : '2026';
-      return `${yr}-${String(mo).padStart(2,'0')}-${m[1].padStart(2,'0')}`;
-    }
-  }
+  let m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if(m){const yr=m[3].length===2?'20'+m[3]:m[3];return `${yr}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;}
+  m=s.match(/^(\d{1,2})[\/\-](\d{1,2})$/);
+  if(m) return `2026-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  m=s.match(/^(\d{1,2})\s+([A-Za-zÀ-ž]+)(?:\s+(\d{2,4}))?$/);
+  if(m){const mo=MESES_PT[(m[2]||'').toLowerCase().slice(0,3)];if(mo){const yr=m[3]?(m[3].length===2?'20'+m[3]:m[3]):'2026';return `${yr}-${String(mo).padStart(2,'0')}-${m[1].padStart(2,'0')}`;}}
   return null;
 }
-
 function parseTime(s) {
-  s = (s||'').trim();
-  const m = s.match(/^(\d{1,2})[h:](\d{2})$/i);
-  if (!m) return null;
-  const h = parseInt(m[1]), mi = parseInt(m[2]);
-  if (h > 23 || mi > 59) return null;
-  return `${String(h).padStart(2,'0')}:${m[2]}`;
+  s=(s||'').trim(); const m=s.match(/^(\d{1,2})[h:](\d{2})$/i);
+  if(!m) return null; const h=parseInt(m[1]),mi=parseInt(m[2]);
+  if(h>23||mi>59) return null; return `${String(h).padStart(2,'0')}:${m[2]}`;
 }
-
 function parseScore(s) {
-  s = (s||'').trim();
-  const m = s.match(/^(\d{1,3})\s*[-:]\s*(\d{1,3})$/);
-  if (!m) return null;
-  if (parseTime(s)) return null; // "1:30" could be time
-  return { gcasa: parseInt(m[1]), gfora: parseInt(m[2]) };
+  s=(s||'').trim(); const m=s.match(/^(\d{1,3})\s*[-:]\s*(\d{1,3})$/);
+  if(!m) return null; if(parseTime(s)) return null;
+  return { gcasa:parseInt(m[1]), gfora:parseInt(m[2]) };
 }
 
 function parsePastedJogos(text) {
-  const raw    = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const raw = text.split('\n').map(l=>l.trim()).filter(Boolean);
   const idBase = { v: Date.now() };
-  const next   = () => idBase.v++;
-
-  // ── Detect format ──────────────────────────────
-  // Multi-line (AF Algarve): some lines are ONLY a date or ONLY a time.
-  // e.g. "3 mai", "11:00", "Js Campinense", "Cdr Quarteirense", "Campo Municipal..."
-  const dateOnlyLines = raw.filter(l => /^\d{1,2}\s+[A-Za-zÀ-ž]{3,}(\s+\d{4})?$/.test(l) && parseDate(l));
-  const isMultiLine   = dateOnlyLines.length > 0;
-
-  if (isMultiLine) return parseMultiLineJogos(raw, next);
+  const next = () => idBase.v++;
+  const dateOnlyLines = raw.filter(l=>/^\d{1,2}\s+[A-Za-zÀ-ž]{3,}(\s+\d{4})?$/.test(l)&&parseDate(l));
+  if (dateOnlyLines.length > 0) return parseMultiLineJogos(raw, next);
   return parseSingleLineJogos(raw, next);
 }
 
-// ── Multi-line format (AF Algarve) ─────────────
-// Structure per game (5 lines):
-//   Home Team
-//   Date          ← anchor
-//   Time OR Score
-//   Away Team
-//   Venue (optional)
 function parseMultiLineJogos(lines, next) {
   const jogos = [];
-
-  // Find all lines that are dates
   const dateIdxs = [];
-  for (let i = 0; i < lines.length; i++) {
-    if (parseDate(lines[i]) && /^\d{1,2}[\s\/\-]/.test(lines[i])) dateIdxs.push(i);
-  }
-
+  for (let i=0;i<lines.length;i++) { if(parseDate(lines[i])&&/^\d{1,2}[\s\/\-]/.test(lines[i])) dateIdxs.push(i); }
   for (const d of dateIdxs) {
-    if (d < 1) continue;               // need at least one line before for home team
-    if (d + 2 >= lines.length) continue; // need at least time + away
-
-    const home      = lines[d - 1].trim();
-    const dateStr   = parseDate(lines[d]);
-    const mid       = lines[d + 1].trim(); // time OR score
-    const away      = lines[d + 2].trim();
-    const venueRaw  = lines[d + 3] ? lines[d + 3].trim() : '';
-
-    // mid can be time (11:00) or score (2 - 1)
-    const timeObj  = parseTime(mid);
-    const scoreObj = !timeObj ? parseScore(mid) : null;
-
-    // Sanity: home and away should not be dates or times/scores
-    if (parseDate(home) || parseDate(away)) continue;
-    if (parseTime(home) || parseScore(home)) continue;
-
-    // venue: only use if it doesn't look like another home team (i.e. next dateIdx is d+5 or more)
-    const nextDateIdx = dateIdxs.find(i => i > d);
-    const venueIsGame = nextDateIdx !== undefined && nextDateIdx <= d + 4;
-    const local = (!venueIsGame && venueRaw && !parseDate(venueRaw) && !parseTime(venueRaw) && !parseScore(venueRaw))
-      ? venueRaw : '';
-
-    jogos.push({
-      id:    next(),
-      casa:  home,
-      fora:  away,
-      gcasa: scoreObj ? scoreObj.gcasa : null,
-      gfora: scoreObj ? scoreObj.gfora : null,
-      data:  dateStr,
-      hora:  timeObj || '15:00',
-      local,
-      estado: scoreObj ? 'Realizado' : 'Agendado',
-    });
+    if(d<1||d+2>=lines.length) continue;
+    const home=lines[d-1].trim(), dateStr=parseDate(lines[d]), mid=lines[d+1].trim(), away=lines[d+2].trim(), venueRaw=lines[d+3]||'';
+    const timeObj=parseTime(mid), scoreObj=!timeObj?parseScore(mid):null;
+    if(parseDate(home)||parseDate(away)||parseTime(home)||parseScore(home)) continue;
+    const nextDateIdx=dateIdxs.find(i=>i>d);
+    const venueIsGame=nextDateIdx!==undefined&&nextDateIdx<=d+4;
+    const local=(!venueIsGame&&venueRaw&&!parseDate(venueRaw)&&!parseTime(venueRaw)&&!parseScore(venueRaw))?venueRaw.trim():'';
+    jogos.push({ id:next(),casa:home,fora:away,gcasa:scoreObj?scoreObj.gcasa:null,gfora:scoreObj?scoreObj.gfora:null,data:dateStr,hora:timeObj||'15:00',local,estado:scoreObj?'Realizado':'Agendado' });
   }
   return jogos;
 }
 
-// ── Single-line format (tab or multi-space) ────
 function parseSingleLineJogos(lines, next) {
   const jogos = [];
-
   for (const line of lines) {
-    let parts = line.includes('\t')
-      ? line.split('\t').map(p => p.trim())
-      : line.split(/\s{2,}/).map(p => p.trim());
-    parts = parts.filter(Boolean);
-
-    if (parts.length < 3) continue;
-
-    let dateIdx = -1, scoreIdx = -1, timeIdx = -1;
-    for (let i = 0; i < parts.length; i++) {
-      if (dateIdx  < 0 && parseDate(parts[i]))  { dateIdx  = i; continue; }
-      if (scoreIdx < 0 && parseScore(parts[i])) { scoreIdx = i; continue; }
-      if (timeIdx  < 0 && parseTime(parts[i]))  { timeIdx  = i; continue; }
+    let parts=line.includes('\t')?line.split('\t').map(p=>p.trim()):line.split(/\s{2,}/).map(p=>p.trim());
+    parts=parts.filter(Boolean);
+    if(parts.length<3) continue;
+    let dateIdx=-1,scoreIdx=-1,timeIdx=-1;
+    for(let i=0;i<parts.length;i++){
+      if(dateIdx<0&&parseDate(parts[i])){dateIdx=i;continue;}
+      if(scoreIdx<0&&parseScore(parts[i])){scoreIdx=i;continue;}
+      if(timeIdx<0&&parseTime(parts[i])){timeIdx=i;continue;}
     }
-
-    if (dateIdx < 0) continue;
-
-    const dateStr  = parseDate(parts[dateIdx]);
-    const horaStr  = timeIdx >= 0 ? parseTime(parts[timeIdx]) : '15:00';
-    const scoreObj = scoreIdx >= 0 ? parseScore(parts[scoreIdx]) : null;
-
-    const used = new Set([dateIdx, scoreIdx, timeIdx].filter(i => i >= 0));
-    const rest = parts.filter((_, i) => !used.has(i));
-
-    let casa, fora, local;
-    if (scoreIdx >= 0) {
-      let prev = -1, nx = -1;
-      for (let i = scoreIdx-1; i >= 0; i--) { if (!used.has(i)) { prev = i; break; } }
-      for (let i = scoreIdx+1; i < parts.length; i++) { if (!used.has(i)) { nx = i; break; } }
-      casa  = prev >= 0 ? parts[prev] : rest[0];
-      fora  = nx   >= 0 ? parts[nx]   : rest[1];
-      const ti = new Set([prev, nx].filter(i => i >= 0));
-      local = parts.filter((_, i) => !used.has(i) && !ti.has(i))[0] || '';
+    if(dateIdx<0) continue;
+    const dateStr=parseDate(parts[dateIdx]),horaStr=timeIdx>=0?parseTime(parts[timeIdx]):'15:00',scoreObj=scoreIdx>=0?parseScore(parts[scoreIdx]):null;
+    const used=new Set([dateIdx,scoreIdx,timeIdx].filter(i=>i>=0));
+    const rest=parts.filter((_,i)=>!used.has(i));
+    let casa,fora,local;
+    if(scoreIdx>=0){
+      let prev=-1,nx=-1;
+      for(let i=scoreIdx-1;i>=0;i--){if(!used.has(i)){prev=i;break;}}
+      for(let i=scoreIdx+1;i<parts.length;i++){if(!used.has(i)){nx=i;break;}}
+      casa=prev>=0?parts[prev]:rest[0]; fora=nx>=0?parts[nx]:rest[1];
+      const ti=new Set([prev,nx].filter(i=>i>=0));
+      local=parts.filter((_,i)=>!used.has(i)&&!ti.has(i))[0]||'';
     } else {
-      const vsIdx = rest.findIndex(p => /^vs\.?$/i.test(p));
-      if (vsIdx >= 0) { casa = rest.slice(0,vsIdx).join(' '); fora = rest.slice(vsIdx+1).join(' '); local = ''; }
-      else            { [casa='', fora='', local=''] = rest; }
+      const vsIdx=rest.findIndex(p=>/^vs\.?$/i.test(p));
+      if(vsIdx>=0){casa=rest.slice(0,vsIdx).join(' ');fora=rest.slice(vsIdx+1).join(' ');local='';}
+      else{[casa='',fora='',local='']=rest;}
     }
-
-    if (!casa || !fora) continue;
-
-    jogos.push({
-      id:    next(),
-      casa:  casa.trim(),
-      fora:  fora.trim(),
-      gcasa: scoreObj ? scoreObj.gcasa : null,
-      gfora: scoreObj ? scoreObj.gfora : null,
-      data:  dateStr,
-      hora:  horaStr,
-      local: (local||'').trim(),
-      estado: scoreObj ? 'Realizado' : 'Agendado',
-    });
+    if(!casa||!fora) continue;
+    jogos.push({ id:next(),casa:casa.trim(),fora:fora.trim(),gcasa:scoreObj?scoreObj.gcasa:null,gfora:scoreObj?scoreObj.gfora:null,data:dateStr,hora:horaStr,local:(local||'').trim(),estado:scoreObj?'Realizado':'Agendado' });
   }
   return jogos;
 }
 
-// ── Pré-visualizar ─────────────────────────────
+// ── Pré-visualizar ────────────────────────────────
 window.previewColarClass = function() {
-  const ta  = document.getElementById('colarClassTA');
-  const div = document.getElementById('colarClassPreview');
-  if (!ta || !div) return;
-
+  const ta=document.getElementById('colarClassTA'), div=document.getElementById('colarClassPreview');
+  if(!ta||!div) return;
   if (_colarMode === 'class') {
     const rows = parsePastedTable(ta.value);
-    if (!rows.length) {
-      div.innerHTML = `<p style="color:#c00;font-size:0.85rem">&#9888; Não foi possível reconhecer dados de classificação.<br>Certifique-se de que copiou a tabela completa (J, V, E, D, GM, GS, Pts).</p>`;
-      return;
-    }
+    if (!rows.length) { div.innerHTML=`<p style="color:#c00;font-size:0.85rem">&#9888; Não foi possível reconhecer dados de classificação.<br>Certifique-se de que copiou a tabela completa (J, V, E, D, GM, GS, Pts).</p>`; return; }
     const marked = markSCRows(rows);
-    div.innerHTML = `
-      <p style="color:#22a75e;font-size:0.85rem;margin-bottom:8px">&#10003; ${rows.length} equipas reconhecidas</p>
-      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:0.8rem">
-        <thead><tr style="background:#001b4d;color:#fff">
-          <th style="padding:5px 8px">#</th><th style="padding:5px 8px;text-align:left">Equipa</th>
-          <th style="padding:5px 8px">J</th><th style="padding:5px 8px">V</th>
-          <th style="padding:5px 8px">E</th><th style="padding:5px 8px">D</th>
-          <th style="padding:5px 8px">GM</th><th style="padding:5px 8px">GS</th>
-          <th style="padding:5px 8px">Pts</th>
-        </tr></thead>
-        <tbody>${marked.map((r,i) => `
-          <tr style="background:${r.sc?'rgba(255,209,0,0.12)':i%2===0?'#f9f9f9':'#fff'};${r.sc?'font-weight:700':''}">
-            <td style="padding:4px 8px;text-align:center">${i+1}</td>
-            <td style="padding:4px 8px">${r.equipa}${r.sc?' &#11088;':''}</td>
-            <td style="padding:4px 8px;text-align:center">${r.j}</td><td style="padding:4px 8px;text-align:center">${r.v}</td>
-            <td style="padding:4px 8px;text-align:center">${r.e}</td><td style="padding:4px 8px;text-align:center">${r.d}</td>
-            <td style="padding:4px 8px;text-align:center">${r.gm}</td><td style="padding:4px 8px;text-align:center">${r.gs}</td>
-            <td style="padding:4px 8px;text-align:center;font-weight:700;color:#001b4d">${r.pts}</td>
-          </tr>`).join('')}
-        </tbody></table></div>
-      <p style="font-size:0.75rem;color:#888;margin-top:8px">&#11088; = JS Campinense identificado. Confira antes de guardar.</p>`;
-
+    div.innerHTML = `<p style="color:#22a75e;font-size:0.85rem;margin-bottom:8px">&#10003; ${rows.length} equipas reconhecidas</p>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:0.8rem">
+      <thead><tr style="background:#001b4d;color:#fff">
+        <th style="padding:5px 8px">#</th><th style="padding:5px 8px;text-align:left">Equipa</th>
+        <th style="padding:5px 8px">J</th><th style="padding:5px 8px">V</th><th style="padding:5px 8px">E</th><th style="padding:5px 8px">D</th>
+        <th style="padding:5px 8px">GM</th><th style="padding:5px 8px">GS</th><th style="padding:5px 8px">Pts</th>
+      </tr></thead>
+      <tbody>${marked.map((r,i)=>`<tr style="background:${r.sc?'rgba(255,209,0,0.12)':i%2===0?'#f9f9f9':'#fff'};${r.sc?'font-weight:700':''}">
+        <td style="padding:4px 8px;text-align:center">${i+1}</td>
+        <td style="padding:4px 8px">${r.equipa}${r.sc?' &#11088;':''}</td>
+        <td style="padding:4px 8px;text-align:center">${r.j}</td><td style="padding:4px 8px;text-align:center">${r.v}</td>
+        <td style="padding:4px 8px;text-align:center">${r.e}</td><td style="padding:4px 8px;text-align:center">${r.d}</td>
+        <td style="padding:4px 8px;text-align:center">${r.gm}</td><td style="padding:4px 8px;text-align:center">${r.gs}</td>
+        <td style="padding:4px 8px;text-align:center;font-weight:700;color:#001b4d">${r.pts}</td>
+      </tr>`).join('')}</tbody></table></div>
+    <p style="font-size:0.75rem;color:#888;margin-top:8px">&#11088; = JS Campinense. Confira antes de guardar.</p>`;
   } else {
     const jogos = parsePastedJogos(ta.value);
-    if (!jogos.length) {
-      div.innerHTML = `<p style="color:#c00;font-size:0.85rem">&#9888; Não foi possível reconhecer jogos.<br>
-      Cada linha deve ter: data, equipa casa, resultado (ex: 3-1) ou –, equipa fora. Hora e local são opcionais.</p>`;
-      return;
-    }
-    const realizados = jogos.filter(j=>j.estado==='Realizado').length;
-    const agendados  = jogos.filter(j=>j.estado==='Agendado').length;
-    div.innerHTML = `
-      <p style="color:#22a75e;font-size:0.85rem;margin-bottom:8px">&#10003; ${jogos.length} jogos reconhecidos (${realizados} realizados · ${agendados} agendados)</p>
-      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:0.8rem">
-        <thead><tr style="background:#001b4d;color:#fff">
-          <th style="padding:5px 8px">Data</th><th style="padding:5px 8px;text-align:left">Casa</th>
-          <th style="padding:5px 8px">Res.</th>
-          <th style="padding:5px 8px;text-align:left">Fora</th>
-          <th style="padding:5px 8px">Hora</th><th style="padding:5px 8px;text-align:left">Local</th>
-          <th style="padding:5px 8px">Estado</th>
-        </tr></thead>
-        <tbody>${jogos.map((j,i) => {
-          const sc  = /sport campinense|campinense/i.test(j.casa+' '+j.fora);
-          const res = j.gcasa != null ? `${j.gcasa}–${j.gfora}` : '–';
-          return `<tr style="background:${sc?'rgba(255,209,0,0.1)':i%2===0?'#f9f9f9':'#fff'}">
-            <td style="padding:4px 8px;white-space:nowrap">${j.data}</td>
-            <td style="padding:4px 8px">${j.casa}</td>
-            <td style="padding:4px 8px;text-align:center;font-weight:700">${res}</td>
-            <td style="padding:4px 8px">${j.fora}</td>
-            <td style="padding:4px 8px;text-align:center">${j.hora}</td>
-            <td style="padding:4px 8px;font-size:0.75rem">${j.local}</td>
-            <td style="padding:4px 8px;text-align:center;font-size:0.75rem;color:${j.estado==='Realizado'?'#22a75e':'#888'}">${j.estado}</td>
-          </tr>`;
-        }).join('')}
-        </tbody></table></div>
-      <p style="font-size:0.75rem;color:#888;margin-top:8px">Confira os dados. Se a hora aparecer como "15:00" foi usada a hora padrão pois não foi encontrada.</p>`;
+    if (!jogos.length) { div.innerHTML=`<p style="color:#c00;font-size:0.85rem">&#9888; Não foi possível reconhecer jogos.<br>Cada jogo deve ter: data, equipa casa, resultado (ex: 3-1) ou –, equipa fora.</p>`; return; }
+    const r=jogos.filter(j=>j.estado==='Realizado').length, a=jogos.filter(j=>j.estado==='Agendado').length;
+    div.innerHTML = `<p style="color:#22a75e;font-size:0.85rem;margin-bottom:8px">&#10003; ${jogos.length} jogos reconhecidos (${r} realizados · ${a} agendados)</p>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:0.8rem">
+      <thead><tr style="background:#001b4d;color:#fff">
+        <th style="padding:5px 8px">Data</th><th style="padding:5px 8px;text-align:left">Casa</th>
+        <th style="padding:5px 8px">Res.</th><th style="padding:5px 8px;text-align:left">Fora</th>
+        <th style="padding:5px 8px">Hora</th><th style="padding:5px 8px;text-align:left">Local</th>
+        <th style="padding:5px 8px">Estado</th>
+      </tr></thead>
+      <tbody>${jogos.map((j,i)=>{
+        const sc=/sport campinense|campinense/i.test(j.casa+' '+j.fora);
+        return `<tr style="background:${sc?'rgba(255,209,0,0.1)':i%2===0?'#f9f9f9':'#fff'}">
+          <td style="padding:4px 8px;white-space:nowrap">${j.data}</td>
+          <td style="padding:4px 8px">${j.casa}</td>
+          <td style="padding:4px 8px;text-align:center;font-weight:700">${j.gcasa!=null?j.gcasa+'–'+j.gfora:'–'}</td>
+          <td style="padding:4px 8px">${j.fora}</td>
+          <td style="padding:4px 8px;text-align:center">${j.hora}</td>
+          <td style="padding:4px 8px;font-size:0.75rem">${j.local}</td>
+          <td style="padding:4px 8px;text-align:center;font-size:0.75rem;color:${j.estado==='Realizado'?'#22a75e':'#888'}">${j.estado}</td>
+        </tr>`;}).join('')}</tbody></table></div>
+    <p style="font-size:0.75rem;color:#888;margin-top:8px">Confira os dados antes de guardar.</p>`;
   }
 };
 
-// ── Guardar ────────────────────────────────────
+// ── Guardar ───────────────────────────────────────
 window.guardarColarClass = function() {
   const ta = document.getElementById('colarClassTA');
   if (!ta) return;
-
-  const now = new Date().toISOString();
-  const cfg = loadClassConfig();
-  if (!cfg[_colarEscalao]) cfg[_colarEscalao] = {};
+  const now     = new Date().toISOString();
+  const cfg     = loadClassConfig();
+  const escCfg  = cfg[_colarEscalao] || (cfg[_colarEscalao] = {});
+  const teams   = escCfg.teams || (escCfg.teams = {});
+  const teamCfg = teams[_colarTeam] || (teams[_colarTeam] = { nome: _colarTeam });
 
   if (_colarMode === 'class') {
     const rows = parsePastedTable(ta.value);
     if (!rows.length) { showToast('Nenhum dado válido para guardar', 'red'); return; }
     const final = markSCRows(rows);
-    localStorage.setItem(`fpf_class_${_colarEscalao}`, JSON.stringify(final));
-    cfg[_colarEscalao].lastSync = now;
-    cfg[_colarEscalao].nTeams  = final.length;
+    localStorage.setItem(teamStorageKey(_colarEscalao, _colarTeam, 'class'), JSON.stringify(final));
+    teamCfg.lastSync = now;
+    teamCfg.nTeams   = final.length;
     saveClassConfig(cfg);
     fecharColarClass();
     renderClassSyncRows();
-    showToast(`${_colarEscalao}: ${final.length} equipas guardadas`, 'green');
+    showToast(`${_colarEscalao} · ${teamCfg.nome}: ${final.length} equipas guardadas`, 'green');
   } else {
     const jogos = parsePastedJogos(ta.value);
     if (!jogos.length) { showToast('Nenhum jogo válido para guardar', 'red'); return; }
+    localStorage.setItem(teamStorageKey(_colarEscalao, _colarTeam, 'jogos'), JSON.stringify(jogos));
 
-    // Save to fpf_jogos (public results page)
-    localStorage.setItem(`fpf_jogos_${_colarEscalao}`, JSON.stringify(jogos));
-
-    // Also merge into DB.jogos (admin games table)
-    const escalao = _colarEscalao;
-    let added = 0, updated = 0;
+    // Merge into DB.jogos
+    const escalao = _colarEscalao, teamLabel = teamCfg.nome || _colarTeam;
+    const scRe    = /sport campinense|js campinense|campinense/i;
+    let added=0, updated=0;
     for (const j of jogos) {
-      const key = (n => n.toLowerCase().trim());
-      const existing = DB.jogos.find(e =>
-        e.data === j.data &&
-        key(e.casa) === key(j.casa) &&
-        key(e.fora) === key(j.fora)
-      );
-      if (existing) {
-        // Update result if now available
-        if (j.estado === 'Realizado' && existing.estado === 'Agendado') {
-          existing.gcasa  = j.gcasa;
-          existing.gfora  = j.gfora;
-          existing.estado = 'Realizado';
-          updated++;
-        }
+      const kc = s => (s||'').toLowerCase().trim();
+      const ex  = DB.jogos.find(e => e.data===j.data && kc(e.casa)===kc(j.casa) && kc(e.fora)===kc(j.fora));
+      if (ex) {
+        if (j.estado==='Realizado' && ex.estado==='Agendado') { ex.gcasa=j.gcasa; ex.gfora=j.gfora; ex.estado='Realizado'; updated++; }
       } else {
-        DB.jogos.push({
-          id:      Date.now() + Math.floor(Math.random() * 10000),
-          escalao,
-          casa:    j.casa,
-          fora:    j.fora,
-          gcasa:   j.gcasa,
-          gfora:   j.gfora,
-          data:    j.data,
-          hora:    j.hora,
-          local:   j.local,
-          estado:  j.estado,
-        });
+        DB.jogos.push({ id:Date.now()+Math.floor(Math.random()*10000), escalao, equipa:teamLabel,
+          casa:j.casa, fora:j.fora, gcasa:j.gcasa, gfora:j.gfora, data:j.data, hora:j.hora, local:j.local, estado:j.estado });
         added++;
       }
     }
     saveDB();
     renderJogos();
 
-    cfg[_colarEscalao].lastJogos = now;
-    cfg[_colarEscalao].nJogos   = jogos.length;
+    teamCfg.lastJogos = now;
+    teamCfg.nJogos    = jogos.length;
     saveClassConfig(cfg);
     fecharColarClass();
     renderClassSyncRows();
-    showToast(`${escalao}: ${added} jogos adicionados${updated ? ', ' + updated + ' actualizados' : ''}`, 'green');
+    showToast(`${escalao} · ${teamLabel}: ${added} jogos adicionados${updated?', '+updated+' actualizados':''}`, 'green');
   }
 };
+
 
 
 

@@ -51,6 +51,25 @@
 .tab:hover { color: var(--blue); }
 .tab.active { color: var(--blue); border-bottom-color: var(--yellow); }
 
+/* ---- TEAM SELECTOR ---- */
+.teams-bar {
+  background: #f0f4ff;
+  border-bottom: 2px solid var(--blue-light, #e8eef8);
+}
+.teams-inner {
+  display: flex; gap: 0; overflow-x: auto; scrollbar-width: none;
+}
+.teams-inner::-webkit-scrollbar { display: none; }
+.team-tab {
+  padding: 11px 24px;
+  background: none; border: none; border-bottom: 3px solid transparent;
+  font-family: var(--font-body); font-size: 0.85rem; font-weight: 700;
+  color: var(--gray-mid); cursor: pointer; white-space: nowrap;
+  transition: all var(--transition); letter-spacing: 0.4px;
+}
+.team-tab:hover { color: var(--blue); }
+.team-tab.active { color: var(--blue); border-bottom-color: var(--blue); background: rgba(0,59,142,0.05); }
+
 /* ---- SECTION ---- */
 .res-section { padding: 40px 0 80px; background: var(--gray-light); }
 
