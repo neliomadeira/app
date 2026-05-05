@@ -630,6 +630,151 @@ window.removeAtleta = function (id) {
 };
 
 // ==================================================
+// IMPORTAR PLANTEL FPF (paste-from-table)
+// ==================================================
+
+document.getElementById('btnImportarPlantel')?.addEventListener('click', () => {
+  document.getElementById('plantelModal').style.display = 'flex';
+});
+
+window.fecharPlantel = function () {
+  document.getElementById('plantelModal').style.display = 'none';
+  document.getElementById('plantelTA').value = '';
+  document.getElementById('plantelPreview').innerHTML = '';
+};
+
+const _FPF_POS = {
+  'GR':'Guarda-redes','GK':'Guarda-redes','G':'Guarda-redes',
+  'DC':'Central','CB':'Central',
+  'DD':'Defesa Direito','RB':'Defesa Direito','DR':'Defesa Direito',
+  'DE':'Defesa Esquerdo','LB':'Defesa Esquerdo','DL':'Defesa Esquerdo','DLE':'Defesa Esquerdo',
+  'MD':'Médio Defensivo','MDC':'Médio Defensivo','MDF':'Médio Defensivo',
+  'MED':'Médio','MC':'Médio','M':'Médio','CM':'Médio','MEO':'Médio','MO':'Médio','AM':'Médio',
+  'EX':'Extremo','W':'Extremo','LW':'Extremo','RW':'Extremo','LD':'Extremo','LE':'Extremo',
+  'AV':'Avançado','ST':'Avançado','PL':'Avançado','CF':'Avançado','CA':'Avançado',
+};
+
+function _mapPos(code) {
+  if (!code) return '';
+  return _FPF_POS[code.toUpperCase().trim()] || '';
+}
+
+function _isNac(str) {
+  return /^[A-Z]{2,3}$/.test(str.trim()) || /[\u{1F1E0}-\u{1F1FF}]{2}/u.test(str);
+}
+
+function parsePastedAtletas(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const players = [];
+
+  for (const line of lines) {
+    if (/^(nº|n\.|nome|jogador|pos|posição|nat\.|nac\.|equipa|escalão|clube|data)/i.test(line)) continue;
+
+    const parts = line.split(/\t+/).map(p => p.trim()).filter(Boolean);
+    if (!parts.length) continue;
+
+    let numero = '', nome = '', posicao = '';
+
+    if (parts.length === 1) {
+      if (/^\d+$/.test(parts[0])) continue;
+      nome = parts[0];
+    } else {
+      let lo = 0, hi = parts.length;
+
+      if (/^\d{1,3}$/.test(parts[0])) { numero = parts[0]; lo++; }
+      if (hi > lo + 1 && _isNac(parts[hi - 1])) hi--;
+      if (hi > lo + 1 && _mapPos(parts[hi - 1])) { posicao = _mapPos(parts[hi - 1]); hi--; }
+
+      nome = parts.slice(lo, hi).join(' ').trim();
+    }
+
+    if (!nome || nome.length < 2 || /^\d+$/.test(nome)) continue;
+    players.push({ numero, nome, posicao });
+  }
+  return players;
+}
+
+window.previewPlantel = function () {
+  const text = document.getElementById('plantelTA').value.trim();
+  const escalao = document.getElementById('plantelEscalao').value;
+  const prev = document.getElementById('plantelPreview');
+  if (!text) { prev.innerHTML = ''; return; }
+
+  const players = parsePastedAtletas(text);
+  if (!players.length) {
+    prev.innerHTML = '<p style="color:#c00;font-size:0.85rem">Nenhum jogador reconhecido. Certifica-te de que copiaste a tabela completa.</p>';
+    return;
+  }
+
+  const existNames = DB.atletas.filter(a => a.escalao === escalao).map(a => a.nome.toLowerCase());
+  const novos = players.filter(p => !existNames.includes(p.nome.toLowerCase())).length;
+  const dups   = players.length - novos;
+
+  prev.innerHTML = `
+    <div style="font-size:0.82rem;color:#555;margin-bottom:8px">
+      <strong>${players.length}</strong> jogadores reconhecidos
+      · <span style="color:#16a34a">${novos} novos</span>
+      ${dups ? `· <span style="color:#d97706">${dups} duplicados</span>` : ''}
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
+      <thead><tr style="background:#f0f4ff">
+        <th style="padding:6px 10px;text-align:left">Nº</th>
+        <th style="padding:6px 10px;text-align:left">Nome</th>
+        <th style="padding:6px 10px;text-align:left">Posição</th>
+        <th style="padding:6px 10px;text-align:left"></th>
+      </tr></thead>
+      <tbody>${players.map(p => {
+        const dup = existNames.includes(p.nome.toLowerCase());
+        return `<tr style="border-bottom:1px solid #eee${dup ? ';opacity:0.55' : ''}">
+          <td style="padding:5px 10px;color:#888">${p.numero}</td>
+          <td style="padding:5px 10px;font-weight:600">${p.nome}</td>
+          <td style="padding:5px 10px">${p.posicao || '—'}</td>
+          <td style="padding:5px 10px">${dup
+            ? '<span style="color:#d97706;font-size:0.75rem">duplicado</span>'
+            : '<span style="color:#16a34a;font-size:0.75rem">novo</span>'}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+};
+
+window.guardarPlantel = function () {
+  const text    = document.getElementById('plantelTA').value.trim();
+  const escalao = document.getElementById('plantelEscalao').value;
+  const dupMode = document.getElementById('plantelDup').value;
+  if (!text) return;
+
+  const players = parsePastedAtletas(text);
+  if (!players.length) { showToast('Nenhum jogador reconhecido.', 'red'); return; }
+
+  let added = 0, skipped = 0, replaced = 0;
+
+  for (const p of players) {
+    const idx = DB.atletas.findIndex(
+      a => a.nome.toLowerCase() === p.nome.toLowerCase() && a.escalao === escalao
+    );
+    if (idx > -1) {
+      if (dupMode === 'replace' && p.posicao) { DB.atletas[idx].posicao = p.posicao; replaced++; }
+      else skipped++;
+    } else {
+      DB.atletas.push({
+        id: Date.now() + Math.random(),
+        nome: p.nome, escalao, posicao: p.posicao || '',
+        dataNascimento: '', encarregado: '—', telefone: '', estado: 'Activo',
+      });
+      added++;
+    }
+  }
+
+  saveDB(); renderAtletas(); updateBadges(); fecharPlantel();
+  const msg = [
+    added    ? `${added} importados`    : '',
+    replaced ? `${replaced} atualizados` : '',
+    skipped  ? `${skipped} ignorados`    : '',
+  ].filter(Boolean).join(', ');
+  showToast(msg + '.', 'green');
+};
+
+// ==================================================
 // UTILITÁRIO: UPLOAD DE IMAGEM
 // ==================================================
 
