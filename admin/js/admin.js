@@ -663,10 +663,59 @@ function _isNac(str) {
   return /^[A-Z]{2,3}$/.test(str.trim()) || /[\u{1F1E0}-\u{1F1FF}]{2}/u.test(str);
 }
 
+function _normalizeDateFPF(str) {
+  // "12 abr 2009" or "12/04/2009" or "2009-04-12" -> "YYYY-MM-DD"
+  const months = {jan:'01',fev:'02',mar:'03',abr:'04',mai:'05',jun:'06',jul:'07',ago:'08',set:'09',out:'10',nov:'11',dez:'12'};
+  const m1 = str.match(/^(\d{1,2})\s+([a-z]{3})\s+(\d{4})$/i);
+  if (m1) {
+    const mm = months[m1[2].toLowerCase()];
+    return mm ? `${m1[3]}-${mm}-${m1[1].padStart(2,'0')}` : '';
+  }
+  const m2 = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m2) return `${m2[3]}-${m2[2].padStart(2,'0')}-${m2[1].padStart(2,'0')}`;
+  const m3 = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m3) return str;
+  return '';
+}
+
 function parsePastedAtletas(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   const players = [];
 
+  // Detect FPF card format: lines of NAMES (all-caps) alternating with "Data de nascimento:" + date
+  const hasCardFormat = lines.some(l => /^data de nascimento[:\s]/i.test(l));
+
+  if (hasCardFormat) {
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      // Skip header/filter UI lines
+      if (/^(filtrar|escalão|filtre|jogadores inscritos|clube|equipa)/i.test(line)) { i++; continue; }
+      // Skip "Data de nascimento:" label lines
+      if (/^data de nascimento/i.test(line)) { i++; continue; }
+      // Skip pure dates
+      if (_normalizeDateFPF(line)) { i++; continue; }
+      // Skip short numeric or single-word non-name tokens
+      if (/^\d+$/.test(line) || line.length < 3) { i++; continue; }
+
+      // This should be a name — look ahead for date
+      let nome = line.replace(/\s+/g, ' ').trim();
+      let dataNascimento = '';
+      let j = i + 1;
+      while (j < lines.length && j < i + 4) {
+        if (/^data de nascimento/i.test(lines[j])) { j++; continue; }
+        const d = _normalizeDateFPF(lines[j]);
+        if (d) { dataNascimento = d; j++; break; }
+        break;
+      }
+      i = j;
+      if (!nome || nome.length < 2) continue;
+      players.push({ numero: '', nome, posicao: '', dataNascimento });
+    }
+    return players;
+  }
+
+  // Fallback: tab-separated table format
   for (const line of lines) {
     if (/^(nº|n\.|nome|jogador|pos|posição|nat\.|nac\.|equipa|escalão|clube|data)/i.test(line)) continue;
 
@@ -689,7 +738,7 @@ function parsePastedAtletas(text) {
     }
 
     if (!nome || nome.length < 2 || /^\d+$/.test(nome)) continue;
-    players.push({ numero, nome, posicao });
+    players.push({ numero, nome, posicao, dataNascimento: '' });
   }
   return players;
 }
@@ -718,16 +767,16 @@ window.previewPlantel = function () {
     </div>
     <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
       <thead><tr style="background:#f0f4ff">
-        <th style="padding:6px 10px;text-align:left">Nº</th>
         <th style="padding:6px 10px;text-align:left">Nome</th>
+        <th style="padding:6px 10px;text-align:left">Dt. Nasc.</th>
         <th style="padding:6px 10px;text-align:left">Posição</th>
         <th style="padding:6px 10px;text-align:left"></th>
       </tr></thead>
       <tbody>${players.map(p => {
         const dup = existNames.includes(p.nome.toLowerCase());
         return `<tr style="border-bottom:1px solid #eee${dup ? ';opacity:0.55' : ''}">
-          <td style="padding:5px 10px;color:#888">${p.numero}</td>
           <td style="padding:5px 10px;font-weight:600">${p.nome}</td>
+          <td style="padding:5px 10px;color:#888">${p.dataNascimento || '—'}</td>
           <td style="padding:5px 10px">${p.posicao || '—'}</td>
           <td style="padding:5px 10px">${dup
             ? '<span style="color:#d97706;font-size:0.75rem">duplicado</span>'
@@ -759,7 +808,7 @@ window.guardarPlantel = function () {
       DB.atletas.push({
         id: Date.now() + Math.random(),
         nome: p.nome, escalao, posicao: p.posicao || '',
-        dataNascimento: '', encarregado: '—', telefone: '', estado: 'Activo',
+        dataNascimento: p.dataNascimento || '', encarregado: '—', telefone: '', estado: 'Activo',
       });
       added++;
     }
