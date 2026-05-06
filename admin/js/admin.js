@@ -164,6 +164,7 @@ function goToPage(name) {
     galeria: 'Galeria', treinadores: 'Treinadores & Staff',
     agenda: 'Agenda & Eventos', modalidades: 'Modalidades',
     seniores: 'Equipa Sénior', configuracoes: 'Configurações',
+    formacao: 'Futebol Formação',
   };
   document.getElementById('topbarTitle').textContent = titles[name] || name;
   document.getElementById('sidebar').classList.remove('open');
@@ -176,6 +177,7 @@ function goToPage(name) {
   if (name === 'agenda') initAgenda();
   if (name === 'modalidades') initModalidades();
   if (name === 'seniores') initSeniores();
+  if (name === 'formacao') initFormacao();
   if (name === 'configuracoes') initConfiguracoes();
 }
 
@@ -3536,6 +3538,265 @@ function guardarInfoSeniores() {
   const btn = document.getElementById('btnGuardarInfoSeniores');
   if (btn) { btn.textContent = '✓ Guardado!'; setTimeout(() => { btn.textContent = '💾 Guardar Informações'; }, 2000); }
 }
+
+// ==================================================
+// FUTEBOL FORMAÇÃO — escalões Sub-9 a Sub-19
+// ==================================================
+
+const FORMACAO_ESCALOES = ['Sub-9','Sub-11','Sub-13','Sub-15','Sub-17','Sub-19'];
+let _formacaoEscalao = 'Sub-9';
+
+function initFormacao() {
+  // Render tabs if not yet rendered
+  const tabsEl = document.getElementById('formacaoTabs');
+  if (tabsEl && !tabsEl.dataset.ready) {
+    tabsEl.dataset.ready = '1';
+    tabsEl.innerHTML = FORMACAO_ESCALOES.map(e =>
+      `<button class="tab-filter${e === _formacaoEscalao ? ' active' : ''}" data-ef="${e}">${e}</button>`
+    ).join('');
+    tabsEl.addEventListener('click', e => {
+      const btn = e.target.closest('[data-ef]');
+      if (!btn) return;
+      tabsEl.querySelectorAll('.tab-filter').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      _formacaoEscalao = btn.dataset.ef;
+      _renderFormacao();
+    });
+  }
+
+  // Bind buttons (guard against duplicate listeners)
+  const btnNovo = document.getElementById('btnFormacaoNovoAtleta');
+  if (btnNovo && !btnNovo._bf) {
+    btnNovo._bf = true;
+    btnNovo.addEventListener('click', () => editFormacaoAtleta(null));
+  }
+  const btnImp = document.getElementById('btnFormacaoImportar');
+  if (btnImp && !btnImp._bf) {
+    btnImp._bf = true;
+    btnImp.addEventListener('click', () => {
+      // Open the existing plantel modal with the current escalão pre-selected
+      const sel = document.getElementById('plantelEscalao');
+      if (sel) sel.value = _formacaoEscalao;
+      document.getElementById('plantelModal').style.display = 'flex';
+    });
+  }
+
+  _renderFormacao();
+}
+
+function _renderFormacao() {
+  document.getElementById('formacaoTitle').textContent = `Futebol Formação — ${_formacaoEscalao}`;
+  _renderFormacaoInfo();
+  _renderFormacaoTable();
+}
+
+function _renderFormacaoInfo() {
+  const e = (DB.escaloes || []).find(e => e.nome === _formacaoEscalao) || {};
+  const card = document.getElementById('formacaoInfoCard');
+  if (!card) return;
+  card.innerHTML = `
+    <div class="card">
+      <h2 class="card__title" style="margin-bottom:16px">ℹ️ Informações da Equipa</h2>
+      <div class="form-grid" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px">
+        <div class="form-group">
+          <label class="form-label">Designação</label>
+          <input class="form-control" id="fmInfoDesig" value="${e.designacao || ''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Faixa Etária</label>
+          <input class="form-control" id="fmInfoFaixa" value="${e.faixa || ''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Treinador Principal</label>
+          <input class="form-control" id="fmInfoTreinador" value="${e.treinador || ''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Horários de Treino</label>
+          <input class="form-control" id="fmInfoTreinos" value="${e.treinos || ''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Competição / Liga</label>
+          <input class="form-control" id="fmInfoComp" value="${e.competicao || ''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Local de Treino</label>
+          <input class="form-control" id="fmInfoLocal" value="${e.local || ''}">
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:12px">
+        <label class="form-label">Descrição</label>
+        <textarea class="form-control" id="fmInfoDesc" rows="2">${e.descricao || ''}</textarea>
+      </div>
+      <button class="btn-save" id="btnGuardarInfoFormacao" style="margin-top:12px">💾 Guardar Informações</button>
+    </div>`;
+  document.getElementById('btnGuardarInfoFormacao').addEventListener('click', _guardarInfoFormacao);
+}
+
+function _guardarInfoFormacao() {
+  const e = (DB.escaloes || []).find(e => e.nome === _formacaoEscalao);
+  if (!e) return;
+  e.designacao = document.getElementById('fmInfoDesig')?.value.trim() || e.designacao;
+  e.faixa      = document.getElementById('fmInfoFaixa')?.value.trim()    || e.faixa;
+  e.treinador  = document.getElementById('fmInfoTreinador')?.value.trim() || '';
+  e.treinos    = document.getElementById('fmInfoTreinos')?.value.trim()   || '';
+  e.competicao = document.getElementById('fmInfoComp')?.value.trim()     || '';
+  e.local      = document.getElementById('fmInfoLocal')?.value.trim()    || '';
+  e.descricao  = document.getElementById('fmInfoDesc')?.value.trim()     || '';
+  saveDB();
+  const btn = document.getElementById('btnGuardarInfoFormacao');
+  if (btn) { btn.textContent = '✓ Guardado!'; setTimeout(() => { btn.innerHTML = '💾 Guardar Informações'; }, 2000); }
+}
+
+function _renderFormacaoTable() {
+  const tbody = document.querySelector('#formacaoTable tbody');
+  if (!tbody) return;
+  const atletas = (DB.atletas || []).filter(a => a.escalao === _formacaoEscalao);
+  if (!atletas.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#aaa;padding:24px">Nenhum atleta registado para este escalão</td></tr>';
+    return;
+  }
+  const sorted = [...atletas].sort((a, b) => {
+    const ap = a.posicao || 'z', bp = b.posicao || 'z';
+    return ap < bp ? -1 : ap > bp ? 1 : a.nome.localeCompare(b.nome);
+  });
+  const hoje = new Date();
+  tbody.innerHTML = sorted.map(a => {
+    const nasc = a.dataNascimento ? new Date(a.dataNascimento + 'T00:00:00') : null;
+    const isAniv = nasc && nasc.getDate() === hoje.getDate() && nasc.getMonth() === hoje.getMonth();
+    const avatar = a.foto
+      ? `<img src="${a.foto}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid #e5e7eb" onerror="this.style.display='none'">`
+      : `<div style="width:36px;height:36px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700">${a.nome.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()}</div>`;
+    const dateFmt = a.dataNascimento ? new Date(a.dataNascimento+'T00:00:00').toLocaleDateString('pt-PT',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+    return `<tr${isAniv?' style="background:#fffbeb"':''}>
+      <td style="padding:6px 8px">${avatar}</td>
+      <td><strong>${a.numero || '—'}</strong></td>
+      <td>${a.nome}${isAniv?' 🎂':''}</td>
+      <td>${a.posicao || '—'}</td>
+      <td style="font-size:0.82rem;color:#666">${dateFmt}</td>
+      <td>${a.estado === 'Activo' ? '<span class="badge badge--success">Activo</span>' : '<span class="badge badge--danger">Inactivo</span>'}</td>
+      <td>
+        <div class="btn-actions">
+          <button class="btn-icon" onclick="editFormacaoAtleta('${a.id}')">✏️</button>
+          <button class="btn-icon btn-icon--red" onclick="deleteFormacaoAtleta('${a.id}')">🗑️</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+window.editFormacaoAtleta = function(id) {
+  const existing = id ? (DB.atletas || []).find(a => String(a.id) === String(id)) : null;
+  const a = existing || {
+    id: 'fa_' + Date.now(),
+    nome: '', numero: '', escalao: _formacaoEscalao,
+    posicao: '', dataNascimento: '', encarregado: '', telefone: '',
+    foto: '', estado: 'Activo'
+  };
+
+  const posicoes = ['Guarda-redes','Defesa Direito','Defesa Esquerdo','Central','Médio Defensivo','Médio','Extremo','Avançado'];
+
+  openModal(id ? `Editar — ${a.nome}` : `Novo Atleta — ${_formacaoEscalao}`, `
+    <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:16px">
+      <div class="form-group">
+        <label class="form-label">Nome *</label>
+        <input class="form-control" id="fmANome" value="${a.nome}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nº Camisola</label>
+        <input class="form-control" id="fmANumero" type="number" min="1" max="99" value="${a.numero || ''}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Posição</label>
+        <select class="form-control" id="fmAPosicao">
+          <option value="">—</option>
+          ${posicoes.map(p => `<option${p===a.posicao?' selected':''}>${p}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Data de Nascimento</label>
+        <input class="form-control" id="fmADataNasc" type="date" value="${a.dataNascimento || ''}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Encarregado</label>
+        <input class="form-control" id="fmAEnc" value="${a.encarregado || ''}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Estado</label>
+        <select class="form-control" id="fmAEstado">
+          <option${a.estado==='Activo'?' selected':''}>Activo</option>
+          <option${a.estado==='Inactivo'?' selected':''}>Inactivo</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group" style="margin-top:12px">
+      <label class="form-label">Foto (URL ou upload)</label>
+      <div style="display:flex;gap:12px;align-items:center">
+        <input class="form-control" id="fmAFotoUrl" placeholder="https://... ou colar da FPF" value="${a.foto||''}" style="flex:1">
+        <label class="btn-icon" style="cursor:pointer;padding:8px 12px;background:#f0f0f0;border-radius:8px" title="Carregar ficheiro">
+          📷 <input type="file" accept="image/*" id="fmAFotoFile" style="display:none">
+        </label>
+      </div>
+      <div id="fmAFotoPreview" style="margin-top:10px;${a.foto?'':'display:none'}">
+        <img id="fmAFotoImg" src="${a.foto||''}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:3px solid #e0e0e0">
+      </div>
+    </div>`,
+    `<button class="btn-save" onclick="saveFormacaoAtleta('${a.id}','${id||''}')">💾 Guardar</button>
+     <button class="btn-cancel" onclick="closeModal()">Cancelar</button>`
+  );
+
+  document.getElementById('fmAFotoUrl').addEventListener('input', function() {
+    const prev = document.getElementById('fmAFotoPreview');
+    const img  = document.getElementById('fmAFotoImg');
+    if (this.value) { img.src = this.value; prev.style.display = ''; }
+    else prev.style.display = 'none';
+  });
+
+  document.getElementById('fmAFotoFile').addEventListener('change', function() {
+    const file = this.files[0];
+    if (!file) return;
+    compressImage(file, b64 => {
+      document.getElementById('fmAFotoUrl').value = b64;
+      document.getElementById('fmAFotoImg').src   = b64;
+      document.getElementById('fmAFotoPreview').style.display = '';
+    });
+  });
+};
+
+window.saveFormacaoAtleta = function(id, originalId) {
+  const nome = document.getElementById('fmANome')?.value.trim();
+  if (!nome) { alert('O nome é obrigatório.'); return; }
+
+  const atleta = {
+    id: originalId || id,
+    nome,
+    numero:         parseInt(document.getElementById('fmANumero')?.value) || '',
+    escalao:        _formacaoEscalao,
+    posicao:        document.getElementById('fmAPosicao')?.value || '',
+    dataNascimento: document.getElementById('fmADataNasc')?.value || '',
+    encarregado:    document.getElementById('fmAEnc')?.value.trim() || '—',
+    telefone:       '',
+    foto:           document.getElementById('fmAFotoUrl')?.value.trim() || '',
+    estado:         document.getElementById('fmAEstado')?.value || 'Activo',
+  };
+
+  if (!DB.atletas) DB.atletas = [];
+  const idx = DB.atletas.findIndex(a => String(a.id) === String(atleta.id));
+  if (idx >= 0) DB.atletas[idx] = atleta;
+  else DB.atletas.push(atleta);
+
+  saveDB();
+  closeModal();
+  _renderFormacaoTable();
+  updateBadges();
+};
+
+window.deleteFormacaoAtleta = function(id) {
+  if (!confirm('Eliminar este atleta do plantel?')) return;
+  DB.atletas = (DB.atletas || []).filter(a => String(a.id) !== String(id));
+  saveDB();
+  _renderFormacaoTable();
+  updateBadges();
+};
 
 // =============================================
 // EMOJI PICKER — componente reutilizável
