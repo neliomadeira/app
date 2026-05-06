@@ -555,19 +555,68 @@ document.getElementById('btnNovoAtleta')?.addEventListener('click', () => {
       <div class="modal-field"><label>Encarregado</label><input type="text" class="form-input" id="mEnc" placeholder="Nome do encarregado" /></div>
       <div class="modal-field"><label>Telefone</label><input type="tel" class="form-input" id="mTel" placeholder="+351 9XX XXX XXX" /></div>
     </div>
-    <div class="modal-field">
-      <label>Foto</label>
-      <input type="hidden" id="mFoto" />
-      <input type="file" id="mFotoFile" accept="image/*" style="display:none" onchange="handleAtletaFoto(this,'mFoto','mFotoPreview')" />
-      <button type="button" class="btn-sm" onclick="document.getElementById('mFotoFile').click()">&#128190; Carregar foto</button>
-      <div id="mFotoPreview" style="display:none;margin-top:8px">
-        <img src="" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:3px solid var(--blue)" />
-        <button type="button" class="btn-sm btn-icon--red" style="margin-left:8px;vertical-align:middle" onclick="clearAtletaFoto('mFoto','mFotoPreview')">&#10005;</button>
-      </div>
-    </div>`,
+    ${_fotoModalHTML()}`,
     `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
      <button class="btn-save" onclick="saveNovoAtleta()">Guardar</button>`
   );
+});
+
+function _fotoModalHTML(fotoAtual = '') {
+  return `<div class="modal-field">
+    <label>Foto</label>
+    <input type="hidden" id="mFoto" value="${fotoAtual}" />
+    <input type="file" id="mFotoFile" accept="image/*" style="display:none" onchange="handleAtletaFoto(this,'mFoto','mFotoPreview')" />
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
+      <button type="button" class="btn-sm" onclick="document.getElementById('mFotoFile').click()">&#128190; Ficheiro</button>
+      <button type="button" class="btn-sm" onclick="colarFotoClipboard()" title="Copiar imagem no FPF → colar aqui">&#128203; Colar (Ctrl+V)</button>
+      <span style="font-size:0.78rem;color:#888">Clique direito na foto do FPF → Copiar imagem → Colar aqui</span>
+    </div>
+    <div id="mFotoPreview" style="${fotoAtual ? 'display:flex;align-items:center' : 'display:none'};margin-top:4px;gap:10px">
+      <img src="${fotoAtual}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:3px solid var(--blue)" />
+      <button type="button" class="btn-sm btn-icon--red" onclick="clearAtletaFoto('mFoto','mFotoPreview')">&#10005; Remover</button>
+    </div>
+  </div>`;
+}
+
+function _setAtletaFotoB64(b64) {
+  document.getElementById('mFoto').value = b64;
+  const prev = document.getElementById('mFotoPreview');
+  prev.querySelector('img').src = b64;
+  prev.style.display = 'flex';
+  prev.style.alignItems = 'center';
+  prev.style.gap = '10px';
+}
+
+window.colarFotoClipboard = async function () {
+  try {
+    const items = await navigator.clipboard.read();
+    for (const item of items) {
+      const imgType = item.types.find(t => t.startsWith('image/'));
+      if (imgType) {
+        const blob = await item.getType(imgType);
+        const file = new File([blob], 'foto.jpg', { type: imgType });
+        compressImage(file, b64 => _setAtletaFotoB64(b64));
+        return;
+      }
+    }
+    showToast('Nenhuma imagem na área de transferência. Clique direito na foto → Copiar imagem.', 'red');
+  } catch {
+    showToast('Sem permissão para ler a área de transferência. Use Ctrl+V na zona da foto.', 'red');
+  }
+};
+
+// Ctrl+V paste na área do modal
+document.addEventListener('paste', function (e) {
+  if (!document.getElementById('mFoto')) return; // modal não está aberto
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      const file = item.getAsFile();
+      if (file) compressImage(file, b64 => _setAtletaFotoB64(b64));
+      return;
+    }
+  }
 });
 
 window.handleAtletaFoto = function(input, hiddenId, previewId) {
@@ -647,16 +696,7 @@ window.editAtleta = function (id) {
         </select>
       </div>
     </div>
-    <div class="modal-field">
-      <label>Foto</label>
-      <input type="hidden" id="mFoto" value="${a.foto || ''}" />
-      <input type="file" id="mFotoFile" accept="image/*" style="display:none" onchange="handleAtletaFoto(this,'mFoto','mFotoPreview')" />
-      <button type="button" class="btn-sm" onclick="document.getElementById('mFotoFile').click()">&#128190; ${a.foto ? 'Alterar foto' : 'Carregar foto'}</button>
-      <div id="mFotoPreview" style="${a.foto ? 'display:flex;align-items:center' : 'display:none'};margin-top:8px">
-        <img src="${a.foto || ''}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:3px solid var(--blue)" />
-        <button type="button" class="btn-sm btn-icon--red" style="margin-left:8px" onclick="clearAtletaFoto('mFoto','mFotoPreview')">&#10005; Remover foto</button>
-      </div>
-    </div>`,
+    ${_fotoModalHTML(a.foto)}`,
     `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
      <button class="btn-save" onclick="saveEditAtleta(${id})">Guardar</button>`
   );
