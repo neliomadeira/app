@@ -682,35 +682,43 @@ function parsePastedAtletas(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   const players = [];
 
-  // Detect FPF card format: lines of NAMES (all-caps) alternating with "Data de nascimento:" + date
-  const hasCardFormat = lines.some(l => /^data de nascimento[:\s]/i.test(l));
+  // Detect FPF card format: contains "Data de nascimento:" lines
+  const hasCardFormat = lines.some(l => /^data de nascimento/i.test(l));
 
   if (hasCardFormat) {
+    // In FPF card layout, player names are ALL CAPS (2+ words, only letters/spaces)
+    const isPlayerName = s => /^[A-ZÁÀÂÃÉÊÍÓÔÕÚÜÇ]{2,}(\s+[A-ZÁÀÂÃÉÊÍÓÔÕÚÜÇ]{1,}){1,}$/.test(s)
+      && !/^(JOGADORES|FILTRE|RESULTADOS|ESCALÃO|CLUBE|EQUIPA|INSCRITO|FILTRAR)/.test(s);
+
     let i = 0;
     while (i < lines.length) {
       const line = lines[i];
-      // Skip header/filter UI lines
-      if (/^(filtrar|escalão|filtre|jogadores inscritos|clube|equipa)/i.test(line)) { i++; continue; }
-      // Skip "Data de nascimento:" label lines
-      if (/^data de nascimento/i.test(line)) { i++; continue; }
-      // Skip pure dates
-      if (_normalizeDateFPF(line)) { i++; continue; }
-      // Skip short numeric or single-word non-name tokens
-      if (/^\d+$/.test(line) || line.length < 3) { i++; continue; }
 
-      // This should be a name — look ahead for date
-      let nome = line.replace(/\s+/g, ' ').trim();
+      if (!isPlayerName(line)) { i++; continue; }
+
+      // Found a name — look ahead for "Data de nascimento" + date
       let dataNascimento = '';
       let j = i + 1;
-      while (j < lines.length && j < i + 4) {
-        if (/^data de nascimento/i.test(lines[j])) { j++; continue; }
-        const d = _normalizeDateFPF(lines[j]);
+      while (j < lines.length && j < i + 5) {
+        const l = lines[j];
+        // Same line might be "Data de nascimento: 12 abr 2009"
+        const inlineDate = l.match(/data de nascimento[:\s]+(.+)/i);
+        if (inlineDate) {
+          dataNascimento = _normalizeDateFPF(inlineDate[1].trim());
+          j++;
+          break;
+        }
+        if (/^data de nascimento/i.test(l)) { j++; continue; }
+        const d = _normalizeDateFPF(l);
         if (d) { dataNascimento = d; j++; break; }
-        break;
+        // If next line is also a player name, stop looking
+        if (isPlayerName(l)) break;
+        j++;
       }
       i = j;
-      if (!nome || nome.length < 2) continue;
-      players.push({ numero: '', nome, posicao: '', dataNascimento });
+
+      const nome = line.replace(/\s+/g, ' ').trim();
+      if (nome.length >= 4) players.push({ numero: '', nome, posicao: '', dataNascimento });
     }
     return players;
   }
