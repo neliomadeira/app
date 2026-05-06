@@ -477,6 +477,12 @@ function fmtNasc(dataNascimento) {
   return d.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
+function _atletaAvatar(a) {
+  if (a.foto) return `<img src="${a.foto}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid #e5e7eb" />`;
+  const initials = a.nome.split(' ').filter(Boolean).slice(0,2).map(w => w[0]).join('').toUpperCase();
+  return `<div style="width:36px;height:36px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;flex-shrink:0">${initials}</div>`;
+}
+
 function renderAtletas(query = '') {
   const tbody = document.querySelector('#atletasTable tbody');
   let data = DB.atletas;
@@ -488,6 +494,7 @@ function renderAtletas(query = '') {
     const nasc  = a.dataNascimento ? new Date(a.dataNascimento + 'T00:00:00') : null;
     const isAniversario = nasc && nasc.getDate() === hoje.getDate() && nasc.getMonth() === hoje.getMonth();
     return `<tr${isAniversario ? ' style="background:#fffbeb"' : ''}>
+      <td style="padding:6px 8px">${_atletaAvatar(a)}</td>
       <td><strong>${a.nome}</strong>${isAniversario ? ' 🎂' : ''}</td>
       <td>${a.escalao}</td>
       <td>${a.posicao || '—'}</td>
@@ -535,11 +542,40 @@ document.getElementById('btnNovoAtleta')?.addEventListener('click', () => {
     <div class="modal-row">
       <div class="modal-field"><label>Encarregado</label><input type="text" class="form-input" id="mEnc" placeholder="Nome do encarregado" /></div>
       <div class="modal-field"><label>Telefone</label><input type="tel" class="form-input" id="mTel" placeholder="+351 9XX XXX XXX" /></div>
+    </div>
+    <div class="modal-field">
+      <label>Foto</label>
+      <input type="hidden" id="mFoto" />
+      <input type="file" id="mFotoFile" accept="image/*" style="display:none" onchange="handleAtletaFoto(this,'mFoto','mFotoPreview')" />
+      <button type="button" class="btn-sm" onclick="document.getElementById('mFotoFile').click()">&#128190; Carregar foto</button>
+      <div id="mFotoPreview" style="display:none;margin-top:8px">
+        <img src="" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:3px solid var(--blue)" />
+        <button type="button" class="btn-sm btn-icon--red" style="margin-left:8px;vertical-align:middle" onclick="clearAtletaFoto('mFoto','mFotoPreview')">&#10005;</button>
+      </div>
     </div>`,
     `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
      <button class="btn-save" onclick="saveNovoAtleta()">Guardar</button>`
   );
 });
+
+window.handleAtletaFoto = function(input, hiddenId, previewId) {
+  const file = input.files[0];
+  if (!file) return;
+  compressImage(file, b64 => {
+    document.getElementById(hiddenId).value = b64;
+    const prev = document.getElementById(previewId);
+    prev.querySelector('img').src = b64;
+    prev.style.display = 'flex';
+    prev.style.alignItems = 'center';
+  });
+};
+
+window.clearAtletaFoto = function(hiddenId, previewId) {
+  document.getElementById(hiddenId).value = '';
+  const prev = document.getElementById(previewId);
+  prev.querySelector('img').src = '';
+  prev.style.display = 'none';
+};
 
 window.saveNovoAtleta = function () {
   const nome = document.getElementById('mNome').value.trim();
@@ -552,6 +588,7 @@ window.saveNovoAtleta = function () {
     dataNascimento: document.getElementById('mDataNasc').value || '',
     encarregado:    document.getElementById('mEnc').value || '—',
     telefone:       document.getElementById('mTel').value,
+    foto:           document.getElementById('mFoto')?.value || '',
     estado: 'Activo'
   });
   saveDB();
@@ -597,6 +634,16 @@ window.editAtleta = function (id) {
           <option${a.estado==='Inactivo'?' selected':''}>Inactivo</option>
         </select>
       </div>
+    </div>
+    <div class="modal-field">
+      <label>Foto</label>
+      <input type="hidden" id="mFoto" value="${a.foto || ''}" />
+      <input type="file" id="mFotoFile" accept="image/*" style="display:none" onchange="handleAtletaFoto(this,'mFoto','mFotoPreview')" />
+      <button type="button" class="btn-sm" onclick="document.getElementById('mFotoFile').click()">&#128190; ${a.foto ? 'Alterar foto' : 'Carregar foto'}</button>
+      <div id="mFotoPreview" style="${a.foto ? 'display:flex;align-items:center' : 'display:none'};margin-top:8px">
+        <img src="${a.foto || ''}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:3px solid var(--blue)" />
+        <button type="button" class="btn-sm btn-icon--red" style="margin-left:8px" onclick="clearAtletaFoto('mFoto','mFotoPreview')">&#10005; Remover foto</button>
+      </div>
     </div>`,
     `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
      <button class="btn-save" onclick="saveEditAtleta(${id})">Guardar</button>`
@@ -612,6 +659,7 @@ window.saveEditAtleta = function (id) {
   a.dataNascimento = document.getElementById('mDataNasc').value        || a.dataNascimento || '';
   a.encarregado    = document.getElementById('mEnc').value             || a.encarregado;
   a.estado         = document.getElementById('mEstado').value;
+  a.foto           = document.getElementById('mFoto')?.value           ?? a.foto ?? '';
   saveDB();
   renderAtletas();
   updateBadges();
@@ -628,6 +676,17 @@ window.removeAtleta = function (id) {
   updateBadges();
   showToast('Atleta removido.', 'red');
 };
+
+document.getElementById('btnApagarTodosAtletas')?.addEventListener('click', () => {
+  const total = DB.atletas.length;
+  if (!total) { showToast('Não há atletas para apagar.', ''); return; }
+  if (!confirm(`Tem a certeza que pretende apagar TODOS os ${total} atletas?\n\nEsta ação não pode ser desfeita.`)) return;
+  DB.atletas = [];
+  saveDB();
+  renderAtletas();
+  updateBadges();
+  showToast(`${total} atletas removidos.`, 'red');
+});
 
 // ==================================================
 // IMPORTAR PLANTEL FPF (paste-from-table)

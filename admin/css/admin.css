@@ -604,6 +604,14 @@ ul { list-style: none; }
 }
 .btn-fpf:hover { background: #004d26; }
 
+.btn-danger {
+  background: #dc2626; color: var(--white);
+  border: none; border-radius: var(--radius);
+  padding: 9px 16px; font-family: var(--font); font-size: 0.85rem; font-weight: 700;
+  cursor: pointer; transition: background var(--transition); white-space: nowrap;
+}
+.btn-danger:hover { background: #b91c1c; }
+
 .fpf-import-panel {
   background: var(--white); border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md); margin-bottom: 20px;
