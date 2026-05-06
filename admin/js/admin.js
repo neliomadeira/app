@@ -483,9 +483,12 @@ function _atletaAvatar(a) {
   return `<div style="width:36px;height:36px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;flex-shrink:0">${initials}</div>`;
 }
 
+let _atletaEscalaoFiltro = '';
+
 function renderAtletas(query = '') {
   const tbody = document.querySelector('#atletasTable tbody');
   let data = DB.atletas;
+  if (_atletaEscalaoFiltro) data = data.filter(a => a.escalao === _atletaEscalaoFiltro);
   if (query) data = data.filter(a => a.nome.toLowerCase().includes(query.toLowerCase()));
 
   const hoje = new Date();
@@ -513,6 +516,15 @@ function renderAtletas(query = '') {
 
 document.getElementById('searchAtleta')?.addEventListener('input', function () {
   renderAtletas(this.value);
+});
+
+document.querySelectorAll('#page-atletas .tab-filter').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#page-atletas .tab-filter').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    _atletaEscalaoFiltro = btn.dataset.escalao;
+    renderAtletas(document.getElementById('searchAtleta').value);
+  });
 });
 
 document.getElementById('btnNovoAtleta')?.addEventListener('click', () => {
