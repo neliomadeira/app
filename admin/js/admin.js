@@ -818,18 +818,67 @@ function _isNac(str) {
 }
 
 function _normalizeDateFPF(str) {
-  // "12 abr 2009" or "12/04/2009" or "2009-04-12" -> "YYYY-MM-DD"
+  if (!str) return '';
+  str = str.trim();
   const months = {jan:'01',fev:'02',mar:'03',abr:'04',mai:'05',jun:'06',jul:'07',ago:'08',set:'09',out:'10',nov:'11',dez:'12'};
+  // "12 abr 2009"
   const m1 = str.match(/^(\d{1,2})\s+([a-z]{3})\s+(\d{4})$/i);
-  if (m1) {
-    const mm = months[m1[2].toLowerCase()];
-    return mm ? `${m1[3]}-${mm}-${m1[1].padStart(2,'0')}` : '';
-  }
+  if (m1) { const mm = months[m1[2].toLowerCase()]; return mm ? `${m1[3]}-${mm}-${m1[1].padStart(2,'0')}` : ''; }
+  // "12/04/2009"
   const m2 = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (m2) return `${m2[3]}-${m2[2].padStart(2,'0')}-${m2[1].padStart(2,'0')}`;
-  const m3 = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (m3) return str;
+  // "12-04-2009" (ZeroZero)
+  const m3 = str.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (m3) return `${m3[3]}-${m3[2].padStart(2,'0')}-${m3[1].padStart(2,'0')}`;
+  // "2009-04-12"
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
   return '';
+}
+
+// ZeroZero position group headers
+const _ZZ_GRUPOS = {
+  'guarda-redes':'Guarda-redes','guarda redes':'Guarda-redes',
+  'defesas':'Defesa','defesa':'Defesa',
+  'médios':'Médio','médio':'Médio','meios':'Médio','meio':'Médio',
+  'avançados':'Avançado','avançado':'Avançado',
+  'pontas de lança':'Avançado','ponta de lança':'Avançado',
+};
+function _zzGrupo(line) { return _ZZ_GRUPOS[line.toLowerCase().trim()] || null; }
+
+function _parseZeroZero(lines) {
+  const players = [];
+  let posGrupo = '';
+  for (const line of lines) {
+    if (/^(plantel|equipa|época|temporada|zerozero|guardar|filtrar|ver mais|carregar|menu|login|©|anterior|próximo|página|sub-|\.com)/i.test(line)) continue;
+    if (line.length < 2) continue;
+    const grupo = _zzGrupo(line);
+    if (grupo) { posGrupo = grupo; continue; }
+
+    const parts = line.split(/\t+|\s{2,}/).map(p => p.trim()).filter(Boolean);
+    if (!parts.length) continue;
+
+    let lo = 0, hi = parts.length;
+    let numero = '', nome = '', posicao = posGrupo, dataNascimento = '';
+
+    if (/^\d{1,2}$/.test(parts[lo])) { numero = parts[lo]; lo++; }
+    if (lo >= hi) continue;
+    // Strip trailing age "(24 anos)" or bare number ≤ 40
+    if (/^\(?\d{1,2}\s*(anos)?\)?$/i.test(parts[hi-1])) hi--;
+    // Strip trailing nationality
+    if (hi > lo + 1 && _isNac(parts[hi-1])) hi--;
+    // Strip trailing date
+    const maybeDate = _normalizeDateFPF(parts[hi-1]);
+    if (maybeDate && hi > lo + 1) { dataNascimento = maybeDate; hi--; }
+    // Strip nationality again (may appear before date)
+    if (hi > lo + 1 && _isNac(parts[hi-1])) hi--;
+    // Strip position code if no group
+    if (!posicao && hi > lo + 1 && _mapPos(parts[hi-1])) { posicao = _mapPos(parts[hi-1]); hi--; }
+
+    nome = parts.slice(lo, hi).join(' ').trim();
+    if (!nome || nome.length < 2 || /^\d+$/.test(nome)) continue;
+    players.push({ numero, nome, posicao, dataNascimento, foto: _fpfImgForName(nome) });
+  }
+  return players;
 }
 
 function parsePastedAtletas(text) {
@@ -838,6 +887,10 @@ function parsePastedAtletas(text) {
 
   // Detect FPF card format: contains "Data de nascimento:" lines
   const hasCardFormat = lines.some(l => /^data de nascimento/i.test(l));
+
+  // Detect ZeroZero format: has position group headers (Guarda-Redes, Defesas, Médios…)
+  const hasZZFormat = !hasCardFormat && lines.some(l => _zzGrupo(l) !== null);
+  if (hasZZFormat) return _parseZeroZero(lines);
 
   if (hasCardFormat) {
     // Strategy: "Data de nascimento" always follows the player name.
@@ -965,9 +1018,11 @@ window.diagPlantel = function () {
   if (!text.trim()) { prev.innerHTML = '<p style="color:#c00;font-size:0.85rem">Textarea vazia — cola primeiro o texto da FPF.</p>'; return; }
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean).slice(0, 30);
   const hasCard = lines.some(l => /^data de nascimento/i.test(l));
+  const hasZZ   = !hasCard && lines.some(l => _zzGrupo(l) !== null);
+  const modo    = hasCard ? 'FPF — Cartões (Data de nascimento)' : hasZZ ? 'ZeroZero — Grupos por posição' : 'Tabela genérica (tab-separada)';
   prev.innerHTML = `
     <div style="font-size:0.8rem;color:#555;margin-bottom:6px">
-      Modo detectado: <strong>${hasCard ? 'Cartões FPF (Data de nascimento)' : 'Tabela (separada por tab)'}</strong>
+      Modo detectado: <strong>${modo}</strong>
       &nbsp;·&nbsp; ${text.split('\n').filter(l => l.trim()).length} linhas no total
     </div>
     <div style="background:#f5f5f5;border:1px solid #ddd;border-radius:6px;padding:10px;font-family:monospace;font-size:0.78rem;max-height:200px;overflow-y:auto">
