@@ -3595,6 +3595,196 @@ function guardarInfoSeniores() {
 }
 
 // ==================================================
+// IMPORTAR SENIORES — ZeroZero
+// ==================================================
+
+let _senioresImportHTMLDoc = null;
+
+document.getElementById('btnImportarSeniores')?.addEventListener('click', () => {
+  document.getElementById('senioresImportModal').style.display = 'flex';
+});
+
+document.getElementById('btnApagarTodosSeniores')?.addEventListener('click', () => {
+  const total = (DB.seniores || []).length;
+  if (!total) { showToast('Não há jogadores para apagar.', ''); return; }
+  if (!confirm(`Tem a certeza que pretende apagar TODOS os ${total} jogadores da equipa sénior?\n\nEsta ação não pode ser desfeita.`)) return;
+  DB.seniores = [];
+  saveDB();
+  renderSeniores();
+  showToast(`${total} jogadores removidos.`, 'red');
+});
+
+document.getElementById('senioresImportTA')?.addEventListener('paste', function(e) {
+  const html = e.clipboardData?.getData('text/html');
+  if (html) { try { _senioresImportHTMLDoc = new DOMParser().parseFromString(html, 'text/html'); } catch(_) {} }
+});
+
+window.fecharSenioresImport = function() {
+  document.getElementById('senioresImportModal').style.display = 'none';
+  document.getElementById('senioresImportTA').value = '';
+  document.getElementById('senioresImportPreview').innerHTML = '';
+  _senioresImportHTMLDoc = null;
+};
+
+function _seniorFoto(nome) {
+  if (!_senioresImportHTMLDoc) return '';
+  const nomeLow = nome.toLowerCase().replace(/\s+/g, ' ');
+  const walker = _senioresImportHTMLDoc.createTreeWalker(_senioresImportHTMLDoc.body, NodeFilter.SHOW_TEXT);
+  let node;
+  while ((node = walker.nextNode())) {
+    if (node.textContent.toLowerCase().replace(/\s+/g, ' ').includes(nomeLow)) {
+      let cur = node.parentElement;
+      for (let i = 0; i < 8 && cur; i++) {
+        const img = cur.querySelector('img');
+        if (img) {
+          let src = img.getAttribute('src') || '';
+          if (src && !src.startsWith('http') && !src.startsWith('data:'))
+            src = 'https://www.zerozero.pt' + (src.startsWith('/') ? '' : '/') + src;
+          if (src && !src.includes('placeholder') && !src.includes('logo') && src.length > 10) return src;
+        }
+        cur = cur.parentElement;
+      }
+    }
+  }
+  return '';
+}
+
+const _ZZ_POS_SENIOR = {
+  'Guarda-redes': { posicao: 'GR',  posicaoFull: 'Guarda-Redes' },
+  'Defesa':       { posicao: 'DEF', posicaoFull: 'Defesa' },
+  'Médio':        { posicao: 'MEI', posicaoFull: 'Médio' },
+  'Avançado':     { posicao: 'AVA', posicaoFull: 'Avançado' },
+};
+
+function _parseSenioresZZ(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const players = [];
+  let posGrupo = '';
+
+  for (const line of lines) {
+    if (/^(plantel|equipa|época|temporada|zerozero|guardar|filtrar|ver mais|carregar|menu|login|©|anterior|próximo|página|\.com)/i.test(line)) continue;
+    if (line.length < 2) continue;
+
+    const grupo = _zzGrupo(line);
+    if (grupo) { posGrupo = grupo; continue; }
+
+    const parts = line.split(/\t+|\s{2,}/).map(p => p.trim()).filter(Boolean);
+    if (!parts.length) continue;
+
+    let lo = 0, hi = parts.length;
+    let numero = '', nome = '', dataNascimento = '';
+
+    if (/^\d{1,2}$/.test(parts[lo])) { numero = parts[lo]; lo++; }
+    if (lo >= hi) continue;
+    if (/^\(?\d{1,2}\s*(anos)?\)?$/i.test(parts[hi-1])) hi--;
+    if (hi > lo + 1 && _isNac(parts[hi-1])) hi--;
+    const maybeDate = _normalizeDateFPF(parts[hi-1]);
+    if (maybeDate && hi > lo + 1) { dataNascimento = maybeDate; hi--; }
+    if (hi > lo + 1 && _isNac(parts[hi-1])) hi--;
+
+    nome = parts.slice(lo, hi).join(' ').trim();
+    if (!nome || nome.length < 2 || /^\d+$/.test(nome)) continue;
+
+    const posMap = _ZZ_POS_SENIOR[posGrupo] || { posicao: 'DEF', posicaoFull: posGrupo || 'Defesa' };
+    players.push({ nome, numero, posicao: posMap.posicao, posicaoFull: posMap.posicaoFull, dataNascimento, foto: _seniorFoto(nome) });
+  }
+  return players;
+}
+
+window.previewSenioresImport = function() {
+  const text = document.getElementById('senioresImportTA').value.trim();
+  const prev = document.getElementById('senioresImportPreview');
+  if (!text) { prev.innerHTML = ''; return; }
+
+  const players = _parseSenioresZZ(text);
+  if (!players.length) {
+    prev.innerHTML = '<p style="color:#c00;font-size:0.85rem">Nenhum jogador reconhecido. Certifica-te de que copiaste a página do ZeroZero.</p>';
+    return;
+  }
+
+  const existNames = (DB.seniores || []).map(j => j.nome.toLowerCase());
+  const novos = players.filter(p => !existNames.includes(p.nome.toLowerCase())).length;
+  const dups   = players.length - novos;
+  const comFoto = players.filter(p => p.foto).length;
+
+  prev.innerHTML = `
+    <div style="font-size:0.82rem;color:#555;margin-bottom:8px">
+      <strong>${players.length}</strong> jogadores reconhecidos
+      · <span style="color:#16a34a">${novos} novos</span>
+      ${dups ? `· <span style="color:#d97706">${dups} duplicados</span>` : ''}
+      ${comFoto ? `· <span style="color:#2563eb">${comFoto} com foto</span>` : ''}
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
+      <thead><tr style="background:#f0f4ff">
+        <th style="padding:6px 8px;width:40px"></th>
+        <th style="padding:6px 10px;text-align:left">#</th>
+        <th style="padding:6px 10px;text-align:left">Nome</th>
+        <th style="padding:6px 10px;text-align:left">Posição</th>
+        <th style="padding:6px 10px;text-align:left"></th>
+      </tr></thead>
+      <tbody>${players.map(p => {
+        const dup = existNames.includes(p.nome.toLowerCase());
+        const avatar = p.foto
+          ? `<img src="${p.foto}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid #e5e7eb" onerror="this.style.display='none'">`
+          : `<div style="width:32px;height:32px;border-radius:50%;background:#003B8E;color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:700">${p.nome.split(' ').slice(0,2).map(w=>w[0]).join('')}</div>`;
+        return `<tr style="border-bottom:1px solid #eee${dup?';opacity:0.55':''}">
+          <td style="padding:4px 8px">${avatar}</td>
+          <td style="padding:4px 10px;color:#888">${p.numero || '—'}</td>
+          <td style="padding:4px 10px;font-weight:600">${p.nome}</td>
+          <td style="padding:4px 10px"><span style="${posBadgeStyle(p.posicao)}">${p.posicaoFull}</span></td>
+          <td style="padding:4px 10px">${dup ? '<span style="color:#d97706;font-size:0.75rem">duplicado</span>' : '<span style="color:#16a34a;font-size:0.75rem">novo</span>'}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+};
+
+window.diagSenioresImport = function() {
+  const text = document.getElementById('senioresImportTA').value;
+  const prev = document.getElementById('senioresImportPreview');
+  if (!text.trim()) { prev.innerHTML = '<p style="color:#c00;font-size:0.85rem">Textarea vazia.</p>'; return; }
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean).slice(0, 30);
+  const hasZZ = lines.some(l => _zzGrupo(l) !== null);
+  prev.innerHTML = `
+    <div style="font-size:0.8rem;color:#555;margin-bottom:6px">
+      Modo: <strong>${hasZZ ? 'ZeroZero (grupos por posição detectados)' : 'Genérico'}</strong>
+      &nbsp;·&nbsp; ${text.split('\n').filter(l=>l.trim()).length} linhas
+    </div>
+    <div style="background:#f5f5f5;border:1px solid #ddd;border-radius:6px;padding:10px;font-family:monospace;font-size:0.78rem;max-height:200px;overflow-y:auto">
+      ${lines.map((l,i) => `<div style="padding:1px 0;color:${_zzGrupo(l)?'#1a6':'#333'}">${i+1}: ${l.replace(/</g,'&lt;')}</div>`).join('')}
+    </div>
+    <p style="font-size:0.78rem;color:#888;margin-top:6px">Verde = cabeçalho de posição detectado.</p>`;
+};
+
+window.guardarSenioresImport = function() {
+  const text     = document.getElementById('senioresImportTA').value.trim();
+  const dupMode  = document.getElementById('senioresDupMode').value;
+  if (!text) return;
+
+  const players = _parseSenioresZZ(text);
+  if (!players.length) { showToast('Nenhum jogador reconhecido.', 'red'); return; }
+
+  if (!DB.seniores) DB.seniores = [];
+  let added = 0, skipped = 0, replaced = 0;
+
+  for (const p of players) {
+    const idx = DB.seniores.findIndex(j => j.nome.toLowerCase() === p.nome.toLowerCase());
+    if (idx > -1) {
+      if (dupMode === 'replace') {
+        DB.seniores[idx] = { ...DB.seniores[idx], ...p, id: DB.seniores[idx].id, ativo: DB.seniores[idx].ativo };
+        replaced++;
+      } else skipped++;
+    } else {
+      DB.seniores.push({ id: 'zz_' + Date.now() + Math.random(), ativo: true, ...p });
+      added++;
+    }
+  }
+
+  saveDB(); renderSeniores(); fecharSenioresImport();
+  const msg = [added?`${added} importados`:'', replaced?`${replaced} atualizados`:'', skipped?`${skipped} ignorados`:''].filter(Boolean).join(', ');
+  showToast(msg + '.', 'green');
+};
+
+// ==================================================
 // FUTEBOL FORMAÇÃO — escalões Sub-9 a Sub-19
 // ==================================================
 

@@ -762,7 +762,11 @@
         <section class="page" id="page-seniores" style="display:none">
           <div class="page-header">
             <h1>Equipa Sénior</h1>
-            <button class="btn-primary" id="btnNovoJogador">+ Novo Jogador</button>
+            <div class="page-actions">
+              <button class="btn-fpf" id="btnImportarSeniores">&#128203; Importar ZeroZero</button>
+              <button class="btn-danger" id="btnApagarTodosSeniores">&#128465; Apagar Todos</button>
+              <button class="btn-primary" id="btnNovoJogador">+ Novo Jogador</button>
+            </div>
           </div>
 
           <!-- Info da equipa -->
@@ -808,6 +812,40 @@
               </thead>
               <tbody></tbody>
             </table>
+          </div>
+
+          <!-- MODAL: Importar ZeroZero Seniores -->
+          <div id="senioresImportModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;padding:16px">
+            <div style="background:#fff;border-radius:12px;width:100%;max-width:700px;max-height:92vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.25)">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:2px solid var(--yellow);background:var(--blue)">
+                <span style="font-family:var(--font-display);font-size:1.3rem;color:#fff;letter-spacing:1px">Importar Plantel — ZeroZero</span>
+                <button onclick="fecharSenioresImport()" style="background:none;border:none;color:#fff;font-size:1.4rem;cursor:pointer;line-height:1">&times;</button>
+              </div>
+              <div style="padding:20px">
+                <div style="background:#e8f4fd;border:1px solid #b3d9f7;border-radius:8px;padding:14px;margin-bottom:16px;font-size:0.85rem;color:#1a5276;line-height:1.7">
+                  <strong>Como fazer:</strong> Vai a
+                  <strong>zerozero.pt → Juventude Campinense → Plantel</strong>,
+                  seleciona toda a página (Ctrl+A), copia (Ctrl+C) e cola aqui.<br>
+                  O sistema importa nomes, nº de camisola, posição e foto automaticamente.
+                </div>
+                <div style="margin-bottom:14px">
+                  <label style="display:block;font-size:0.8rem;font-weight:700;margin-bottom:4px">Se jogador já existir</label>
+                  <select id="senioresDupMode" class="filter-select">
+                    <option value="skip">Ignorar (manter existente)</option>
+                    <option value="replace">Atualizar dados e foto</option>
+                  </select>
+                </div>
+                <textarea id="senioresImportTA" rows="12" placeholder="Cola aqui o conteúdo copiado do ZeroZero..."
+                  style="width:100%;box-sizing:border-box;padding:10px;border:1.5px solid #ddd;border-radius:8px;font-family:monospace;font-size:0.82rem;resize:vertical"></textarea>
+                <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
+                  <button class="btn-save" onclick="previewSenioresImport()">&#128269; Pré-visualizar</button>
+                  <button class="btn-primary" onclick="guardarSenioresImport()">&#10003; Guardar</button>
+                  <button class="btn-sm" onclick="diagSenioresImport()" style="color:#888">&#128030; Diagnóstico</button>
+                  <button class="btn-sm" onclick="fecharSenioresImport()" style="margin-left:auto">Cancelar</button>
+                </div>
+                <div id="senioresImportPreview" style="margin-top:16px"></div>
+              </div>
+            </div>
           </div>
         </section>
 
