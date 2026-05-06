@@ -769,32 +769,75 @@ document.getElementById('plantelTA')?.addEventListener('paste', function (e) {
   }
 });
 
-function _fpfImgForName(nome) {
-  if (!_plantelHTMLDoc) return '';
-  const nomeLow = nome.toLowerCase().replace(/\s+/g, ' ');
+function _getImgSrc(img) {
+  // Try every attribute used for lazy-loading, in priority order
+  const attrs = ['src','data-src','data-lazy','data-lazy-src','data-original','data-srcset','srcset'];
+  for (const attr of attrs) {
+    let val = img.getAttribute(attr) || '';
+    if (!val) continue;
+    // srcset may be "url 1x, url2 2x" — take first
+    if (attr.includes('srcset')) val = val.split(',')[0].trim().split(/\s+/)[0];
+    if (val.startsWith('data:image')) continue; // skip inline placeholders
+    if (val.includes('blank') || val.includes('placeholder') || val.includes('1x1') || val.includes('spacer')) continue;
+    if (val.length < 8) continue;
+    return val;
+  }
+  // Also check inline style background-image
+  const style = img.getAttribute('style') || '';
+  const bgMatch = style.match(/background-image\s*:\s*url\(['"]?([^'")\s]+)['"]?\)/i);
+  if (bgMatch) return bgMatch[1];
+  return '';
+}
 
-  // Walk all text nodes; when we find the player name, walk up to find an img
-  const walker = _plantelHTMLDoc.createTreeWalker(_plantelHTMLDoc.body, NodeFilter.SHOW_TEXT);
+function _resolveUrl(src, baseUrl) {
+  if (!src || src.startsWith('http') || src.startsWith('data:')) return src;
+  return baseUrl + (src.startsWith('/') ? '' : '/') + src;
+}
+
+function _imgForNameInDoc(nome, doc, baseUrl) {
+  if (!doc) return '';
+  const nomeLow = nome.toLowerCase().replace(/\s+/g, ' ').trim();
+  // Split name into words for partial matching
+  const words = nomeLow.split(' ').filter(w => w.length > 2);
+
+  const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
   let node;
   while ((node = walker.nextNode())) {
-    if (node.textContent.toLowerCase().replace(/\s+/g, ' ').includes(nomeLow)) {
-      // Walk up max 8 levels looking for an img
-      let cur = node.parentElement;
-      for (let i = 0; i < 8 && cur; i++) {
-        const img = cur.querySelector('img');
-        if (img) {
-          let src = img.getAttribute('src') || '';
-          // Resolve relative URLs against FPF domain
-          if (src && !src.startsWith('http') && !src.startsWith('data:')) {
-            src = 'https://www.fpf.pt' + (src.startsWith('/') ? '' : '/') + src;
-          }
-          if (src && !src.includes('placeholder') && !src.includes('logo') && src.length > 10) return src;
+    const txt = node.textContent.toLowerCase().replace(/\s+/g, ' ').trim();
+    // Match full name OR all significant words present
+    const matches = txt.includes(nomeLow) || (words.length >= 2 && words.every(w => txt.includes(w)));
+    if (!matches) continue;
+
+    // Walk up to 10 levels looking for an img
+    let cur = node.parentElement;
+    for (let i = 0; i < 10 && cur; i++) {
+      const img = cur.querySelector('img');
+      if (img) {
+        let src = _getImgSrc(img);
+        if (src) {
+          src = _resolveUrl(src, baseUrl);
+          // Skip logos / nav images (usually very short paths or contain 'logo','icon','flag')
+          if (!src.includes('logo') && !src.includes('icon') && !src.includes('flag') && !src.includes('escudo')) return src;
         }
-        cur = cur.parentElement;
       }
+      // Also check divs with background-image (ZeroZero uses these for player avatars)
+      const bgEl = cur.querySelector('[style*="background-image"]');
+      if (bgEl) {
+        const style = bgEl.getAttribute('style') || '';
+        const m = style.match(/background-image\s*:\s*url\(['"]?([^'")\s]+)['"]?\)/i);
+        if (m) {
+          let src = _resolveUrl(m[1], baseUrl);
+          if (src && !src.includes('logo') && !src.includes('flag')) return src;
+        }
+      }
+      cur = cur.parentElement;
     }
   }
   return '';
+}
+
+function _fpfImgForName(nome) {
+  return _imgForNameInDoc(nome, _plantelHTMLDoc, 'https://www.fpf.pt');
 }
 
 const _FPF_POS = {
@@ -3627,26 +3670,7 @@ window.fecharSenioresImport = function() {
 };
 
 function _seniorFoto(nome) {
-  if (!_senioresImportHTMLDoc) return '';
-  const nomeLow = nome.toLowerCase().replace(/\s+/g, ' ');
-  const walker = _senioresImportHTMLDoc.createTreeWalker(_senioresImportHTMLDoc.body, NodeFilter.SHOW_TEXT);
-  let node;
-  while ((node = walker.nextNode())) {
-    if (node.textContent.toLowerCase().replace(/\s+/g, ' ').includes(nomeLow)) {
-      let cur = node.parentElement;
-      for (let i = 0; i < 8 && cur; i++) {
-        const img = cur.querySelector('img');
-        if (img) {
-          let src = img.getAttribute('src') || '';
-          if (src && !src.startsWith('http') && !src.startsWith('data:'))
-            src = 'https://www.zerozero.pt' + (src.startsWith('/') ? '' : '/') + src;
-          if (src && !src.includes('placeholder') && !src.includes('logo') && src.length > 10) return src;
-        }
-        cur = cur.parentElement;
-      }
-    }
-  }
-  return '';
+  return _imgForNameInDoc(nome, _senioresImportHTMLDoc, 'https://www.zerozero.pt');
 }
 
 const _ZZ_POS_SENIOR = {
