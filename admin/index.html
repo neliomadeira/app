@@ -330,9 +330,10 @@
                 </div>
                 <textarea id="plantelTA" rows="12" placeholder="Cola aqui o conteúdo copiado da página FPF..."
                   style="width:100%;box-sizing:border-box;padding:10px;border:1.5px solid #ddd;border-radius:8px;font-family:monospace;font-size:0.82rem;resize:vertical"></textarea>
-                <div style="display:flex;gap:10px;margin-top:12px">
+                <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
                   <button class="btn-save" onclick="previewPlantel()">&#128269; Pré-visualizar</button>
                   <button class="btn-primary" onclick="guardarPlantel()">&#10003; Guardar</button>
+                  <button class="btn-sm" onclick="diagPlantel()" style="color:#888">&#128030; Diagnóstico</button>
                   <button class="btn-sm" onclick="fecharPlantel()" style="margin-left:auto">Cancelar</button>
                 </div>
                 <div id="plantelPreview" style="margin-top:16px"></div>

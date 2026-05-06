@@ -686,39 +686,45 @@ function parsePastedAtletas(text) {
   const hasCardFormat = lines.some(l => /^data de nascimento/i.test(l));
 
   if (hasCardFormat) {
-    // In FPF card layout, player names are ALL CAPS (2+ words, only letters/spaces)
-    const isPlayerName = s => /^[A-ZÁÀÂÃÉÊÍÓÔÕÚÜÇ]{2,}(\s+[A-ZÁÀÂÃÉÊÍÓÔÕÚÜÇ]{1,}){1,}$/.test(s)
-      && !/^(JOGADORES|FILTRE|RESULTADOS|ESCALÃO|CLUBE|EQUIPA|INSCRITO|FILTRAR)/.test(s);
+    // Strategy: "Data de nascimento" always follows the player name.
+    // Scan forward; when we hit a birth-date label, the last non-junk line was the name.
+    const isJunk = s =>
+      /^(filtrar|filtre|escalão|clube|equipa|inscrito|resultado|jogadores|fpf|federação|menu|pesquisar|anterior|próximo|página|ver mais|carregar|copyright|login|logout|entrar)/i.test(s) ||
+      /^data de nascimento/i.test(s) ||
+      /^\d+$/.test(s) ||
+      s.length < 3;
 
+    let lastName = '';
     let i = 0;
     while (i < lines.length) {
       const line = lines[i];
 
-      if (!isPlayerName(line)) { i++; continue; }
+      if (/^data de nascimento/i.test(line)) {
+        // Check if date is inline: "Data de nascimento: 12 abr 2009"
+        const inlineDate = line.match(/data de nascimento[:\s]+(.+)/i);
+        let dataNascimento = inlineDate ? _normalizeDateFPF(inlineDate[1].trim()) : '';
 
-      // Found a name — look ahead for "Data de nascimento" + date
-      let dataNascimento = '';
-      let j = i + 1;
-      while (j < lines.length && j < i + 5) {
-        const l = lines[j];
-        // Same line might be "Data de nascimento: 12 abr 2009"
-        const inlineDate = l.match(/data de nascimento[:\s]+(.+)/i);
-        if (inlineDate) {
-          dataNascimento = _normalizeDateFPF(inlineDate[1].trim());
-          j++;
-          break;
+        // If not inline, next line should be the date
+        if (!dataNascimento && i + 1 < lines.length) {
+          dataNascimento = _normalizeDateFPF(lines[i + 1]);
+          if (dataNascimento) i++;
         }
-        if (/^data de nascimento/i.test(l)) { j++; continue; }
-        const d = _normalizeDateFPF(l);
-        if (d) { dataNascimento = d; j++; break; }
-        // If next line is also a player name, stop looking
-        if (isPlayerName(l)) break;
-        j++;
-      }
-      i = j;
 
-      const nome = line.replace(/\s+/g, ' ').trim();
-      if (nome.length >= 4) players.push({ numero: '', nome, posicao: '', dataNascimento });
+        if (lastName) {
+          players.push({ numero: '', nome: lastName, posicao: '', dataNascimento });
+          lastName = '';
+        }
+        i++;
+        continue;
+      }
+
+      if (!isJunk(line)) {
+        lastName = line.replace(/\s+/g, ' ').trim();
+      } else {
+        // Junk lines reset the candidate name
+        if (isJunk(line) && !/^data de nascimento/i.test(line)) lastName = '';
+      }
+      i++;
     }
     return players;
   }
@@ -792,6 +798,23 @@ window.previewPlantel = function () {
         </tr>`;
       }).join('')}</tbody>
     </table>`;
+};
+
+window.diagPlantel = function () {
+  const text = document.getElementById('plantelTA').value;
+  const prev = document.getElementById('plantelPreview');
+  if (!text.trim()) { prev.innerHTML = '<p style="color:#c00;font-size:0.85rem">Textarea vazia — cola primeiro o texto da FPF.</p>'; return; }
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean).slice(0, 30);
+  const hasCard = lines.some(l => /^data de nascimento/i.test(l));
+  prev.innerHTML = `
+    <div style="font-size:0.8rem;color:#555;margin-bottom:6px">
+      Modo detectado: <strong>${hasCard ? 'Cartões FPF (Data de nascimento)' : 'Tabela (separada por tab)'}</strong>
+      &nbsp;·&nbsp; ${text.split('\n').filter(l => l.trim()).length} linhas no total
+    </div>
+    <div style="background:#f5f5f5;border:1px solid #ddd;border-radius:6px;padding:10px;font-family:monospace;font-size:0.78rem;max-height:200px;overflow-y:auto">
+      ${lines.map((l, i) => `<div style="padding:1px 0;color:${/^data de nascimento/i.test(l) ? '#1a6' : '#333'}">${i + 1}: ${l.replace(/</g,'&lt;')}</div>`).join('')}
+    </div>
+    <p style="font-size:0.78rem;color:#888;margin-top:6px">Verde = linha "Data de nascimento" detectada. Envia esta lista ao suporte se o import não funcionar.</p>`;
 };
 
 window.guardarPlantel = function () {
