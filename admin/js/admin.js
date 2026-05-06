@@ -752,7 +752,48 @@ window.fecharPlantel = function () {
   document.getElementById('plantelModal').style.display = 'none';
   document.getElementById('plantelTA').value = '';
   document.getElementById('plantelPreview').innerHTML = '';
+  _plantelHTMLDoc = null;
 };
+
+let _plantelHTMLDoc = null;
+
+// Capture HTML on paste so we can extract image URLs
+document.getElementById('plantelTA')?.addEventListener('paste', function (e) {
+  const html = e.clipboardData?.getData('text/html');
+  if (html) {
+    try {
+      _plantelHTMLDoc = new DOMParser().parseFromString(html, 'text/html');
+    } catch (_) { _plantelHTMLDoc = null; }
+  }
+});
+
+function _fpfImgForName(nome) {
+  if (!_plantelHTMLDoc) return '';
+  const nomeLow = nome.toLowerCase().replace(/\s+/g, ' ');
+
+  // Walk all text nodes; when we find the player name, walk up to find an img
+  const walker = _plantelHTMLDoc.createTreeWalker(_plantelHTMLDoc.body, NodeFilter.SHOW_TEXT);
+  let node;
+  while ((node = walker.nextNode())) {
+    if (node.textContent.toLowerCase().replace(/\s+/g, ' ').includes(nomeLow)) {
+      // Walk up max 8 levels looking for an img
+      let cur = node.parentElement;
+      for (let i = 0; i < 8 && cur; i++) {
+        const img = cur.querySelector('img');
+        if (img) {
+          let src = img.getAttribute('src') || '';
+          // Resolve relative URLs against FPF domain
+          if (src && !src.startsWith('http') && !src.startsWith('data:')) {
+            src = 'https://www.fpf.pt' + (src.startsWith('/') ? '' : '/') + src;
+          }
+          if (src && !src.includes('placeholder') && !src.includes('logo') && src.length > 10) return src;
+        }
+        cur = cur.parentElement;
+      }
+    }
+  }
+  return '';
+}
 
 const _FPF_POS = {
   'GR':'Guarda-redes','GK':'Guarda-redes','G':'Guarda-redes',
@@ -822,7 +863,7 @@ function parsePastedAtletas(text) {
         }
 
         if (lastName) {
-          players.push({ numero: '', nome: lastName, posicao: '', dataNascimento });
+          players.push({ numero: '', nome: lastName, posicao: '', dataNascimento, foto: _fpfImgForName(lastName) });
           lastName = '';
         }
         i++;
@@ -863,7 +904,7 @@ function parsePastedAtletas(text) {
     }
 
     if (!nome || nome.length < 2 || /^\d+$/.test(nome)) continue;
-    players.push({ numero, nome, posicao, dataNascimento: '' });
+    players.push({ numero, nome, posicao, dataNascimento: '', foto: _fpfImgForName(nome) });
   }
   return players;
 }
@@ -884,26 +925,31 @@ window.previewPlantel = function () {
   const novos = players.filter(p => !existNames.includes(p.nome.toLowerCase())).length;
   const dups   = players.length - novos;
 
+  const withPhoto = players.filter(p => p.foto).length;
   prev.innerHTML = `
     <div style="font-size:0.82rem;color:#555;margin-bottom:8px">
       <strong>${players.length}</strong> jogadores reconhecidos
       · <span style="color:#16a34a">${novos} novos</span>
       ${dups ? `· <span style="color:#d97706">${dups} duplicados</span>` : ''}
+      ${withPhoto ? `· <span style="color:#2563eb">${withPhoto} com foto</span>` : ''}
     </div>
     <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
       <thead><tr style="background:#f0f4ff">
+        <th style="padding:6px 8px;width:40px"></th>
         <th style="padding:6px 10px;text-align:left">Nome</th>
         <th style="padding:6px 10px;text-align:left">Dt. Nasc.</th>
-        <th style="padding:6px 10px;text-align:left">Posição</th>
         <th style="padding:6px 10px;text-align:left"></th>
       </tr></thead>
       <tbody>${players.map(p => {
         const dup = existNames.includes(p.nome.toLowerCase());
+        const avatar = p.foto
+          ? `<img src="${p.foto}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid #e5e7eb" onerror="this.style.display='none'" />`
+          : `<div style="width:32px;height:32px;border-radius:50%;background:#ddd;display:flex;align-items:center;justify-content:center;font-size:0.65rem;color:#999">${p.nome.split(' ').slice(0,2).map(w=>w[0]).join('')}</div>`;
         return `<tr style="border-bottom:1px solid #eee${dup ? ';opacity:0.55' : ''}">
-          <td style="padding:5px 10px;font-weight:600">${p.nome}</td>
-          <td style="padding:5px 10px;color:#888">${p.dataNascimento || '—'}</td>
-          <td style="padding:5px 10px">${p.posicao || '—'}</td>
-          <td style="padding:5px 10px">${dup
+          <td style="padding:4px 8px">${avatar}</td>
+          <td style="padding:4px 10px;font-weight:600">${p.nome}</td>
+          <td style="padding:4px 10px;color:#888">${p.dataNascimento || '—'}</td>
+          <td style="padding:4px 10px">${dup
             ? '<span style="color:#d97706;font-size:0.75rem">duplicado</span>'
             : '<span style="color:#16a34a;font-size:0.75rem">novo</span>'}</td>
         </tr>`;
@@ -944,13 +990,17 @@ window.guardarPlantel = function () {
       a => a.nome.toLowerCase() === p.nome.toLowerCase() && a.escalao === escalao
     );
     if (idx > -1) {
-      if (dupMode === 'replace' && p.posicao) { DB.atletas[idx].posicao = p.posicao; replaced++; }
-      else skipped++;
+      if (dupMode === 'replace') {
+        if (p.posicao) DB.atletas[idx].posicao = p.posicao;
+        if (p.foto && !DB.atletas[idx].foto) DB.atletas[idx].foto = p.foto;
+        replaced++;
+      } else skipped++;
     } else {
       DB.atletas.push({
         id: Date.now() + Math.random(),
         nome: p.nome, escalao, posicao: p.posicao || '',
-        dataNascimento: p.dataNascimento || '', encarregado: '—', telefone: '', estado: 'Activo',
+        dataNascimento: p.dataNascimento || '', encarregado: '—', telefone: '', foto: p.foto || '',
+        estado: 'Activo',
       });
       added++;
     }
