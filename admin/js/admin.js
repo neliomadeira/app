@@ -3843,15 +3843,145 @@ function initFormacao() {
   if (btnImp && !btnImp._bf) {
     btnImp._bf = true;
     btnImp.addEventListener('click', () => {
-      // Open the existing plantel modal with the current escalão pre-selected
-      const sel = document.getElementById('plantelEscalao');
-      if (sel) sel.value = _formacaoEscalao;
-      document.getElementById('plantelModal').style.display = 'flex';
+      document.getElementById('formacaoImportTitle').textContent = `Importar Plantel — ${_formacaoEscalao}`;
+      document.getElementById('formacaoImportModal').style.display = 'flex';
+    });
+  }
+  const btnDel = document.getElementById('btnFormacaoApagarTodos');
+  if (btnDel && !btnDel._bf) {
+    btnDel._bf = true;
+    btnDel.addEventListener('click', () => {
+      const total = (DB.atletas || []).filter(a => a.escalao === _formacaoEscalao).length;
+      if (!total) { showToast(`Não há atletas no ${_formacaoEscalao}.`, ''); return; }
+      if (!confirm(`Apagar TODOS os ${total} atletas do ${_formacaoEscalao}?\n\nEsta ação não pode ser desfeita.`)) return;
+      DB.atletas = (DB.atletas || []).filter(a => a.escalao !== _formacaoEscalao);
+      saveDB(); _renderFormacaoTable(); updateBadges();
+      showToast(`${total} atletas do ${_formacaoEscalao} removidos.`, 'red');
     });
   }
 
   _renderFormacao();
 }
+
+// ---- Formação ZeroZero/FPF Import ----
+let _formacaoImportHTMLDoc = null;
+
+document.getElementById('formacaoImportTA')?.addEventListener('paste', function(e) {
+  const html = e.clipboardData?.getData('text/html');
+  if (html) { try { _formacaoImportHTMLDoc = new DOMParser().parseFromString(html, 'text/html'); } catch(_) {} }
+});
+
+window.fecharFormacaoImport = function() {
+  document.getElementById('formacaoImportModal').style.display = 'none';
+  document.getElementById('formacaoImportTA').value = '';
+  document.getElementById('formacaoImportPreview').innerHTML = '';
+  _formacaoImportHTMLDoc = null;
+};
+
+function _formacaoImgForName(nome) {
+  // Try ZeroZero first, then FPF
+  return _imgForNameInDoc(nome, _formacaoImportHTMLDoc, 'https://www.zerozero.pt')
+      || _imgForNameInDoc(nome, _formacaoImportHTMLDoc, 'https://www.fpf.pt');
+}
+
+function _parsedFormacaoPlayers() {
+  const text = document.getElementById('formacaoImportTA').value.trim();
+  if (!text) return [];
+  // Temporarily swap the HTML doc so _fpfImgForName/_parseZeroZero uses ours
+  const savedPlantel = _plantelHTMLDoc;
+  _plantelHTMLDoc = _formacaoImportHTMLDoc;
+  const players = parsePastedAtletas(text);
+  _plantelHTMLDoc = savedPlantel;
+  return players;
+}
+
+window.previewFormacaoImport = function() {
+  const prev = document.getElementById('formacaoImportPreview');
+  const players = _parsedFormacaoPlayers();
+  if (!players.length) {
+    prev.innerHTML = '<p style="color:#c00;font-size:0.85rem">Nenhum jogador reconhecido. Usa o botão Diagnóstico para ver o que foi detetado.</p>';
+    return;
+  }
+  const existNames = (DB.atletas || []).filter(a => a.escalao === _formacaoEscalao).map(a => a.nome.toLowerCase());
+  const novos = players.filter(p => !existNames.includes(p.nome.toLowerCase())).length;
+  const dups = players.length - novos;
+  const comFoto = players.filter(p => p.foto).length;
+  prev.innerHTML = `
+    <div style="font-size:0.82rem;color:#555;margin-bottom:8px">
+      <strong>${players.length}</strong> jogadores · <span style="color:#16a34a">${novos} novos</span>
+      ${dups ? `· <span style="color:#d97706">${dups} duplicados</span>` : ''}
+      ${comFoto ? `· <span style="color:#2563eb">${comFoto} com foto</span>` : ''}
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
+      <thead><tr style="background:#f0f4ff">
+        <th style="padding:6px 8px;width:40px"></th>
+        <th style="padding:6px 10px;text-align:left">#</th>
+        <th style="padding:6px 10px;text-align:left">Nome</th>
+        <th style="padding:6px 10px;text-align:left">Posição</th>
+        <th style="padding:6px 10px;text-align:left">Dt. Nasc.</th>
+        <th style="padding:6px 10px;text-align:left"></th>
+      </tr></thead>
+      <tbody>${players.map(p => {
+        const dup = existNames.includes(p.nome.toLowerCase());
+        const avatar = p.foto
+          ? `<img src="${p.foto}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid #e5e7eb" onerror="this.style.display='none'">`
+          : `<div style="width:32px;height:32px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:700">${p.nome.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()}</div>`;
+        return `<tr style="border-bottom:1px solid #eee${dup?';opacity:0.55':''}">
+          <td style="padding:4px 8px">${avatar}</td>
+          <td style="padding:4px 10px;color:#888">${p.numero||'—'}</td>
+          <td style="padding:4px 10px;font-weight:600">${p.nome}</td>
+          <td style="padding:4px 10px">${p.posicao||'—'}</td>
+          <td style="padding:4px 10px;color:#888;font-size:0.8rem">${p.dataNascimento||'—'}</td>
+          <td style="padding:4px 10px">${dup?'<span style="color:#d97706;font-size:0.75rem">duplicado</span>':'<span style="color:#16a34a;font-size:0.75rem">novo</span>'}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+};
+
+window.diagFormacaoImport = function() {
+  const text = document.getElementById('formacaoImportTA').value;
+  const prev = document.getElementById('formacaoImportPreview');
+  if (!text.trim()) { prev.innerHTML = '<p style="color:#c00;font-size:0.85rem">Textarea vazia.</p>'; return; }
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean).slice(0, 30);
+  const hasCard = lines.some(l => /^data de nascimento/i.test(l));
+  const hasZZ   = !hasCard && lines.some(l => _zzGrupo(l) !== null);
+  const modo    = hasCard ? 'FPF — Cartões' : hasZZ ? 'ZeroZero — Grupos por posição' : 'Tabela genérica';
+  prev.innerHTML = `
+    <div style="font-size:0.8rem;color:#555;margin-bottom:6px">Modo: <strong>${modo}</strong> · ${text.split('\n').filter(l=>l.trim()).length} linhas</div>
+    <div style="background:#f5f5f5;border:1px solid #ddd;border-radius:6px;padding:10px;font-family:monospace;font-size:0.78rem;max-height:200px;overflow-y:auto">
+      ${lines.map((l,i)=>`<div style="padding:1px 0;color:${/^data de nascimento/i.test(l)||_zzGrupo(l)?'#1a6':'#333'}">${i+1}: ${l.replace(/</g,'&lt;')}</div>`).join('')}
+    </div>`;
+};
+
+window.guardarFormacaoImport = function() {
+  const dupMode = document.getElementById('formacaoDupMode').value;
+  const players = _parsedFormacaoPlayers();
+  if (!players.length) { showToast('Nenhum jogador reconhecido.', 'red'); return; }
+
+  if (!DB.atletas) DB.atletas = [];
+  let added = 0, skipped = 0, replaced = 0;
+
+  for (const p of players) {
+    const idx = DB.atletas.findIndex(a => a.nome.toLowerCase() === p.nome.toLowerCase() && a.escalao === _formacaoEscalao);
+    if (idx > -1) {
+      if (dupMode === 'replace') {
+        DB.atletas[idx] = { ...DB.atletas[idx], posicao: p.posicao || DB.atletas[idx].posicao,
+          numero: p.numero || DB.atletas[idx].numero,
+          dataNascimento: p.dataNascimento || DB.atletas[idx].dataNascimento,
+          foto: p.foto || DB.atletas[idx].foto };
+        replaced++;
+      } else skipped++;
+    } else {
+      DB.atletas.push({ id: Date.now() + Math.random(), nome: p.nome, escalao: _formacaoEscalao,
+        posicao: p.posicao || '', numero: p.numero || '', dataNascimento: p.dataNascimento || '',
+        foto: p.foto || '', encarregado: '—', telefone: '', estado: 'Activo' });
+      added++;
+    }
+  }
+  saveDB(); _renderFormacaoTable(); updateBadges(); fecharFormacaoImport();
+  const msg = [added?`${added} importados`:'', replaced?`${replaced} atualizados`:'', skipped?`${skipped} ignorados`:''].filter(Boolean).join(', ');
+  showToast(msg + '.', 'green');
+};
 
 function _renderFormacao() {
   document.getElementById('formacaoTitle').textContent = `Futebol Formação — ${_formacaoEscalao}`;
