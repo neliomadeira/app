@@ -860,29 +860,31 @@ function _isNac(str) {
   return /^[A-Z]{2,3}$/.test(str.trim()) || /[\u{1F1E0}-\u{1F1FF}]{2}/u.test(str);
 }
 
+const _MONTHS_PT = {
+  jan:'01',janeiro:'01', fev:'02',fevereiro:'02', mar:'03','março':'03',marco:'03',
+  abr:'04',abril:'04',   mai:'05',maio:'05',       jun:'06',junho:'06',
+  jul:'07',julho:'07',   ago:'08',agosto:'08',      set:'09',setembro:'09',
+  out:'10',outubro:'10', nov:'11',novembro:'11',    dez:'12',dezembro:'12'
+};
+
 function _normalizeDateFPF(str) {
   if (!str) return '';
+  return _extractDate(str.trim());
+}
+
+// Find a date pattern anywhere in a string (exact-string or embedded)
+function _extractDate(str) {
+  if (!str) return '';
   str = str.trim();
-  const months = {
-    jan:'01',janeiro:'01', fev:'02',fevereiro:'02', mar:'03','março':'03',marco:'03',
-    abr:'04',abril:'04',   mai:'05',maio:'05',       jun:'06',junho:'06',
-    jul:'07',julho:'07',   ago:'08',agosto:'08',      set:'09',setembro:'09',
-    out:'10',outubro:'10', nov:'11',novembro:'11',    dez:'12',dezembro:'12'
-  };
-  // "12 abr 2009" or "12 abr. 2009" or "12 abril 2009"
-  const m1 = str.match(/^(\d{1,2})\s+([a-záéíóúãõç]+)\.?\s+(\d{4})$/i);
-  if (m1) { const mm = months[m1[2].toLowerCase()]; return mm ? `${m1[3]}-${mm}-${m1[1].padStart(2,'0')}` : ''; }
-  // "12 de abr. de 2009" or "12 de abril de 2009"
-  const m1b = str.match(/^(\d{1,2})\s+de\s+([a-záéíóúãõç]+)\.?\s+de\s+(\d{4})$/i);
-  if (m1b) { const mm = months[m1b[2].toLowerCase()]; return mm ? `${m1b[3]}-${mm}-${m1b[1].padStart(2,'0')}` : ''; }
-  // "12/04/2009"
-  const m2 = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (m2) return `${m2[3]}-${m2[2].padStart(2,'0')}-${m2[1].padStart(2,'0')}`;
-  // "12-04-2009" (ZeroZero)
-  const m3 = str.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
-  if (m3) return `${m3[3]}-${m3[2].padStart(2,'0')}-${m3[1].padStart(2,'0')}`;
-  // "2009-04-12"
-  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+  // "12 abr 2009" / "12 abr. 2009" / "12 abril 2009" / "12 de abril de 2009"
+  let m = str.match(/(\d{1,2})\s+(?:de\s+)?([a-záéíóúãõç]{3,})\.?\s+(?:de\s+)?(\d{4})/i);
+  if (m) { const mm = _MONTHS_PT[m[2].toLowerCase()]; if (mm) return `${m[3]}-${mm}-${m[1].padStart(2,'0')}`; }
+  // "12/04/2009" or "12-04-2009" anywhere in string
+  m = str.match(/\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\b/);
+  if (m && Number(m[2]) <= 12) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  // "2009-04-12" ISO anywhere in string
+  m = str.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
   return '';
 }
 
@@ -936,11 +938,12 @@ function _parseZeroZero(lines) {
     nome = parts.slice(lo, hi).join(' ').trim();
     if (!nome || nome.length < 2 || /^\d+$/.test(nome)) continue;
 
-    // Lookahead: if no date yet, scan next few lines for one (multi-line ZeroZero layout)
+    // Lookahead: if no date yet, scan next lines for one (multi-line ZeroZero layout)
+    // Only stop at a new position group header; skip junk/nationality/age lines
     if (!dataNascimento) {
-      for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
-        if (_zzGrupo(lines[j]) || junkRe.test(lines[j])) break;
-        const d = _normalizeDateFPF(lines[j].trim());
+      for (let j = i + 1; j < Math.min(i + 8, lines.length); j++) {
+        if (_zzGrupo(lines[j])) break; // next group = definitely a new player block
+        const d = _extractDate(lines[j]);
         if (d) { dataNascimento = d; break; }
       }
     }
@@ -1084,20 +1087,28 @@ window.previewPlantel = function () {
 window.diagPlantel = function () {
   const text = document.getElementById('plantelTA').value;
   const prev = document.getElementById('plantelPreview');
-  if (!text.trim()) { prev.innerHTML = '<p style="color:#c00;font-size:0.85rem">Textarea vazia — cola primeiro o texto da FPF.</p>'; return; }
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean).slice(0, 30);
+  if (!text.trim()) { prev.innerHTML = '<p style="color:#c00;font-size:0.85rem">Textarea vazia — cola primeiro o texto da FPF ou ZeroZero.</p>'; return; }
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean).slice(0, 40);
   const hasCard = lines.some(l => /^data de nascimento/i.test(l));
   const hasZZ   = !hasCard && lines.some(l => _zzGrupo(l) !== null);
-  const modo    = hasCard ? 'FPF — Cartões (Data de nascimento)' : hasZZ ? 'ZeroZero — Grupos por posição' : 'Tabela genérica (tab-separada)';
+  const modo    = hasCard ? 'FPF — Cartões' : hasZZ ? 'ZeroZero — Grupos por posição' : 'Tabela genérica';
   prev.innerHTML = `
     <div style="font-size:0.8rem;color:#555;margin-bottom:6px">
-      Modo detectado: <strong>${modo}</strong>
-      &nbsp;·&nbsp; ${text.split('\n').filter(l => l.trim()).length} linhas no total
+      Modo: <strong>${modo}</strong> · ${text.split('\n').filter(l => l.trim()).length} linhas
     </div>
-    <div style="background:#f5f5f5;border:1px solid #ddd;border-radius:6px;padding:10px;font-family:monospace;font-size:0.78rem;max-height:200px;overflow-y:auto">
-      ${lines.map((l, i) => `<div style="padding:1px 0;color:${/^data de nascimento/i.test(l) ? '#1a6' : '#333'}">${i + 1}: ${l.replace(/</g,'&lt;')}</div>`).join('')}
+    <div style="font-size:0.75rem;color:#888;margin-bottom:4px">
+      <span style="color:#1a6;font-weight:700">■</span> grupo/FPF
+      <span style="color:#2563eb;font-weight:700;margin-left:8px">■</span> data detetada
     </div>
-    <p style="font-size:0.78rem;color:#888;margin-top:6px">Verde = linha "Data de nascimento" detectada. Envia esta lista ao suporte se o import não funcionar.</p>`;
+    <div style="background:#f5f5f5;border:1px solid #ddd;border-radius:6px;padding:10px;font-family:monospace;font-size:0.78rem;max-height:260px;overflow-y:auto">
+      ${lines.map((l, i) => {
+        const isGrp  = /^data de nascimento/i.test(l) || _zzGrupo(l);
+        const isDate = !isGrp && !!_extractDate(l);
+        const color  = isGrp ? '#1a6' : isDate ? '#2563eb' : '#333';
+        const tag    = isGrp ? ' [GRUPO]' : isDate ? ` [DATA: ${_extractDate(l)}]` : '';
+        return `<div style="padding:1px 0;color:${color}">${i + 1}: ${l.replace(/</g,'&lt;')}${tag}</div>`;
+      }).join('')}
+    </div>`;
 };
 
 window.guardarPlantel = function () {
@@ -3743,9 +3754,9 @@ function _parseSenioresZZ(text) {
 
     // Lookahead for date on a separate line
     if (!dataNascimento) {
-      for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
-        if (_zzGrupo(lines[j]) || junkRe.test(lines[j])) break;
-        const d = _normalizeDateFPF(lines[j].trim());
+      for (let j = i + 1; j < Math.min(i + 8, lines.length); j++) {
+        if (_zzGrupo(lines[j])) break;
+        const d = _extractDate(lines[j]);
         if (d) { dataNascimento = d; break; }
       }
     }
@@ -3983,14 +3994,25 @@ window.diagFormacaoImport = function() {
   const text = document.getElementById('formacaoImportTA').value;
   const prev = document.getElementById('formacaoImportPreview');
   if (!text.trim()) { prev.innerHTML = '<p style="color:#c00;font-size:0.85rem">Textarea vazia.</p>'; return; }
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean).slice(0, 30);
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean).slice(0, 40);
   const hasCard = lines.some(l => /^data de nascimento/i.test(l));
   const hasZZ   = !hasCard && lines.some(l => _zzGrupo(l) !== null);
   const modo    = hasCard ? 'FPF — Cartões' : hasZZ ? 'ZeroZero — Grupos por posição' : 'Tabela genérica';
   prev.innerHTML = `
     <div style="font-size:0.8rem;color:#555;margin-bottom:6px">Modo: <strong>${modo}</strong> · ${text.split('\n').filter(l=>l.trim()).length} linhas</div>
-    <div style="background:#f5f5f5;border:1px solid #ddd;border-radius:6px;padding:10px;font-family:monospace;font-size:0.78rem;max-height:200px;overflow-y:auto">
-      ${lines.map((l,i)=>`<div style="padding:1px 0;color:${/^data de nascimento/i.test(l)||_zzGrupo(l)?'#1a6':'#333'}">${i+1}: ${l.replace(/</g,'&lt;')}</div>`).join('')}
+    <div style="font-size:0.75rem;color:#888;margin-bottom:4px">
+      <span style="color:#1a6;font-weight:700">■</span> grupo/data
+      <span style="color:#2563eb;font-weight:700;margin-left:8px">■</span> data detetada
+      <span style="color:#888;margin-left:8px">■</span> outra linha
+    </div>
+    <div style="background:#f5f5f5;border:1px solid #ddd;border-radius:6px;padding:10px;font-family:monospace;font-size:0.78rem;max-height:260px;overflow-y:auto">
+      ${lines.map((l,i) => {
+        const isGrp  = /^data de nascimento/i.test(l) || _zzGrupo(l);
+        const isDate = !isGrp && !!_extractDate(l);
+        const color  = isGrp ? '#1a6' : isDate ? '#2563eb' : '#333';
+        const tag    = isGrp ? ' [GRUPO]' : isDate ? ` [DATA: ${_extractDate(l)}]` : '';
+        return `<div style="padding:1px 0;color:${color}">${i+1}: ${l.replace(/</g,'&lt;')}${tag}</div>`;
+      }).join('')}
     </div>`;
 };
 
