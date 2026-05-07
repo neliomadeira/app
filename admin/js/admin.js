@@ -863,10 +863,18 @@ function _isNac(str) {
 function _normalizeDateFPF(str) {
   if (!str) return '';
   str = str.trim();
-  const months = {jan:'01',fev:'02',mar:'03',abr:'04',mai:'05',jun:'06',jul:'07',ago:'08',set:'09',out:'10',nov:'11',dez:'12'};
-  // "12 abr 2009"
-  const m1 = str.match(/^(\d{1,2})\s+([a-z]{3})\s+(\d{4})$/i);
+  const months = {
+    jan:'01',janeiro:'01', fev:'02',fevereiro:'02', mar:'03','março':'03',marco:'03',
+    abr:'04',abril:'04',   mai:'05',maio:'05',       jun:'06',junho:'06',
+    jul:'07',julho:'07',   ago:'08',agosto:'08',      set:'09',setembro:'09',
+    out:'10',outubro:'10', nov:'11',novembro:'11',    dez:'12',dezembro:'12'
+  };
+  // "12 abr 2009" or "12 abr. 2009" or "12 abril 2009"
+  const m1 = str.match(/^(\d{1,2})\s+([a-záéíóúãõç]+)\.?\s+(\d{4})$/i);
   if (m1) { const mm = months[m1[2].toLowerCase()]; return mm ? `${m1[3]}-${mm}-${m1[1].padStart(2,'0')}` : ''; }
+  // "12 de abr. de 2009" or "12 de abril de 2009"
+  const m1b = str.match(/^(\d{1,2})\s+de\s+([a-záéíóúãõç]+)\.?\s+de\s+(\d{4})$/i);
+  if (m1b) { const mm = months[m1b[2].toLowerCase()]; return mm ? `${m1b[3]}-${mm}-${m1b[1].padStart(2,'0')}` : ''; }
   // "12/04/2009"
   const m2 = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (m2) return `${m2[3]}-${m2[2].padStart(2,'0')}-${m2[1].padStart(2,'0')}`;
@@ -891,11 +899,19 @@ function _zzGrupo(line) { return _ZZ_GRUPOS[line.toLowerCase().trim()] || null; 
 function _parseZeroZero(lines) {
   const players = [];
   let posGrupo = '';
-  for (const line of lines) {
-    if (/^(plantel|equipa|época|temporada|zerozero|guardar|filtrar|ver mais|carregar|menu|login|©|anterior|próximo|página|sub-|\.com)/i.test(line)) continue;
+  const junkRe = /^(plantel|equipa|época|temporada|zerozero|guardar|filtrar|ver mais|carregar|menu|login|©|anterior|próximo|página|sub-|\.com)/i;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (junkRe.test(line)) continue;
     if (line.length < 2) continue;
     const grupo = _zzGrupo(line);
     if (grupo) { posGrupo = grupo; continue; }
+
+    // Skip lines that are purely a date (they'll be picked up by lookahead below)
+    if (_normalizeDateFPF(line)) continue;
+    // Skip pure nationality codes and pure age lines
+    if (_isNac(line) || /^\(?\d{1,2}\s*(anos)?\)?$/i.test(line)) continue;
 
     const parts = line.split(/\t+|\s{2,}/).map(p => p.trim()).filter(Boolean);
     if (!parts.length) continue;
@@ -909,7 +925,7 @@ function _parseZeroZero(lines) {
     if (/^\(?\d{1,2}\s*(anos)?\)?$/i.test(parts[hi-1])) hi--;
     // Strip trailing nationality
     if (hi > lo + 1 && _isNac(parts[hi-1])) hi--;
-    // Strip trailing date
+    // Strip trailing date (inline, same line)
     const maybeDate = _normalizeDateFPF(parts[hi-1]);
     if (maybeDate && hi > lo + 1) { dataNascimento = maybeDate; hi--; }
     // Strip nationality again (may appear before date)
@@ -919,6 +935,16 @@ function _parseZeroZero(lines) {
 
     nome = parts.slice(lo, hi).join(' ').trim();
     if (!nome || nome.length < 2 || /^\d+$/.test(nome)) continue;
+
+    // Lookahead: if no date yet, scan next few lines for one (multi-line ZeroZero layout)
+    if (!dataNascimento) {
+      for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
+        if (_zzGrupo(lines[j]) || junkRe.test(lines[j])) break;
+        const d = _normalizeDateFPF(lines[j].trim());
+        if (d) { dataNascimento = d; break; }
+      }
+    }
+
     players.push({ numero, nome, posicao, dataNascimento, foto: _fpfImgForName(nome) });
   }
   return players;
@@ -3684,13 +3710,19 @@ function _parseSenioresZZ(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   const players = [];
   let posGrupo = '';
+  const junkRe = /^(plantel|equipa|época|temporada|zerozero|guardar|filtrar|ver mais|carregar|menu|login|©|anterior|próximo|página|\.com)/i;
 
-  for (const line of lines) {
-    if (/^(plantel|equipa|época|temporada|zerozero|guardar|filtrar|ver mais|carregar|menu|login|©|anterior|próximo|página|\.com)/i.test(line)) continue;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (junkRe.test(line)) continue;
     if (line.length < 2) continue;
 
     const grupo = _zzGrupo(line);
     if (grupo) { posGrupo = grupo; continue; }
+
+    // Skip pure date / nationality / age lines (picked up by lookahead)
+    if (_normalizeDateFPF(line)) continue;
+    if (_isNac(line) || /^\(?\d{1,2}\s*(anos)?\)?$/i.test(line)) continue;
 
     const parts = line.split(/\t+|\s{2,}/).map(p => p.trim()).filter(Boolean);
     if (!parts.length) continue;
@@ -3708,6 +3740,15 @@ function _parseSenioresZZ(text) {
 
     nome = parts.slice(lo, hi).join(' ').trim();
     if (!nome || nome.length < 2 || /^\d+$/.test(nome)) continue;
+
+    // Lookahead for date on a separate line
+    if (!dataNascimento) {
+      for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
+        if (_zzGrupo(lines[j]) || junkRe.test(lines[j])) break;
+        const d = _normalizeDateFPF(lines[j].trim());
+        if (d) { dataNascimento = d; break; }
+      }
+    }
 
     const posMap = _ZZ_POS_SENIOR[posGrupo] || { posicao: 'DEF', posicaoFull: posGrupo || 'Defesa' };
     players.push({ nome, numero, posicao: posMap.posicao, posicaoFull: posMap.posicaoFull, dataNascimento, foto: _seniorFoto(nome) });
