@@ -450,10 +450,22 @@
                 <button onclick="fecharColarClass()" style="background:none;border:none;color:#fff;font-size:1.4rem;cursor:pointer;line-height:1">&times;</button>
               </div>
               <div style="padding:20px">
-                <div style="background:#e8f4fd;border:1px solid #b3d9f7;border-radius:8px;padding:14px;margin-bottom:16px;font-size:0.85rem;color:#1a5276;line-height:1.6">
-                  <strong>Como fazer:</strong> <span id="colarClassHint"></span>
+                <!-- URL import -->
+                <div style="margin-bottom:14px">
+                  <label style="display:block;font-size:0.8rem;font-weight:700;margin-bottom:6px">&#8659; Importar diretamente do ZeroZero ou AF Algarve</label>
+                  <div style="display:flex;gap:8px">
+                    <input type="url" id="colarClassUrl" placeholder="https://www.zerozero.pt/... ou https://afalgarve.pt/..."
+                      style="flex:1;padding:8px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:0.82rem;min-width:0">
+                    <button class="btn-primary" onclick="buscarUrlColar(this)" style="white-space:nowrap;flex-shrink:0">&#8659; Buscar</button>
+                  </div>
                 </div>
-                <textarea id="colarClassTA" rows="10"
+                <details style="margin-bottom:14px">
+                  <summary style="font-size:0.8rem;color:#888;cursor:pointer;padding:4px 0">ou colar manualmente &#9660;</summary>
+                  <div style="margin-top:8px;background:#e8f4fd;border:1px solid #b3d9f7;border-radius:8px;padding:12px;font-size:0.83rem;color:#1a5276;line-height:1.6">
+                    <span id="colarClassHint"></span>
+                  </div>
+                </details>
+                <textarea id="colarClassTA" rows="8"
                   style="width:100%;box-sizing:border-box;padding:10px;border:1.5px solid #ddd;border-radius:8px;font-family:monospace;font-size:0.82rem;resize:vertical"></textarea>
                 <div style="display:flex;gap:10px;margin-top:12px">
                   <button class="btn-save" onclick="previewColarClass()">&#128269; Pré-visualizar</button>
@@ -822,12 +834,21 @@
                 <button onclick="fecharSenioresImport()" style="background:none;border:none;color:#fff;font-size:1.4rem;cursor:pointer;line-height:1">&times;</button>
               </div>
               <div style="padding:20px">
-                <div style="background:#e8f4fd;border:1px solid #b3d9f7;border-radius:8px;padding:14px;margin-bottom:16px;font-size:0.85rem;color:#1a5276;line-height:1.7">
-                  <strong>Como fazer:</strong> Vai a
-                  <strong>zerozero.pt → Juventude Campinense → Plantel</strong>,
-                  seleciona toda a página (Ctrl+A), copia (Ctrl+C) e cola aqui.<br>
-                  O sistema importa nomes, nº de camisola, posição e foto automaticamente.
+                <!-- URL import -->
+                <div style="margin-bottom:14px">
+                  <label style="display:block;font-size:0.8rem;font-weight:700;margin-bottom:6px">&#8659; Importar diretamente do ZeroZero</label>
+                  <div style="display:flex;gap:8px">
+                    <input type="url" id="senioresImportUrl" value="https://www.zerozero.pt/equipa/juventude-campinense/6416?epoca_id=155"
+                      style="flex:1;padding:8px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:0.82rem;min-width:0">
+                    <button class="btn-primary" onclick="buscarUrlSeniores(this)" style="white-space:nowrap;flex-shrink:0">&#8659; Buscar</button>
+                  </div>
                 </div>
+                <details style="margin-bottom:14px">
+                  <summary style="font-size:0.8rem;color:#888;cursor:pointer;padding:4px 0">ou colar manualmente &#9660;</summary>
+                  <div style="margin-top:8px;background:#e8f4fd;border:1px solid #b3d9f7;border-radius:8px;padding:12px;font-size:0.83rem;color:#1a5276">
+                    Vai a zerozero.pt → Plantel, seleciona tudo (Ctrl+A), copia (Ctrl+C) e cola abaixo.
+                  </div>
+                </details>
                 <div style="margin-bottom:14px">
                   <label style="display:block;font-size:0.8rem;font-weight:700;margin-bottom:4px">Se jogador já existir</label>
                   <select id="senioresDupMode" class="filter-select">
@@ -835,7 +856,7 @@
                     <option value="replace">Atualizar dados e foto</option>
                   </select>
                 </div>
-                <textarea id="senioresImportTA" rows="12" placeholder="Cola aqui o conteúdo copiado do ZeroZero..."
+                <textarea id="senioresImportTA" rows="8" placeholder="Cola aqui o conteúdo copiado do ZeroZero (ou usa Buscar acima)..."
                   style="width:100%;box-sizing:border-box;padding:10px;border:1.5px solid #ddd;border-radius:8px;font-family:monospace;font-size:0.82rem;resize:vertical"></textarea>
                 <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
                   <button class="btn-save" onclick="previewSenioresImport()">&#128269; Pré-visualizar</button>
@@ -886,12 +907,23 @@
                 <button onclick="fecharFormacaoImport()" style="background:none;border:none;color:#fff;font-size:1.4rem;cursor:pointer;line-height:1">&times;</button>
               </div>
               <div style="padding:20px">
-                <div style="background:#e8f4fd;border:1px solid #b3d9f7;border-radius:8px;padding:14px;margin-bottom:16px;font-size:0.85rem;color:#1a5276;line-height:1.7">
-                  <strong>Como fazer:</strong> Vai a
-                  <strong>zerozero.pt → Juventude Campinense → Plantel</strong>, escolhe o escalão correto,
-                  seleciona toda a página (Ctrl+A), copia (Ctrl+C) e cola aqui.<br>
-                  Também funciona com a <strong>FPF → Jogadores Inscritos</strong>.
+                <!-- URL import -->
+                <div style="margin-bottom:14px">
+                  <label style="display:block;font-size:0.8rem;font-weight:700;margin-bottom:6px">&#8659; Importar diretamente do ZeroZero</label>
+                  <div style="display:flex;gap:8px">
+                    <input type="url" id="formacaoImportUrl" value="https://www.zerozero.pt/equipa/juventude-campinense/103502?epoca_id=155"
+                      style="flex:1;padding:8px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:0.82rem;min-width:0">
+                    <button class="btn-primary" onclick="buscarUrlFormacao(this)" style="white-space:nowrap;flex-shrink:0">&#8659; Buscar</button>
+                  </div>
+                  <p style="font-size:0.75rem;color:#888;margin:4px 0 0">Muda o URL para o escalão correto antes de buscar.</p>
                 </div>
+                <details style="margin-bottom:14px">
+                  <summary style="font-size:0.8rem;color:#888;cursor:pointer;padding:4px 0">ou colar manualmente &#9660;</summary>
+                  <div style="margin-top:8px;background:#e8f4fd;border:1px solid #b3d9f7;border-radius:8px;padding:12px;font-size:0.83rem;color:#1a5276">
+                    Vai a zerozero.pt → Plantel, escolhe o escalão, seleciona tudo (Ctrl+A), copia (Ctrl+C) e cola abaixo.
+                    Também funciona com a FPF → Jogadores Inscritos.
+                  </div>
+                </details>
                 <div style="margin-bottom:14px">
                   <label style="display:block;font-size:0.8rem;font-weight:700;margin-bottom:4px">Se jogador já existir</label>
                   <select id="formacaoDupMode" class="filter-select">
@@ -899,7 +931,7 @@
                     <option value="replace">Atualizar dados e foto</option>
                   </select>
                 </div>
-                <textarea id="formacaoImportTA" rows="12" placeholder="Cola aqui o conteúdo copiado..."
+                <textarea id="formacaoImportTA" rows="8" placeholder="Preenchido automaticamente ao usar Buscar, ou cola aqui manualmente..."
                   style="width:100%;box-sizing:border-box;padding:10px;border:1.5px solid #ddd;border-radius:8px;font-family:monospace;font-size:0.82rem;resize:vertical"></textarea>
                 <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
                   <button class="btn-save" onclick="previewFormacaoImport()">&#128269; Pré-visualizar</button>

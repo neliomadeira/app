@@ -888,6 +888,113 @@ function _extractDate(str) {
   return '';
 }
 
+// ── Direct URL fetch utilities ────────────────────────────────────────────────
+
+async function _fetchViaProxy(url) {
+  const proxies = [
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+  ];
+  let lastErr = 'Falha na ligação';
+  for (const proxy of proxies) {
+    try {
+      const ctrl = new AbortController();
+      const tid = setTimeout(() => ctrl.abort(), 12000);
+      const res = await fetch(proxy, { signal: ctrl.signal });
+      clearTimeout(tid);
+      if (!res.ok) continue;
+      const text = await res.text();
+      if (text.length < 500) continue; // too short = error page
+      return text;
+    } catch(e) { lastErr = e.message || lastErr; }
+  }
+  throw new Error(`Não foi possível aceder à página. Tenta copiar manualmente.\n(${lastErr})`);
+}
+
+// Convert a parsed HTML document to structured plain text (block elements → newlines, table cells → tabs)
+function _docToText(doc) {
+  const BLOCK = new Set(['div','p','li','h1','h2','h3','h4','h5','h6','section','article','header','footer','br']);
+  const SKIP  = new Set(['script','style','noscript','nav','iframe','button','input','select']);
+  const parts = [];
+  function walk(node) {
+    if (node.nodeType === 3) {
+      const t = node.textContent.replace(/\s+/g,' ').trim();
+      if (t) parts.push(t);
+      return;
+    }
+    if (node.nodeType !== 1) return;
+    const tag = node.tagName.toLowerCase();
+    if (SKIP.has(tag)) return;
+    if (tag === 'br') { parts.push('\n'); return; }
+    if (tag === 'td' || tag === 'th') {
+      for (const c of node.childNodes) walk(c);
+      parts.push('\t');
+      return;
+    }
+    if (tag === 'tr') { parts.push('\n'); for (const c of node.childNodes) walk(c); parts.push('\n'); return; }
+    if (BLOCK.has(tag)) parts.push('\n');
+    for (const c of node.childNodes) walk(c);
+    if (BLOCK.has(tag)) parts.push('\n');
+  }
+  walk(doc.body || doc.documentElement);
+  return parts.join('').replace(/\t\n/g, '\n').replace(/[ \t]+ /g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+async function _zzFetchAndFill(url, taId, htmlDocSetter, onDone) {
+  const btn = document.querySelector(`[onclick*="${onDone.name || ''}"]`) || null;
+  const statusEl = document.getElementById(taId)?.parentElement;
+  const ta = document.getElementById(taId);
+  if (!ta) return;
+
+  // Show loading state
+  ta.placeholder = '⏳ A buscar dados do ZeroZero…';
+  ta.value = '';
+
+  let html;
+  try {
+    html = await _fetchViaProxy(url);
+  } catch(e) {
+    ta.placeholder = 'Cola aqui manualmente (fetch falhou)';
+    showToast(e.message, 'red');
+    return;
+  }
+
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  if (htmlDocSetter) htmlDocSetter(doc);
+  const text = _docToText(doc);
+  ta.value = text;
+  ta.placeholder = '';
+  onDone();
+}
+
+window.buscarUrlSeniores = async function(btn) {
+  const url = document.getElementById('senioresImportUrl')?.value.trim();
+  if (!url) { showToast('Introduz um URL do ZeroZero', 'red'); return; }
+  btn.textContent = '⏳ A buscar…'; btn.disabled = true;
+  try {
+    await _zzFetchAndFill(url, 'senioresImportTA', (doc) => { _senioresImportHTMLDoc = doc; }, previewSenioresImport);
+  } finally { btn.textContent = '⬇ Buscar'; btn.disabled = false; }
+};
+
+window.buscarUrlFormacao = async function(btn) {
+  const url = document.getElementById('formacaoImportUrl')?.value.trim();
+  if (!url) { showToast('Introduz um URL do ZeroZero', 'red'); return; }
+  btn.textContent = '⏳ A buscar…'; btn.disabled = true;
+  try {
+    await _zzFetchAndFill(url, 'formacaoImportTA', (doc) => { _formacaoImportHTMLDoc = doc; }, previewFormacaoImport);
+  } finally { btn.textContent = '⬇ Buscar'; btn.disabled = false; }
+};
+
+window.buscarUrlColar = async function(btn) {
+  const url = document.getElementById('colarClassUrl')?.value.trim();
+  if (!url) { showToast('Introduz um URL', 'red'); return; }
+  btn.textContent = '⏳ A buscar…'; btn.disabled = true;
+  try {
+    await _zzFetchAndFill(url, 'colarClassTA', null, previewColarClass);
+  } finally { btn.textContent = '⬇ Buscar'; btn.disabled = false; }
+};
+
 // ZeroZero position group headers
 const _ZZ_GRUPOS = {
   'guarda-redes':'Guarda-redes','guarda redes':'Guarda-redes',
