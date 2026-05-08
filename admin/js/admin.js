@@ -2006,13 +2006,17 @@ let _colarTeam    = '';
 const COLAR_CONFIG = {
   class: {
     title: (esc, team) => `Colar Classificação — ${esc}${team ? ' · '+team : ''}`,
-    hint: `Vai a <a href="https://afalgarve.pt/competicoes/" target="_blank" rel="noopener">afalgarve.pt/competicoes/</a>, navega até à classificação, selecciona todas as linhas, copia (Ctrl+C) e cola aqui.`,
-    ph:   'Cole aqui o texto copiado da tabela de classificação...',
+    hint: `Funciona com <strong>AF Algarve</strong> e <strong>ZeroZero</strong>:<br>
+           • <strong>AF Algarve:</strong> vai a <a href="https://afalgarve.pt/competicoes/" target="_blank" rel="noopener">afalgarve.pt/competicoes/</a>, abre a classificação, seleciona tudo (Ctrl+A) e copia.<br>
+           • <strong>ZeroZero:</strong> vai à página da competição → separador <em>Classificação</em>, seleciona a tabela e copia.`,
+    ph:   'Cole aqui o texto copiado da tabela de classificação (AF Algarve ou ZeroZero)...',
   },
   jogos: {
     title: (esc, team) => `Colar Jogos — ${esc}${team ? ' · '+team : ''}`,
-    hint: `Vai ao calendário da competição, selecciona as linhas dos jogos (realizados e agendados), copia (Ctrl+C) e cola aqui.<br><strong>Formato AF Algarve:</strong> cada jogo é 5 linhas (equipa casa / data / hora ou resultado / equipa fora / local).`,
-    ph:   'Cole aqui o texto copiado da lista de jogos...',
+    hint: `Funciona com <strong>AF Algarve</strong> e <strong>ZeroZero</strong>:<br>
+           • <strong>AF Algarve:</strong> vai ao calendário da competição, seleciona as linhas dos jogos e copia.<br>
+           • <strong>ZeroZero:</strong> vai à página da equipa → separador <em>Jogos</em> ou <em>Calendário</em>, seleciona tudo e copia.`,
+    ph:   'Cole aqui o texto copiado dos jogos (AF Algarve ou ZeroZero)...',
   },
 };
 
@@ -2093,10 +2097,48 @@ function parseScore(s) {
   return { gcasa:parseInt(m[1]), gfora:parseInt(m[2]) };
 }
 
+// ZeroZero format: date on own line, then optionally time, then home, score/–, away, [local]
+function parseZZJogos(lines, next) {
+  const jogos = [];
+  const junkRe = /^(jogos|calendário|resultados|jornada|época|competição|equipa|©|filtrar|anterior|próximo|zerozero)/i;
+  for (let i = 0; i < lines.length; i++) {
+    const d = parseDate(lines[i]);
+    if (!d || !/^\d{1,2}/.test(lines[i].trim())) continue; // only date-first lines
+    let j = i + 1;
+    let hora = '15:00', casa = '', fora = '', score = null;
+    // optional time
+    if (j < lines.length && parseTime(lines[j])) { hora = parseTime(lines[j]) || hora; j++; }
+    // home team
+    if (j < lines.length && !parseDate(lines[j]) && !parseScore(lines[j]) && !parseTime(lines[j]) && !junkRe.test(lines[j])) {
+      casa = lines[j].trim(); j++;
+    }
+    // score or separator
+    if (j < lines.length) {
+      const sc = parseScore(lines[j]);
+      if (sc) { score = sc; j++; }
+      else if (/^[-–]$/.test(lines[j].trim())) j++; // separator
+    }
+    // away team
+    if (j < lines.length && !parseDate(lines[j]) && !parseScore(lines[j]) && !parseTime(lines[j]) && !junkRe.test(lines[j])) {
+      fora = lines[j].trim(); j++;
+    }
+    if (!casa || !fora || casa === fora) continue;
+    jogos.push({ id: next(), casa, fora, gcasa: score?.gcasa ?? null, gfora: score?.gfora ?? null,
+      data: d, hora, local: '', estado: score ? 'Realizado' : 'Agendado' });
+  }
+  return jogos;
+}
+
 function parsePastedJogos(text) {
   const raw = text.split('\n').map(l=>l.trim()).filter(Boolean);
   const idBase = { v: Date.now() };
   const next = () => idBase.v++;
+  // ZeroZero detection: date lines (DD/MM/YYYY or "22 mar 2026") followed by team names on separate lines
+  const dateFirstLines = raw.filter((l,i) => parseDate(l) && /^\d{1,2}/.test(l) && i+1<raw.length && !parseDate(raw[i+1]) && !parseScore(raw[i+1]));
+  if (dateFirstLines.length > 0) {
+    const zzResult = parseZZJogos(raw, next);
+    if (zzResult.length > 0) return zzResult;
+  }
   const dateOnlyLines = raw.filter(l=>/^\d{1,2}\s+[A-Za-zÀ-ž]{3,}(\s+\d{4})?$/.test(l)&&parseDate(l));
   if (dateOnlyLines.length > 0) return parseMultiLineJogos(raw, next);
   return parseSingleLineJogos(raw, next);
