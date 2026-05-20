@@ -891,22 +891,36 @@ function _extractDate(str) {
 // ── Direct URL fetch utilities ────────────────────────────────────────────────
 
 async function _fetchViaProxy(url) {
-  const proxies = [
+  // Try our own server-side proxy first (no CORS issues, no third-party limits)
+  const localProxy = `../proxy.php?url=${encodeURIComponent(url)}`;
+  const externalProxies = [
     `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     `https://corsproxy.io/?${encodeURIComponent(url)}`,
     `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
   ];
-  let lastErr = 'Falha na ligação';
-  for (const proxy of proxies) {
+
+  const tryFetch = async (proxyUrl, timeout) => {
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), timeout);
     try {
-      const ctrl = new AbortController();
-      const tid = setTimeout(() => ctrl.abort(), 12000);
-      const res = await fetch(proxy, { signal: ctrl.signal });
+      const res = await fetch(proxyUrl, { signal: ctrl.signal });
       clearTimeout(tid);
-      if (!res.ok) continue;
+      if (!res.ok) return null;
       const text = await res.text();
-      if (text.length < 500) continue; // too short = error page
-      return text;
+      return text.length >= 500 ? text : null;
+    } catch(e) { clearTimeout(tid); return null; }
+  };
+
+  // Try local proxy first (fast, reliable)
+  const local = await tryFetch(localProxy, 15000);
+  if (local) return local;
+
+  // Fall back to external CORS proxies
+  let lastErr = 'Falha na ligação';
+  for (const proxy of externalProxies) {
+    try {
+      const text = await tryFetch(proxy, 12000);
+      if (text) return text;
     } catch(e) { lastErr = e.message || lastErr; }
   }
   throw new Error(`Não foi possível aceder à página. Tenta copiar manualmente.\n(${lastErr})`);
