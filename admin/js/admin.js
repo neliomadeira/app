@@ -2209,41 +2209,130 @@ window.fecharColarClass = function() {
 };
 
 // ── Parsers ───────────────────────────────────────
+function _makeClassRow(nome, nums, rowCount) {
+  // Strip optional leading position number (1, 2, 3…) if sequential
+  let seq = nums;
+  if (seq.length >= 8 && seq[0] === rowCount + 1) seq = seq.slice(1);
+  if (seq.length < 7) return null;
+  let j, v, e, d, gm, gs, pts;
+  if (seq.length >= 8) { [j, v, e, d, gm, gs, , pts] = seq; } // skip DG column
+  else                 { [j, v, e, d, gm, gs, pts]    = seq; }
+  if (Math.abs(j - (v + e + d)) > 2) return null; // sanity check
+  nome = nome.replace(/[*°º]/g, '').trim();
+  if (!nome || nome.length < 2) return null;
+  return {
+    equipa: nome,
+    abrev: nome.replace(/^(fc|sc|cd|cf|sl|gd|os|ad|af)\s*/i, '').slice(0, 3).toUpperCase(),
+    j: j||0, v: v||0, e: e||0, d: d||0, gm: gm||0, gs: gs||0,
+    dg: (gm||0)-(gs||0), pts: pts||0, forma: ''
+  };
+}
+
+// Parse a single token into a class stat integer, returns null if not a stat number
+function _classNum(p) {
+  const n = parseInt((p || '').replace(/[^\d\-]/g, ''));
+  return isNaN(n) ? null : n;
+}
+
+// Decide whether a token is a team-name word (not a stat/code/flag)
+function _isNameWord(p) {
+  if (!p) return false;
+  if (/^[-+]?\d+$/.test(p)) return false;                // pure number
+  if (/^[A-ZÁÉÍÓÚ]{2,4}$/.test(p)) return false;        // team code e.g. OLH
+  if (/^[\u{1F1E0}-\u{1F1FF}]{2}/u.test(p)) return false; // flag emoji
+  return p.replace(/[^a-zA-ZÀ-ž\s\-]/g, '').trim().length > 1;
+}
+
 function parsePastedTable(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   const rows  = [];
+
+  // ── Strategy 1: tab-separated or multi-space-separated rows ──────────────
   for (const line of lines) {
-    let parts = line.includes('\t') ? line.split('\t').map(p=>p.trim()) : line.split(/\s{2,}/).map(p=>p.trim());
+    let parts = line.includes('\t')
+      ? line.split('\t').map(p => p.trim())
+      : line.split(/\s{2,}/).map(p => p.trim());
     parts = parts.filter(Boolean);
     if (parts.length < 5) continue;
-    // Skip header rows (all non-numeric)
-    if (parts.every(p => !/\d/.test(p))) continue;
-    // Find team name: first part that is not a number/DG/flag/code
-    const numRe = /^[-+]?\d+(\.\d+)?$/;
-    const nameIdx = parts.findIndex(p =>
-      !numRe.test(p) &&
-      !/^[A-Z]{2,3}$/.test(p.trim()) &&   // skip nationality codes
-      !/^[\u{1F1E0}-\u{1F1FF}]{2}/u.test(p) && // skip flag emojis
-      p.replace(/[^a-zA-ZÀ-ž\s\-]/g,'').trim().length > 2
-    );
+    if (parts.every(p => !/\d/.test(p))) continue; // skip all-text header rows
+    const nameIdx = parts.findIndex(_isNameWord);
     if (nameIdx < 0) continue;
-    const nome = parts[nameIdx].replace(/[*°º]/g,'').trim();
-    if (!nome || nome.length < 2) continue;
-    const nums = parts.filter((_,i) => i !== nameIdx)
-      .map(p => { const n = parseInt(p.replace(/[^\d-]/g,'')); return isNaN(n) ? null : n; })
-      .filter(n => n !== null);
-    let seq = nums;
-    // Strip leading position number if it matches current row count + 1
-    if (seq.length >= 8 && seq[0] === rows.length + 1) seq = seq.slice(1);
-    if (seq.length < 7) continue;
-    let j,v,e,d,gm,gs,pts;
-    if (seq.length >= 8) { [j,v,e,d,gm,gs,,pts] = seq; } // 8+ → skip DG column
-    else                 { [j,v,e,d,gm,gs,pts]   = seq; }
-    if (Math.abs(j - (v + e + d)) > 2) continue; // sanity check
-    rows.push({ equipa:nome,
-      abrev: nome.replace(/^(fc|sc|cd|cf|sl|gd|os|ad|af)\s*/i,'').slice(0,3).toUpperCase(),
-      j:j||0, v:v||0, e:e||0, d:d||0, gm:gm||0, gs:gs||0,
-      dg:(gm||0)-(gs||0), pts:pts||0, forma:'' });
+    // Team name may span consecutive name-word parts (e.g. "SC" + "Farense" in separate cols)
+    let name = parts[nameIdx];
+    let endIdx = nameIdx + 1;
+    while (endIdx < parts.length && _isNameWord(parts[endIdx])) {
+      name += ' ' + parts[endIdx++];
+    }
+    const nums = parts.filter((_, i) => i < nameIdx || i >= endIdx)
+      .map(p => _classNum(p)).filter(n => n !== null);
+    const row = _makeClassRow(name, nums, rows.length);
+    if (row) rows.push(row);
+  }
+  if (rows.length > 0) return rows;
+
+  // ── Strategy 2: single-space-separated on one line ───────────────────────
+  // e.g. "1 Sport Campinense 14 10 2 2 35 16 +19 32"
+  for (const line of lines) {
+    if (line.includes('\t') || line.split(/\s{2,}/).length > 2) continue;
+    const tokens = line.split(/\s+/).filter(Boolean);
+    if (tokens.length < 8) continue;
+    if (tokens.every(t => !/\d/.test(t))) continue;
+    // Collect name words between leading pos-number and trailing stat-numbers
+    let start = 0;
+    if (/^\d{1,2}$/.test(tokens[0]) && parseInt(tokens[0]) < 30) start = 1;
+    let end = tokens.length;
+    // Shrink end while trailing tokens are numeric stats (at least 7 needed)
+    const nameWords = [];
+    let numBuf = [];
+    for (let i = start; i < tokens.length; i++) {
+      const n = _classNum(tokens[i]);
+      if (n !== null) {
+        numBuf.push(n);
+      } else if (_isNameWord(tokens[i])) {
+        // If we already collected numbers, this name word is past the stats — stop
+        if (numBuf.length >= 7) break;
+        nameWords.push(tokens[i]);
+        numBuf = []; // reset — numbers before name words don't count
+      }
+    }
+    if (nameWords.length === 0 || numBuf.length < 7) continue;
+    const pos = start === 1 ? parseInt(tokens[0]) : rows.length + 1;
+    const nums = pos < 30 ? [pos, ...numBuf] : numBuf;
+    const row = _makeClassRow(nameWords.join(' '), nums, rows.length);
+    if (row) rows.push(row);
+  }
+  if (rows.length > 0) return rows;
+
+  // ── Strategy 3: vertical (one value per line) ────────────────────────────
+  // Each cell is on its own line. Group into classification rows.
+  let i = 0;
+  while (i < lines.length) {
+    // Look for a sequential position number
+    const posMatch = lines[i].match(/^\d{1,2}$/);
+    if (!posMatch || parseInt(lines[i]) !== rows.length + 1 || parseInt(lines[i]) > 30) { i++; continue; }
+    const expectedPos = parseInt(lines[i]);
+    i++;
+    // Skip optional 2-4 uppercase team abbreviation
+    if (i < lines.length && /^[A-ZÁÉÍÓÚ]{2,4}$/.test(lines[i])) i++;
+    // Collect name (non-numeric lines)
+    const nameTokens = [];
+    while (i < lines.length && !(/^\d/.test(lines[i])) && _isNameWord(lines[i])) {
+      nameTokens.push(lines[i++]);
+    }
+    if (!nameTokens.length) continue;
+    // Collect stat numbers — stop before the next sequential position number,
+    // but only check for it after collecting at least 7 stats (avoids false
+    // positives when D=2 or E=1 etc. match a future position number).
+    const nums = [];
+    while (i < lines.length && nums.length < 9) {
+      const line = lines[i];
+      if (nums.length >= 7 && /^\d{1,2}$/.test(line) && parseInt(line) === rows.length + 2) break;
+      const n = _classNum(line);
+      if (n !== null) { nums.push(n); i++; }
+      else break;
+    }
+    const row = _makeClassRow(nameTokens.join(' '), [expectedPos, ...nums], rows.length);
+    if (row) rows.push(row);
   }
   return rows;
 }
