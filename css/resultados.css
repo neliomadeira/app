@@ -146,6 +146,13 @@
 .team-badge--sc { background: var(--yellow); color: var(--blue); border-color: var(--blue); }
 .team-badge--other { background: var(--blue-light, #e8eef8); color: var(--blue); }
 
+.team-logo {
+  width: 28px; height: 28px;
+  object-fit: contain;
+  flex-shrink: 0;
+  border-radius: 3px;
+}
+
 .pts-cell { font-weight: 700; color: var(--blue); font-size: 1rem; }
 
 /* Pos badge */

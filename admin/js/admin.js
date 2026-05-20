@@ -2123,7 +2123,15 @@ function _htmlToStructuredText(doc) {
     const rows = [];
     for (const tr of table.querySelectorAll('tr')) {
       const cells = Array.from(tr.querySelectorAll('td,th'))
-        .map(c => c.textContent.replace(/\s+/g,' ').trim())
+        .map(c => {
+          const text = c.textContent.replace(/\s+/g, ' ').trim();
+          // Capture team logo URLs from img-only cells (no meaningful text)
+          if (!text) {
+            const img = c.querySelector('img[src]');
+            if (img && /^https?:\/\//.test(img.src)) return `[img:${img.src}]`;
+          }
+          return text;
+        })
         .filter(Boolean);
       if (cells.length >= 3) rows.push(cells.join('\t'));
     }
@@ -2254,7 +2262,15 @@ function parsePastedTable(text) {
       : line.split(/\s{2,}/).map(p => p.trim());
     parts = parts.filter(Boolean);
     if (parts.length < 5) continue;
-    if (parts.every(p => !/\d/.test(p))) continue; // skip all-text header rows
+    if (parts.every(p => !/\d/.test(p) && !/^\[img:/.test(p))) continue; // skip all-text header rows
+
+    // Extract logo URL from any [img:...] token in this row
+    let logoUrl = '';
+    parts = parts.filter(p => {
+      if (/^\[img:/.test(p)) { logoUrl = p.slice(5, -1); return false; }
+      return true;
+    });
+
     const nameIdx = parts.findIndex(_isNameWord);
     if (nameIdx < 0) continue;
     // Team name may span consecutive name-word parts (e.g. "SC" + "Farense" in separate cols)
@@ -2266,7 +2282,7 @@ function parsePastedTable(text) {
     const nums = parts.filter((_, i) => i < nameIdx || i >= endIdx)
       .map(p => _classNum(p)).filter(n => n !== null);
     const row = _makeClassRow(name, nums, rows.length);
-    if (row) rows.push(row);
+    if (row) { if (logoUrl) row.logo = logoUrl; rows.push(row); }
   }
   if (rows.length > 0) return rows;
 
@@ -2477,21 +2493,38 @@ window.previewColarClass = function() {
     const rows = parsePastedTable(ta.value);
     if (!rows.length) { div.innerHTML=`<p style="color:#c00;font-size:0.85rem">&#9888; Não foi possível reconhecer dados de classificação.<br>Certifique-se de que copiou a tabela completa (J, V, E, D, GM, GS, Pts).</p>`; return; }
     const marked = markSCRows(rows);
-    div.innerHTML = `<p style="color:#22a75e;font-size:0.85rem;margin-bottom:8px">&#10003; ${rows.length} equipas reconhecidas</p>
+    const hasLogos = rows.some(r => r.logo);
+    div.innerHTML = `<p style="color:#22a75e;font-size:0.85rem;margin-bottom:8px">&#10003; ${rows.length} equipas reconhecidas${hasLogos?' · logos detectados':''}</p>
     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:0.8rem">
       <thead><tr style="background:#001b4d;color:#fff">
-        <th style="padding:5px 8px">#</th><th style="padding:5px 8px;text-align:left">Equipa</th>
+        <th style="padding:5px 8px">#</th>
+        ${hasLogos?'<th style="padding:5px 8px">Logo</th>':''}
+        <th style="padding:5px 8px;text-align:left">Equipa</th>
         <th style="padding:5px 8px">J</th><th style="padding:5px 8px">V</th><th style="padding:5px 8px">E</th><th style="padding:5px 8px">D</th>
-        <th style="padding:5px 8px">GM</th><th style="padding:5px 8px">GS</th><th style="padding:5px 8px">Pts</th>
+        <th style="padding:5px 8px">GM</th><th style="padding:5px 8px">GS</th>
+        <th style="padding:5px 8px" title="Pontos armazenados (inclui 1ª fase se copiado do ZeroZero)">Pts</th>
       </tr></thead>
       <tbody>${marked.map((r,i)=>`<tr style="background:${r.sc?'rgba(255,209,0,0.12)':i%2===0?'#f9f9f9':'#fff'};${r.sc?'font-weight:700':''}">
         <td style="padding:4px 8px;text-align:center">${i+1}</td>
+        ${hasLogos?`<td style="padding:4px 8px;text-align:center">${r.logo?`<img src="${r.logo}" style="width:22px;height:22px;object-fit:contain" onerror="this.style.opacity=0.2">`:'—'}</td>`:''}
         <td style="padding:4px 8px">${r.equipa}${r.sc?' &#11088;':''}</td>
         <td style="padding:4px 8px;text-align:center">${r.j}</td><td style="padding:4px 8px;text-align:center">${r.v}</td>
         <td style="padding:4px 8px;text-align:center">${r.e}</td><td style="padding:4px 8px;text-align:center">${r.d}</td>
         <td style="padding:4px 8px;text-align:center">${r.gm}</td><td style="padding:4px 8px;text-align:center">${r.gs}</td>
         <td style="padding:4px 8px;text-align:center;font-weight:700;color:#001b4d">${r.pts}</td>
       </tr>`).join('')}</tbody></table></div>
+    <div style="margin-top:14px;background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:12px">
+      <div style="font-size:0.8rem;font-weight:700;margin-bottom:8px;color:#7a5700">&#43; Pontos da 1ª Fase (carregados para a 2ª fase)</div>
+      <p style="font-size:0.75rem;color:#888;margin:0 0 10px">Se este for a 2ª fase de uma competição, insere os pontos carregados de cada equipa. Deixa em branco se não aplicável.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px">
+        ${marked.map((r,i)=>`<label style="display:flex;align-items:center;gap:6px;font-size:0.8rem">
+          <span style="flex:1;font-weight:${r.sc?700:400}">${r.equipa}</span>
+          <input type="number" min="0" max="99" placeholder="0"
+            style="width:52px;padding:3px 6px;border:1px solid #ddd;border-radius:4px;font-size:0.8rem;text-align:center"
+            data-pts1fase="${i}" value="${r.pts1fase||''}">
+        </label>`).join('')}
+      </div>
+    </div>
     <p style="font-size:0.75rem;color:#888;margin-top:8px">&#11088; = JS Campinense. Confira antes de guardar.</p>`;
   } else {
     const jogos = parsePastedJogos(ta.value);
@@ -2533,7 +2566,22 @@ window.guardarColarClass = function() {
   if (_colarMode === 'class') {
     const rows = parsePastedTable(ta.value);
     if (!rows.length) { showToast('Nenhum dado válido para guardar', 'red'); return; }
+
+    // Read pts1fase inputs from the preview section
+    const pts1Inputs = document.querySelectorAll('[data-pts1fase]');
+    pts1Inputs.forEach(inp => {
+      const idx = parseInt(inp.dataset.pts1fase);
+      const val = parseInt(inp.value);
+      if (!isNaN(val) && val > 0 && rows[idx]) rows[idx].pts1fase = val;
+    });
+
     const final = markSCRows(rows);
+
+    // Save logos to db_logos (team name → logo URL)
+    const logos = JSON.parse(localStorage.getItem('db_logos') || '{}');
+    final.forEach(r => { if (r.logo) logos[r.equipa.toLowerCase()] = r.logo; });
+    localStorage.setItem('db_logos', JSON.stringify(logos));
+
     localStorage.setItem(teamStorageKey(_colarEscalao, _colarTeam, 'class'), JSON.stringify(final));
     teamCfg.lastSync = now;
     teamCfg.nTeams   = final.length;

@@ -179,9 +179,21 @@ function renderClass(escalao) {
 
   document.getElementById('resCompeticao').textContent = dados.competicao;
 
-  const sorted = [...dados.classificacao].map(t => ({
-    ...t, pts: calcPts(t.v, t.e), dg: t.gm - t.gs
-  })).sort((a,b) => b.pts - a.pts || b.dg - a.dg || b.gm - a.gm);
+  // Load logo map (team name → url), built by admin when importing
+  let logosMap = {};
+  try { logosMap = JSON.parse(localStorage.getItem('db_logos') || '{}'); } catch(e) {}
+
+  const sorted = [...dados.classificacao].map(t => {
+    // Use stored pts (includes Phase 1 carry-over from ZeroZero) when available.
+    // If pts1fase is set, add it to the Phase 2 calculated pts.
+    const fase2Pts  = calcPts(t.v, t.e);
+    const totalPts  = t.pts != null && t.pts > fase2Pts
+      ? t.pts                          // stored value already includes Phase 1
+      : fase2Pts + (t.pts1fase || 0);  // add Phase 1 carry-over if entered separately
+    // Resolve logo: stored per-row, or from global db_logos lookup
+    const logo = t.logo || logosMap[(t.equipa || '').toLowerCase()] || '';
+    return { ...t, pts: totalPts, dg: t.gm - t.gs, logo };
+  }).sort((a,b) => b.pts - a.pts || b.dg - a.dg || b.gm - a.gm);
 
   const tbody = document.getElementById('classTable');
   tbody.innerHTML = sorted.map((t, i) => {
@@ -190,12 +202,17 @@ function renderClass(escalao) {
       ? `<span class="pos-badge pos-badge--${pos}">${pos}</span>`
       : `<span>${pos}</span>`;
     const badgeClass = t.sc ? 'team-badge--sc' : 'team-badge--other';
+    const logoEl = t.logo
+      ? `<img src="${t.logo}" alt="${t.abrev}" class="team-logo" loading="lazy"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex'">`
+        + `<span class="team-badge ${badgeClass}" style="display:none">${t.abrev}</span>`
+      : `<span class="team-badge ${badgeClass}">${t.abrev}</span>`;
     return `
       <tr class="${t.sc ? 'sc-row' : ''}">
         <td class="pos-cell">${posBadge}</td>
         <td>
           <div class="team-cell">
-            <span class="team-badge ${badgeClass}">${t.abrev}</span>
+            ${logoEl}
             <span>${t.equipa}${t.sc ? ' ★' : ''}</span>
           </div>
         </td>
