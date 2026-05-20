@@ -2078,6 +2078,51 @@ document.getElementById('btnImportarFPF')?.addEventListener('click', () => {
   if (!open) renderClassSyncRows();
 });
 
+// ── HTML clipboard paste for standings / results ──────────────────────────────
+// When the user copies a ZeroZero (or AF Algarve) page, the clipboard has rich
+// HTML with proper <table> structure. Parse that directly instead of messy text.
+(function() {
+  const ta = document.getElementById('colarClassTA');
+  if (!ta) return;
+  ta.addEventListener('paste', function(e) {
+    const html = e.clipboardData?.getData('text/html');
+    if (!html || html.length < 300) return; // no HTML → fall through to plain text
+    e.preventDefault();
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const text = _htmlToStructuredText(doc);
+    if (text.trim().length > 20) {
+      ta.value = text;
+      setTimeout(previewColarClass, 80);
+    }
+  });
+})();
+
+// Extract structured text from HTML: tables → tab-separated rows, divs → newlines
+function _htmlToStructuredText(doc) {
+  // Remove clutter
+  doc.querySelectorAll('script,style,noscript,nav,footer,header,iframe,button,input,select').forEach(el => el.remove());
+
+  const blocks = [];
+
+  // Process tables first — most reliable for standings & tab-separated results
+  for (const table of doc.querySelectorAll('table')) {
+    const rows = [];
+    for (const tr of table.querySelectorAll('tr')) {
+      const cells = Array.from(tr.querySelectorAll('td,th'))
+        .map(c => c.textContent.replace(/\s+/g,' ').trim())
+        .filter(Boolean);
+      if (cells.length >= 3) rows.push(cells.join('\t'));
+    }
+    if (rows.length >= 2) { blocks.push(rows.join('\n')); table.remove(); }
+  }
+
+  // Also include remaining text content (for non-table match lists)
+  const rest = _docToText(doc);
+  if (rest.trim().length > 30) blocks.push(rest.trim());
+
+  return blocks.join('\n\n');
+}
+
 // ── Adicionar / remover equipa ────────────────────
 window.adicionarEquipa = function(escalao) {
   const nome = prompt(`Nome da equipa ou série em ${escalao}:\n(ex: "Equipa A", "Série Norte", "Divisão 2")`);
@@ -2157,19 +2202,34 @@ function parsePastedTable(text) {
     let parts = line.includes('\t') ? line.split('\t').map(p=>p.trim()) : line.split(/\s{2,}/).map(p=>p.trim());
     parts = parts.filter(Boolean);
     if (parts.length < 5) continue;
-    const numRe   = /^[-+]?\d+(\.\d+)?$/;
-    const nameIdx = parts.findIndex(p => !numRe.test(p) && p.replace(/[^a-zA-ZÀ-ž\s]/g,'').trim().length > 1);
+    // Skip header rows (all non-numeric)
+    if (parts.every(p => !/\d/.test(p))) continue;
+    // Find team name: first part that is not a number/DG/flag/code
+    const numRe = /^[-+]?\d+(\.\d+)?$/;
+    const nameIdx = parts.findIndex(p =>
+      !numRe.test(p) &&
+      !/^[A-Z]{2,3}$/.test(p.trim()) &&   // skip nationality codes
+      !/^[\u{1F1E0}-\u{1F1FF}]{2}/u.test(p) && // skip flag emojis
+      p.replace(/[^a-zA-ZÀ-ž\s\-]/g,'').trim().length > 2
+    );
     if (nameIdx < 0) continue;
-    const nome = parts[nameIdx].replace(/\*/g,'').trim();
-    const nums = parts.filter((_,i)=>i!==nameIdx).map(p=>parseInt(p.replace(/[^\d-]/g,''))).filter(n=>!isNaN(n));
+    const nome = parts[nameIdx].replace(/[*°º]/g,'').trim();
+    if (!nome || nome.length < 2) continue;
+    const nums = parts.filter((_,i) => i !== nameIdx)
+      .map(p => { const n = parseInt(p.replace(/[^\d-]/g,'')); return isNaN(n) ? null : n; })
+      .filter(n => n !== null);
     let seq = nums;
-    if (seq.length >= 8 && seq[0] === rows.length+1) seq = seq.slice(1);
+    // Strip leading position number if it matches current row count + 1
+    if (seq.length >= 8 && seq[0] === rows.length + 1) seq = seq.slice(1);
     if (seq.length < 7) continue;
     let j,v,e,d,gm,gs,pts;
-    if (seq.length >= 8) { [j,v,e,d,gm,gs,,pts] = seq; } else { [j,v,e,d,gm,gs,pts] = seq; }
-    if (Math.abs(j-(v+e+d)) > 2) continue;
-    rows.push({ equipa:nome, abrev:nome.replace(/^(fc|sc|cd|cf|sl|gd|os|ad|af)\s*/i,'').slice(0,3).toUpperCase(),
-      j:j||0,v:v||0,e:e||0,d:d||0,gm:gm||0,gs:gs||0,dg:(gm||0)-(gs||0),pts:pts||0,forma:'' });
+    if (seq.length >= 8) { [j,v,e,d,gm,gs,,pts] = seq; } // 8+ → skip DG column
+    else                 { [j,v,e,d,gm,gs,pts]   = seq; }
+    if (Math.abs(j - (v + e + d)) > 2) continue; // sanity check
+    rows.push({ equipa:nome,
+      abrev: nome.replace(/^(fc|sc|cd|cf|sl|gd|os|ad|af)\s*/i,'').slice(0,3).toUpperCase(),
+      j:j||0, v:v||0, e:e||0, d:d||0, gm:gm||0, gs:gs||0,
+      dg:(gm||0)-(gs||0), pts:pts||0, forma:'' });
   }
   return rows;
 }
@@ -2199,7 +2259,10 @@ function parseTime(s) {
   if(h>23||mi>59) return null; return `${String(h).padStart(2,'0')}:${m[2]}`;
 }
 function parseScore(s) {
-  s=(s||'').trim(); const m=s.match(/^(\d{1,3})\s*[-:]\s*(\d{1,3})$/);
+  s=(s||'').trim();
+  // Handle en-dash and em-dash as well as hyphen
+  s = s.replace(/[–—]/g, '-');
+  const m=s.match(/^(\d{1,3})\s*[-:]\s*(\d{1,3})$/);
   if(!m) return null; if(parseTime(s)) return null;
   return { gcasa:parseInt(m[1]), gfora:parseInt(m[2]) };
 }
