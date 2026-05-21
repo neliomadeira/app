@@ -2217,15 +2217,30 @@ window.fecharColarClass = function() {
 };
 
 // ── Parsers ───────────────────────────────────────
-function _makeClassRow(nome, nums, rowCount) {
+function _makeClassRow(nome, nums, rowCount, ptsFirst) {
   // Strip optional leading position number (1, 2, 3…) if sequential
   let seq = nums;
   if (seq.length >= 8 && seq[0] === rowCount + 1) seq = seq.slice(1);
   if (seq.length < 7) return null;
   let j, v, e, d, gm, gs, pts;
-  if (seq.length >= 8) { [j, v, e, d, gm, gs, , pts] = seq; } // skip DG column
-  else                 { [j, v, e, d, gm, gs, pts]    = seq; }
-  if (Math.abs(j - (v + e + d)) > 2) return null; // sanity check
+  if (ptsFirst) {
+    // ZeroZero column order: Pts J V E D GM GS DG
+    [pts, j, v, e, d, gm, gs] = seq;
+  } else if (seq.length >= 8) {
+    [j, v, e, d, gm, gs, , pts] = seq; // skip DG column
+  } else {
+    [j, v, e, d, gm, gs, pts] = seq;
+  }
+  // Sanity: J should equal V+E+D (±2 for walkovers/rounding)
+  if (Math.abs(j - (v + e + d)) > 2) {
+    // Fallback: try Pts-first ordering (ZeroZero without detected header)
+    if (!ptsFirst && seq.length >= 8) {
+      let [pts2, j2, v2, e2, d2, gm2, gs2] = seq;
+      if (Math.abs(j2 - (v2 + e2 + d2)) <= 2) {
+        pts = pts2; j = j2; v = v2; e = e2; d = d2; gm = gm2; gs = gs2;
+      } else return null;
+    } else return null;
+  }
   nome = nome.replace(/[*°º]/g, '').trim();
   if (!nome || nome.length < 2) return null;
   return {
@@ -2255,33 +2270,65 @@ function parsePastedTable(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   const rows  = [];
 
-  // ── Strategy 1: tab-separated or multi-space-separated rows ──────────────
+  // Detect ZeroZero's Pts-first column order from header "P J V E D GM GS DG"
+  let ptsFirst = false;
   for (const line of lines) {
+    if (/\d/.test(line) && !/^\[img:/.test(line) && !/^\d{1,2}$/.test(line)) break;
+    const hp = (line.includes('\t') ? line.split('\t') : line.split(/\s{2,}/))
+      .map(p => p.trim()).filter(Boolean);
+    if (hp.length >= 7 && /^P(ts)?$/i.test(hp[0]) && /^J$/i.test(hp[1])) {
+      ptsFirst = true; break;
+    }
+  }
+
+  // ── Strategy 1: tab-separated or multi-space-separated rows ──────────────
+  // Also handles ZeroZero's block layout where position and logo appear on
+  // separate lines above each team-data line.
+  let pendingPos  = null; // position number seen alone on its own line
+  let pendingLogo = '';   // [img:...] seen alone on its own line
+  for (const line of lines) {
+    // Standalone position number (1–30) → hold for the next team line
+    if (/^\d{1,2}$/.test(line) && parseInt(line) <= 30) {
+      pendingPos = parseInt(line); continue;
+    }
+    // Standalone [img:...] → hold logo for the next team line
+    if (/^\[img:https?:\/\//.test(line)) {
+      pendingLogo = line.slice(5, -1); continue;
+    }
+
     let parts = line.includes('\t')
       ? line.split('\t').map(p => p.trim())
       : line.split(/\s{2,}/).map(p => p.trim());
     parts = parts.filter(Boolean);
-    if (parts.length < 5) continue;
-    if (parts.every(p => !/\d/.test(p) && !/^\[img:/.test(p))) continue; // skip all-text header rows
+    if (parts.length < 4) { pendingPos = null; pendingLogo = ''; continue; }
+    if (parts.every(p => !/\d/.test(p) && !/^\[img:/.test(p))) {
+      pendingPos = null; continue; // header/label row
+    }
 
-    // Extract logo URL from any [img:...] token in this row
-    let logoUrl = '';
+    // Extract logo URL from any inline [img:...] token, or use pending logo
+    let logoUrl = pendingLogo;
+    pendingLogo = '';
     parts = parts.filter(p => {
       if (/^\[img:/.test(p)) { logoUrl = p.slice(5, -1); return false; }
       return true;
     });
 
     const nameIdx = parts.findIndex(_isNameWord);
-    if (nameIdx < 0) continue;
-    // Team name may span consecutive name-word parts (e.g. "SC" + "Farense" in separate cols)
+    if (nameIdx < 0) { pendingPos = null; continue; }
+    // Team name may span consecutive name-word parts
     let name = parts[nameIdx];
     let endIdx = nameIdx + 1;
     while (endIdx < parts.length && _isNameWord(parts[endIdx])) {
       name += ' ' + parts[endIdx++];
     }
-    const nums = parts.filter((_, i) => i < nameIdx || i >= endIdx)
+    let nums = parts.filter((_, i) => i < nameIdx || i >= endIdx)
       .map(p => _classNum(p)).filter(n => n !== null);
-    const row = _makeClassRow(name, nums, rows.length);
+    // Prepend pending position if not already the first num
+    if (pendingPos !== null) {
+      if (nums.length === 0 || nums[0] !== pendingPos) nums = [pendingPos, ...nums];
+      pendingPos = null;
+    }
+    const row = _makeClassRow(name, nums, rows.length, ptsFirst);
     if (row) { if (logoUrl) row.logo = logoUrl; rows.push(row); }
   }
   if (rows.length > 0) return rows;
@@ -2293,11 +2340,8 @@ function parsePastedTable(text) {
     const tokens = line.split(/\s+/).filter(Boolean);
     if (tokens.length < 8) continue;
     if (tokens.every(t => !/\d/.test(t))) continue;
-    // Collect name words between leading pos-number and trailing stat-numbers
     let start = 0;
     if (/^\d{1,2}$/.test(tokens[0]) && parseInt(tokens[0]) < 30) start = 1;
-    let end = tokens.length;
-    // Shrink end while trailing tokens are numeric stats (at least 7 needed)
     const nameWords = [];
     let numBuf = [];
     for (let i = start; i < tokens.length; i++) {
@@ -2305,16 +2349,15 @@ function parsePastedTable(text) {
       if (n !== null) {
         numBuf.push(n);
       } else if (_isNameWord(tokens[i])) {
-        // If we already collected numbers, this name word is past the stats — stop
         if (numBuf.length >= 7) break;
         nameWords.push(tokens[i]);
-        numBuf = []; // reset — numbers before name words don't count
+        numBuf = [];
       }
     }
     if (nameWords.length === 0 || numBuf.length < 7) continue;
     const pos = start === 1 ? parseInt(tokens[0]) : rows.length + 1;
     const nums = pos < 30 ? [pos, ...numBuf] : numBuf;
-    const row = _makeClassRow(nameWords.join(' '), nums, rows.length);
+    const row = _makeClassRow(nameWords.join(' '), nums, rows.length, ptsFirst);
     if (row) rows.push(row);
   }
   if (rows.length > 0) return rows;
@@ -2323,22 +2366,24 @@ function parsePastedTable(text) {
   // Each cell is on its own line. Group into classification rows.
   let i = 0;
   while (i < lines.length) {
-    // Look for a sequential position number
     const posMatch = lines[i].match(/^\d{1,2}$/);
     if (!posMatch || parseInt(lines[i]) !== rows.length + 1 || parseInt(lines[i]) > 30) { i++; continue; }
     const expectedPos = parseInt(lines[i]);
     i++;
-    // Skip optional 2-4 uppercase team abbreviation
+    // Skip optional [img:...] logo line and 2-4 uppercase abbreviation
+    let logoUrl3 = '';
+    if (i < lines.length && /^\[img:https?:\/\//.test(lines[i])) {
+      logoUrl3 = lines[i].slice(5, -1); i++;
+    }
     if (i < lines.length && /^[A-ZÁÉÍÓÚ]{2,4}$/.test(lines[i])) i++;
-    // Collect name (non-numeric lines)
+    // Collect name tokens (non-numeric, non-[img] lines)
     const nameTokens = [];
-    while (i < lines.length && !(/^\d/.test(lines[i])) && _isNameWord(lines[i])) {
+    while (i < lines.length && !(/^\d/.test(lines[i])) && !/^\[img:/.test(lines[i]) && _isNameWord(lines[i])) {
       nameTokens.push(lines[i++]);
     }
     if (!nameTokens.length) continue;
     // Collect stat numbers — stop before the next sequential position number,
-    // but only check for it after collecting at least 7 stats (avoids false
-    // positives when D=2 or E=1 etc. match a future position number).
+    // but only after collecting at least 7 stats (avoids D=2 or E=1 false matches).
     const nums = [];
     while (i < lines.length && nums.length < 9) {
       const line = lines[i];
@@ -2347,8 +2392,8 @@ function parsePastedTable(text) {
       if (n !== null) { nums.push(n); i++; }
       else break;
     }
-    const row = _makeClassRow(nameTokens.join(' '), [expectedPos, ...nums], rows.length);
-    if (row) rows.push(row);
+    const row = _makeClassRow(nameTokens.join(' '), [expectedPos, ...nums], rows.length, ptsFirst);
+    if (row) { if (logoUrl3) row.logo = logoUrl3; rows.push(row); }
   }
   return rows;
 }
