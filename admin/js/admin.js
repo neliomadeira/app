@@ -2366,7 +2366,8 @@ function parseDate(s) {
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
   let m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
   if(m){const yr=m[3].length===2?'20'+m[3]:m[3];return `${yr}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;}
-  m=s.match(/^(\d{1,2})[\/\-](\d{1,2})$/);
+  // Short DD/MM — only accept "/" separator: "3-1" looks like a score, not a date
+  m=s.match(/^(\d{1,2})\/(\d{1,2})$/);
   if(m) return `2026-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
   m=s.match(/^(\d{1,2})\s+([A-Za-zÀ-ž]+)(?:\s+(\d{2,4}))?$/);
   if(m){const mo=MESES_PT[(m[2]||'').toLowerCase().slice(0,3)];if(mo){const yr=m[3]?(m[3].length===2?'20'+m[3]:m[3]):'2026';return `${yr}-${String(mo).padStart(2,'0')}-${m[1].padStart(2,'0')}`;}}
@@ -2392,7 +2393,8 @@ function parseZZJogos(lines, next) {
   const junkRe = /^(jogos|calendário|resultados|jornada|época|competição|equipa|©|filtrar|anterior|próximo|zerozero)/i;
   for (let i = 0; i < lines.length; i++) {
     const d = parseDate(lines[i]);
-    if (!d || !/^\d{1,2}/.test(lines[i].trim())) continue; // only date-first lines
+    // Skip lines that are scores (e.g. "3-1") — parseDate can match them as short DD-MM dates
+    if (!d || !/^\d{1,2}/.test(lines[i].trim()) || parseScore(lines[i])) continue;
     let j = i + 1;
     let hora = '15:00', casa = '', fora = '', score = null;
     // optional time
@@ -2423,7 +2425,7 @@ function parsePastedJogos(text) {
   const idBase = { v: Date.now() };
   const next = () => idBase.v++;
   // ZeroZero detection: date lines (DD/MM/YYYY or "22 mar 2026") followed by team names on separate lines
-  const dateFirstLines = raw.filter((l,i) => parseDate(l) && /^\d{1,2}/.test(l) && i+1<raw.length && !parseDate(raw[i+1]) && !parseScore(raw[i+1]));
+  const dateFirstLines = raw.filter((l,i) => parseDate(l) && !parseScore(l) && /^\d{1,2}/.test(l) && i+1<raw.length && !parseDate(raw[i+1]) && !parseScore(raw[i+1]));
   if (dateFirstLines.length > 0) {
     const zzResult = parseZZJogos(raw, next);
     if (zzResult.length > 0) return zzResult;
