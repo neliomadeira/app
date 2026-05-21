@@ -278,6 +278,9 @@ function initAdmin() {
   document.getElementById('pageDate').textContent =
     new Date().toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
+  // Populate static escalão selects from DB.escaloes
+  _refreshEscalaoSelects();
+
   // Badges
   updateBadges();
 }
@@ -520,13 +523,13 @@ document.getElementById('searchAtleta')?.addEventListener('input', function () {
   renderAtletas(this.value);
 });
 
-document.querySelectorAll('#page-atletas .tab-filter').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('#page-atletas .tab-filter').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    _atletaEscalaoFiltro = btn.dataset.escalao;
-    renderAtletas(document.getElementById('searchAtleta').value);
-  });
+document.getElementById('atletasEscalaoTabs')?.addEventListener('click', e => {
+  const btn = e.target.closest('.tab-filter');
+  if (!btn) return;
+  document.querySelectorAll('#atletasEscalaoTabs .tab-filter').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  _atletaEscalaoFiltro = btn.dataset.escalao;
+  renderAtletas(document.getElementById('searchAtleta').value);
 });
 
 document.getElementById('btnNovoAtleta')?.addEventListener('click', () => {
@@ -534,10 +537,7 @@ document.getElementById('btnNovoAtleta')?.addEventListener('click', () => {
     <div class="modal-row">
       <div class="modal-field"><label>Nome completo</label><input type="text" class="form-input" id="mNome" placeholder="Nome do atleta" /></div>
       <div class="modal-field"><label>Escalão</label>
-        <select class="form-input" id="mEscalao">
-          <option>Sub-9</option><option>Sub-11</option><option>Sub-13</option>
-          <option>Sub-15</option><option>Sub-17</option><option>Sub-19</option>
-        </select>
+        <select class="form-input" id="mEscalao">${_escOpts('')}</select>
       </div>
     </div>
     <div class="modal-row">
@@ -670,10 +670,7 @@ window.editAtleta = function (id) {
         <input type="text" class="form-input" id="mNome" value="${a.nome}" />
       </div>
       <div class="modal-field"><label>Escalão</label>
-        <select class="form-input" id="mEscalao">
-          ${['Sub-9','Sub-11','Sub-13','Sub-15','Sub-17','Sub-19'].map(e =>
-            `<option${e===a.escalao?' selected':''}>${e}</option>`).join('')}
-        </select>
+        <select class="form-input" id="mEscalao">${_escOpts(a.escalao)}</select>
       </div>
     </div>
     <div class="modal-row">
@@ -1614,6 +1611,41 @@ window.removeMensagem = function (id) {
 // ==================================================
 // ESCALÕES
 // ==================================================
+
+// Returns sorted <option> elements from DB.escaloes; falls back to defaults when empty.
+// Pass includeAll=true to prepend a "Todos" option.
+function _escOpts(current, includeAll) {
+  let nomes = DB.escaloes.map(e => e.nome)
+    .sort((a,b) => (parseInt(a.replace(/\D/g,''))||0) - (parseInt(b.replace(/\D/g,''))||0));
+  if (!nomes.length) nomes = ['Sub-9','Sub-11','Sub-13','Sub-15','Sub-17','Sub-19'];
+  if (includeAll) nomes = ['Todos', ...nomes];
+  return nomes.map(n => `<option${n===current?' selected':''}>${n}</option>`).join('');
+}
+
+// Refreshes all static escalão selects/tabs (plantelEscalao, filterJogoEscalao, atletasEscalaoTabs)
+function _refreshEscalaoSelects() {
+  const plantel = document.getElementById('plantelEscalao');
+  if (plantel) {
+    const cur = plantel.value;
+    plantel.innerHTML = _escOpts(cur);
+    if (!plantel.value) plantel.selectedIndex = 0;
+  }
+  const jogoFilter = document.getElementById('filterJogoEscalao');
+  if (jogoFilter) {
+    const cur = jogoFilter.value;
+    jogoFilter.innerHTML = `<option value="">Todos os escalões</option>${_escOpts(cur)}`;
+    if (!jogoFilter.value) jogoFilter.value = '';
+  }
+  const atTabs = document.getElementById('atletasEscalaoTabs');
+  if (atTabs) {
+    const nomes = DB.escaloes.map(e => e.nome)
+      .sort((a,b) => (parseInt(a.replace(/\D/g,''))||0) - (parseInt(b.replace(/\D/g,''))||0));
+    const cur = _atletaEscalaoFiltro;
+    atTabs.innerHTML = `<button class="tab-filter${!cur?' active':''}" data-escalao="">Todos</button>`
+      + nomes.map(n => `<button class="tab-filter${n===cur?' active':''}" data-escalao="${n}">${n}</button>`).join('');
+  }
+}
+
 function renderEscaloes() {
   const grid = document.getElementById('escaloesGrid');
   grid.innerHTML = DB.escaloes.map((e, i) => `
@@ -1644,10 +1676,13 @@ window.editEscalao = function(idx) {
     nome:'Sub-X', designacao:'', faixa:'', atletas:0,
     treinador:'', treinos:'', descricao:'', destaque:false
   };
+  const SUB_OPTIONS = ['Sub-7','Sub-9','Sub-11','Sub-13','Sub-15','Sub-17','Sub-19','Sub-21','Sub-23'];
   openModal(idx >= 0 ? 'Editar Categoria' : 'Nova Categoria', `
     <div class="modal-row">
-      <div class="modal-field"><label>Nome (ex: Sub-13)</label>
-        <input class="form-input" id="eNome" value="${e.nome}" /></div>
+      <div class="modal-field"><label>Sub-escalão</label>
+        <select class="form-input" id="eNome">
+          ${SUB_OPTIONS.map(s=>`<option${s===e.nome?' selected':''}>${s}</option>`).join('')}
+        </select></div>
       <div class="modal-field"><label>Designação (ex: Benjamins)</label>
         <input class="form-input" id="eDesig" value="${e.designacao}" /></div>
     </div>
@@ -1690,16 +1725,27 @@ window.salvarEscalao = function(idx) {
   if (!dados.nome) { showToast('Preencha o nome', 'red'); return; }
   if (idx >= 0) DB.escaloes[idx] = { ...DB.escaloes[idx], ...dados };
   else DB.escaloes.push({ id: Date.now(), ...dados });
-  saveDB(); renderEscaloes(); closeModal();
+  saveDB(); renderEscaloes(); closeModal(); _onEscaloesChanged();
   showToast(idx >= 0 ? 'Categoria atualizada!' : 'Categoria adicionada!', 'green');
 };
 
 window.deleteEscalao = function(idx) {
   if (!confirm('Eliminar esta categoria?')) return;
   DB.escaloes.splice(idx, 1);
-  saveDB(); renderEscaloes();
+  saveDB(); renderEscaloes(); _onEscaloesChanged();
   showToast('Categoria eliminada', 'red');
 };
+
+// Called whenever escalões are added/removed/renamed — refreshes all dependent UI
+function _onEscaloesChanged() {
+  _refreshEscalaoSelects();
+  // Force formação tabs to rebuild on next visit
+  const ft = document.getElementById('formacaoTabs');
+  if (ft) ft.dataset.ready = '';
+  // Validate _formacaoEscalao is still in list; reset to first if not
+  const nomes = DB.escaloes.map(e => e.nome);
+  if (nomes.length && !nomes.includes(_formacaoEscalao)) _formacaoEscalao = nomes[0];
+}
 
 // ==================================================
 // JOGOS
@@ -1757,10 +1803,7 @@ document.getElementById('btnNovoJogo')?.addEventListener('click', () => {
   openModal('Novo Jogo', `
     <div class="modal-row">
       <div class="modal-field"><label>Escalão *</label>
-        <select id="mJEscalao">
-          <option>Sub-9</option><option>Sub-11</option><option>Sub-13</option>
-          <option>Sub-15</option><option>Sub-17</option><option>Sub-19</option>
-        </select>
+        <select id="mJEscalao">${_escOpts('')}</select>
       </div>
       <div class="modal-field"><label>Data *</label><input type="date" id="mJData" /></div>
     </div>
@@ -1840,10 +1883,7 @@ window.editJogo = function (id) {
   openModal('Editar Jogo', `
     <div class="modal-row">
       <div class="modal-field"><label>Escalão</label>
-        <select id="mJEscalao">
-          ${['Sub-9','Sub-11','Sub-13','Sub-15','Sub-17','Sub-19'].map(e =>
-            `<option ${e===j.escalao?'selected':''}>${e}</option>`).join('')}
-        </select>
+        <select id="mJEscalao">${_escOpts(j.escalao)}</select>
       </div>
       <div class="modal-field"><label>Data</label><input type="date" id="mJData" value="${j.data}" /></div>
     </div>
@@ -3168,9 +3208,7 @@ function editTreinador(idx) {
     </div>
     <div class="modal-row">
       <div class="modal-field"><label>Escalão</label>
-        <select class="form-input" id="mTEscalao">
-          ${['Todos','Sub-9','Sub-11','Sub-13','Sub-15','Sub-17','Sub-19'].map(e => `<option ${t.escalao===e?'selected':''}>${e}</option>`).join('')}
-        </select></div>
+        <select class="form-input" id="mTEscalao">${_escOpts(t.escalao, true)}</select></div>
       <div class="modal-field"><label>Desde (ano)</label>
         <input class="form-input" id="mTDesde" value="${t.desde}" /></div>
     </div>
@@ -3279,9 +3317,7 @@ function editEvento(idx) {
           ${['Jogo','Torneio','Treino','Reunião','Outro'].map(t => `<option ${e.tipo===t?'selected':''}>${t}</option>`).join('')}
         </select></div>
       <div class="modal-field"><label>Escalão</label>
-        <select class="form-input" id="mEvEscalao">
-          ${['Todos','Sub-9','Sub-11','Sub-13','Sub-15','Sub-17','Sub-19'].map(s => `<option ${e.escalao===s?'selected':''}>${s}</option>`).join('')}
-        </select></div>
+        <select class="form-input" id="mEvEscalao">${_escOpts(e.escalao, true)}</select></div>
     </div>
     <div class="modal-row">
       <div class="modal-field"><label>Data</label>
@@ -4274,15 +4310,24 @@ window.guardarSenioresImport = function() {
 // FUTEBOL FORMAÇÃO — escalões Sub-9 a Sub-19
 // ==================================================
 
-const FORMACAO_ESCALOES = ['Sub-9','Sub-11','Sub-13','Sub-15','Sub-17','Sub-19'];
-let _formacaoEscalao = 'Sub-9';
+let _formacaoEscalao = '';
+
+function _formacaoNomes() {
+  const nomes = DB.escaloes.map(e => e.nome)
+    .sort((a,b) => (parseInt(a.replace(/\D/g,''))||0) - (parseInt(b.replace(/\D/g,''))||0));
+  return nomes.length ? nomes : ['Sub-9','Sub-11','Sub-13','Sub-15','Sub-17','Sub-19'];
+}
 
 function initFormacao() {
+  // Ensure current escalão is valid
+  const nomes = _formacaoNomes();
+  if (!_formacaoEscalao || !nomes.includes(_formacaoEscalao)) _formacaoEscalao = nomes[0];
+
   // Render tabs if not yet rendered
   const tabsEl = document.getElementById('formacaoTabs');
   if (tabsEl && !tabsEl.dataset.ready) {
     tabsEl.dataset.ready = '1';
-    tabsEl.innerHTML = FORMACAO_ESCALOES.map(e =>
+    tabsEl.innerHTML = nomes.map(e =>
       `<button class="tab-filter${e === _formacaoEscalao ? ' active' : ''}" data-ef="${e}">${e}</button>`
     ).join('');
     tabsEl.addEventListener('click', e => {

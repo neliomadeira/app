@@ -293,14 +293,8 @@
               <button class="btn-primary" id="btnNovoAtleta">+ Novo Atleta</button>
             </div>
           </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+          <div id="atletasEscalaoTabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
             <button class="tab-filter active" data-escalao="">Todos</button>
-            <button class="tab-filter" data-escalao="Sub-9">Sub-9</button>
-            <button class="tab-filter" data-escalao="Sub-11">Sub-11</button>
-            <button class="tab-filter" data-escalao="Sub-13">Sub-13</button>
-            <button class="tab-filter" data-escalao="Sub-15">Sub-15</button>
-            <button class="tab-filter" data-escalao="Sub-17">Sub-17</button>
-            <button class="tab-filter" data-escalao="Sub-19">Sub-19</button>
           </div>
           <div class="card">
             <table class="table table--full" id="atletasTable">
@@ -333,10 +327,7 @@
                 <div style="display:flex;gap:16px;margin-bottom:14px;flex-wrap:wrap">
                   <div>
                     <label style="display:block;font-size:0.8rem;font-weight:700;margin-bottom:4px">Escalão</label>
-                    <select id="plantelEscalao" class="filter-select">
-                      <option>Sub-9</option><option>Sub-11</option><option>Sub-13</option>
-                      <option>Sub-15</option><option>Sub-17</option><option>Sub-19</option>
-                    </select>
+                    <select id="plantelEscalao" class="filter-select"></select>
                   </div>
                   <div>
                     <label style="display:block;font-size:0.8rem;font-weight:700;margin-bottom:4px">Se já existir</label>
@@ -403,8 +394,6 @@
             <div class="page-actions">
               <select class="filter-select" id="filterJogoEscalao">
                 <option value="">Todos os escalões</option>
-                <option>Sub-9</option><option>Sub-11</option><option>Sub-13</option>
-                <option>Sub-15</option><option>Sub-17</option><option>Sub-19</option>
               </select>
               <select class="filter-select" id="filterJogoEstado">
                 <option value="">Todos</option>
