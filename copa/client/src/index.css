@@ -1,0 +1,1300 @@
+/**
+ * Copa Fácil – JS Campinense
+ * index.css – Global styles matching the JS Campinense dark-blue/yellow aesthetic
+ *
+ * Design tokens match existing site:
+ *   --yellow:    #FFD100  (primary accent)
+ *   --blue:      #003B8E  (primary brand colour)
+ *   --gray-dark: #0e1c35  (page background)
+ *   --gray:      #1c2f50  (card / panel background)
+ *
+ * Fonts: Bebas Neue (headings), Roboto (body)
+ */
+
+/* ── Reset ─────────────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── CSS Variables ────────────────────────────────────────────────────────── */
+:root {
+  --yellow:       #FFD100;
+  --yellow-hover: #e6bc00;
+  --blue:         #003B8E;
+  --blue-light:   #0050c0;
+  --gray-dark:    #0e1c35;
+  --gray:         #1c2f50;
+  --gray-medium:  #253d63;
+  --gray-light:   #344f78;
+  --white:        #ffffff;
+  --text-primary: #ffffff;
+  --text-muted:   #8aa0c0;
+  --danger:       #e53e3e;
+  --danger-hover: #c53030;
+  --success:      #38a169;
+  --warning:      #d69e2e;
+  --border:       rgba(255,255,255,0.08);
+  --shadow:       0 4px 24px rgba(0,0,0,0.4);
+  --radius:       8px;
+  --radius-lg:    12px;
+  --transition:   0.2s ease;
+  --navbar-h:     64px;
+}
+
+/* ── Base ─────────────────────────────────────────────────────────────────── */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Roboto', sans-serif;
+  background-color: var(--gray-dark);
+  color: var(--text-primary);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+}
+
+a {
+  color: var(--yellow);
+  text-decoration: none;
+  transition: color var(--transition);
+}
+
+a:hover {
+  color: var(--yellow-hover);
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+ul {
+  list-style: none;
+}
+
+button {
+  cursor: pointer;
+  font-family: 'Roboto', sans-serif;
+}
+
+input, select, textarea {
+  font-family: 'Roboto', sans-serif;
+}
+
+/* ── Layout ───────────────────────────────────────────────────────────────── */
+.main-content {
+  padding-top: var(--navbar-h);
+  min-height: 100vh;
+}
+
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1.25rem;
+}
+
+.page {
+  padding: 2rem 0 4rem;
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1.2rem;
+  border-radius: var(--radius);
+  border: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--transition), transform var(--transition), opacity var(--transition);
+  white-space: nowrap;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn--primary {
+  background: var(--yellow);
+  color: #0e1c35;
+  font-weight: 700;
+}
+
+.btn--primary:hover {
+  background: var(--yellow-hover);
+}
+
+.btn--outline {
+  background: transparent;
+  color: var(--yellow);
+  border: 1.5px solid var(--yellow);
+}
+
+.btn--outline:hover {
+  background: rgba(255,209,0,0.08);
+}
+
+.btn--blue {
+  background: var(--blue);
+  color: var(--white);
+}
+
+.btn--blue:hover {
+  background: var(--blue-light);
+}
+
+.btn--danger {
+  background: var(--danger);
+  color: var(--white);
+}
+
+.btn--danger:hover {
+  background: var(--danger-hover);
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1.5px solid var(--border);
+}
+
+.btn--ghost:hover {
+  color: var(--white);
+  border-color: rgba(255,255,255,0.2);
+}
+
+.btn--sm {
+  padding: 0.3rem 0.75rem;
+  font-size: 0.8rem;
+}
+
+.btn--lg {
+  padding: 0.75rem 2rem;
+  font-size: 1rem;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Cards ────────────────────────────────────────────────────────────────── */
+.card {
+  background: var(--gray);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+.card__header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.card__body {
+  padding: 1.25rem 1.5rem;
+}
+
+.card__footer {
+  padding: 0.875rem 1.5rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.card__title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.4rem;
+  letter-spacing: 0.04em;
+}
+
+/* ── Badges ───────────────────────────────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.65rem;
+  border-radius: 99px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.badge--green  { background: rgba(56,161,105,0.18); color: #68d391; }
+.badge--red    { background: rgba(229,62,62,0.18);  color: #fc8181; }
+.badge--yellow { background: rgba(255,209,0,0.15);  color: #FFD100; }
+.badge--blue   { background: rgba(0,59,142,0.3);    color: #90cdf4; }
+.badge--gray   { background: rgba(255,255,255,0.06); color: var(--text-muted); }
+
+/* ── Forms ────────────────────────────────────────────────────────────────── */
+.form-group {
+  margin-bottom: 1.1rem;
+}
+
+.form-group label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.4rem;
+}
+
+.form-control {
+  width: 100%;
+  padding: 0.6rem 0.9rem;
+  background: var(--gray-dark);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  transition: border-color var(--transition);
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: var(--yellow);
+}
+
+.form-control::placeholder {
+  color: var(--text-muted);
+}
+
+select.form-control option {
+  background: var(--gray-dark);
+}
+
+textarea.form-control {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.form-error {
+  color: #fc8181;
+  font-size: 0.8rem;
+  margin-top: 0.3rem;
+}
+
+/* ── Tables ───────────────────────────────────────────────────────────────── */
+.table-wrap {
+  overflow-x: auto;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+thead th {
+  background: var(--gray-medium);
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+thead th.center,
+tbody td.center {
+  text-align: center;
+}
+
+tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background var(--transition);
+}
+
+tbody tr:last-child {
+  border-bottom: none;
+}
+
+tbody tr:hover {
+  background: rgba(255,255,255,0.03);
+}
+
+tbody td {
+  padding: 0.75rem 1rem;
+  vertical-align: middle;
+}
+
+/* Standings table specific */
+.tabela-classificacao {
+  width: 100%;
+}
+
+.tabela-classificacao .pos {
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-align: center;
+  width: 2.5rem;
+}
+
+.tabela-classificacao .pos--1 { color: #FFD700; }
+.tabela-classificacao .pos--2 { color: #c0c0c0; }
+.tabela-classificacao .pos--3 { color: #cd7f32; }
+
+.tabela-classificacao .equipa-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.tabela-classificacao .equipa-brasao {
+  font-size: 1.2rem;
+  width: 1.6rem;
+  text-align: center;
+}
+
+.tabela-classificacao .equipa-nome {
+  font-weight: 600;
+}
+
+.tabela-classificacao .pts {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--yellow);
+  text-align: center;
+}
+
+.tabela-classificacao tr.row--highlight {
+  background: rgba(255,209,0,0.06);
+}
+
+.tabela-classificacao tr.row--zona-verde td:first-child {
+  border-left: 3px solid var(--success);
+}
+
+.tabela-classificacao tr.row--zona-amarela td:first-child {
+  border-left: 3px solid var(--yellow);
+}
+
+/* ── Navbar ───────────────────────────────────────────────────────────────── */
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--navbar-h);
+  background: rgba(14,28,53,0.97);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+}
+
+.navbar__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 100%;
+}
+
+.navbar__logo {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  text-decoration: none;
+  color: var(--white);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.35rem;
+  letter-spacing: 0.06em;
+}
+
+.navbar__logo-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.navbar__logo span {
+  color: var(--yellow);
+}
+
+.navbar__nav {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.navbar__link {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: 0.4rem 0.75rem;
+  border-radius: var(--radius);
+  transition: color var(--transition), background var(--transition);
+}
+
+.navbar__link:hover,
+.navbar__link.active {
+  color: var(--white);
+  background: rgba(255,255,255,0.06);
+}
+
+.navbar__link--accent {
+  color: var(--yellow);
+  border: 1.5px solid rgba(255,209,0,0.3);
+}
+
+.navbar__link--accent:hover {
+  background: rgba(255,209,0,0.1);
+  color: var(--yellow);
+}
+
+.navbar__hamburger {
+  display: none;
+  flex-direction: column;
+  gap: 5px;
+  background: none;
+  border: none;
+  padding: 0.4rem;
+  cursor: pointer;
+}
+
+.navbar__hamburger span {
+  display: block;
+  width: 22px;
+  height: 2px;
+  background: var(--white);
+  border-radius: 2px;
+  transition: transform var(--transition), opacity var(--transition);
+}
+
+.navbar__hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.navbar__hamburger.open span:nth-child(2) { opacity: 0; }
+.navbar__hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+/* ── Tabs ─────────────────────────────────────────────────────────────────── */
+.tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: 1.5rem;
+  overflow-x: auto;
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.05rem;
+  letter-spacing: 0.06em;
+  padding: 0.75rem 1.5rem;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: color var(--transition), border-color var(--transition);
+  white-space: nowrap;
+}
+
+.tab-btn:hover {
+  color: var(--white);
+}
+
+.tab-btn.active {
+  color: var(--yellow);
+  border-bottom-color: var(--yellow);
+}
+
+/* ── Modal ────────────────────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 1rem;
+  animation: fadeIn 0.15s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.modal {
+  background: var(--gray);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: slideUp 0.2s ease;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.modal--lg {
+  max-width: 720px;
+}
+
+.modal__header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modal__title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.4rem;
+  letter-spacing: 0.04em;
+}
+
+.modal__close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.5rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0.2rem;
+  border-radius: var(--radius);
+  transition: color var(--transition), background var(--transition);
+}
+
+.modal__close:hover {
+  color: var(--white);
+  background: rgba(255,255,255,0.06);
+}
+
+.modal__body {
+  padding: 1.5rem;
+}
+
+/* ── Hero ─────────────────────────────────────────────────────────────────── */
+.hero {
+  background: linear-gradient(135deg, var(--blue) 0%, var(--gray-dark) 60%);
+  border-bottom: 3px solid var(--yellow);
+  padding: 3.5rem 0 2.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 70% 50%, rgba(255,209,0,0.06) 0%, transparent 70%);
+}
+
+.hero__content {
+  position: relative;
+}
+
+.hero__subtitle {
+  color: var(--yellow);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  margin-bottom: 0.5rem;
+}
+
+.hero__title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  letter-spacing: 0.04em;
+  margin-bottom: 0.75rem;
+}
+
+.hero__title span {
+  color: var(--yellow);
+}
+
+.hero__desc {
+  color: var(--text-muted);
+  font-size: 1rem;
+  max-width: 500px;
+}
+
+/* ── Grids ────────────────────────────────────────────────────────────────── */
+.grid {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.grid--2 { grid-template-columns: repeat(2, 1fr); }
+.grid--3 { grid-template-columns: repeat(3, 1fr); }
+.grid--4 { grid-template-columns: repeat(4, 1fr); }
+
+/* ── Stats cards ──────────────────────────────────────────────────────────── */
+.stat-card {
+  background: var(--gray);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.stat-card__icon {
+  font-size: 2rem;
+  width: 3rem;
+  text-align: center;
+}
+
+.stat-card__value {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2.2rem;
+  line-height: 1;
+  color: var(--yellow);
+}
+
+.stat-card__label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+
+/* ── Championship card ────────────────────────────────────────────────────── */
+.campeonato-card {
+  background: var(--gray);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition);
+  text-decoration: none;
+  display: block;
+  color: inherit;
+}
+
+.campeonato-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  border-color: rgba(255,209,0,0.2);
+  color: inherit;
+}
+
+.campeonato-card__top {
+  height: 6px;
+  background: var(--yellow);
+}
+
+.campeonato-card__top--terminado {
+  background: var(--text-muted);
+}
+
+.campeonato-card__top--em_curso {
+  background: var(--success);
+}
+
+.campeonato-card__top--por_iniciar {
+  background: var(--blue-light);
+}
+
+.campeonato-card__body {
+  padding: 1.25rem;
+}
+
+.campeonato-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.campeonato-card__icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.campeonato-card__nome {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.3rem;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.25rem;
+}
+
+.campeonato-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.875rem;
+}
+
+.campeonato-card__stats {
+  display: flex;
+  gap: 1.25rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.campeonato-card__stat {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* ── Team card ────────────────────────────────────────────────────────────── */
+.equipa-card {
+  background: var(--gray);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  text-align: center;
+  cursor: pointer;
+  transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition);
+  text-decoration: none;
+  color: inherit;
+}
+
+.equipa-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+  border-color: rgba(255,209,0,0.2);
+  color: inherit;
+}
+
+.equipa-card__brasao {
+  font-size: 2.5rem;
+  line-height: 1;
+}
+
+.equipa-card__nome {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.1rem;
+  letter-spacing: 0.04em;
+}
+
+.equipa-card__meta {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+/* ── Jogos list ───────────────────────────────────────────────────────────── */
+.jornada-group {
+  margin-bottom: 2rem;
+}
+
+.jornada-label {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.1rem;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.jogo-item {
+  background: var(--gray);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.9rem 1.25rem;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.jogo-item:hover {
+  background: var(--gray-medium);
+  border-color: rgba(255,255,255,0.12);
+}
+
+.jogo-item.clickable {
+  cursor: pointer;
+}
+
+.jogo-equipa {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+}
+
+.jogo-equipa--fora {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+
+.jogo-equipa__brasao {
+  font-size: 1.2rem;
+}
+
+.jogo-equipa__nome {
+  font-size: 0.9rem;
+}
+
+.jogo-resultado {
+  text-align: center;
+  min-width: 5rem;
+}
+
+.jogo-placar {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.5rem;
+  letter-spacing: 0.08em;
+  color: var(--yellow);
+}
+
+.jogo-vs {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1rem;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+}
+
+.jogo-data {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+}
+
+/* ── Admin layout ─────────────────────────────────────────────────────────── */
+.admin-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: calc(100vh - var(--navbar-h));
+}
+
+.admin-sidebar {
+  background: var(--gray);
+  border-right: 1px solid var(--border);
+  padding: 1.5rem 0;
+  position: sticky;
+  top: var(--navbar-h);
+  height: calc(100vh - var(--navbar-h));
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-sidebar__title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 0.85rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 0 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.admin-sidebar__nav {
+  flex: 1;
+}
+
+.admin-sidebar__link {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.65rem 1.25rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color var(--transition), background var(--transition);
+  border-left: 3px solid transparent;
+}
+
+.admin-sidebar__link:hover {
+  color: var(--white);
+  background: rgba(255,255,255,0.04);
+}
+
+.admin-sidebar__link.active {
+  color: var(--yellow);
+  background: rgba(255,209,0,0.06);
+  border-left-color: var(--yellow);
+}
+
+.admin-sidebar__icon {
+  font-size: 1.1rem;
+  width: 1.4rem;
+  text-align: center;
+}
+
+.admin-sidebar__logout {
+  border-top: 1px solid var(--border);
+  padding: 1rem 1.25rem 0;
+  margin-top: auto;
+}
+
+.admin-main {
+  padding: 2rem;
+  min-height: calc(100vh - var(--navbar-h));
+}
+
+.admin-page-header {
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.admin-page-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2rem;
+  letter-spacing: 0.04em;
+}
+
+.admin-page-title span {
+  color: var(--yellow);
+}
+
+/* ── Loading spinner ──────────────────────────────────────────────────────── */
+.spinner-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  gap: 1rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--border);
+  border-top-color: var(--yellow);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Alert / message ──────────────────────────────────────────────────────── */
+.alert {
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+.alert--error {
+  background: rgba(229,62,62,0.12);
+  border: 1px solid rgba(229,62,62,0.25);
+  color: #fc8181;
+}
+
+.alert--success {
+  background: rgba(56,161,105,0.12);
+  border: 1px solid rgba(56,161,105,0.25);
+  color: #68d391;
+}
+
+.alert--info {
+  background: rgba(0,59,142,0.2);
+  border: 1px solid rgba(0,80,192,0.3);
+  color: #90cdf4;
+}
+
+/* ── Empty state ──────────────────────────────────────────────────────────── */
+.empty-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: var(--text-muted);
+}
+
+.empty-state__icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.empty-state__text {
+  font-size: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+/* ── Section titles ───────────────────────────────────────────────────────── */
+.section-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.5rem;
+  letter-spacing: 0.04em;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+  margin-left: 0.5rem;
+}
+
+/* ── Filter bar ───────────────────────────────────────────────────────────── */
+.filter-bar {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.filter-btn {
+  background: var(--gray);
+  border: 1.5px solid var(--border);
+  color: var(--text-muted);
+  padding: 0.4rem 1rem;
+  border-radius: 99px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.filter-btn:hover {
+  color: var(--white);
+  border-color: rgba(255,255,255,0.2);
+}
+
+.filter-btn.active {
+  background: var(--yellow);
+  color: #0e1c35;
+  border-color: var(--yellow);
+}
+
+/* ── Player list ──────────────────────────────────────────────────────────── */
+.jogador-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.jogador-row:last-child {
+  border-bottom: none;
+}
+
+.jogador-numero {
+  width: 2.5rem;
+  height: 2.5rem;
+  background: var(--gray-medium);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1rem;
+  color: var(--yellow);
+  flex-shrink: 0;
+}
+
+.jogador-info {
+  flex: 1;
+}
+
+.jogador-nome {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.jogador-posicao {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* ── Inline editing ───────────────────────────────────────────────────────── */
+.resultado-form {
+  background: var(--gray-medium);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  margin-top: 0.5rem;
+}
+
+.resultado-scores {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.resultado-scores input[type="number"] {
+  width: 60px;
+  text-align: center;
+  font-size: 1.5rem;
+  font-family: 'Bebas Neue', sans-serif;
+}
+
+/* ── Responsive ───────────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .admin-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-sidebar {
+    position: static;
+    height: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    padding: 0.5rem;
+    gap: 0.25rem;
+  }
+
+  .admin-sidebar__title,
+  .admin-sidebar__logout {
+    display: none;
+  }
+
+  .admin-sidebar__nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+
+  .admin-sidebar__link {
+    border-left: none;
+    border-bottom: 2px solid transparent;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius);
+  }
+
+  .admin-sidebar__link.active {
+    border-bottom-color: var(--yellow);
+    background: rgba(255,209,0,0.08);
+  }
+
+  .admin-main {
+    padding: 1rem;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .grid--3,
+  .grid--4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .navbar__nav {
+    display: none;
+    position: absolute;
+    top: var(--navbar-h);
+    left: 0;
+    right: 0;
+    background: var(--gray-dark);
+    border-bottom: 1px solid var(--border);
+    flex-direction: column;
+    padding: 0.75rem;
+    gap: 0.25rem;
+  }
+
+  .navbar__nav.open {
+    display: flex;
+  }
+
+  .navbar__hamburger {
+    display: flex;
+  }
+
+  .navbar__link {
+    width: 100%;
+    padding: 0.65rem 1rem;
+  }
+
+  .hero {
+    padding: 2rem 0 1.5rem;
+  }
+
+  .grid--2,
+  .grid--3,
+  .grid--4 {
+    grid-template-columns: 1fr;
+  }
+
+  .jogo-item {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+
+  .jogo-equipa--fora {
+    flex-direction: row;
+    text-align: left;
+  }
+
+  .jogo-resultado {
+    order: -1;
+  }
+
+  .tabela-classificacao .hide-mobile {
+    display: none;
+  }
+}
