@@ -904,6 +904,9 @@ async function _fetchViaProxy(url) {
       clearTimeout(tid);
       if (!res.ok) return null;
       const text = await res.text();
+      // If proxy.php is not being executed (served as raw text by a static server),
+      // its response starts with "<?php". Reject and fall through to external proxies.
+      if (text.trimStart().startsWith('<?php')) return null;
       return text.length >= 500 ? text : null;
     } catch(e) { clearTimeout(tid); return null; }
   };
