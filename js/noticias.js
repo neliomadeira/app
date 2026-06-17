@@ -62,9 +62,8 @@
       const imgStyle = n.imagem
         ? `background-image:url('${n.imagem}');background-size:${n.imagemSize || 'cover'};background-position:center;background-repeat:no-repeat`
         : '';
-      const excerpt = n.resumo
-        ? (n.resumo.length > 130 ? n.resumo.slice(0, 130) + '…' : n.resumo)
-        : '';
+      const plainText = (n.resumo || '').replace(/<[^>]+>/g, '');
+      const excerpt = plainText.length > 130 ? plainText.slice(0, 130) + '…' : plainText;
       return `
         <article class="news-card news-page__card" style="cursor:pointer" data-id="${n.id}">
           <div class="news-card__img${n.imagem ? '' : ` news-card__img--${(i % 3) + 1}`}"${imgStyle ? ` style="${imgStyle}"` : ''}>

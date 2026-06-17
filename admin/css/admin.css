@@ -1092,3 +1092,99 @@ ul { list-style: none; }
   background: #f1f5f9;
   transform: scale(1.2);
 }
+
+/* ---- RICH TEXT EDITOR (noticias) ---- */
+.rte-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  background: #f4f6fb;
+  border: 1.5px solid #d4dae8;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  padding: 6px 10px;
+}
+.rte-btn {
+  min-width: 30px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1.5px solid #d4dae8;
+  border-radius: 5px;
+  background: #fff;
+  color: #1e293b;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rte-btn:hover { background: #e2e8f0; border-color: #94a3b8; }
+.rte-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+.rte-btn--clear {
+  margin-left: 4px;
+  font-size: 0.75rem;
+  color: #ef4444;
+  border-color: #fca5a5;
+  min-width: auto;
+  gap: 4px;
+}
+.rte-btn--clear:hover { background: #fef2f2; border-color: #ef4444; color: #ef4444; }
+.rte-sep {
+  width: 1px;
+  height: 22px;
+  background: #d4dae8;
+  margin: 0 2px;
+  flex-shrink: 0;
+}
+.rte-select {
+  height: 28px;
+  border: 1.5px solid #d4dae8;
+  border-radius: 5px;
+  background: #fff;
+  color: #1e293b;
+  font-size: 0.78rem;
+  padding: 0 4px;
+  cursor: pointer;
+}
+.rte-color-wrap {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1e293b;
+  background: #fff;
+  border: 1.5px solid #d4dae8;
+  border-radius: 5px;
+  padding: 0 6px;
+  height: 28px;
+}
+.rte-color-wrap input[type="color"] {
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+}
+.rte-editor {
+  min-height: 140px;
+  border-radius: 0 0 8px 8px !important;
+  outline: none;
+  line-height: 1.7;
+  font-size: 0.92rem;
+  overflow-y: auto;
+  white-space: normal;
+}
+.rte-editor:empty::before {
+  content: attr(data-placeholder);
+  color: #aaa;
+  pointer-events: none;
+}
+.rte-editor:focus {
+  border-color: var(--blue) !important;
+  box-shadow: 0 0 0 3px rgba(0,59,142,0.08);
+}

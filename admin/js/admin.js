@@ -1400,8 +1400,42 @@ function abrirModalNoticia(n) {
       </div>
     </div>
     <div class="modal-field">
-      <label>Resumo / Texto</label>
-      <textarea class="form-input" id="mResumo" rows="5" placeholder="Texto da notícia...">${n?.resumo || ''}</textarea>
+      <label>Texto da notícia</label>
+      <div class="rte-toolbar" id="rteToolbar">
+        <button type="button" class="rte-btn" data-cmd="bold"        title="Negrito"><b>N</b></button>
+        <button type="button" class="rte-btn" data-cmd="italic"      title="Itálico"><i>I</i></button>
+        <button type="button" class="rte-btn" data-cmd="underline"   title="Sublinhado"><u>S</u></button>
+        <span class="rte-sep"></span>
+        <select class="rte-select" id="rteFonte" title="Fonte">
+          <option value="inherit">Padrão</option>
+          <option value="Arial, sans-serif">Arial</option>
+          <option value="Georgia, serif">Georgia</option>
+          <option value="'Times New Roman', serif">Times New Roman</option>
+          <option value="'Courier New', monospace">Courier New</option>
+          <option value="Impact, sans-serif">Impact</option>
+        </select>
+        <select class="rte-select" id="rteTamanho" title="Tamanho">
+          <option value="1">Muito Pequeno</option>
+          <option value="2">Pequeno</option>
+          <option value="3" selected>Normal</option>
+          <option value="4">Grande</option>
+          <option value="5">Muito Grande</option>
+          <option value="6">Enorme</option>
+        </select>
+        <span class="rte-sep"></span>
+        <label class="rte-color-wrap" title="Cor do texto">
+          <span>A</span>
+          <input type="color" id="rteCor" value="#111111" />
+        </label>
+        <span class="rte-sep"></span>
+        <button type="button" class="rte-btn" data-cmd="justifyLeft"   title="Alinhar esquerda">&#8676;</button>
+        <button type="button" class="rte-btn" data-cmd="justifyCenter" title="Centrar">&#8677;</button>
+        <button type="button" class="rte-btn" data-cmd="justifyRight"  title="Alinhar direita">&#8677;</button>
+        <span class="rte-sep"></span>
+        <button type="button" class="rte-btn" data-cmd="insertUnorderedList" title="Lista">&#8226;</button>
+        <button type="button" class="rte-btn rte-btn--clear" id="rteClear" title="Limpar formatação">&#10005; Limpar</button>
+      </div>
+      <div class="rte-editor form-input" id="mResumoEditor" contenteditable="true" data-placeholder="Texto da notícia...">${n?.resumo || ''}</div>
     </div>
 
     <div class="modal-field">
@@ -1461,6 +1495,51 @@ function abrirModalNoticia(n) {
     `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
      <button class="btn-save" onclick="saveNoticia(${isNew ? 'null' : n.id})">${isNew ? 'Criar Notícia' : 'Guardar'}</button>`
   );
+  _initRTE();
+}
+
+function _initRTE() {
+  const editor  = document.getElementById('mResumoEditor');
+  const toolbar = document.getElementById('rteToolbar');
+  if (!editor || !toolbar) return;
+
+  toolbar.addEventListener('mousedown', e => {
+    const btn = e.target.closest('[data-cmd]');
+    if (!btn) return;
+    e.preventDefault();
+    editor.focus();
+    document.execCommand(btn.dataset.cmd, false, null);
+    _updateToolbarState();
+  });
+
+  document.getElementById('rteFonte')?.addEventListener('change', e => {
+    editor.focus();
+    document.execCommand('fontName', false, e.target.value);
+  });
+
+  document.getElementById('rteTamanho')?.addEventListener('change', e => {
+    editor.focus();
+    document.execCommand('fontSize', false, e.target.value);
+  });
+
+  document.getElementById('rteCor')?.addEventListener('input', e => {
+    editor.focus();
+    document.execCommand('foreColor', false, e.target.value);
+  });
+
+  document.getElementById('rteClear')?.addEventListener('click', () => {
+    editor.focus();
+    document.execCommand('removeFormat', false, null);
+  });
+
+  editor.addEventListener('keyup', _updateToolbarState);
+  editor.addEventListener('mouseup', _updateToolbarState);
+
+  function _updateToolbarState() {
+    toolbar.querySelectorAll('[data-cmd]').forEach(btn => {
+      try { btn.classList.toggle('active', document.queryCommandState(btn.dataset.cmd)); } catch(e) {}
+    });
+  }
 }
 
 window.previewNoticiaImg = function(input) {
@@ -1507,7 +1586,7 @@ window.saveNoticia = function(id) {
     titulo,
     categoria:  document.getElementById('mCat')?.value          || 'Resultado',
     data:       document.getElementById('mData')?.value          || new Date().toISOString().split('T')[0],
-    resumo:     document.getElementById('mResumo')?.value.trim() || '',
+    resumo:     document.getElementById('mResumoEditor')?.innerHTML.trim() || '',
     imagem:     document.getElementById('mImagem')?.value.trim() || '',
     imagemPos:  document.getElementById('mImagemPos')?.value     || 'top',
     imagemSize: document.getElementById('mImagemSize')?.value    || 'cover',

@@ -224,7 +224,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="news-card__body">
             <time class="news-card__date">${ptDate(n.data)}</time>
             <h3 class="news-card__title">${n.titulo}</h3>
-            ${n.resumo ? `<p class="news-card__excerpt">${n.resumo}</p>` : ''}
+            ${n.resumo ? `<p class="news-card__excerpt">${n.resumo.replace(/<[^>]+>/g,'').slice(0,160)}</p>` : ''}
             <span class="news-card__link">Ler mais &rarr;</span>
           </div>
         </article>`).join('');
