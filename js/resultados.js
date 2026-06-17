@@ -248,6 +248,7 @@ function renderJogos(escalao) {
       const d        = fmtData(j.data);
       const res      = resultadoSC(j);
       const resLabel = res === 'v' ? 'Vitória' : res === 'e' ? 'Empate' : 'Derrota';
+      const jData    = encodeURIComponent(JSON.stringify({ ...j, escalao: escalaoActivo }));
       return `
         <div class="jogo-item">
           <div class="jogo-data">
@@ -269,8 +270,15 @@ function renderJogos(escalao) {
             <div class="resultado-placar">${j.gcasa}–${j.gfora}</div>
             ${res ? `<div class="resultado-badge resultado-badge--${res}">${resLabel}</div>` : ''}
           </div>
+          <button class="jogo-share-btn" data-jogo="${jData}" title="Partilhar resultado">&#8679;</button>
         </div>`;
     }).join('');
+
+    resEl.addEventListener('click', e => {
+      const btn = e.target.closest('.jogo-share-btn');
+      if (!btn) return;
+      try { openShareModal(JSON.parse(decodeURIComponent(btn.dataset.jogo))); } catch(_) {}
+    });
   }
 
   // Próximos
@@ -358,3 +366,264 @@ document.querySelectorAll('.tab').forEach(btn => {
 renderTeamSelector(escalaoActivo);
 renderClass(escalaoActivo);
 renderJogos(escalaoActivo);
+
+// =============================================
+// PARTILHA DE RESULTADOS
+// =============================================
+// Polyfill roundRect for Safari < 15.4
+if (!CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    this.beginPath();
+    this.moveTo(x + r, y);
+    this.arcTo(x + w, y, x + w, y + h, r);
+    this.arcTo(x + w, y + h, x, y + h, r);
+    this.arcTo(x, y + h, x, y, r);
+    this.arcTo(x, y, x + w, y, r);
+    this.closePath();
+  };
+}
+
+const MESES_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+                    'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+function ptDateFull(str) {
+  const d = new Date(str + 'T00:00:00');
+  return `${d.getDate()} de ${MESES_FULL[d.getMonth()]}, ${d.getFullYear()}`;
+}
+
+function shareText(jogo) {
+  const res = resultadoSC(jogo);
+  const emoji = res === 'v' ? '🏆' : res === 'e' ? '🤝' : '💪';
+  const label = res === 'v' ? 'VITÓRIA' : res === 'e' ? 'EMPATE' : 'DERROTA';
+  const date  = ptDateFull(jogo.data);
+  const lines = [
+    `⚽ ${jogo.escalao || ''} | RESULTADO`,
+    `${emoji} ${jogo.casa} ${jogo.gcasa} – ${jogo.gfora} ${jogo.fora}`,
+    `📅 ${date}`,
+    jogo.local ? `📍 ${jogo.local}` : '',
+    '',
+    `${label} 🟡`,
+    '#JSCampinense #Formação #Algarve',
+  ].filter(l => l !== null && (l !== '' || true));
+  return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function drawShareCard(canvas, jogo, logoImg) {
+  const ctx = canvas.getContext('2d');
+  const W = 1080, H = 1080;
+  canvas.width = W; canvas.height = H;
+
+  const res = resultadoSC(jogo);
+  const resColor = res === 'v' ? '#22c55e' : res === 'e' ? '#f59e0b' : '#ef4444';
+  const resLabel = res === 'v' ? 'VITÓRIA' : res === 'e' ? 'EMPATE' : 'DERROTA';
+
+  // Background gradient
+  const bg = ctx.createLinearGradient(0, 0, W, H);
+  bg.addColorStop(0, '#001133');
+  bg.addColorStop(0.6, '#003B8E');
+  bg.addColorStop(1, '#001f4d');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // Subtle diagonal lines pattern
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+  ctx.lineWidth = 1;
+  for (let i = -H; i < W + H; i += 40) {
+    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + H, H); ctx.stroke();
+  }
+
+  // Top yellow accent bar
+  ctx.fillStyle = '#FFD100';
+  ctx.fillRect(0, 0, W, 10);
+
+  // Bottom yellow bar
+  ctx.fillStyle = '#FFD100';
+  ctx.fillRect(0, H - 80, W, 80);
+
+  // Bottom bar text
+  ctx.fillStyle = '#003B8E';
+  ctx.font = 'bold 28px Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('JUVENTUDE SPORT CAMPINENSE', W / 2, H - 42);
+  ctx.font = '22px Arial, sans-serif';
+  ctx.fillText('jscampinense.pt', W / 2, H - 14);
+
+  // Logo
+  let logoY = 60;
+  if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
+    const lSize = 120;
+    const lX = (W - lSize) / 2;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(lX + lSize / 2, logoY + lSize / 2, lSize / 2, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.clip();
+    ctx.drawImage(logoImg, lX, logoY, lSize, lSize);
+    ctx.restore();
+    logoY += lSize + 24;
+  } else {
+    logoY += 30;
+  }
+
+  // Escalão tag
+  const tag = (jogo.escalao || '').toUpperCase();
+  ctx.font = 'bold 26px Arial, sans-serif';
+  const tagW = ctx.measureText(tag).width + 40;
+  const tagX = (W - tagW) / 2;
+  ctx.fillStyle = '#FFD100';
+  ctx.beginPath();
+  ctx.roundRect(tagX, logoY, tagW, 42, 21);
+  ctx.fill();
+  ctx.fillStyle = '#001133';
+  ctx.textAlign = 'center';
+  ctx.fillText(tag, W / 2, logoY + 29);
+  logoY += 66;
+
+  // Score — very large
+  const score = `${jogo.gcasa}  –  ${jogo.gfora}`;
+  ctx.font = `bold 220px 'Bebas Neue', Arial, sans-serif`;
+  ctx.fillStyle = '#FFFFFF';
+  ctx.textAlign = 'center';
+  ctx.fillText(score, W / 2, logoY + 210);
+  logoY += 240;
+
+  // Team names
+  ctx.font = 'bold 42px Arial, sans-serif';
+  ctx.fillStyle = isSC(jogo.casa) ? '#FFD100' : 'rgba(255,255,255,0.85)';
+  ctx.textAlign = 'left';
+  const casaX = 60;
+  _wrapText(ctx, jogo.casa, casaX, logoY, 420, 48);
+
+  ctx.fillStyle = isSC(jogo.fora) ? '#FFD100' : 'rgba(255,255,255,0.85)';
+  ctx.textAlign = 'right';
+  _wrapText(ctx, jogo.fora, W - 60, logoY, 420, 48);
+  logoY += 100;
+
+  // Result badge
+  ctx.fillStyle = resColor;
+  const badgeW = 340, badgeH = 64;
+  ctx.beginPath();
+  ctx.roundRect((W - badgeW) / 2, logoY, badgeW, badgeH, 32);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 34px Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(resLabel, W / 2, logoY + 43);
+  logoY += 88;
+
+  // Date
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.font = '28px Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(ptDateFull(jogo.data), W / 2, logoY + 10);
+  if (jogo.local) {
+    ctx.font = '22px Arial, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fillText(jogo.local, W / 2, logoY + 46);
+  }
+}
+
+function _wrapText(ctx, text, x, y, maxW, lineH) {
+  const words = text.split(' ');
+  let line = '';
+  let lineY = y;
+  for (const w of words) {
+    const test = line ? line + ' ' + w : w;
+    if (ctx.measureText(test).width > maxW && line) {
+      ctx.fillText(line, x, lineY);
+      line = w;
+      lineY += lineH;
+    } else {
+      line = test;
+    }
+  }
+  ctx.fillText(line, x, lineY);
+}
+
+function openShareModal(jogo) {
+  const modal   = document.getElementById('shareModal');
+  const canvas  = document.getElementById('shareCanvas');
+  const copiedMsg = document.getElementById('shareCopiedMsg');
+  if (!modal || !canvas) return;
+  if (copiedMsg) copiedMsg.style.display = 'none';
+
+  // Draw card (logo async)
+  const logo = new Image();
+  logo.onload = () => drawShareCard(canvas, jogo, logo);
+  logo.onerror = () => drawShareCard(canvas, jogo, null);
+  logo.src = 'images/logo.png';
+
+  // WhatsApp
+  document.getElementById('shareBtnWa').onclick = () => {
+    window.open('https://wa.me/?text=' + encodeURIComponent(shareText(jogo)), '_blank');
+  };
+
+  // Twitter/X
+  document.getElementById('shareBtnTw').onclick = () => {
+    const t = shareText(jogo).slice(0, 280);
+    window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(t), '_blank');
+  };
+
+  // Facebook (shares page URL — no deep text without Open Graph)
+  document.getElementById('shareBtnFb').onclick = () => {
+    const url = encodeURIComponent(window.location.href);
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, '_blank');
+  };
+
+  // Download image
+  document.getElementById('shareBtnDl').onclick = () => {
+    const a = document.createElement('a');
+    a.download = `resultado-${jogo.casa.replace(/\s+/g,'-')}-${jogo.gcasa}-${jogo.gfora}-${jogo.fora.replace(/\s+/g,'-')}.png`;
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+  };
+
+  // Copy text
+  document.getElementById('shareBtnCp').onclick = () => {
+    navigator.clipboard?.writeText(shareText(jogo)).then(() => {
+      if (copiedMsg) { copiedMsg.style.display = ''; setTimeout(() => { copiedMsg.style.display = 'none'; }, 2000); }
+    }).catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = shareText(jogo);
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+      if (copiedMsg) { copiedMsg.style.display = ''; setTimeout(() => { copiedMsg.style.display = 'none'; }, 2000); }
+    });
+  };
+
+  // Web Share API
+  const webBtn = document.getElementById('shareBtnWeb');
+  if (navigator.share && navigator.canShare) {
+    webBtn.style.display = '';
+    webBtn.onclick = async () => {
+      try {
+        const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+        const file = new File([blob], 'resultado.png', { type: 'image/png' });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({ title: 'Resultado', text: shareText(jogo), files: [file] });
+        } else {
+          await navigator.share({ title: 'Resultado', text: shareText(jogo) });
+        }
+      } catch(e) {}
+    };
+  } else {
+    webBtn.style.display = 'none';
+  }
+
+  modal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+document.getElementById('shareClose')?.addEventListener('click', closeShareModal);
+document.getElementById('shareModal')?.addEventListener('click', e => {
+  if (e.target === document.getElementById('shareModal')) closeShareModal();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeShareModal();
+});
+
+function closeShareModal() {
+  const modal = document.getElementById('shareModal');
+  if (modal) modal.style.display = 'none';
+  document.body.style.overflow = '';
+}

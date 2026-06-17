@@ -170,6 +170,28 @@
     </div>
   </footer>
 
+  <!-- SHARE MODAL -->
+  <div class="share-modal" id="shareModal" role="dialog" aria-modal="true" aria-label="Partilhar resultado" style="display:none">
+    <div class="share-modal__panel">
+      <div class="share-modal__header">
+        <span class="share-modal__title">Partilhar resultado</span>
+        <button class="share-modal__close" id="shareClose" aria-label="Fechar">&times;</button>
+      </div>
+      <div class="share-modal__body">
+        <canvas id="shareCanvas" width="1080" height="1080" class="share-canvas"></canvas>
+        <div class="share-btns">
+          <button class="share-btn share-btn--wa"  id="shareBtnWa">&#128172; WhatsApp</button>
+          <button class="share-btn share-btn--tw"  id="shareBtnTw">&#120143; Twitter/X</button>
+          <button class="share-btn share-btn--fb"  id="shareBtnFb">&#128444; Facebook</button>
+          <button class="share-btn share-btn--dl"  id="shareBtnDl">&#8681; Guardar imagem</button>
+          <button class="share-btn share-btn--cp"  id="shareBtnCp">&#128203; Copiar texto</button>
+          <button class="share-btn share-btn--web" id="shareBtnWeb" style="display:none">&#8679; Partilhar</button>
+        </div>
+        <p class="share-hint" id="shareCopiedMsg" style="display:none">&#10003; Texto copiado!</p>
+      </div>
+    </div>
+  </div>
+
   <script src="js/security.js"></script>
   <script src="js/resultados.js"></script>
   <script src="js/main.js"></script>
