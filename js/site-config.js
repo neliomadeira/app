@@ -65,4 +65,17 @@
 
   // Footer
   set('footerEmail', cfg.footerEmail);
+
+  // Map — update iframe when coordinates configured
+  if (cfg.contactLat && cfg.contactLon) {
+    const lat = parseFloat(cfg.contactLat);
+    const lon = parseFloat(cfg.contactLon);
+    if (!isNaN(lat) && !isNaN(lon)) {
+      const d   = 0.02;
+      const src = `https://www.openstreetmap.org/export/embed.html?bbox=${lon-d}%2C${lat-d}%2C${lon+d}%2C${lat+d}&layer=mapnik&marker=${lat}%2C${lon}`;
+      setAttr('contactMapIframe', 'src', src);
+      const link = document.getElementById('contactMapLink');
+      if (link) link.href = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=15/${lat}/${lon}`;
+    }
+  }
 })();
