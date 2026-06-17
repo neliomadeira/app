@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Notícias – Juventude Sport Campinense</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" />
+  <link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" />
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" /></noscript>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="header" id="header">
+    <div class="container header__inner">
+      <a href="index.html" class="logo">
+        <img src="images/logo.png" alt="JS Campinense" class="logo__img" />
+        <div class="logo__text">
+          <span class="logo__name">JS Campinense</span>
+          <span class="logo__sub">Juventude</span>
+        </div>
+      </a>
+      <nav class="nav" id="nav">
+        <ul class="nav__list">
+          <li><a href="index.html#sobre" class="nav__link">Sobre</a></li>
+          <li class="nav__dropdown">
+            <button class="nav__link nav__dropdown-toggle" aria-haspopup="true" aria-expanded="false">
+              Futebol <span class="nav__chevron">&#9662;</span>
+            </button>
+            <ul class="nav__submenu">
+              <li><a href="equipa-principal.html" class="nav__sublink">&#9917; Equipa Principal</a></li>
+              <li><a href="formacao.html" class="nav__sublink">&#128100; Formação</a></li>
+            </ul>
+          </li>
+          <li><a href="index.html#modalidades" class="nav__link">Modalidades</a></li>
+          <li><a href="index.html#agenda" class="nav__link">Agenda</a></li>
+          <li><a href="noticias.html" class="nav__link" style="color:var(--yellow)">Notícias</a></li>
+          <li><a href="index.html#galeria" class="nav__link">Galeria</a></li>
+          <li><a href="resultados.html" class="nav__link">Resultados</a></li>
+          <li><a href="index.html#contato" class="nav__link">Contacto</a></li>
+          <li><a href="inscricao.html" class="btn btn--nav">Inscrever</a></li>
+        </ul>
+      </nav>
+      <button class="hamburger" id="hamburger" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- PAGE HERO -->
+  <div class="page-hero page-hero--blue">
+    <div class="container page-hero__content">
+      <p class="page-hero__tag">Fique a par</p>
+      <h1 class="page-hero__title">Notícias</h1>
+      <p class="page-hero__desc">Resultados, conquistas, eventos e tudo sobre o clube.</p>
+    </div>
+  </div>
+
+  <!-- NEWS CONTENT -->
+  <section class="section">
+    <div class="container">
+
+      <!-- Category filter pills -->
+      <div class="news-filter-bar" id="notFilters" style="display:none"></div>
+
+      <!-- News grid -->
+      <div class="news-page__grid" id="notGrid"></div>
+
+      <!-- Empty state -->
+      <div class="news-page__empty" id="notEmpty" style="display:none">
+        <p>Ainda não existem notícias publicadas.</p>
+        <a href="index.html" class="btn" style="margin-top:20px;background:var(--blue);color:#fff">Voltar ao início</a>
+      </div>
+
+      <!-- Ver mais -->
+      <div class="gallery__more" id="notMoreWrap" style="display:none">
+        <button class="btn" id="notMoreBtn" style="background:var(--blue);color:#fff">Ver mais notícias</button>
+      </div>
+
+      <!-- Article view (shown when ?id= param present or card clicked) -->
+      <div id="notArticle" style="display:none"></div>
+
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container footer__inner">
+      <div class="footer__brand">
+        <div class="logo">
+          <img src="images/logo.png" alt="JS Campinense" class="logo__img logo__img--small" />
+          <div class="logo__text">
+            <span class="logo__name">JS Campinense</span>
+            <span class="logo__sub">Juventude</span>
+          </div>
+        </div>
+        <p class="footer__tagline">Formando campeões dentro e fora do campo.</p>
+      </div>
+      <div class="footer__links">
+        <h4>Links rápidos</h4>
+        <ul>
+          <li><a href="index.html#sobre">Sobre</a></li>
+          <li><a href="formacao.html">Formação</a></li>
+          <li><a href="noticias.html">Notícias</a></li>
+          <li><a href="inscricao.html">Inscrição</a></li>
+        </ul>
+      </div>
+      <div class="footer__links">
+        <h4>Escalões</h4>
+        <ul>
+          <li><a href="formacao.html">Sub-9 | Sub-11</a></li>
+          <li><a href="formacao.html">Sub-13 | Sub-15</a></li>
+          <li><a href="formacao.html">Sub-17 | Sub-19</a></li>
+        </ul>
+      </div>
+      <div class="footer__contact">
+        <h4>Contacto</h4>
+        <p>Estádio Municipal de Loulé, Algarve</p>
+        <p>+351 289 000 000</p>
+        <p id="footerEmail">juventude@sportcampinense.pt</p>
+      </div>
+    </div>
+    <div class="footer__bottom">
+      <p>&copy; 2026 Juventude Sport Campinense – Loulé. Todos os direitos reservados.</p>
+    </div>
+  </footer>
+
+  <script src="js/security.js?v=20260413"></script>
+  <script src="js/site-config.js?v=20260413"></script>
+  <script src="js/noticias.js?v=20260617"></script>
+</body>
+</html>

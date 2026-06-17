@@ -217,7 +217,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       grid.innerHTML = lista.slice(0, 3).map((n, i) => `
-        <article class="news-card${i === 0 ? ' news-card--featured' : ''}" style="cursor:pointer" onclick="openNewsArticle(${n.id})">
+        <article class="news-card${i === 0 ? ' news-card--featured' : ''}" style="cursor:pointer" onclick="window.location='noticias.html?id=${n.id}'">
           <div class="news-card__img${n.imagem ? '' : ` news-card__img--${(i % 3) + 1}`}" ${newsCardImg(n)}>
             <span class="news-card__cat">${n.categoria || ''}</span>
           </div>
