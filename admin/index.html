@@ -101,6 +101,9 @@
         <a href="#" class="nav-item" data-page="facebook">
           <span class="nav-icon">&#128241;</span> Facebook
         </a>
+        <a href="#" class="nav-item" data-page="historia">
+          <span class="nav-icon">&#128218;</span> História
+        </a>
         <a href="#" class="nav-item" data-page="pagina-inicial">
           <span class="nav-icon">&#127968;</span> Página Inicial
         </a>
@@ -544,6 +547,31 @@
             <button class="btn-primary" id="btnNovoPatrocinador">+ Novo Patrocinador</button>
           </div>
           <div class="sponsors-admin-tiers" id="sponsorsAdminTiers"></div>
+        </section>
+
+        <!-- ===== HISTÓRIA ===== -->
+        <section class="page" id="page-historia" style="display:none">
+          <div class="page-header">
+            <h1>História do Clube</h1>
+          </div>
+
+          <!-- LINHA DO TEMPO -->
+          <div class="card" style="margin-bottom:20px">
+            <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+              <h3>&#128336; Linha do Tempo</h3>
+              <button class="btn-primary" onclick="abrirModalHistoria()">+ Nova entrada</button>
+            </div>
+            <div id="historiaAdminList" style="padding:0 16px 16px"></div>
+          </div>
+
+          <!-- PALMARÉS -->
+          <div class="card" style="margin-bottom:20px">
+            <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+              <h3>&#127942; Palmarés</h3>
+              <button class="btn-primary" onclick="abrirModalPalmares()">+ Novo título</button>
+            </div>
+            <div id="palmaresAdminList" style="padding:0 16px 16px"></div>
+          </div>
         </section>
 
         <!-- ===== PÁGINA INICIAL ===== -->

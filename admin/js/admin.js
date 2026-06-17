@@ -160,6 +160,7 @@ function goToPage(name) {
     dashboard: 'Dashboard', inscricoes: 'Inscrições', atletas: 'Atletas',
     noticias: 'Notícias', mensagens: 'Mensagens', escaloes: 'Escalões',
     jogos: 'Jogos', patrocinadores: 'Patrocinadores', facebook: 'Facebook',
+    historia: 'História do Clube',
     'pagina-inicial': 'Página Inicial',
     galeria: 'Galeria', treinadores: 'Treinadores & Staff',
     agenda: 'Agenda & Eventos', modalidades: 'Modalidades',
@@ -171,6 +172,7 @@ function goToPage(name) {
 
   if (name === 'noticias') renderNoticias();
   if (name === 'facebook') initFacebookPage();
+  if (name === 'historia') initHistoria();
   if (name === 'pagina-inicial') initPaginaInicial();
   if (name === 'galeria') initGaleria();
   if (name === 'treinadores') initTreinadores();
@@ -4922,3 +4924,214 @@ window.deleteFormacaoAtleta = function(id) {
 
   window.closeEmojiPicker = closeEmojiPicker;
 })();
+
+// =============================================
+// HISTÓRIA DO CLUBE — admin CRUD
+// =============================================
+const HISTORIA_KEY  = 'db_historia';
+const PALMARES_KEY  = 'db_palmares';
+
+function loadHistoria()  { try { return JSON.parse(localStorage.getItem(HISTORIA_KEY)  || '[]'); } catch(e) { return []; } }
+function saveHistoria(a) { localStorage.setItem(HISTORIA_KEY,  JSON.stringify(a)); }
+function loadPalmares()  { try { return JSON.parse(localStorage.getItem(PALMARES_KEY)  || '[]'); } catch(e) { return []; } }
+function savePalmares(a) { localStorage.setItem(PALMARES_KEY,  JSON.stringify(a)); }
+
+function initHistoria() {
+  renderHistoriaList();
+  renderPalmaresList();
+}
+
+function renderHistoriaList() {
+  const el = document.getElementById('historiaAdminList');
+  if (!el) return;
+  const lista = loadHistoria().sort((a, b) => (a.ano || 0) - (b.ano || 0));
+  if (!lista.length) {
+    el.innerHTML = '<p style="color:#aaa;text-align:center;padding:20px 0">Sem entradas. Clique em "+ Nova entrada" para começar.</p>';
+    return;
+  }
+  el.innerHTML = `<table style="width:100%;border-collapse:collapse">
+    <thead><tr style="background:#f4f6fb;font-size:0.8rem;color:#64748b;text-transform:uppercase;letter-spacing:1px">
+      <th style="padding:10px 12px;text-align:left">Ano</th>
+      <th style="padding:10px 12px;text-align:left">Título</th>
+      <th style="padding:10px 12px;text-align:center">Destaque</th>
+      <th style="padding:10px 12px;text-align:right">Ações</th>
+    </tr></thead>
+    <tbody>
+      ${lista.map(h => `
+        <tr style="border-bottom:1px solid #f1f5f9">
+          <td style="padding:12px;font-weight:700;color:var(--blue);font-size:1.05rem">${h.ano}</td>
+          <td style="padding:12px;font-size:0.9rem">${h.titulo}</td>
+          <td style="padding:12px;text-align:center">${h.destaque ? '⭐' : '—'}</td>
+          <td style="padding:12px;text-align:right;white-space:nowrap">
+            <button class="btn-icon" onclick="editHistoria(${h.id})" title="Editar">&#9998;</button>
+            <button class="btn-icon btn-icon--red" onclick="deleteHistoria(${h.id})" title="Eliminar">&#128465;</button>
+          </td>
+        </tr>`).join('')}
+    </tbody></table>`;
+}
+
+function renderPalmaresList() {
+  const el = document.getElementById('palmaresAdminList');
+  if (!el) return;
+  const lista = loadPalmares().sort((a, b) => (b.ano || 0) - (a.ano || 0));
+  if (!lista.length) {
+    el.innerHTML = '<p style="color:#aaa;text-align:center;padding:20px 0">Sem títulos. Clique em "+ Novo título" para começar.</p>';
+    return;
+  }
+  el.innerHTML = `<table style="width:100%;border-collapse:collapse">
+    <thead><tr style="background:#f4f6fb;font-size:0.8rem;color:#64748b;text-transform:uppercase;letter-spacing:1px">
+      <th style="padding:10px 12px;text-align:left">Ano</th>
+      <th style="padding:10px 12px;text-align:left">Competição</th>
+      <th style="padding:10px 12px;text-align:left">Escalão</th>
+      <th style="padding:10px 12px;text-align:right">Ações</th>
+    </tr></thead>
+    <tbody>
+      ${lista.map(t => `
+        <tr style="border-bottom:1px solid #f1f5f9">
+          <td style="padding:12px;font-weight:700;color:var(--blue)">${t.ano}</td>
+          <td style="padding:12px;font-size:0.9rem">${t.competicao}${t.observacao ? ' <span style="color:#888;font-size:0.8rem">· ' + t.observacao + '</span>' : ''}</td>
+          <td style="padding:12px"><span style="background:var(--yellow);color:var(--blue-dark);font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:10px">${t.escalao || '—'}</span></td>
+          <td style="padding:12px;text-align:right;white-space:nowrap">
+            <button class="btn-icon" onclick="editPalmares(${t.id})" title="Editar">&#9998;</button>
+            <button class="btn-icon btn-icon--red" onclick="deletePalmares(${t.id})" title="Eliminar">&#128465;</button>
+          </td>
+        </tr>`).join('')}
+    </tbody></table>`;
+}
+
+window.abrirModalHistoria = function(h) {
+  const isNew = !h;
+  openModal(isNew ? 'Nova Entrada na Linha do Tempo' : 'Editar Entrada', `
+    <div class="modal-row">
+      <div class="modal-field">
+        <label>Ano *</label>
+        <input type="number" class="form-input" id="hAno" value="${h?.ano || new Date().getFullYear()}" min="1900" max="2100" />
+      </div>
+      <div class="modal-field">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding-top:26px">
+          <input type="checkbox" id="hDestaque" ${h?.destaque ? 'checked' : ''} />
+          Destaque (evento marcante)
+        </label>
+      </div>
+    </div>
+    <div class="modal-field">
+      <label>Título *</label>
+      <input type="text" class="form-input" id="hTitulo" value="${h?.titulo || ''}" placeholder="Ex: Fundação do Clube" />
+    </div>
+    <div class="modal-field">
+      <label>Descrição</label>
+      <textarea class="form-input" id="hDescricao" rows="4" placeholder="Conte o que aconteceu neste marco histórico...">${h?.descricao || ''}</textarea>
+    </div>
+    <div class="modal-field">
+      <label>Imagem (URL)</label>
+      <input type="url" class="form-input" id="hImagem" value="${h?.imagem || ''}" placeholder="https://..." />
+    </div>`,
+    `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+     <button class="btn-save" onclick="saveHistoriaEntry(${isNew ? 'null' : h.id})">Guardar</button>`
+  );
+};
+
+window.editHistoria = function(id) {
+  const h = loadHistoria().find(x => x.id === id);
+  if (h) abrirModalHistoria(h);
+};
+
+window.saveHistoriaEntry = function(id) {
+  const titulo = document.getElementById('hTitulo')?.value.trim();
+  const ano    = parseInt(document.getElementById('hAno')?.value) || 0;
+  if (!titulo) { showToast('Introduza o título.', 'red'); return; }
+  if (!ano)    { showToast('Introduza o ano.',    'red'); return; }
+
+  const dados = {
+    ano,
+    titulo,
+    descricao: document.getElementById('hDescricao')?.value.trim() || '',
+    imagem:    document.getElementById('hImagem')?.value.trim()    || '',
+    destaque:  document.getElementById('hDestaque')?.checked       || false,
+  };
+
+  const lista = loadHistoria();
+  if (id === null) {
+    lista.push({ id: Date.now(), ...dados });
+  } else {
+    const idx = lista.findIndex(x => x.id === id);
+    if (idx > -1) lista[idx] = { ...lista[idx], ...dados };
+  }
+  saveHistoria(lista);
+  showToast(id === null ? 'Entrada criada!' : 'Entrada actualizada!', 'green');
+  closeModal();
+  renderHistoriaList();
+};
+
+window.deleteHistoria = function(id) {
+  if (!confirm('Eliminar esta entrada da linha do tempo?')) return;
+  saveHistoria(loadHistoria().filter(x => x.id !== id));
+  renderHistoriaList();
+};
+
+window.abrirModalPalmares = function(t) {
+  const isNew = !t;
+  const escaloes = ['Sub-7','Sub-9','Sub-11','Sub-13','Sub-15','Sub-17','Sub-19','Sub-21','Sénior','Futsal','Kickboxing','Judo','Geral'];
+  openModal(isNew ? 'Novo Título / Conquista' : 'Editar Título', `
+    <div class="modal-field">
+      <label>Competição / Torneio *</label>
+      <input type="text" class="form-input" id="pComp" value="${t?.competicao || ''}" placeholder="Ex: Campeonato Distrital AF Algarve" />
+    </div>
+    <div class="modal-row">
+      <div class="modal-field">
+        <label>Ano *</label>
+        <input type="number" class="form-input" id="pAno" value="${t?.ano || new Date().getFullYear()}" min="1900" max="2100" />
+      </div>
+      <div class="modal-field">
+        <label>Escalão</label>
+        <select class="form-input" id="pEscalao">
+          <option value="">— Geral —</option>
+          ${escaloes.map(e => `<option${e === (t?.escalao || '') ? ' selected' : ''}>${e}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="modal-field">
+      <label>Observação (opcional)</label>
+      <input type="text" class="form-input" id="pObs" value="${t?.observacao || ''}" placeholder="Ex: 1.º lugar, Campeão..." />
+    </div>`,
+    `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+     <button class="btn-save" onclick="savePalmaresEntry(${isNew ? 'null' : t.id})">Guardar</button>`
+  );
+};
+
+window.editPalmares = function(id) {
+  const t = loadPalmares().find(x => x.id === id);
+  if (t) abrirModalPalmares(t);
+};
+
+window.savePalmaresEntry = function(id) {
+  const competicao = document.getElementById('pComp')?.value.trim();
+  const ano        = parseInt(document.getElementById('pAno')?.value)  || 0;
+  if (!competicao) { showToast('Introduza o nome da competição.', 'red'); return; }
+  if (!ano)        { showToast('Introduza o ano.', 'red'); return; }
+
+  const dados = {
+    competicao,
+    ano,
+    escalao:    document.getElementById('pEscalao')?.value || '',
+    observacao: document.getElementById('pObs')?.value.trim()    || '',
+  };
+
+  const lista = loadPalmares();
+  if (id === null) {
+    lista.push({ id: Date.now(), ...dados });
+  } else {
+    const idx = lista.findIndex(x => x.id === id);
+    if (idx > -1) lista[idx] = { ...lista[idx], ...dados };
+  }
+  savePalmares(lista);
+  showToast(id === null ? 'Título adicionado!' : 'Título actualizado!', 'green');
+  closeModal();
+  renderPalmaresList();
+};
+
+window.deletePalmares = function(id) {
+  if (!confirm('Eliminar este título do palmarés?')) return;
+  savePalmares(loadPalmares().filter(x => x.id !== id));
+  renderPalmaresList();
+};
