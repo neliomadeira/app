@@ -953,12 +953,26 @@ function _docToText(doc) {
     const tag = node.tagName.toLowerCase();
     if (SKIP.has(tag)) return;
     if (tag === 'br') { parts.push('\n'); return; }
+    // <time datetime="2009-04-12"> — emit the datetime attribute as a date line
+    if (tag === 'time') {
+      const dt = node.getAttribute('datetime') || node.getAttribute('data-date') || '';
+      const d = _extractDate(dt) || _extractDate(node.textContent.trim());
+      if (d) { parts.push('\n' + node.textContent.trim() + '\n'); return; }
+    }
     if (tag === 'td' || tag === 'th') {
       for (const c of node.childNodes) walk(c);
+      // ZeroZero: age cell has title="12 abr. 2009" — emit the date after cell content
+      const title = node.getAttribute('title') || node.getAttribute('data-birth') || node.getAttribute('data-nascimento') || '';
+      if (title && _extractDate(title)) parts.push('\n' + title);
       parts.push('\t');
       return;
     }
     if (tag === 'tr') { parts.push('\n'); for (const c of node.childNodes) walk(c); parts.push('\n'); return; }
+    // Generic: emit title attribute if it looks like a date (e.g. <span title="12 abr. 2009">)
+    if (tag === 'span' || tag === 'a') {
+      const title = node.getAttribute('title') || '';
+      if (title && _extractDate(title)) parts.push('\n' + title + '\n');
+    }
     if (BLOCK.has(tag)) parts.push('\n');
     for (const c of node.childNodes) walk(c);
     if (BLOCK.has(tag)) parts.push('\n');
@@ -1186,13 +1200,18 @@ window.previewPlantel = function () {
   const dups   = players.length - novos;
 
   const withPhoto = players.filter(p => p.foto).length;
+  const withDate  = players.filter(p => p.dataNascimento).length;
   prev.innerHTML = `
     <div style="font-size:0.82rem;color:#555;margin-bottom:8px">
       <strong>${players.length}</strong> jogadores reconhecidos
       · <span style="color:#16a34a">${novos} novos</span>
       ${dups ? `· <span style="color:#d97706">${dups} duplicados</span>` : ''}
       ${withPhoto ? `· <span style="color:#2563eb">${withPhoto} com foto</span>` : ''}
+      ${withDate ? `· <span style="color:#7c3aed">${withDate} com data nasc.</span>` : ''}
     </div>
+    ${!withDate ? `<p style="font-size:0.78rem;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:7px 10px;margin:0 0 8px">
+      ℹ️ Datas de nascimento não encontradas. Usa o botão <strong>⬇ Buscar</strong> (URL) em vez de copiar manualmente — o HTML do ZeroZero contém as datas ocultas no atributo <code>title</code> que só é acessível por fetch.
+    </p>` : ''}
     <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
       <thead><tr style="background:#f0f4ff">
         <th style="padding:6px 8px;width:40px"></th>
