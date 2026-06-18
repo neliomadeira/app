@@ -1308,8 +1308,7 @@ window.guardarPlantel = function () {
 // UTILITÁRIO: UPLOAD DE IMAGEM
 // ==================================================
 
-// Comprime uma imagem para máx. 800px e qualidade 0.75 (JPEG)
-// Evita exceder a quota do localStorage (5MB)
+// Comprime uma imagem para máx. 800px. PNG preserva transparência; JPEG usa qualidade 0.75.
 function compressImage(file, callback) {
   const reader = new FileReader();
   reader.onload = ev => {
@@ -1320,8 +1319,13 @@ function compressImage(file, callback) {
       if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      callback(canvas.toDataURL('image/jpeg', 0.75));
+      const ctx = canvas.getContext('2d');
+      const isPng = file.type === 'image/png';
+      if (isPng) {
+        ctx.clearRect(0, 0, w, h); // preserve transparency
+      }
+      ctx.drawImage(img, 0, 0, w, h);
+      callback(canvas.toDataURL(isPng ? 'image/png' : 'image/jpeg', isPng ? undefined : 0.75));
     };
     img.src = ev.target.result;
   };
