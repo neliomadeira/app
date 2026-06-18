@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>História – Juventude Sport Campinense</title>
+  <title>Pesquisa – Juventude Sport Campinense</title>
   <link rel="stylesheet" href="css/styles.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -41,7 +41,7 @@
           <li><a href="index.html#modalidades" class="nav__link">Modalidades</a></li>
           <li><a href="agenda.html" class="nav__link">Agenda</a></li>
           <li><a href="noticias.html" class="nav__link">Notícias</a></li>
-          <li><a href="historia.html" class="nav__link" style="color:var(--yellow)">História</a></li>
+          <li><a href="index.html#galeria" class="nav__link">Galeria</a></li>
           <li><a href="resultados.html" class="nav__link">Resultados</a></li>
           <li><a href="index.html#contato" class="nav__link">Contacto</a></li>
           <li><a href="pesquisa.html" class="nav__search-btn" aria-label="Pesquisar" title="Pesquisar">&#128269;</a></li>
@@ -54,62 +54,39 @@
     </div>
   </header>
 
-  <!-- HERO -->
-  <div class="page-hero page-hero--dark">
+  <!-- PAGE HERO -->
+  <div class="page-hero page-hero--blue">
     <div class="container page-hero__content">
-      <p class="page-hero__tag">Desde 1923</p>
-      <h1 class="page-hero__title">História do Clube</h1>
-      <p class="page-hero__desc">Mais de um século a formar campeões dentro e fora do campo, em Loulé, Algarve.</p>
+      <p class="page-hero__tag">Encontre o que procura</p>
+      <h1 class="page-hero__title">Pesquisa</h1>
+      <p class="page-hero__desc">Atletas, notícias, escalões, eventos e muito mais.</p>
     </div>
   </div>
 
-  <!-- STATS STRIP -->
-  <div class="historia-strip">
-    <div class="container historia-strip__inner">
-      <div class="historia-strip__item">
-        <div class="historia-strip__num" id="hStat1Num">1923</div>
-        <div class="historia-strip__label" id="hStat1Label">Fundação</div>
-      </div>
-      <div class="historia-strip__item">
-        <div class="historia-strip__num" id="hStat2Num">100+</div>
-        <div class="historia-strip__label" id="hStat2Label">Anos de História</div>
-      </div>
-      <div class="historia-strip__item">
-        <div class="historia-strip__num" id="hStat3Num">80+</div>
-        <div class="historia-strip__label" id="hStat3Label">Títulos Conquistados</div>
-      </div>
-      <div class="historia-strip__item">
-        <div class="historia-strip__num" id="hStat4Num">300+</div>
-        <div class="historia-strip__label" id="hStat4Label">Atletas Formados</div>
-      </div>
-    </div>
-  </div>
+  <!-- MAIN CONTENT -->
+  <main class="container" style="padding: 40px 20px 60px">
 
-  <!-- TIMELINE -->
-  <section class="section" id="timeline">
-    <div class="container">
-      <div class="section__header">
-        <span class="section__tag">Marcos históricos</span>
-        <h2 class="section__title">Linha do Tempo</h2>
+    <!-- Search bar -->
+    <div class="search-bar-wrap">
+      <div class="search-bar">
+        <span class="search-bar__icon">&#128269;</span>
+        <input
+          id="searchInput"
+          class="search-bar__input"
+          type="search"
+          placeholder="Pesquisar atletas, notícias, eventos…"
+          autocomplete="off"
+          autofocus
+        />
+        <button class="search-bar__clear" id="searchClear" aria-label="Limpar" style="display:none">&#10005;</button>
       </div>
-      <div class="timeline" id="historiaTimeline">
-        <p style="text-align:center;color:#aaa;padding:40px 0">A carregar...</p>
-      </div>
+      <p class="search-hint" id="searchHint">Escreva para pesquisar em todo o site.</p>
     </div>
-  </section>
 
-  <!-- PALMARÉS -->
-  <section class="section section--gray" id="palmares">
-    <div class="container">
-      <div class="section__header">
-        <span class="section__tag">Conquistas</span>
-        <h2 class="section__title">Palmarés</h2>
-      </div>
-      <div class="palmares__grid" id="historiaPalmares">
-        <p style="text-align:center;color:#aaa;grid-column:1/-1;padding:40px 0">A carregar...</p>
-      </div>
-    </div>
-  </section>
+    <!-- Results -->
+    <div id="searchResults"></div>
+
+  </main>
 
   <!-- FOOTER -->
   <footer class="footer">
@@ -129,7 +106,7 @@
         <ul>
           <li><a href="index.html#sobre">Sobre</a></li>
           <li><a href="formacao.html">Formação</a></li>
-          <li><a href="historia.html">História</a></li>
+          <li><a href="noticias.html">Notícias</a></li>
           <li><a href="inscricao.html">Inscrição</a></li>
         </ul>
       </div>
@@ -155,7 +132,7 @@
 
   <script src="js/security.js?v=20260413"></script>
   <script src="js/site-config.js?v=20260413"></script>
-  <script src="js/historia.js?v=20260617"></script>
+  <script src="js/pesquisa.js?v=20260618"></script>
   <script src="/js/pwa.js"></script>
 </body>
 </html>

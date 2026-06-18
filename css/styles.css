@@ -3258,3 +3258,61 @@ ul { list-style: none; }
   flex-shrink: 0;
 }
 .esc-player:hover .esc-player__arrow { color: #001f4d; }
+
+/* PESQUISA */
+.search-bar-wrap { max-width: 640px; margin: 0 auto 32px; }
+.search-bar {
+  display: flex; align-items: center; gap: 10px;
+  background: #fff; border: 2px solid #e2e8f0; border-radius: 12px;
+  padding: 12px 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  transition: border-color 0.15s;
+}
+.search-bar:focus-within { border-color: #001f4d; }
+.search-bar__icon { font-size: 1.2rem; flex-shrink: 0; color: #999; }
+.search-bar__input {
+  flex: 1; border: none; outline: none; font-size: 1rem;
+  font-family: inherit; color: #1a2744; background: transparent;
+}
+.search-bar__input::placeholder { color: #aaa; }
+.search-bar__clear {
+  background: none; border: none; color: #aaa; font-size: 1rem;
+  cursor: pointer; padding: 2px 4px; flex-shrink: 0;
+}
+.search-bar__clear:hover { color: #333; }
+.search-hint { text-align: center; color: #aaa; font-size: 0.88rem; margin: 10px 0 0; }
+.search-count { color: #666; font-size: 0.9rem; margin: 0 0 24px; }
+.search-empty { color: #999; font-size: 0.95rem; text-align: center; padding: 40px 0; }
+
+.search-group { margin-bottom: 32px; }
+.search-group__title {
+  font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; letter-spacing: 0.5px;
+  color: #001f4d; margin: 0 0 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+.search-group__count { font-family: inherit; font-size: 0.85rem; color: #888; font-weight: 400; }
+.search-group__items { display: flex; flex-direction: column; gap: 8px; }
+
+.search-result {
+  display: block; text-decoration: none;
+  background: #fff; border-radius: 10px; padding: 14px 18px;
+  border: 1.5px solid #e8ecf2;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.search-result:hover { border-color: #001f4d; box-shadow: 0 2px 10px rgba(0,31,77,0.08); }
+.search-result__type { font-size: 0.72rem; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+.search-result__title { font-size: 0.95rem; font-weight: 700; color: #1a2744; margin-bottom: 2px; }
+.search-result__sub { font-size: 0.82rem; color: #666; }
+.search-result mark { background: #fef9c3; color: inherit; border-radius: 2px; padding: 0 1px; }
+
+.nav__search-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 50%;
+  color: rgba(255,255,255,0.8); font-size: 1rem; text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+.nav__search-btn:hover { background: rgba(255,255,255,0.15); color: #FFD100; }
+
+@media (max-width: 480px) {
+  .search-bar { padding: 10px 12px; }
+  .search-bar__input { font-size: 0.95rem; }
+}
