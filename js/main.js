@@ -402,6 +402,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 ${e.treinador ? `<li>Treinador: ${e.treinador}</li>` : ''}
                 ${e.atletas ? `<li>${e.atletas} atletas inscritos</li>` : ''}
               </ul>
+              <a href="escalao.html?escalao=${e.nome}" class="esc-link">Ver plantel →</a>
             </div>`).join('');
         }
       }

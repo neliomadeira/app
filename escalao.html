@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Escalão – Juventude Sport Campinense</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" />
+  <link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" />
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" /></noscript>
+  <meta name="theme-color" content="#001f4d" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/images/logo.svg" />
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="header" id="header">
+    <div class="container header__inner">
+      <a href="index.html" class="logo">
+        <img src="images/logo.svg" alt="JS Campinense" class="logo__img" />
+        <div class="logo__text">
+          <span class="logo__name">JS Campinense</span>
+          <span class="logo__sub">Juventude</span>
+        </div>
+      </a>
+      <nav class="nav" id="nav">
+        <ul class="nav__list">
+          <li><a href="index.html#sobre" class="nav__link">Sobre</a></li>
+          <li class="nav__dropdown">
+            <button class="nav__link nav__dropdown-toggle" aria-haspopup="true" aria-expanded="false">
+              Futebol <span class="nav__chevron">&#9662;</span>
+            </button>
+            <ul class="nav__submenu">
+              <li><a href="equipa-principal.html" class="nav__sublink">&#9917; Equipa Principal</a></li>
+              <li><a href="formacao.html" class="nav__sublink" style="color:var(--yellow)">&#128100; Formação</a></li>
+            </ul>
+          </li>
+          <li><a href="index.html#modalidades" class="nav__link">Modalidades</a></li>
+          <li><a href="agenda.html" class="nav__link">Agenda</a></li>
+          <li><a href="noticias.html" class="nav__link">Notícias</a></li>
+          <li><a href="index.html#galeria" class="nav__link">Galeria</a></li>
+          <li><a href="resultados.html" class="nav__link">Resultados</a></li>
+          <li><a href="index.html#contato" class="nav__link">Contacto</a></li>
+          <li><a href="inscricao.html" class="btn btn--nav">Inscrever</a></li>
+        </ul>
+      </nav>
+      <button class="hamburger" id="hamburger" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <main class="container" style="padding:0 20px 60px">
+
+    <!-- ESCALÃO HERO -->
+    <div class="escalao-hero">
+      <div class="escalao-hero__back"><a href="formacao.html">← Formação</a></div>
+      <div class="escalao-hero__info">
+        <div class="escalao-hero__badge" id="escHeroBadge">Sub-17</div>
+        <h1 class="escalao-hero__title" id="escHeroTitle">Iniciados</h1>
+        <p class="escalao-hero__faixa" id="escHeroFaixa">16 a 17 anos</p>
+      </div>
+      <div class="escalao-hero__stats">
+        <div class="escalao-hero__stat"><span id="escStatAtletas">0</span><label>Atletas</label></div>
+        <div class="escalao-hero__stat"><span id="escStatTreinos">—</span><label>Treinos</label></div>
+        <div class="escalao-hero__stat"><span id="escStatTreinador">—</span><label>Treinador</label></div>
+      </div>
+    </div>
+
+    <!-- TWO-COLUMN GRID -->
+    <div class="escalao-grid">
+
+      <!-- LEFT COLUMN -->
+      <div>
+        <!-- PLANTEL -->
+        <section class="escalao-section" id="escPlantel">
+          <div class="escalao-section__head"><h2>Plantel</h2></div>
+          <div class="escalao-section__body">
+            <p class="esc-empty">A carregar plantel…</p>
+          </div>
+        </section>
+
+        <!-- RESULTADOS & PRÓXIMOS JOGOS -->
+        <section class="escalao-section" id="escResultados">
+          <div class="escalao-section__head"><h2>Resultados &amp; Jogos</h2></div>
+          <div class="escalao-section__body">
+            <p class="esc-empty">A carregar jogos…</p>
+          </div>
+        </section>
+      </div>
+
+      <!-- RIGHT COLUMN -->
+      <div>
+        <!-- EQUIPA TÉCNICA -->
+        <section class="escalao-section" id="escTechnical">
+          <div class="escalao-section__head"><h2>Equipa Técnica</h2></div>
+          <div class="escalao-section__body">
+            <p class="esc-empty">A carregar equipa técnica…</p>
+          </div>
+        </section>
+
+        <!-- ESTATÍSTICAS -->
+        <section class="escalao-section" id="escStats">
+          <div class="escalao-section__head"><h2>Estatísticas da Época</h2></div>
+          <div class="escalao-section__body">
+            <p class="esc-empty">A carregar estatísticas…</p>
+          </div>
+        </section>
+      </div>
+
+    </div><!-- /.escalao-grid -->
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container footer__inner">
+      <div class="footer__brand">
+        <div class="logo">
+          <img src="images/logo.svg" alt="JS Campinense" class="logo__img logo__img--small" />
+          <div class="logo__text">
+            <span class="logo__name">JS Campinense</span>
+            <span class="logo__sub">Juventude</span>
+          </div>
+        </div>
+        <p class="footer__tagline">Formando campeões dentro e fora do campo.</p>
+      </div>
+      <div class="footer__links">
+        <h4>Links rápidos</h4>
+        <ul>
+          <li><a href="index.html#sobre">Sobre</a></li>
+          <li><a href="equipa-principal.html">Equipa Principal</a></li>
+          <li><a href="noticias.html">Notícias</a></li>
+          <li><a href="inscricao.html">Inscrição</a></li>
+        </ul>
+      </div>
+      <div class="footer__links">
+        <h4>Escalões</h4>
+        <ul>
+          <li><a href="escalao.html?escalao=Sub-9">Sub-9</a></li>
+          <li><a href="escalao.html?escalao=Sub-11">Sub-11</a></li>
+          <li><a href="escalao.html?escalao=Sub-13">Sub-13</a></li>
+          <li><a href="escalao.html?escalao=Sub-15">Sub-15</a></li>
+          <li><a href="escalao.html?escalao=Sub-17">Sub-17</a></li>
+          <li><a href="escalao.html?escalao=Sub-19">Sub-19</a></li>
+        </ul>
+      </div>
+      <div class="footer__contact">
+        <h4>Contacto</h4>
+        <p>Estádio Municipal de Loulé, Algarve</p>
+        <p>+351 289 000 000</p>
+        <p id="footerEmail">juventude@sportcampinense.pt</p>
+      </div>
+    </div>
+    <div class="footer__bottom">
+      <p>&copy; 2026 Juventude Sport Campinense – Loulé. Todos os direitos reservados.</p>
+    </div>
+  </footer>
+
+  <script src="js/security.js"></script>
+  <script src="js/site-config.js"></script>
+  <script src="js/main.js"></script>
+  <script src="js/escalao.js"></script>
+  <script src="/js/pwa.js"></script>
+</body>
+</html>
