@@ -42,6 +42,12 @@
       "short_name": "Inscrição",
       "url": "/inscricao.html",
       "icons": [{ "src": "images/logo.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Agenda",
+      "short_name": "Agenda",
+      "url": "/agenda.html",
+      "icons": [{ "src": "images/logo.svg", "sizes": "any", "type": "image/svg+xml" }]
     }
   ],
   "screenshots": []

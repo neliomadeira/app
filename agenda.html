@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Modalidade — Juventude Sport Campinense</title>
-  <link rel="stylesheet" href="css/styles.css?v=20260423" />
+  <title>Agenda &amp; Eventos – Juventude Sport Campinense</title>
+  <link rel="stylesheet" href="css/styles.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" />
@@ -39,8 +39,8 @@
             </ul>
           </li>
           <li><a href="index.html#modalidades" class="nav__link">Modalidades</a></li>
-          <li><a href="agenda.html" class="nav__link">Agenda</a></li>
-          <li><a href="index.html#noticias" class="nav__link">Notícias</a></li>
+          <li><a href="agenda.html" class="nav__link" style="color:var(--yellow)">Agenda</a></li>
+          <li><a href="noticias.html" class="nav__link">Notícias</a></li>
           <li><a href="index.html#galeria" class="nav__link">Galeria</a></li>
           <li><a href="resultados.html" class="nav__link">Resultados</a></li>
           <li><a href="index.html#contato" class="nav__link">Contacto</a></li>
@@ -53,33 +53,28 @@
     </div>
   </header>
 
-  <!-- HERO DA MODALIDADE -->
-  <section class="mod-hero" id="modHero">
-    <div class="mod-hero__overlay"></div>
-    <div class="container mod-hero__content">
-      <span class="mod-hero__icon" id="modIcone">🏅</span>
-      <h1 class="mod-hero__title" id="modNome">Modalidade</h1>
-      <p class="mod-hero__desc" id="modDesc"></p>
+  <!-- PAGE HERO -->
+  <section class="page-hero page-hero--dark">
+    <div class="container page-hero__content">
+      <h1 class="page-hero__title">Agenda &amp; Eventos</h1>
+      <p class="page-hero__desc">Próximos jogos, torneios e eventos do clube</p>
     </div>
   </section>
 
-  <!-- INFO BAR -->
-  <section class="mod-info-section" id="modInfoSection">
-    <div class="container">
-      <div class="mod-info-bar" id="modInfoBar"></div>
-    </div>
-  </section>
+  <!-- MAIN CONTENT -->
+  <main class="container" style="padding:40px 20px 60px">
 
-  <!-- PUBLICAÇÕES DA MODALIDADE -->
-  <section class="section" id="modPostsSection">
-    <div class="container">
-      <div class="section__header">
-        <span class="section__tag">Atualizações</span>
-        <h2 class="section__title">Publicações</h2>
-      </div>
-      <div class="mod-posts-grid" id="modPostsGrid"></div>
-    </div>
-  </section>
+    <!-- Filter pills -->
+    <div id="agendaFilters" class="news-filter-bar"></div>
+
+    <!-- Calendar -->
+    <div class="agenda-cal" id="agendaCal"></div>
+
+    <!-- Events list -->
+    <h2 class="agenda-list-title">Próximos Eventos</h2>
+    <div id="agendaList" class="agenda-pub-list"></div>
+
+  </main>
 
   <!-- FOOTER -->
   <footer class="footer">
@@ -99,23 +94,23 @@
         <ul>
           <li><a href="index.html#sobre">Sobre</a></li>
           <li><a href="formacao.html">Formação</a></li>
-          <li><a href="index.html#noticias">Notícias</a></li>
+          <li><a href="noticias.html">Notícias</a></li>
           <li><a href="inscricao.html">Inscrição</a></li>
         </ul>
       </div>
       <div class="footer__links">
-        <h4>Modalidades</h4>
+        <h4>Escalões</h4>
         <ul>
-          <li><a href="index.html#modalidades">Kickboxing</a></li>
-          <li><a href="index.html#modalidades">Judo</a></li>
-          <li><a href="index.html#modalidades">Futsal</a></li>
+          <li><a href="formacao.html">Sub-9 | Sub-11</a></li>
+          <li><a href="formacao.html">Sub-13 | Sub-15</a></li>
+          <li><a href="formacao.html">Sub-17 | Sub-19</a></li>
         </ul>
       </div>
       <div class="footer__contact">
         <h4>Contacto</h4>
         <p>Estádio Municipal de Loulé, Algarve</p>
         <p>+351 289 000 000</p>
-        <p>juventude@sportcampinense.pt</p>
+        <p id="footerEmail">juventude@sportcampinense.pt</p>
       </div>
     </div>
     <div class="footer__bottom">
@@ -123,7 +118,9 @@
     </div>
   </footer>
 
-  <script src="js/modalidade.js?v=20260423"></script>
+  <script src="js/security.js"></script>
+  <script src="js/site-config.js"></script>
+  <script src="js/agenda.js"></script>
   <script src="/js/pwa.js"></script>
 </body>
 </html>
