@@ -1,0 +1,48 @@
+{
+  "name": "Juventude Sport Campinense",
+  "short_name": "JSC Loulé",
+  "description": "Clube de formação desportiva de Loulé, Algarve. Resultados, notícias e inscrições.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#001f4d",
+  "background_color": "#001f4d",
+  "lang": "pt-PT",
+  "categories": ["sports"],
+  "icons": [
+    {
+      "src": "images/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "images/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Resultados",
+      "short_name": "Resultados",
+      "url": "/resultados.html",
+      "icons": [{ "src": "images/logo.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Notícias",
+      "short_name": "Notícias",
+      "url": "/noticias.html",
+      "icons": [{ "src": "images/logo.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Inscrição",
+      "short_name": "Inscrição",
+      "url": "/inscricao.html",
+      "icons": [{ "src": "images/logo.svg", "sizes": "any", "type": "image/svg+xml" }]
+    }
+  ],
+  "screenshots": []
+}
