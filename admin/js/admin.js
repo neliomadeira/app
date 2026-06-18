@@ -3465,6 +3465,15 @@ function initConfiguracoes() {
   if (clube.sigla)   document.getElementById('cfgClubSigla').value   = clube.sigla;
   if (clube.ano)     document.getElementById('cfgClubAno').value     = clube.ano;
   if (clube.estadio) document.getElementById('cfgClubEstadio').value = clube.estadio;
+  if (clube.navNome) document.getElementById('cfgNavNome').value     = clube.navNome;
+  if (clube.navSub)  document.getElementById('cfgNavSub').value      = clube.navSub;
+  if (clube.logo) {
+    const logoInput = document.getElementById('cfgClubLogo');
+    if (logoInput) logoInput.value = clube.logo;
+    const prev = document.getElementById('cfgClubLogoPreview');
+    if (prev) { prev.style.display = ''; prev.querySelector('img').src = clube.logo; }
+  }
+  setupImageUpload('cfgClubLogoFicheiro', 'cfgClubLogo', 'cfgClubLogoPreview');
 
   // Carregar configuração de email
   const emailCfg = JSON.parse(localStorage.getItem('email_config') || '{}');
@@ -3516,15 +3525,31 @@ async function guardarSeguranca() {
 }
 
 function guardarDadosClube() {
+  const existing = JSON.parse(localStorage.getItem('dados_clube') || '{}');
   const clube = {
+    ...existing,
     nome:    document.getElementById('cfgClubNome').value.trim(),
     sigla:   document.getElementById('cfgClubSigla').value.trim(),
     ano:     document.getElementById('cfgClubAno').value.trim(),
     estadio: document.getElementById('cfgClubEstadio').value.trim(),
+    navNome: document.getElementById('cfgNavNome').value.trim(),
+    navSub:  document.getElementById('cfgNavSub').value.trim(),
+    logo:    document.getElementById('cfgClubLogo').value.trim(),
   };
   localStorage.setItem('dados_clube', JSON.stringify(clube));
-  showToast('Dados do clube guardados', 'green');
+  showToast('✓ Dados do clube guardados! Atualize o site para ver as mudanças.', 'green');
 }
+
+window.removerLogoClube = function() {
+  const existing = JSON.parse(localStorage.getItem('dados_clube') || '{}');
+  existing.logo = '';
+  localStorage.setItem('dados_clube', JSON.stringify(existing));
+  const el = document.getElementById('cfgClubLogo');
+  if (el) el.value = '';
+  const prev = document.getElementById('cfgClubLogoPreview');
+  if (prev) prev.style.display = 'none';
+  showToast('Logótipo removido.', 'green');
+};
 
 function guardarAparencia() {
   const azul    = document.getElementById('cfgCorAzul').value;

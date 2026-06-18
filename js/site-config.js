@@ -66,6 +66,16 @@
   // Footer
   set('footerEmail', cfg.footerEmail);
 
+  // Club identity — logo, nav name, nav subtitle
+  const clube = JSON.parse(localStorage.getItem('dados_clube') || '{}');
+  if (clube.logo) {
+    document.querySelectorAll('.logo__img').forEach(el => { el.src = clube.logo; });
+    const emblem = document.querySelector('.about__emblem-large');
+    if (emblem) emblem.src = clube.logo;
+  }
+  if (clube.navNome) document.querySelectorAll('.logo__name').forEach(el => { el.textContent = clube.navNome; });
+  if (clube.navSub)  document.querySelectorAll('.logo__sub').forEach(el => { el.textContent = clube.navSub; });
+
   // Map — update iframe when coordinates configured
   if (cfg.contactLat && cfg.contactLon) {
     const lat = parseFloat(cfg.contactLat);

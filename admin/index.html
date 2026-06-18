@@ -17,7 +17,7 @@
   <div class="login-wrap" id="loginWrap">
     <div class="login-card">
       <div class="login-logo">
-        <img src="../images/logo.png" alt="JS Campinense" class="emblem-logo" />
+        <img src="../images/logo.svg" alt="JS Campinense" class="emblem-logo" />
         <div>
           <span class="login-club">JS Campinense</span>
           <span class="login-sub">Painel Administrativo</span>
@@ -47,7 +47,7 @@
     <!-- SIDEBAR -->
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-logo">
-        <img src="../images/logo.png" alt="JS Campinense" class="emblem-logo emblem-logo--sm" />
+        <img src="../images/logo.svg" alt="JS Campinense" class="emblem-logo emblem-logo--sm" />
         <div>
           <span class="sidebar-club">JS Campinense</span>
           <span class="sidebar-sub">Juventude</span>
@@ -1057,6 +1057,30 @@
           <div class="card" style="margin-bottom:20px;max-width:520px">
             <div class="card-header"><h3>&#9917; Dados do Clube</h3></div>
             <div style="padding:16px;display:grid;gap:12px">
+              <!-- Logótipo -->
+              <div class="modal-field">
+                <label class="form-label">&#128444; Logótipo do clube</label>
+                <div class="img-upload-box">
+                  <label class="img-upload-btn" for="cfgClubLogoFicheiro">&#128193; Escolher ficheiro</label>
+                  <input type="file" id="cfgClubLogoFicheiro" accept="image/*" style="display:none">
+                  <input class="form-input" type="text" id="cfgClubLogo" placeholder="ou cole URL da imagem..." />
+                </div>
+                <div id="cfgClubLogoPreview" style="display:none;margin-top:8px;align-items:center;gap:10px">
+                  <img style="max-width:80px;max-height:80px;border-radius:8px;border:1px solid #e2e8f0;object-fit:contain;padding:4px" />
+                  <button class="btn-sm" onclick="removerLogoClube()">&#128465; Remover</button>
+                </div>
+              </div>
+              <hr style="border:none;border-top:1px solid #e2e8f0;margin:0">
+              <!-- Texto do cabeçalho -->
+              <div class="modal-field">
+                <label class="form-label">Nome no cabeçalho (linha principal)</label>
+                <input class="form-input" type="text" id="cfgNavNome" placeholder="JS Campinense" />
+              </div>
+              <div class="modal-field">
+                <label class="form-label">Subtítulo no cabeçalho</label>
+                <input class="form-input" type="text" id="cfgNavSub" placeholder="Juventude" />
+              </div>
+              <hr style="border:none;border-top:1px solid #e2e8f0;margin:0">
               <div class="modal-field">
                 <label class="form-label">Nome do clube</label>
                 <input class="form-input" type="text" id="cfgClubNome" placeholder="Juventude Sport Campinense" />

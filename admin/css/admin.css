@@ -1188,3 +1188,10 @@ ul { list-style: none; }
   border-color: var(--blue) !important;
   box-shadow: 0 0 0 3px rgba(0,59,142,0.08);
 }
+
+/* Logo preview shows as flex when not hidden */
+#cfgClubLogoPreview:not([style*="display:none"]) {
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+}
