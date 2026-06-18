@@ -190,13 +190,17 @@
         jogadores.forEach(function (a) {
           var age = calcAge(a.dataNascimento);
           var ageTxt = age !== null ? age + ' anos' : '';
-          html += '<div class="esc-player">';
-          html += '<div class="esc-player__avatar">' + initials(a.nome) + '</div>';
+          var avatarHtml = a.foto
+            ? '<img src="' + a.foto + '" alt="' + a.nome + '" style="width:38px;height:38px;border-radius:50%;object-fit:cover" />'
+            : initials(a.nome);
+          html += '<a class="esc-player" href="atleta.html?id=' + a.id + '" style="text-decoration:none">';
+          html += '<div class="esc-player__avatar">' + avatarHtml + '</div>';
           html += '<div>';
           html += '<div class="esc-player__name">' + a.nome + '</div>';
           html += '<div class="esc-player__meta">' + (a.posicao || g.label) + (ageTxt ? ' · ' + ageTxt : '') + '</div>';
           html += '</div>';
-          html += '</div>';
+          html += '<span class="esc-player__arrow">›</span>';
+          html += '</a>';
         });
 
         html += '</div></div>';

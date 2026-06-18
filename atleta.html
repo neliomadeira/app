@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Perfil de Atleta – Juventude Sport Campinense</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" />
+  <link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" />
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" /></noscript>
+  <meta name="theme-color" content="#001f4d" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/images/logo.svg" />
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="header" id="header">
+    <div class="container header__inner">
+      <a href="index.html" class="logo">
+        <img src="images/logo.svg" alt="JS Campinense" class="logo__img" />
+        <div class="logo__text">
+          <span class="logo__name">JS Campinense</span>
+          <span class="logo__sub">Juventude</span>
+        </div>
+      </a>
+      <nav class="nav" id="nav">
+        <ul class="nav__list">
+          <li><a href="index.html#sobre" class="nav__link">Sobre</a></li>
+          <li class="nav__dropdown">
+            <button class="nav__link nav__dropdown-toggle" aria-haspopup="true" aria-expanded="false">
+              Futebol <span class="nav__chevron">&#9662;</span>
+            </button>
+            <ul class="nav__submenu">
+              <li><a href="equipa-principal.html" class="nav__sublink">&#9917; Equipa Principal</a></li>
+              <li><a href="formacao.html" class="nav__sublink" style="color:var(--yellow)">&#128100; Formação</a></li>
+            </ul>
+          </li>
+          <li><a href="index.html#modalidades" class="nav__link">Modalidades</a></li>
+          <li><a href="agenda.html" class="nav__link">Agenda</a></li>
+          <li><a href="noticias.html" class="nav__link">Notícias</a></li>
+          <li><a href="index.html#galeria" class="nav__link">Galeria</a></li>
+          <li><a href="resultados.html" class="nav__link">Resultados</a></li>
+          <li><a href="index.html#contato" class="nav__link">Contacto</a></li>
+          <li><a href="inscricao.html" class="btn btn--nav">Inscrever</a></li>
+        </ul>
+      </nav>
+      <button class="hamburger" id="hamburger" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <main id="atletaMain">
+    <!-- Populated by atleta.js -->
+  </main>
+
+  <footer class="footer">
+    <div class="container footer__inner">
+      <div class="footer__brand">
+        <a href="index.html" class="logo logo--footer">
+          <img src="images/logo.svg" alt="JS Campinense" class="logo__img logo__img--small" />
+          <div class="logo__text">
+            <span class="logo__name">JS Campinense</span>
+            <span class="logo__sub">Juventude</span>
+          </div>
+        </a>
+        <p class="footer__tagline">Formando Campeões desde 1923</p>
+      </div>
+      <div class="footer__links">
+        <h4>Clube</h4>
+        <ul>
+          <li><a href="formacao.html">Formação</a></li>
+          <li><a href="noticias.html">Notícias</a></li>
+          <li><a href="inscricao.html">Inscrição</a></li>
+        </ul>
+      </div>
+      <div class="footer__links">
+        <h4>Escalões</h4>
+        <ul>
+          <li><a href="formacao.html">Sub-9 | Sub-11</a></li>
+          <li><a href="formacao.html">Sub-13 | Sub-15</a></li>
+          <li><a href="formacao.html">Sub-17 | Sub-19</a></li>
+        </ul>
+      </div>
+      <div class="footer__contact">
+        <h4>Contacto</h4>
+        <p><a href="mailto:info@jscampinense.pt" id="footerEmail">info@jscampinense.pt</a></p>
+      </div>
+    </div>
+    <div class="footer__bottom">
+      <p>&copy; 2024 Juventude Sport Campinense. Todos os direitos reservados.</p>
+    </div>
+  </footer>
+
+  <script src="js/security.js"></script>
+  <script src="js/site-config.js"></script>
+  <script src="js/main.js"></script>
+  <script src="js/atleta.js"></script>
+  <script src="/js/pwa.js"></script>
+</body>
+</html>

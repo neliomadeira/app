@@ -3067,3 +3067,194 @@ ul { list-style: none; }
 /* "Ver plantel" link on formacao.html category cards */
 .esc-link { display:inline-block; margin-top:12px; font-size:0.82rem; font-weight:700; color:#FFD100; text-decoration:none; letter-spacing:0.5px; transition:opacity 0.2s; }
 .esc-link:hover { opacity:0.8; }
+
+/* ============================================
+   PERFIL DE ATLETA
+   ============================================ */
+.atleta-hero {
+  background: linear-gradient(135deg, #001f4d 0%, #002d6b 100%);
+  padding: 28px 0 36px;
+  color: #fff;
+}
+.atleta-hero__back a {
+  color: rgba(255,255,255,0.65);
+  text-decoration: none;
+  font-size: 0.85rem;
+  transition: color 0.15s;
+}
+.atleta-hero__back a:hover { color: #FFD100; }
+.atleta-hero__card {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+.atleta-hero__avatar {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: #FFD100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  border: 3px solid rgba(255,255,255,0.25);
+}
+.atleta-hero__avatar--inativo { opacity: 0.6; filter: grayscale(0.5); }
+.atleta-hero__photo { width: 100%; height: 100%; object-fit: cover; }
+.atleta-hero__initials {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2.2rem;
+  color: #001f4d;
+  line-height: 1;
+}
+.atleta-hero__badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.atleta-hero__esc-badge {
+  background: #FFD100;
+  color: #001f4d;
+  font-weight: 700;
+  font-size: 0.75rem;
+  padding: 3px 12px;
+  border-radius: 20px;
+  letter-spacing: 0.5px;
+}
+.atleta-hero__desig {
+  background: rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.9);
+  font-size: 0.75rem;
+  padding: 3px 12px;
+  border-radius: 20px;
+}
+.atleta-hero__inativo-tag {
+  background: rgba(255,80,80,0.25);
+  color: #ffaaaa;
+  font-size: 0.72rem;
+  padding: 3px 12px;
+  border-radius: 20px;
+}
+.atleta-hero__name {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2.4rem;
+  letter-spacing: 1px;
+  margin: 0 0 4px;
+  line-height: 1.1;
+}
+.atleta-hero__pos {
+  color: rgba(255,255,255,0.7);
+  font-size: 0.9rem;
+  margin: 0;
+}
+.atleta-hero__numero {
+  margin-left: auto;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 5rem;
+  color: rgba(255,255,255,0.12);
+  line-height: 1;
+  user-select: none;
+}
+
+/* Detail grid */
+.atleta-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 24px;
+  padding: 28px 20px 60px;
+}
+@media (max-width: 768px) {
+  .atleta-detail-grid { grid-template-columns: 1fr; }
+  .atleta-hero__numero { display: none; }
+}
+
+/* Cards */
+.atleta-card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 8px rgba(0,0,0,0.07);
+  padding: 20px 22px;
+  margin-bottom: 20px;
+}
+.atleta-card__title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.05rem;
+  letter-spacing: 0.5px;
+  color: #001f4d;
+  margin: 0 0 14px;
+}
+.atleta-card--club {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+}
+.atleta-card__club-logo { flex-shrink: 0; }
+.atleta-card__club-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.atleta-card__club-text strong { font-size: 0.9rem; color: #001f4d; }
+.atleta-card__club-text span { font-size: 0.78rem; color: #888; }
+
+/* Info list */
+.atleta-info-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.atleta-info-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f3f4f6;
+  flex-wrap: wrap;
+}
+.atleta-info-list li:last-child { border-bottom: none; }
+.atleta-info-list__label { font-size: 0.82rem; color: #888; flex-shrink: 0; }
+.atleta-info-list__val { font-size: 0.88rem; font-weight: 600; color: #1a2744; text-align: right; }
+.atleta-esc-link { color: #001f4d; text-decoration: none; font-weight: 700; }
+.atleta-esc-link:hover { text-decoration: underline; }
+
+/* Escalão card link */
+.atleta-esc-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-decoration: none;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1.5px solid #e2e8f0;
+  transition: border-color 0.15s, background 0.15s;
+}
+.atleta-esc-card:hover { border-color: #001f4d; background: #f0f4ff; }
+.atleta-esc-card__badge {
+  background: #001f4d;
+  color: #FFD100;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.3rem;
+  letter-spacing: 1px;
+  padding: 4px 14px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+.atleta-esc-card__name { font-weight: 700; font-size: 0.9rem; color: #1a2744; }
+.atleta-esc-card__hint { font-size: 0.75rem; color: #888; margin-top: 2px; }
+
+/* Player row arrow (in escalão page) */
+.esc-player__arrow {
+  margin-left: auto;
+  color: #ccc;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+.esc-player:hover .esc-player__arrow { color: #001f4d; }

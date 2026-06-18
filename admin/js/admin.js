@@ -559,6 +559,9 @@ document.getElementById('btnNovoAtleta')?.addEventListener('click', () => {
       <div class="modal-field"><label>Encarregado</label><input type="text" class="form-input" id="mEnc" placeholder="Nome do encarregado" /></div>
       <div class="modal-field"><label>Telefone</label><input type="tel" class="form-input" id="mTel" placeholder="+351 9XX XXX XXX" /></div>
     </div>
+    <div class="modal-row">
+      <div class="modal-field"><label>Nº Camisola</label><input type="number" class="form-input" id="mNumero" min="1" max="99" placeholder="—" /></div>
+    </div>
     ${_fotoModalHTML()}`,
     `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
      <button class="btn-save" onclick="saveNovoAtleta()">Guardar</button>`
@@ -654,6 +657,7 @@ window.saveNovoAtleta = function () {
     encarregado:    document.getElementById('mEnc').value || '—',
     telefone:       document.getElementById('mTel').value,
     foto:           document.getElementById('mFoto')?.value || '',
+    numero:         parseInt(document.getElementById('mNumero')?.value) || '',
     estado: 'Activo'
   });
   saveDB();
@@ -697,6 +701,11 @@ window.editAtleta = function (id) {
         </select>
       </div>
     </div>
+    <div class="modal-row">
+      <div class="modal-field"><label>Nº Camisola</label>
+        <input type="number" class="form-input" id="mNumero" min="1" max="99" value="${a.numero || ''}" placeholder="—" />
+      </div>
+    </div>
     ${_fotoModalHTML(a.foto)}`,
     `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
      <button class="btn-save" onclick="saveEditAtleta(${id})">Guardar</button>`
@@ -713,6 +722,7 @@ window.saveEditAtleta = function (id) {
   a.encarregado    = document.getElementById('mEnc').value             || a.encarregado;
   a.estado         = document.getElementById('mEstado').value;
   a.foto           = document.getElementById('mFoto')?.value           ?? a.foto ?? '';
+  a.numero         = parseInt(document.getElementById('mNumero')?.value) || a.numero || '';
   saveDB();
   renderAtletas();
   updateBadges();
