@@ -939,19 +939,27 @@
               <div style="padding:20px">
                 <!-- URL import -->
                 <div style="margin-bottom:14px">
-                  <label style="display:block;font-size:0.8rem;font-weight:700;margin-bottom:6px">&#8659; Importar diretamente do ZeroZero</label>
+                  <label style="display:block;font-size:0.8rem;font-weight:700;margin-bottom:6px">&#8659; Método 1 — Buscar automaticamente (recomendado)</label>
                   <div style="display:flex;gap:8px">
                     <input type="url" id="formacaoImportUrl" value="https://www.zerozero.pt/equipa/juventude-campinense/103502?epoca_id=155"
                       style="flex:1;padding:8px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:0.82rem;min-width:0">
                     <button class="btn-primary" onclick="buscarUrlFormacao(this)" style="white-space:nowrap;flex-shrink:0">&#8659; Buscar</button>
                   </div>
-                  <p style="font-size:0.75rem;color:#888;margin:4px 0 0">Muda o URL para o escalão correto antes de buscar.</p>
+                  <p style="font-size:0.75rem;color:#888;margin:4px 0 0">
+                    Cola o URL da página do <strong>Plantel</strong> no ZeroZero para o escalão correto.<br>
+                    Ex.: <code>https://www.zerozero.pt/equipa/juventude-campinense/103502/plantel/</code>
+                  </p>
                 </div>
                 <details style="margin-bottom:14px">
-                  <summary style="font-size:0.8rem;color:#888;cursor:pointer;padding:4px 0">ou colar manualmente &#9660;</summary>
-                  <div style="margin-top:8px;background:#e8f4fd;border:1px solid #b3d9f7;border-radius:8px;padding:12px;font-size:0.83rem;color:#1a5276">
-                    Vai a zerozero.pt → Plantel, escolhe o escalão, seleciona tudo (Ctrl+A), copia (Ctrl+C) e cola abaixo.
-                    Também funciona com a FPF → Jogadores Inscritos.
+                  <summary style="font-size:0.8rem;font-weight:600;color:#1a5276;cursor:pointer;padding:4px 0">&#128196; Método 2 — Copiar &amp; Colar da página (se o Buscar falhar) &#9660;</summary>
+                  <div style="margin-top:8px;background:#e8f4fd;border:1px solid #b3d9f7;border-radius:8px;padding:14px;font-size:0.83rem;color:#1a5276;line-height:1.7">
+                    <strong>Passo a passo:</strong><br>
+                    1. Vai a <strong>zerozero.pt</strong> → página da equipa → separador <strong>Plantel</strong><br>
+                    2. Escolhe o escalão (Sub-11, Sub-13, etc.) no filtro do ZeroZero<br>
+                    3. Clica numa área vazia da página e prime <strong>Ctrl+A</strong> (seleciona tudo)<br>
+                    4. Prime <strong>Ctrl+C</strong> (copia)<br>
+                    5. Clica na caixa de texto abaixo e prime <strong>Ctrl+V</strong> (cola)<br>
+                    <span style="color:#c07000;font-size:0.78rem">&#9888; As datas de nascimento são extraídas automaticamente do HTML copiado — funciona mesmo sem o botão Buscar.</span>
                   </div>
                 </details>
                 <div style="margin-bottom:14px">

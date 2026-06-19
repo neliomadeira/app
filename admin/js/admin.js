@@ -1210,7 +1210,9 @@ window.previewPlantel = function () {
       ${withDate ? `· <span style="color:#7c3aed">${withDate} com data nasc.</span>` : ''}
     </div>
     ${!withDate ? `<p style="font-size:0.78rem;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:7px 10px;margin:0 0 8px">
-      ℹ️ Datas de nascimento não encontradas. Usa o botão <strong>⬇ Buscar</strong> (URL) em vez de copiar manualmente — o HTML do ZeroZero contém as datas ocultas no atributo <code>title</code> que só é acessível por fetch.
+      ⚠️ Datas de nascimento não encontradas.<br>
+      <strong>Método 1:</strong> usa o botão <strong>⬇ Buscar</strong> com o URL do plantel.<br>
+      <strong>Método 2 (colar):</strong> no ZeroZero vai ao separador <em>Plantel</em>, prime <strong>Ctrl+A</strong> → <strong>Ctrl+C</strong> e cola aqui — o HTML copiado contém as datas mesmo sem o Buscar.
     </p>` : ''}
     <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
       <thead><tr style="background:#f0f4ff">
@@ -4286,7 +4288,17 @@ document.getElementById('btnApagarTodosSeniores')?.addEventListener('click', () 
 
 document.getElementById('senioresImportTA')?.addEventListener('paste', function(e) {
   const html = e.clipboardData?.getData('text/html');
-  if (html) { try { _senioresImportHTMLDoc = new DOMParser().parseFromString(html, 'text/html'); } catch(_) {} }
+  if (!html) return;
+  try {
+    _senioresImportHTMLDoc = new DOMParser().parseFromString(html, 'text/html');
+    // Convert clipboard HTML → structured text WITH title-attr birth dates extracted.
+    // This replaces the plain-text fallback which loses ZeroZero's hidden date attributes.
+    const enriched = _docToText(_senioresImportHTMLDoc);
+    if (enriched.trim().length > 50) {
+      e.preventDefault();
+      document.getElementById('senioresImportTA').value = enriched;
+    }
+  } catch(_) {}
 });
 
 window.fecharSenioresImport = function() {
@@ -4519,7 +4531,15 @@ let _formacaoImportHTMLDoc = null;
 
 document.getElementById('formacaoImportTA')?.addEventListener('paste', function(e) {
   const html = e.clipboardData?.getData('text/html');
-  if (html) { try { _formacaoImportHTMLDoc = new DOMParser().parseFromString(html, 'text/html'); } catch(_) {} }
+  if (!html) return;
+  try {
+    _formacaoImportHTMLDoc = new DOMParser().parseFromString(html, 'text/html');
+    const enriched = _docToText(_formacaoImportHTMLDoc);
+    if (enriched.trim().length > 50) {
+      e.preventDefault();
+      document.getElementById('formacaoImportTA').value = enriched;
+    }
+  } catch(_) {}
 });
 
 window.fecharFormacaoImport = function() {
