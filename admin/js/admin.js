@@ -140,6 +140,83 @@ loginForm?.addEventListener('submit', async (e) => {
 
 document.getElementById('logoutBtn')?.addEventListener('click', doLogout);
 
+// ---- ZEROZERO BOOKMARKLET MESSAGE RECEIVER ----
+// Receives data sent by the bookmarklet running on the ZeroZero page
+window.addEventListener('message', function(e) {
+  if (!e.data || e.data.type !== 'jsc-zz-import') return;
+  const text = e.data.text || '';
+  if (!text.trim()) return;
+  // Fill whichever import textarea is currently visible
+  const formTA = document.getElementById('formacaoImportTA');
+  const senTA  = document.getElementById('senioresImportTA');
+  if (formTA && document.getElementById('formacaoImportModal')?.style.display !== 'none') {
+    formTA.value = text;
+    if (typeof previewFormacaoImport === 'function') previewFormacaoImport();
+  } else if (senTA && document.getElementById('senioresImportModal')?.style.display !== 'none') {
+    senTA.value = text;
+    if (typeof previewSenioresImport === 'function') previewSenioresImport();
+  } else {
+    // No modal open — store for next paste
+    window._zzBookmarkletData = text;
+    showToast('Dados ZeroZero recebidos — abre o modal de importação e clica Pré-visualizar.', 'green');
+  }
+});
+
+// ---- ZEROZERO BOOKMARKLET HREF ----
+// Built at runtime so the postMessage origin matches wherever the admin is hosted.
+(function() {
+  const adminOrigin = window.location.origin;
+  // Bookmarklet script — extracts players from any ZeroZero plantel page.
+  // Sends data back to the admin window via postMessage, or copies to clipboard as fallback.
+  const bm = `(function(){
+var GRUPOS={'guarda-redes':'Guarda-Redes','guarda redes':'Guarda-Redes','defesas':'Defesa','defesa':'Defesa','édios':'Médio','médio':'Médio','meios':'Médio','meio':'Médio','avançados':'Avançado','avançado':'Avançado','pontas de lança':'Avançado'};
+var lines=[],seen={},grupo='';
+var reDateTitle=/\\d{1,2}[\\s\\/\\.][a-zà-ÿ]{3}/i;
+document.querySelectorAll('tr').forEach(function(tr){
+  var rowTxt=tr.textContent.replace(/\\s+/g,' ').trim();
+  var rowLow=rowTxt.toLowerCase();
+  for(var k in GRUPOS){if(rowLow===k||rowLow.startsWith(k+'\\n')){grupo=GRUPOS[k];lines.push(grupo);return;}}
+  var cells=Array.from(tr.querySelectorAll('td'));
+  if(!cells.length)return;
+  var birth='',name='';
+  cells.forEach(function(td){
+    var title=td.getAttribute('title')||td.getAttribute('data-birth')||'';
+    if(title&&reDateTitle.test(title)&&!birth)birth=title;
+    var t=td.textContent.replace(/\\s+/g,' ').trim();
+    if(!name&&t.length>3&&!/^\\d+$/.test(t)&&!/^[A-Z]{2,3}$/.test(t)&&/[a-zà-ÿ]/.test(t))name=t;
+  });
+  if(name&&!seen[name.toLowerCase()]){
+    seen[name.toLowerCase()]=1;
+    if(grupo){lines.push(grupo);grupo='';}
+    lines.push(name);
+    if(birth)lines.push(birth);
+  }
+});
+var out=lines.join('\\n');
+var n=Object.keys(seen).length;
+if(!n){alert('Nenhum jogador encontrado. Garante que estás no separador Plantel do ZeroZero.');return;}
+var nd=lines.filter(function(l){return reDateTitle.test(l);}).length;
+if(window.opener&&!window.opener.closed){
+  try{window.opener.postMessage({type:'jsc-zz-import',text:out},'${adminOrigin}');
+  alert('✓ '+n+' jogadores enviados ('+nd+' com data de nascimento).\\nFecha esta aba e volta ao admin.');return;}catch(e){}
+}
+(navigator.clipboard?navigator.clipboard.writeText(out):Promise.reject()).then(function(){
+  alert('✓ '+n+' jogadores copiados ('+nd+' com data).\\nVolta ao admin → cola na caixa → Pré-visualizar.');
+}).catch(function(){
+  var ta=document.createElement('textarea');
+  ta.style.cssText='position:fixed;top:0;left:0;width:90vw;height:40vh;z-index:999999;background:#fff;padding:8px;font-size:11px';
+  ta.value=out;document.body.appendChild(ta);ta.select();
+  try{document.execCommand('copy');alert('Copiado! Volta ao admin e cola.');}catch(e){alert('Seleciona o texto e copia manualmente.');}
+});
+})();`;
+
+  const href = 'javascript:' + encodeURIComponent(bm);
+  document.querySelectorAll('#zzBookmarklet, #zzBookmarkletSen').forEach(function(a) {
+    a.href = href;
+    a.addEventListener('click', function(e) { e.preventDefault(); alert('Arrasta este botão para a barra de favoritos do teu browser (não cliques — arrasta!).'); });
+  });
+})();
+
 // ---- SIDEBAR TOGGLE ---- //
 document.getElementById('sidebarToggle')?.addEventListener('click', () => {
   document.getElementById('sidebar').classList.toggle('open');
@@ -4508,6 +4585,12 @@ function initFormacao() {
     btnImp.addEventListener('click', () => {
       document.getElementById('formacaoImportTitle').textContent = `Importar Plantel — ${_formacaoEscalao}`;
       document.getElementById('formacaoImportModal').style.display = 'flex';
+      // If bookmarklet already sent data before modal was open, fill now
+      if (window._zzBookmarkletData) {
+        document.getElementById('formacaoImportTA').value = window._zzBookmarkletData;
+        window._zzBookmarkletData = null;
+        previewFormacaoImport();
+      }
     });
   }
   const btnDel = document.getElementById('btnFormacaoApagarTodos');

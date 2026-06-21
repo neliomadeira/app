@@ -864,19 +864,27 @@
                 <button onclick="fecharSenioresImport()" style="background:none;border:none;color:#fff;font-size:1.4rem;cursor:pointer;line-height:1">&times;</button>
               </div>
               <div style="padding:20px">
-                <!-- URL import -->
-                <div style="margin-bottom:14px">
-                  <label style="display:block;font-size:0.8rem;font-weight:700;margin-bottom:6px">&#8659; Importar diretamente do ZeroZero</label>
-                  <div style="display:flex;gap:8px">
-                    <input type="url" id="senioresImportUrl" value="https://www.zerozero.pt/equipa/juventude-campinense/6416?epoca_id=155"
-                      style="flex:1;padding:8px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:0.82rem;min-width:0">
-                    <button class="btn-primary" onclick="buscarUrlSeniores(this)" style="white-space:nowrap;flex-shrink:0">&#8659; Buscar</button>
+                <!-- BOOKMARKLET -->
+                <div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:14px 16px;margin-bottom:16px">
+                  <div style="font-size:0.85rem;font-weight:700;color:#15803d;margin-bottom:10px">&#9733; Método recomendado — Bookmarklet JSC</div>
+                  <p style="font-size:0.8rem;color:#166534;margin:0 0 10px;line-height:1.6">
+                    <strong>1ª vez:</strong> Arrasta o botão abaixo para a barra de favoritos.<br>
+                    <strong>Sempre que importar:</strong> Vai ao ZeroZero → Plantel → clica no favorito → os dados chegam aqui.
+                  </p>
+                  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                    <a id="zzBookmarkletSen" href="#" style="display:inline-block;background:var(--blue);color:#fff;padding:8px 16px;border-radius:8px;font-size:0.82rem;font-weight:700;text-decoration:none;cursor:grab;border:2px dashed #facc15" title="Arrasta para a barra de favoritos">
+                      &#128278; JSC Importar ZeroZero
+                    </a>
+                    <span style="font-size:0.75rem;color:#15803d">&#8592; arrasta para os favoritos</span>
                   </div>
                 </div>
+                <!-- Fallback: URL -->
                 <details style="margin-bottom:14px">
-                  <summary style="font-size:0.8rem;color:#888;cursor:pointer;padding:4px 0">ou colar manualmente &#9660;</summary>
-                  <div style="margin-top:8px;background:#e8f4fd;border:1px solid #b3d9f7;border-radius:8px;padding:12px;font-size:0.83rem;color:#1a5276">
-                    Vai a zerozero.pt → Plantel, seleciona tudo (Ctrl+A), copia (Ctrl+C) e cola abaixo.
+                  <summary style="font-size:0.8rem;color:#888;cursor:pointer;padding:4px 0">&#8659; Alternativa — Buscar por URL (pode falhar) &#9660;</summary>
+                  <div style="margin-top:8px;display:flex;gap:8px">
+                    <input type="url" id="senioresImportUrl" value="https://www.zerozero.pt/equipa/juventude-campinense/6416/plantel/"
+                      style="flex:1;padding:8px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:0.82rem;min-width:0">
+                    <button class="btn-primary" onclick="buscarUrlSeniores(this)" style="white-space:nowrap;flex-shrink:0">&#8659; Buscar</button>
                   </div>
                 </details>
                 <div style="margin-bottom:14px">
@@ -937,29 +945,33 @@
                 <button onclick="fecharFormacaoImport()" style="background:none;border:none;color:#fff;font-size:1.4rem;cursor:pointer;line-height:1">&times;</button>
               </div>
               <div style="padding:20px">
-                <!-- URL import -->
-                <div style="margin-bottom:14px">
-                  <label style="display:block;font-size:0.8rem;font-weight:700;margin-bottom:6px">&#8659; Método 1 — Buscar automaticamente (recomendado)</label>
-                  <div style="display:flex;gap:8px">
-                    <input type="url" id="formacaoImportUrl" value="https://www.zerozero.pt/equipa/juventude-campinense/103502?epoca_id=155"
-                      style="flex:1;padding:8px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:0.82rem;min-width:0">
-                    <button class="btn-primary" onclick="buscarUrlFormacao(this)" style="white-space:nowrap;flex-shrink:0">&#8659; Buscar</button>
+                <!-- BOOKMARKLET — primary method -->
+                <div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:14px 16px;margin-bottom:16px">
+                  <div style="font-size:0.85rem;font-weight:700;color:#15803d;margin-bottom:10px">&#9733; Método recomendado — Bookmarklet JSC</div>
+                  <p style="font-size:0.8rem;color:#166534;margin:0 0 10px;line-height:1.6">
+                    <strong>1ª vez:</strong> Arrasta o botão abaixo para a barra de favoritos do teu browser.<br>
+                    <strong>Sempre que importar:</strong> Vai ao ZeroZero → Plantel → clica no favorito → os dados chegam aqui automaticamente.
+                  </p>
+                  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                    <a id="zzBookmarklet" href="#" style="display:inline-block;background:var(--blue);color:#fff;padding:8px 16px;border-radius:8px;font-size:0.82rem;font-weight:700;text-decoration:none;cursor:grab;border:2px dashed #facc15" title="Arrasta para a barra de favoritos">
+                      &#128278; JSC Importar ZeroZero
+                    </a>
+                    <span style="font-size:0.75rem;color:#15803d">&#8592; arrasta este botão para os favoritos</span>
                   </div>
-                  <p style="font-size:0.75rem;color:#888;margin:4px 0 0">
-                    Cola o URL da página do <strong>Plantel</strong> no ZeroZero para o escalão correto.<br>
-                    Ex.: <code>https://www.zerozero.pt/equipa/juventude-campinense/103502/plantel/</code>
+                  <p style="font-size:0.75rem;color:#166534;margin:8px 0 0">
+                    Depois vai ao ZeroZero, escolhe o escalão, clica no favorito &rarr; os dados aparecem aqui.
                   </p>
                 </div>
+                <!-- Fallback: URL fetch -->
                 <details style="margin-bottom:14px">
-                  <summary style="font-size:0.8rem;font-weight:600;color:#1a5276;cursor:pointer;padding:4px 0">&#128196; Método 2 — Copiar &amp; Colar da página (se o Buscar falhar) &#9660;</summary>
-                  <div style="margin-top:8px;background:#e8f4fd;border:1px solid #b3d9f7;border-radius:8px;padding:14px;font-size:0.83rem;color:#1a5276;line-height:1.7">
-                    <strong>Passo a passo:</strong><br>
-                    1. Vai a <strong>zerozero.pt</strong> → página da equipa → separador <strong>Plantel</strong><br>
-                    2. Escolhe o escalão (Sub-11, Sub-13, etc.) no filtro do ZeroZero<br>
-                    3. Clica numa área vazia da página e prime <strong>Ctrl+A</strong> (seleciona tudo)<br>
-                    4. Prime <strong>Ctrl+C</strong> (copia)<br>
-                    5. Clica na caixa de texto abaixo e prime <strong>Ctrl+V</strong> (cola)<br>
-                    <span style="color:#c07000;font-size:0.78rem">&#9888; As datas de nascimento são extraídas automaticamente do HTML copiado — funciona mesmo sem o botão Buscar.</span>
+                  <summary style="font-size:0.8rem;font-weight:600;color:#888;cursor:pointer;padding:4px 0">&#8659; Alternativa — Buscar por URL (pode falhar com Cloudflare) &#9660;</summary>
+                  <div style="margin-top:8px">
+                    <div style="display:flex;gap:8px">
+                      <input type="url" id="formacaoImportUrl" value="https://www.zerozero.pt/equipa/juventude-campinense/103502/plantel/"
+                        style="flex:1;padding:8px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:0.82rem;min-width:0">
+                      <button class="btn-primary" onclick="buscarUrlFormacao(this)" style="white-space:nowrap;flex-shrink:0">&#8659; Buscar</button>
+                    </div>
+                    <p style="font-size:0.75rem;color:#888;margin:4px 0 0">Cola o URL do separador <strong>Plantel</strong> da equipa no ZeroZero.</p>
                   </div>
                 </details>
                 <div style="margin-bottom:14px">
