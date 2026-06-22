@@ -12,13 +12,13 @@
   "categories": ["sports"],
   "icons": [
     {
-      "src": "images/logo.svg",
+      "src": "images/logo.png",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "images/logo.svg",
+      "src": "images/logo.png",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "maskable"
@@ -29,25 +29,25 @@
       "name": "Resultados",
       "short_name": "Resultados",
       "url": "/resultados.html",
-      "icons": [{ "src": "images/logo.svg", "sizes": "any", "type": "image/svg+xml" }]
+      "icons": [{ "src": "images/logo.png", "sizes": "any", "type": "image/svg+xml" }]
     },
     {
       "name": "Notícias",
       "short_name": "Notícias",
       "url": "/noticias.html",
-      "icons": [{ "src": "images/logo.svg", "sizes": "any", "type": "image/svg+xml" }]
+      "icons": [{ "src": "images/logo.png", "sizes": "any", "type": "image/svg+xml" }]
     },
     {
       "name": "Inscrição",
       "short_name": "Inscrição",
       "url": "/inscricao.html",
-      "icons": [{ "src": "images/logo.svg", "sizes": "any", "type": "image/svg+xml" }]
+      "icons": [{ "src": "images/logo.png", "sizes": "any", "type": "image/svg+xml" }]
     },
     {
       "name": "Agenda",
       "short_name": "Agenda",
       "url": "/agenda.html",
-      "icons": [{ "src": "images/logo.svg", "sizes": "any", "type": "image/svg+xml" }]
+      "icons": [{ "src": "images/logo.png", "sizes": "any", "type": "image/svg+xml" }]
     }
   ],
   "screenshots": []

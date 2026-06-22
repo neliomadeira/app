@@ -16,7 +16,7 @@
     bannerEl.className = 'pwa-banner';
     bannerEl.innerHTML = `
       <div class="pwa-banner__inner">
-        <img src="/images/logo.svg" class="pwa-banner__logo" alt="" aria-hidden="true" />
+        <img src="/images/logo.png" class="pwa-banner__logo" alt="" aria-hidden="true" />
         <div class="pwa-banner__text">
           <strong>Juventude Sport Campinense</strong>
           <span>Instalar app para acesso rápido</span>

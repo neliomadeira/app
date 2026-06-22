@@ -160,7 +160,7 @@
 
           <div class="atleta-card atleta-card--club">
             <div class="atleta-card__club-logo">
-              <img src="images/logo.svg" alt="JSC" class="logo__img" style="width:56px;height:56px;object-fit:contain" />
+              <img src="images/logo.png" alt="JSC" class="logo__img" style="width:56px;height:56px;object-fit:contain" />
             </div>
             <div class="atleta-card__club-text">
               <strong>Juventude Sport Campinense</strong>

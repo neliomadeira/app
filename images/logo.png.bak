@@ -1,0 +1,162 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 560">
+  <defs>
+    <clipPath id="sc">
+      <path d="M250 518 Q170 478 128 435 Q95 398 85 358 L78 228 Q78 212 95 207 L250 192 L405 207 Q422 212 422 228 L415 358 Q405 398 372 435 Q330 478 250 518Z"/>
+    </clipPath>
+  </defs>
+
+  <!-- EAGLE SILHOUETTE -->
+  <g fill="#111">
+    <!-- Body -->
+    <ellipse cx="250" cy="170" rx="20" ry="28"/>
+    <!-- Neck -->
+    <ellipse cx="256" cy="148" rx="13" ry="14"/>
+    <!-- Head -->
+    <ellipse cx="263" cy="134" rx="16" ry="14"/>
+    <!-- Beak -->
+    <path d="M275 128 Q292 131 282 141 Q275 137 268 136Z"/>
+    <!-- White eye -->
+    <circle cx="268" cy="131" r="3" fill="white"/>
+
+    <!-- LEFT WING - upper layer -->
+    <path d="M238 165
+             Q210 150 175 133
+             Q140 116 105 105
+             Q72  96  42  98
+             Q55  112 80  118
+             Q105 124 130 126
+             Q160 130 185 140
+             Q210 150 232 162Z"/>
+    <!-- LEFT WING - lower shadow layer -->
+    <path d="M42 98
+             Q28 115 30 130
+             Q50 122 80 120
+             Q108 118 133 124
+             Q158 130 182 142
+             Q208 154 230 165Z"
+          opacity="0.55"/>
+    <!-- Left wingtip feathers -->
+    <path d="M105 105 Q82 110 60 120 Q52 111 50 103Z"/>
+    <path d="M72  96  Q50 101 30 112 Q24 103 24 95Z"/>
+    <path d="M42  98  Q20 103  8 114 Q10 104 14 97Z"/>
+
+    <!-- RIGHT WING - upper layer (mirror) -->
+    <path d="M262 165
+             Q290 150 325 133
+             Q360 116 395 105
+             Q428  96 458  98
+             Q445 112 420 118
+             Q395 124 370 126
+             Q340 130 315 140
+             Q290 150 268 162Z"/>
+    <!-- RIGHT WING - lower shadow layer -->
+    <path d="M458 98
+             Q472 115 470 130
+             Q450 122 420 120
+             Q392 118 367 124
+             Q342 130 318 142
+             Q292 154 270 165Z"
+          opacity="0.55"/>
+    <!-- Right wingtip feathers -->
+    <path d="M395 105 Q418 110 440 120 Q448 111 450 103Z"/>
+    <path d="M428  96 Q450 101 470 112 Q476 103 476 95Z"/>
+    <path d="M458  98 Q480 103 492 114 Q490 104 486 97Z"/>
+
+    <!-- Chest / body base connecting to shield -->
+    <path d="M234 192 Q238 205 240 218 Q250 208 260 218 Q262 205 266 192 Q258 185 250 184 Q242 185 234 192Z"/>
+  </g>
+
+  <!-- SHIELD OUTER BLACK -->
+  <path d="M250 522
+           Q168 481 125 436
+           Q90  397  80 355
+           L72  224
+           Q72  206  92 200
+           L250 184
+           L408 200
+           Q428 206 428 224
+           L420 355
+           Q410 397 375 436
+           Q332 481 250 522Z"
+        fill="#111"/>
+
+  <!-- SHIELD WHITE INNER BORDER -->
+  <path d="M250 512
+           Q172 472 132 429
+           Q99  393  90 353
+           L82  228
+           Q82  214  99 209
+           L250 194
+           L401 209
+           Q418 214 418 228
+           L410 353
+           Q401 393 368 429
+           Q328 472 250 512Z"
+        fill="white"/>
+
+  <!-- SHIELD BLUE (upper-left) -->
+  <path d="M250 512
+           Q172 472 132 429
+           Q99  393  90 353
+           L82  228
+           Q82  214  99 209
+           L250 194
+           L401 209
+           Q418 214 418 228
+           L410 353
+           Q401 393 368 429
+           Q328 472 250 512Z"
+        fill="#3B8ADB" clip-path="url(#sc)"/>
+
+  <!-- SHIELD YELLOW (lower-right) clipped diagonal -->
+  <polygon points="82,318 418,209 418,228 410,353 401,393 368,429 328,472 250,512 172,472 132,429 99,353 90,318"
+           fill="#FFD700" clip-path="url(#sc)"/>
+
+  <!-- SASH WHITE BAND -->
+  <rect x="68" y="307" width="368" height="66" rx="4" fill="white"
+        transform="rotate(-33 250 340)"/>
+  <!-- Sash top black line -->
+  <rect x="68" y="307" width="368" height="6" rx="2" fill="#111"
+        transform="rotate(-33 250 340)"/>
+  <!-- Sash bottom black line -->
+  <rect x="68" y="367" width="368" height="6" rx="2" fill="#111"
+        transform="rotate(-33 250 340)"/>
+
+  <!-- SASH TEXT -->
+  <text x="250" y="348"
+        text-anchor="middle"
+        font-family="Arial Black, Impact, sans-serif"
+        font-weight="900"
+        font-size="32"
+        letter-spacing="2"
+        fill="#111"
+        transform="rotate(-33 250 340)">J.S.CAMPINENSE</text>
+
+  <!-- SHIELD OUTER STROKE on top -->
+  <path d="M250 522
+           Q168 481 125 436
+           Q90  397  80 355
+           L72  224
+           Q72  206  92 200
+           L250 184
+           L408 200
+           Q428 206 428 224
+           L420 355
+           Q410 397 375 436
+           Q332 481 250 522Z"
+        fill="none" stroke="#111" stroke-width="5"/>
+
+  <!-- WHITE INNER SHIELD LINE -->
+  <path d="M250 512
+           Q172 472 132 429
+           Q99  393  90 353
+           L82  228
+           Q82  214  99 209
+           L250 194
+           L401 209
+           Q418 214 418 228
+           L410 353
+           Q401 393 368 429
+           Q328 472 250 512Z"
+        fill="none" stroke="white" stroke-width="2.5"/>
+</svg>
