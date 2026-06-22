@@ -914,6 +914,7 @@
             <h1 id="formacaoTitle">Futebol Formação</h1>
             <div class="page-actions">
               <button class="btn-fpf" id="btnFormacaoImportar">&#128203; Importar ZeroZero</button>
+              <button class="btn-fpf" id="btnCompletarDatas" style="background:#7c3aed">&#128279; Completar Datas (FPF)</button>
               <button class="btn-danger" id="btnFormacaoApagarTodos">&#128465; Apagar Todos</button>
               <button class="btn-primary" id="btnFormacaoNovoAtleta">+ Novo Atleta</button>
             </div>
@@ -990,6 +991,36 @@
                   <button class="btn-sm" onclick="fecharFormacaoImport()" style="margin-left:auto">Cancelar</button>
                 </div>
                 <div id="formacaoImportPreview" style="margin-top:16px"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- MODAL: Completar Datas (FPF) -->
+          <div id="completarDatasModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;padding:16px">
+            <div style="background:#fff;border-radius:12px;width:100%;max-width:720px;max-height:92vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.25)">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:2px solid #7c3aed;background:#4c1d95">
+                <span style="font-family:var(--font-display);font-size:1.3rem;color:#fff;letter-spacing:1px">&#128279; Completar Datas — FPF</span>
+                <button onclick="fecharCompletarDatas()" style="background:none;border:none;color:#fff;font-size:1.4rem;cursor:pointer;line-height:1">&times;</button>
+              </div>
+              <div style="padding:20px">
+                <div style="background:#f5f3ff;border:1.5px solid #c4b5fd;border-radius:10px;padding:14px;margin-bottom:16px;font-size:0.83rem;color:#4c1d95;line-height:1.7">
+                  <strong>Como usar:</strong><br>
+                  1. Vai a <strong>fpf.pt</strong> → a tua competição → <strong>Jogadores Inscritos</strong><br>
+                  2. Seleciona tudo na tabela (<strong>Ctrl+A</strong>) e copia (<strong>Ctrl+C</strong>)<br>
+                  3. Cola aqui em baixo — o sistema cruza os nomes com os atletas já importados e preenche as datas em falta.<br>
+                  <span style="color:#7c3aed;font-size:0.78rem">Funciona com tabelas da FPF, AF Algarve, ou qualquer fonte com nome + data de nascimento.</span>
+                </div>
+                <label style="display:block;font-size:0.8rem;font-weight:700;margin-bottom:6px">Dados da FPF <span id="completarDatasEscalao" style="font-weight:400;color:#7c3aed"></span></label>
+                <textarea id="completarDatasTA" rows="8"
+                  placeholder="Cola aqui a lista de jogadores inscritos da FPF (tabela com nome e data de nascimento)..."
+                  style="width:100%;box-sizing:border-box;padding:10px;border:1.5px solid #c4b5fd;border-radius:8px;font-family:monospace;font-size:0.82rem;resize:vertical"
+                  oninput="previewCompletarDatas()"></textarea>
+                <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
+                  <button class="btn-save" onclick="previewCompletarDatas()">&#128269; Ver correspondências</button>
+                  <button class="btn-primary" onclick="guardarCompletarDatas()" id="btnGuardarDatas" disabled>&#10003; Aplicar datas</button>
+                  <button class="btn-sm" onclick="fecharCompletarDatas()" style="margin-left:auto">Cancelar</button>
+                </div>
+                <div id="completarDatasPreview" style="margin-top:16px"></div>
               </div>
             </div>
           </div>

@@ -4605,6 +4605,11 @@ function initFormacao() {
       showToast(`${total} atletas do ${_formacaoEscalao} removidos.`, 'red');
     });
   }
+  const btnComp = document.getElementById('btnCompletarDatas');
+  if (btnComp && !btnComp._bf) {
+    btnComp._bf = true;
+    btnComp.addEventListener('click', () => abrirCompletarDatas());
+  }
 
   _renderFormacao();
 }
@@ -4746,6 +4751,176 @@ window.guardarFormacaoImport = function() {
   saveDB(); _renderFormacaoTable(); updateBadges(); fecharFormacaoImport();
   const msg = [added?`${added} importados`:'', replaced?`${replaced} atualizados`:'', skipped?`${skipped} ignorados`:''].filter(Boolean).join(', ');
   showToast(msg + '.', 'green');
+};
+
+// ---- COMPLETAR DATAS (FPF cross-reference) ----
+
+// Normalise a name for fuzzy matching: lowercase, remove accents, strip non-alpha
+function _normName(n) {
+  return (n || '').toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z\s]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+// Score how well two names match (0=no match, 1=exact, 0.5=partial)
+function _nameScore(a, b) {
+  const na = _normName(a), nb = _normName(b);
+  if (!na || !nb) return 0;
+  if (na === nb) return 1;
+  const wa = na.split(' '), wb = nb.split(' ');
+  // Count shared words (min 4 chars to avoid matching "de", "da", etc.)
+  const shared = wa.filter(w => w.length >= 4 && wb.includes(w)).length;
+  if (shared >= 2) return 0.9;
+  if (shared === 1) return 0.6;
+  // One name fully contained in the other
+  if (na.includes(nb) || nb.includes(na)) return 0.7;
+  return 0;
+}
+
+// Parse FPF "Jogadores Inscritos" table or any source with name + birth date
+function _parseFPFDatas(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const result = []; // [{nome, dataNascimento}]
+
+  // Check for FPF card format ("Data de nascimento:" lines)
+  const hasCard = lines.some(l => /^data de nascimento/i.test(l));
+  if (hasCard) {
+    let lastName = '';
+    const isJunk = s => /^(filtrar|escalão|clube|fpf|federação|menu|pesquisar|ver mais|login|logout)/i.test(s) || s.length < 3;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (/^data de nascimento/i.test(line)) {
+        const inline = line.match(/data de nascimento[:\s]+(.+)/i);
+        let d = inline ? _extractDate(inline[1]) : '';
+        if (!d && i + 1 < lines.length) { d = _extractDate(lines[i + 1]); if (d) i++; }
+        if (lastName && d) result.push({ nome: lastName, dataNascimento: d });
+        lastName = '';
+      } else if (!isJunk(line) && !/^\d+$/.test(line)) {
+        lastName = line;
+      }
+    }
+    return result;
+  }
+
+  // Tab-separated table: detect header row containing "nasc" or "nascimento"
+  let dateCol = -1, nameCol = 1;
+  for (const line of lines) {
+    if (/nasc|nascimento/i.test(line)) {
+      const cols = line.split(/\t/).map((c, i) => ({ v: c.toLowerCase().trim(), i }));
+      const dc = cols.find(c => /nasc/i.test(c.v));
+      const nc = cols.find(c => /nome|jogador/i.test(c.v));
+      if (dc) dateCol = dc.i;
+      if (nc) nameCol = nc.i;
+      break;
+    }
+  }
+
+  for (const line of lines) {
+    if (/nasc|nascimento|^n[rº°]?\.?\t|^nr\b/i.test(line)) continue; // skip header
+    const parts = line.split(/\t/).map(p => p.trim());
+    if (parts.length < 2) continue;
+    // Try to find date in any column if dateCol not detected
+    let dataNascimento = dateCol >= 0 ? _extractDate(parts[dateCol] || '') : '';
+    if (!dataNascimento) {
+      for (const p of parts) { dataNascimento = _extractDate(p); if (dataNascimento) break; }
+    }
+    const nome = parts[nameCol] || parts[0] || '';
+    if (nome && nome.length > 2 && !/^\d+$/.test(nome) && dataNascimento) {
+      result.push({ nome: nome.replace(/\s+/g, ' ').trim(), dataNascimento });
+    }
+  }
+  return result;
+}
+
+let _completarDatasMatches = []; // [{atleta, fpfEntry, score}]
+
+function abrirCompletarDatas() {
+  document.getElementById('completarDatasEscalao').textContent = `— ${_formacaoEscalao}`;
+  document.getElementById('completarDatasTA').value = '';
+  document.getElementById('completarDatasPreview').innerHTML = '';
+  document.getElementById('btnGuardarDatas').disabled = true;
+  _completarDatasMatches = [];
+  document.getElementById('completarDatasModal').style.display = 'flex';
+}
+
+window.fecharCompletarDatas = function() {
+  document.getElementById('completarDatasModal').style.display = 'none';
+};
+
+window.previewCompletarDatas = function() {
+  const text = document.getElementById('completarDatasTA').value.trim();
+  const prev = document.getElementById('completarDatasPreview');
+  if (!text) { prev.innerHTML = ''; return; }
+
+  const fpfList = _parseFPFDatas(text);
+  if (!fpfList.length) {
+    prev.innerHTML = '<p style="color:#c00;font-size:0.85rem">Nenhum jogador com data reconhecido. Copia a tabela inteira da FPF (incluindo cabeçalho).</p>';
+    document.getElementById('btnGuardarDatas').disabled = true;
+    return;
+  }
+
+  const athletes = (DB.atletas || []).filter(a => a.escalao === _formacaoEscalao);
+  _completarDatasMatches = [];
+
+  for (const fpf of fpfList) {
+    let best = null, bestScore = 0;
+    for (const a of athletes) {
+      const score = _nameScore(a.nome, fpf.nome);
+      if (score > bestScore && score >= 0.6) { best = a; bestScore = score; }
+    }
+    _completarDatasMatches.push({ fpf, atleta: best, score: bestScore });
+  }
+
+  const matched  = _completarDatasMatches.filter(m => m.atleta && !m.atleta.dataNascimento);
+  const updated  = _completarDatasMatches.filter(m => m.atleta && m.atleta.dataNascimento && m.atleta.dataNascimento !== m.fpf.dataNascimento);
+  const noMatch  = _completarDatasMatches.filter(m => !m.atleta);
+  const already  = _completarDatasMatches.filter(m => m.atleta && m.atleta.dataNascimento === m.fpf.dataNascimento);
+
+  document.getElementById('btnGuardarDatas').disabled = (matched.length + updated.length) === 0;
+
+  prev.innerHTML = `
+    <div style="font-size:0.82rem;color:#555;margin-bottom:10px">
+      <span style="color:#16a34a;font-weight:600">${matched.length} datas novas</span>
+      ${updated.length ? `· <span style="color:#d97706;font-weight:600">${updated.length} a atualizar</span>` : ''}
+      ${already.length ? `· <span style="color:#888">${already.length} já tinham data</span>` : ''}
+      ${noMatch.length ? `· <span style="color:#c00">${noMatch.length} sem correspondência</span>` : ''}
+      · ${fpfList.length} jogadores na FPF
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:0.81rem">
+      <thead><tr style="background:#f5f3ff">
+        <th style="padding:6px 10px;text-align:left">Nome FPF</th>
+        <th style="padding:6px 10px;text-align:left">Data nasc.</th>
+        <th style="padding:6px 10px;text-align:left">Atleta encontrado</th>
+        <th style="padding:6px 10px;text-align:left">Estado</th>
+      </tr></thead>
+      <tbody>${_completarDatasMatches.map(m => {
+        let status, statusColor;
+        if (!m.atleta) { status = 'Sem correspondência'; statusColor = '#c00'; }
+        else if (!m.atleta.dataNascimento) { status = '+ Nova data'; statusColor = '#16a34a'; }
+        else if (m.atleta.dataNascimento === m.fpf.dataNascimento) { status = 'Igual'; statusColor = '#888'; }
+        else { status = `Atualizar (era ${m.atleta.dataNascimento})`; statusColor = '#d97706'; }
+        return `<tr style="border-bottom:1px solid #eee">
+          <td style="padding:5px 10px">${m.fpf.nome}</td>
+          <td style="padding:5px 10px;color:#7c3aed;font-weight:600">${m.fpf.dataNascimento}</td>
+          <td style="padding:5px 10px;color:#555">${m.atleta ? m.atleta.nome : '—'}</td>
+          <td style="padding:5px 10px;color:${statusColor};font-size:0.78rem;font-weight:600">${status}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+};
+
+window.guardarCompletarDatas = function() {
+  let count = 0;
+  for (const m of _completarDatasMatches) {
+    if (!m.atleta) continue;
+    const idx = DB.atletas.findIndex(a => a.id === m.atleta.id);
+    if (idx > -1 && m.fpf.dataNascimento) {
+      DB.atletas[idx].dataNascimento = m.fpf.dataNascimento;
+      count++;
+    }
+  }
+  saveDB(); _renderFormacaoTable(); fecharCompletarDatas();
+  showToast(`${count} datas de nascimento actualizadas.`, 'green');
 };
 
 function _renderFormacao() {
