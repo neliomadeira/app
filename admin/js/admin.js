@@ -3562,6 +3562,16 @@ function deleteEvento(idx) {
 // CONFIGURAÇÕES
 // =============================================
 function initConfiguracoes() {
+  // Carregar modo manutenção
+  const manu = JSON.parse(localStorage.getItem('site_manutencao') || '{}');
+  const chk  = document.getElementById('cfgManutencao');
+  if (chk) {
+    chk.checked = !!manu.ativo;
+    _applyManutencaoSlider(!!manu.ativo);
+  }
+  const msgEl = document.getElementById('cfgManutencaoMsg');
+  if (msgEl && manu.mensagem) msgEl.value = manu.mensagem;
+
   // Carregar credenciais guardadas
   const creds = JSON.parse(localStorage.getItem('admin_creds') || '{}');
   if (creds.user) document.getElementById('cfgAdminUser').value = creds.user;
@@ -3635,6 +3645,33 @@ async function guardarSeguranca() {
 
   showToast('✓ Credenciais guardadas com segurança (SHA-256)', 'green');
 }
+
+// ---- MANUTENÇÃO ----
+function _applyManutencaoSlider(on) {
+  const slider = document.getElementById('cfgManutencaoSlider');
+  const thumb  = document.getElementById('cfgManutencaoThumb');
+  if (!slider) return;
+  slider.style.background = on ? '#e53e3e' : '#ccc';
+  if (thumb) thumb.style.transform = on ? 'translateX(24px)' : 'translateX(0)';
+}
+
+window.toggleManutencao = function(on) {
+  _applyManutencaoSlider(on);
+};
+
+window.guardarManutencao = function() {
+  const on  = document.getElementById('cfgManutencao')?.checked || false;
+  const msg = document.getElementById('cfgManutencaoMsg')?.value.trim()
+              || 'Estamos a melhorar o site. Voltamos em breve!';
+  localStorage.setItem('site_manutencao', JSON.stringify({ ativo: on, mensagem: msg }));
+  const st = document.getElementById('cfgManutencaoStatus');
+  if (st) {
+    st.style.display = '';
+    st.style.color   = on ? '#c00' : '#16a34a';
+    st.textContent   = on ? '🔴 Site em manutenção — visitantes veem a página de manutenção.' : '🟢 Site público activo.';
+  }
+  showToast(on ? 'Modo de manutenção activado.' : 'Site público reactivado.', on ? 'red' : 'green');
+};
 
 function guardarDadosClube() {
   const existing = JSON.parse(localStorage.getItem('dados_clube') || '{}');

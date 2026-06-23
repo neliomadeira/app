@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Em Manutenção – Juventude Sport Campinense</title>
+  <meta name="robots" content="noindex,nofollow" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #001f4d;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      color: #fff;
+      text-align: center;
+      padding: 24px;
+    }
+    .logo {
+      width: 110px;
+      height: 110px;
+      object-fit: contain;
+      margin-bottom: 32px;
+      filter: drop-shadow(0 4px 16px rgba(0,0,0,0.4));
+    }
+    .icon {
+      font-size: 3.5rem;
+      margin-bottom: 20px;
+      animation: spin 6s linear infinite;
+      display: inline-block;
+    }
+    @keyframes spin {
+      0%   { transform: rotate(0deg); }
+      90%  { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    h1 {
+      font-family: 'Arial Black', Impact, sans-serif;
+      font-size: clamp(1.6rem, 5vw, 2.6rem);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #FFD700;
+      margin-bottom: 16px;
+    }
+    .msg {
+      font-size: clamp(1rem, 3vw, 1.2rem);
+      color: rgba(255,255,255,0.8);
+      max-width: 480px;
+      line-height: 1.6;
+      margin-bottom: 40px;
+    }
+    .divider {
+      width: 60px;
+      height: 3px;
+      background: #FFD700;
+      border-radius: 2px;
+      margin: 0 auto 32px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255,215,0,0.12);
+      border: 1px solid rgba(255,215,0,0.3);
+      color: #FFD700;
+      font-size: 0.85rem;
+      padding: 8px 18px;
+      border-radius: 40px;
+      letter-spacing: 1px;
+    }
+    .badge::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #FFD700;
+      animation: pulse 1.4s ease infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.3; }
+    }
+    footer {
+      position: fixed;
+      bottom: 20px;
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.3);
+    }
+  </style>
+</head>
+<body>
+  <img src="images/logo.png" alt="JS Campinense" class="logo" onerror="this.style.display='none'" />
+  <div class="icon">&#128679;</div>
+  <h1>Em Manutenção</h1>
+  <div class="divider"></div>
+  <p class="msg" id="manuMsg">Estamos a melhorar o site. Voltamos em breve!</p>
+  <div class="badge">A trabalhar para si</div>
+
+  <footer>&copy; Juventude Sport Campinense</footer>
+
+  <script>
+    // Show custom message if set by admin
+    try {
+      const m = JSON.parse(localStorage.getItem('site_manutencao') || '{}');
+      if (m.mensagem) document.getElementById('manuMsg').textContent = m.mensagem;
+    } catch(e) {}
+  </script>
+</body>
+</html>

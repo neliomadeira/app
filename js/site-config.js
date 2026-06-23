@@ -2,6 +2,18 @@
 // SITE CONFIG — aplica configurações do admin
 // =============================================
 (function () {
+  // ---- MODO MANUTENÇÃO ----
+  const path = window.location.pathname;
+  const isAdmin = path.includes('/admin');
+  const isManu  = path.includes('manutencao');
+  if (!isAdmin && !isManu) {
+    const manu = JSON.parse(localStorage.getItem('site_manutencao') || '{}');
+    if (manu.ativo) {
+      window.location.replace('manutencao.html');
+      return;
+    }
+  }
+
   const cfg = JSON.parse(localStorage.getItem('site_config') || '{}');
   if (!Object.keys(cfg).length) return;
 

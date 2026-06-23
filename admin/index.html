@@ -1086,6 +1086,35 @@
 
           <!-- Alterar senha -->
           <div class="card" style="margin-bottom:20px;max-width:520px">
+            <div class="card-header"><h3>&#128679; Modo de Manutenção</h3></div>
+            <div style="padding:16px;display:grid;gap:14px">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:16px">
+                <div>
+                  <div style="font-weight:600;font-size:0.9rem">Site em manutenção</div>
+                  <div style="font-size:0.78rem;color:#888;margin-top:2px">Visitantes veem a página de manutenção. O admin continua acessível.</div>
+                </div>
+                <label style="position:relative;display:inline-block;width:52px;height:28px;flex-shrink:0">
+                  <input type="checkbox" id="cfgManutencao" style="opacity:0;width:0;height:0" onchange="toggleManutencao(this.checked)">
+                  <span id="cfgManutencaoSlider" style="position:absolute;cursor:pointer;inset:0;background:#ccc;border-radius:28px;transition:.3s">
+                    <span style="position:absolute;content:'';height:20px;width:20px;left:4px;bottom:4px;background:white;border-radius:50%;transition:.3s;display:block" id="cfgManutencaoThumb"></span>
+                  </span>
+                </label>
+              </div>
+              <div style="font-size:0.8rem;color:#555">
+                <label class="form-label" style="margin-bottom:4px">Mensagem de manutenção</label>
+                <textarea id="cfgManutencaoMsg" rows="2" class="form-input" style="resize:vertical"
+                  placeholder="Estamos a melhorar o site. Voltamos em breve!"></textarea>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn-save" onclick="guardarManutencao()">Guardar</button>
+                <a href="../manutencao.html" target="_blank" class="btn-sm">&#128065; Pré-visualizar página</a>
+              </div>
+              <div id="cfgManutencaoStatus" style="font-size:0.78rem;display:none"></div>
+            </div>
+          </div>
+
+          <!-- Alterar senha -->
+          <div class="card" style="margin-bottom:20px;max-width:520px">
             <div class="card-header"><h3>&#128274; Segurança</h3></div>
             <div style="padding:16px;display:grid;gap:12px">
               <div class="modal-field">
