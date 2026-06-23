@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Galeria – Juventude Sport Campinense</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" />
+  <link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" />
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" /></noscript>
+  <meta name="theme-color" content="#001f4d" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/images/logo.png" />
+  <style>
+    /* ── Gallery grid ── */
+    .galeria-grid {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: 1fr;
+    }
+    @media (min-width: 480px) {
+      .galeria-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (min-width: 768px) {
+      .galeria-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (min-width: 1200px) {
+      .galeria-grid { grid-template-columns: repeat(4, 1fr); }
+    }
+
+    /* ── Gallery item ── */
+    .galeria-item {
+      aspect-ratio: 4 / 3;
+      overflow: hidden;
+      border-radius: 8px;
+      cursor: pointer;
+      position: relative;
+    }
+    .galeria-item__bg {
+      width: 100%;
+      height: 100%;
+      background-size: cover;
+      background-position: center;
+      transition: transform 0.3s ease;
+    }
+    .galeria-item:hover .galeria-item__bg {
+      transform: scale(1.05);
+    }
+    .galeria-item__overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.72);
+      opacity: 0;
+      transition: opacity 0.25s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+      text-align: center;
+    }
+    .galeria-item:hover .galeria-item__overlay {
+      opacity: 1;
+    }
+    .galeria-item__overlay-title {
+      color: #fff;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.1rem;
+      letter-spacing: 0.03em;
+      line-height: 1.2;
+      margin-bottom: 6px;
+    }
+    .galeria-item__overlay-desc {
+      color: rgba(255, 255, 255, 0.82);
+      font-size: 0.78rem;
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* ── Placeholder (no image) ── */
+    .galeria-placeholder {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+    .galeria-placeholder--jogo      { background: linear-gradient(135deg, #001f4d, #0044a3); }
+    .galeria-placeholder--treino    { background: linear-gradient(135deg, #1a5c00, #2e9e00); }
+    .galeria-placeholder--conquista { background: linear-gradient(135deg, #7a4800, #d4830a); }
+    .galeria-placeholder--evento    { background: linear-gradient(135deg, #3a006e, #7b24d6); }
+    .galeria-placeholder--outro     { background: linear-gradient(135deg, #333, #666); }
+    .galeria-placeholder__icon {
+      font-size: 2.2rem;
+      line-height: 1;
+    }
+    .galeria-placeholder__title {
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 0.85rem;
+      font-weight: 600;
+      line-height: 1.3;
+    }
+
+    /* ── Empty state ── */
+    .galeria-empty {
+      text-align: center;
+      padding: 64px 24px;
+      color: #666;
+    }
+    .galeria-empty__icon {
+      font-size: 3.5rem;
+      margin-bottom: 16px;
+      display: block;
+    }
+    .galeria-empty__msg {
+      font-size: 1.1rem;
+    }
+
+    /* ── Filter bar (reuses .news-filter-btn / .news-filter-btn--active) ── */
+    .galeria-filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 28px;
+    }
+
+    /* ── Lightbox ── */
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: rgba(0, 0, 0, 0.95);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .lightbox[hidden] { display: none; }
+    .lightbox__inner {
+      position: relative;
+      max-width: 960px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+    .lightbox__media {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .lightbox__img {
+      max-width: 90vw;
+      max-height: 68vh;
+      object-fit: contain;
+      border-radius: 4px;
+      display: block;
+    }
+    .lightbox__placeholder {
+      max-width: 90vw;
+      width: 100%;
+      max-height: 68vh;
+      aspect-ratio: 4 / 3;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      gap: 12px;
+    }
+    .lightbox__placeholder-icon { font-size: 4rem; }
+    .lightbox__placeholder-label {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 1rem;
+    }
+    .lightbox__info {
+      text-align: center;
+      color: #fff;
+      max-width: 600px;
+      width: 100%;
+    }
+    .lightbox__badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 3px 10px;
+      border-radius: 20px;
+      background: var(--yellow, #f5c518);
+      color: #000;
+      margin-bottom: 8px;
+    }
+    .lightbox__title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.6rem;
+      letter-spacing: 0.03em;
+      margin-bottom: 6px;
+    }
+    .lightbox__date {
+      font-size: 0.82rem;
+      color: rgba(255, 255, 255, 0.55);
+      margin-bottom: 8px;
+    }
+    .lightbox__desc {
+      font-size: 0.9rem;
+      color: rgba(255, 255, 255, 0.8);
+      line-height: 1.6;
+    }
+    .lightbox__close {
+      position: absolute;
+      top: -40px;
+      right: 0;
+      background: none;
+      border: none;
+      color: #fff;
+      font-size: 2rem;
+      cursor: pointer;
+      line-height: 1;
+      padding: 4px 8px;
+      border-radius: 4px;
+      transition: background 0.15s;
+    }
+    .lightbox__close:hover { background: rgba(255, 255, 255, 0.15); }
+    .lightbox__nav {
+      position: fixed;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(255, 255, 255, 0.12);
+      border: none;
+      color: #fff;
+      font-size: 2rem;
+      width: 48px;
+      height: 64px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+      z-index: 10000;
+    }
+    .lightbox__nav:hover { background: rgba(255, 255, 255, 0.28); }
+    .lightbox__nav--prev { left: 12px; }
+    .lightbox__nav--next { right: 12px; }
+    .lightbox__nav:disabled {
+      opacity: 0.2;
+      cursor: default;
+    }
+    .lightbox__counter {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 0.82rem;
+      z-index: 10000;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="header" id="header">
+    <div class="container header__inner">
+      <a href="index.html" class="logo">
+        <img src="images/logo.png" alt="JS Campinense" class="logo__img" />
+        <div class="logo__text">
+          <span class="logo__name">JS Campinense</span>
+          <span class="logo__sub">Juventude</span>
+        </div>
+      </a>
+      <nav class="nav" id="nav">
+        <ul class="nav__list">
+          <li><a href="index.html#sobre" class="nav__link">Sobre</a></li>
+          <li class="nav__dropdown">
+            <button class="nav__link nav__dropdown-toggle" aria-haspopup="true" aria-expanded="false">
+              Futebol <span class="nav__chevron">&#9662;</span>
+            </button>
+            <ul class="nav__submenu">
+              <li><a href="equipa-principal.html" class="nav__sublink">&#9917; Equipa Principal</a></li>
+              <li><a href="formacao.html" class="nav__sublink">&#128100; Formação</a></li>
+            </ul>
+          </li>
+          <li><a href="index.html#modalidades" class="nav__link">Modalidades</a></li>
+          <li><a href="agenda.html" class="nav__link">Agenda</a></li>
+          <li><a href="noticias.html" class="nav__link">Notícias</a></li>
+          <li><a href="galeria.html" class="nav__link" style="color:var(--yellow)">Galeria</a></li>
+          <li><a href="resultados.html" class="nav__link">Resultados</a></li>
+          <li><a href="contacto.html" class="nav__link">Contacto</a></li>
+          <li><a href="pesquisa.html" class="nav__search-btn" aria-label="Pesquisar" title="Pesquisar">&#128269;</a></li>
+          <li><a href="inscricao.html" class="btn btn--nav">Inscrever</a></li>
+        </ul>
+      </nav>
+      <button class="hamburger" id="hamburger" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- PAGE HERO -->
+  <div class="page-hero page-hero--blue">
+    <div class="container page-hero__content">
+      <p class="page-hero__tag">Clube</p>
+      <h1 class="page-hero__title">Galeria</h1>
+      <p class="page-hero__desc">Momentos inesquecíveis do Sport Campinense Juvenil.</p>
+    </div>
+  </div>
+
+  <!-- GALLERY CONTENT -->
+  <section class="section">
+    <div class="container">
+
+      <!-- Category filter pills -->
+      <div class="galeria-filter-bar" id="galeriaFilters"></div>
+
+      <!-- Photo grid -->
+      <div class="galeria-grid" id="galeriaGrid"></div>
+
+      <!-- Empty state -->
+      <div class="galeria-empty" id="galeriaEmpty" style="display:none">
+        <span class="galeria-empty__icon">&#128247;</span>
+        <p class="galeria-empty__msg">Ainda não há fotos na galeria.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- LIGHTBOX -->
+  <div class="lightbox" id="lightbox" hidden role="dialog" aria-modal="true" aria-label="Visualizador de fotos">
+    <button class="lightbox__nav lightbox__nav--prev" id="lbPrev" aria-label="Foto anterior">&#8249;</button>
+    <button class="lightbox__nav lightbox__nav--next" id="lbNext" aria-label="Próxima foto">&#8250;</button>
+    <div class="lightbox__inner">
+      <button class="lightbox__close" id="lbClose" aria-label="Fechar">&times;</button>
+      <div class="lightbox__media" id="lbMedia"></div>
+      <div class="lightbox__info">
+        <span class="lightbox__badge" id="lbBadge"></span>
+        <h2 class="lightbox__title" id="lbTitle"></h2>
+        <p class="lightbox__date" id="lbDate"></p>
+        <p class="lightbox__desc" id="lbDesc"></p>
+      </div>
+    </div>
+    <span class="lightbox__counter" id="lbCounter"></span>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container footer__inner">
+      <div class="footer__brand">
+        <div class="logo">
+          <img src="images/logo.png" alt="JS Campinense" class="logo__img logo__img--small" />
+          <div class="logo__text">
+            <span class="logo__name">JS Campinense</span>
+            <span class="logo__sub">Juventude</span>
+          </div>
+        </div>
+        <p class="footer__tagline">Formando campeões dentro e fora do campo.</p>
+      </div>
+      <div class="footer__links">
+        <h4>Links rápidos</h4>
+        <ul>
+          <li><a href="index.html#sobre">Sobre</a></li>
+          <li><a href="formacao.html">Formação</a></li>
+          <li><a href="noticias.html">Notícias</a></li>
+          <li><a href="inscricao.html">Inscrição</a></li>
+        </ul>
+      </div>
+      <div class="footer__links">
+        <h4>Escalões</h4>
+        <ul>
+          <li><a href="formacao.html">Sub-9 | Sub-11</a></li>
+          <li><a href="formacao.html">Sub-13 | Sub-15</a></li>
+          <li><a href="formacao.html">Sub-17 | Sub-19</a></li>
+        </ul>
+      </div>
+      <div class="footer__contact">
+        <h4>Contacto</h4>
+        <p>Estádio Municipal de Loulé, Algarve</p>
+        <p>+351 289 000 000</p>
+        <p id="footerEmail">juventude@sportcampinense.pt</p>
+      </div>
+    </div>
+    <div class="footer__bottom">
+      <p>&copy; 2026 Juventude Sport Campinense – Loulé. Todos os direitos reservados.</p>
+    </div>
+  </footer>
+
+  <script src="js/security.js"></script>
+  <script src="js/site-config.js"></script>
+  <script src="js/main.js"></script>
+  <script src="js/galeria.js"></script>
+  <script src="/js/pwa.js"></script>
+</body>
+</html>

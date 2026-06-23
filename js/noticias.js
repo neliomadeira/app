@@ -40,6 +40,20 @@
     ).join('');
   }
 
+  const SHARE_BTN_STYLE = 'font-size:0.75rem;padding:5px 10px;border-radius:20px;background:#f0f4ff;color:#003B8E;border:none;cursor:pointer;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:4px';
+
+  function shareRowHtml(id, titulo) {
+    const pageUrl  = encodeURIComponent(window.location.origin + '/noticias.html?id=' + id);
+    const titleEnc = encodeURIComponent(titulo);
+    const waUrl    = 'https://wa.me/?text=' + titleEnc + '%20' + pageUrl;
+    const fbUrl    = 'https://www.facebook.com/sharer/sharer.php?u=' + pageUrl;
+    return `<div class="news-share" style="display:flex;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid #eee;flex-wrap:wrap">` +
+      `<a href="${waUrl}" target="_blank" rel="noopener" class="news-share-btn" style="${SHARE_BTN_STYLE}">&#128241; WhatsApp</a>` +
+      `<a href="${fbUrl}" target="_blank" rel="noopener" class="news-share-btn" style="${SHARE_BTN_STYLE}">&#128216; Facebook</a>` +
+      `<button onclick="(function(b){var u=window.location.origin+'/noticias.html?id=${id}';navigator.clipboard.writeText(u).then(function(){var t=b.textContent;b.textContent='✓ Copiado!';setTimeout(function(){b.textContent=t},2000)}).catch(function(){var t=b.textContent;b.textContent='✓ Copiado!';setTimeout(function(){b.textContent=t},2000)})})(this)" class="news-share-btn" style="${SHARE_BTN_STYLE}">&#128279; Copiar link</button>` +
+      `</div>`;
+  }
+
   function renderGrid() {
     const grid    = document.getElementById('notGrid');
     const moreWrap = document.getElementById('notMoreWrap');
@@ -74,6 +88,7 @@
             <h2 class="news-card__title" style="font-size:1.05rem">${n.titulo}</h2>
             ${excerpt ? `<p class="news-card__excerpt">${excerpt}</p>` : ''}
             <span class="news-card__link">Ler mais &rarr;</span>
+            ${shareRowHtml(n.id, n.titulo)}
           </div>
         </article>`;
     }).join('');
@@ -141,6 +156,7 @@
             ${bodyImg}${n.resumo || '<em style="color:#aaa">Sem texto disponível.</em>'}
           </div>
           <div style="clear:both"></div>
+          ${shareRowHtml(n.id, n.titulo)}
         </div>
       </div>`;
 

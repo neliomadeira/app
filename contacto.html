@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contacto – Juventude Sport Campinense</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" />
+  <link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" />
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" /></noscript>
+  <meta name="theme-color" content="#001f4d" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/images/logo.png" />
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="header" id="header">
+    <div class="container header__inner">
+      <a href="index.html" class="logo">
+        <img src="images/logo.png" alt="JS Campinense" class="logo__img" />
+        <div class="logo__text">
+          <span class="logo__name">JS Campinense</span>
+          <span class="logo__sub">Juventude</span>
+        </div>
+      </a>
+      <nav class="nav" id="nav">
+        <ul class="nav__list">
+          <li><a href="index.html#sobre" class="nav__link">Sobre</a></li>
+          <li class="nav__dropdown">
+            <button class="nav__link nav__dropdown-toggle" aria-haspopup="true" aria-expanded="false">
+              Futebol <span class="nav__chevron">&#9662;</span>
+            </button>
+            <ul class="nav__submenu">
+              <li><a href="equipa-principal.html" class="nav__sublink">&#9917; Equipa Principal</a></li>
+              <li><a href="formacao.html" class="nav__sublink">&#128100; Formação</a></li>
+            </ul>
+          </li>
+          <li><a href="index.html#modalidades" class="nav__link">Modalidades</a></li>
+          <li><a href="agenda.html" class="nav__link">Agenda</a></li>
+          <li><a href="noticias.html" class="nav__link">Notícias</a></li>
+          <li><a href="galeria.html" class="nav__link">Galeria</a></li>
+          <li><a href="resultados.html" class="nav__link">Resultados</a></li>
+          <li><a href="contacto.html" class="nav__link" style="color:var(--yellow)">Contacto</a></li>
+          <li><a href="pesquisa.html" class="nav__search-btn" aria-label="Pesquisar" title="Pesquisar">&#128269;</a></li>
+          <li><a href="inscricao.html" class="btn btn--nav">Inscrever</a></li>
+        </ul>
+      </nav>
+      <button class="hamburger" id="hamburger" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- PAGE HERO -->
+  <div class="page-hero page-hero--blue">
+    <div class="container page-hero__content">
+      <p class="page-hero__tag">Clube</p>
+      <h1 class="page-hero__title">Contacto</h1>
+      <p class="page-hero__desc">Fala connosco — estamos aqui para ajudar.</p>
+    </div>
+  </div>
+
+  <!-- CONTACT SECTION -->
+  <section class="section" id="contato">
+    <div class="container">
+      <div class="contact__grid">
+
+        <!-- LEFT COLUMN: Info + Form -->
+        <div class="contact__info">
+          <div class="contact__item">
+            <div class="contact__icon">&#128205;</div>
+            <div>
+              <strong>Morada</strong>
+              <p id="contactAddress">Estádio Municipal de Loulé<br />Rua Dr. Cândido Guerreiro, 8100-519 Loulé</p>
+            </div>
+          </div>
+          <div class="contact__item">
+            <div class="contact__icon">&#128222;</div>
+            <div>
+              <strong>Telefone / WhatsApp</strong>
+              <p id="contactPhone">+351 289 000 000</p>
+            </div>
+          </div>
+          <div class="contact__item">
+            <div class="contact__icon">&#128140;</div>
+            <div>
+              <strong>E-mail</strong>
+              <p id="contactEmail">juventude@sportcampinense.pt</p>
+            </div>
+          </div>
+          <div class="contact__item">
+            <div class="contact__icon">&#128337;</div>
+            <div>
+              <strong>Horário de atendimento</strong>
+              <p id="contactHours">Segunda a Sexta, das 9h às 18h</p>
+            </div>
+          </div>
+          <div class="contact__social">
+            <a href="#" class="social-btn" id="socialInstagram">Instagram</a>
+            <a href="#" class="social-btn" id="socialFacebook">Facebook</a>
+            <a href="#" class="social-btn social-btn--whatsapp" id="socialWhatsapp">WhatsApp</a>
+          </div>
+
+          <!-- CONTACT FORM -->
+          <form class="contact__form" id="contactForm" style="margin-top:32px">
+            <div class="form-group">
+              <label for="nome">Nome completo</label>
+              <input type="text" id="nome" name="nome" placeholder="O seu nome" required />
+            </div>
+            <div class="form-group">
+              <label for="email">E-mail</label>
+              <input type="email" id="email" name="email" placeholder="o_seu@email.com" required />
+            </div>
+            <div class="form-group">
+              <label for="telefone">Telefone / WhatsApp</label>
+              <input type="tel" id="telefone" name="telefone" placeholder="+351 9XX XXX XXX" />
+            </div>
+            <div class="form-group">
+              <label for="assunto">Assunto</label>
+              <select id="assunto" name="assunto">
+                <option value="">Selecione...</option>
+                <option>Informações gerais</option>
+                <option>Inscrições</option>
+                <option>Patrocínios</option>
+                <option>Outro</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="mensagem">Mensagem</label>
+              <textarea id="mensagem" name="mensagem" rows="4" placeholder="Escreva a sua mensagem..."></textarea>
+            </div>
+            <button type="submit" class="btn btn--primary btn--full">Enviar mensagem</button>
+            <div class="form-success" id="formSuccess">
+              Mensagem enviada com sucesso! Entraremos em contacto em breve.
+            </div>
+          </form>
+        </div>
+
+        <!-- RIGHT COLUMN: Map -->
+        <div>
+          <div class="contact__map">
+            <iframe
+              id="contactMapIframe"
+              src="https://www.openstreetmap.org/export/embed.html?bbox=-8.0472%2C37.1189%2C-8.0072%2C37.1589&amp;layer=mapnik&amp;marker=37.1389%2C-8.0272"
+              loading="lazy"
+              title="Localização do clube"
+              allowfullscreen></iframe>
+            <a href="https://www.openstreetmap.org/?mlat=37.1389&amp;mlon=-8.0272#map=15/37.1389/-8.0272"
+               id="contactMapLink" target="_blank" rel="noopener" class="contact__map-link">
+              Ver mapa maior &#8599;
+            </a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA ROW -->
+  <section class="section section--dark">
+    <div class="container">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:24px;max-width:680px;margin:0 auto">
+        <div style="background:#fff;border-radius:12px;padding:32px 24px;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,.08)">
+          <div style="font-size:2rem;margin-bottom:12px">&#9917;</div>
+          <h3 style="margin:0 0 8px;font-size:1.15rem;color:#001f4d">Inscrever atleta</h3>
+          <p style="margin:0 0 20px;color:#555;font-size:0.9rem">Junte-se à família do Juventude Sport Campinense.</p>
+          <a href="inscricao.html" class="btn btn--primary">Inscrever agora</a>
+        </div>
+        <div style="background:#fff;border-radius:12px;padding:32px 24px;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,.08)">
+          <div style="font-size:2rem;margin-bottom:12px">&#127942;</div>
+          <h3 style="margin:0 0 8px;font-size:1.15rem;color:#001f4d">Ser patrocinador</h3>
+          <p style="margin:0 0 20px;color:#555;font-size:0.9rem">Apoie o desporto jovem e seja parceiro do clube.</p>
+          <a href="patrocinadores.html" class="btn btn--outline">Saber mais</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container footer__inner">
+      <div class="footer__brand">
+        <div class="logo">
+          <img src="images/logo.png" alt="JS Campinense" class="logo__img logo__img--small" />
+          <div class="logo__text">
+            <span class="logo__name">JS Campinense</span>
+            <span class="logo__sub">Juventude</span>
+          </div>
+        </div>
+        <p class="footer__tagline">Formando campeões dentro e fora do campo.</p>
+      </div>
+      <div class="footer__links">
+        <h4>Links rápidos</h4>
+        <ul>
+          <li><a href="index.html#sobre">Sobre</a></li>
+          <li><a href="formacao.html">Formação</a></li>
+          <li><a href="noticias.html">Notícias</a></li>
+          <li><a href="inscricao.html">Inscrição</a></li>
+        </ul>
+      </div>
+      <div class="footer__links">
+        <h4>Escalões</h4>
+        <ul>
+          <li><a href="formacao.html">Sub-9 | Sub-11</a></li>
+          <li><a href="formacao.html">Sub-13 | Sub-15</a></li>
+          <li><a href="formacao.html">Sub-17 | Sub-19</a></li>
+        </ul>
+      </div>
+      <div class="footer__contact">
+        <h4>Contacto</h4>
+        <p>Estádio Municipal de Loulé, Algarve</p>
+        <p>+351 289 000 000</p>
+        <p id="footerEmail">juventude@sportcampinense.pt</p>
+      </div>
+    </div>
+    <div class="footer__bottom">
+      <p>&copy; 2026 Juventude Sport Campinense – Loulé. Todos os direitos reservados.</p>
+    </div>
+  </footer>
+
+  <script src="js/security.js"></script>
+  <script src="js/site-config.js"></script>
+  <script src="js/main.js"></script>
+  <script src="js/email.js"></script>
+  <script src="/js/pwa.js"></script>
+</body>
+</html>
