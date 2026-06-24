@@ -28,7 +28,17 @@
       </a>
       <nav class="nav" id="nav">
         <ul class="nav__list">
-          <li><a href="index.html#sobre" class="nav__link">Sobre</a></li>
+          <li class="nav__dropdown">
+            <button class="nav__link nav__dropdown-toggle" aria-haspopup="true" aria-expanded="false">
+              Clube <span class="nav__chevron">&#9662;</span>
+            </button>
+            <ul class="nav__submenu">
+              <li><a href="index.html#sobre" class="nav__sublink">&#127968; Sobre</a></li>
+              <li><a href="index.html#modalidades" class="nav__sublink">&#127948; Modalidades</a></li>
+              <li><a href="agenda.html" class="nav__sublink">&#128336; Agenda</a></li>
+              <li><a href="resultados.html" class="nav__sublink">&#127942; Resultados</a></li>
+            </ul>
+          </li>
           <li class="nav__dropdown">
             <button class="nav__link nav__dropdown-toggle" aria-haspopup="true" aria-expanded="false">
               Futebol <span class="nav__chevron">&#9662;</span>
@@ -38,12 +48,16 @@
               <li><a href="formacao.html" class="nav__sublink">&#128100; Formação</a></li>
             </ul>
           </li>
-          <li><a href="index.html#modalidades" class="nav__link">Modalidades</a></li>
-          <li><a href="agenda.html" class="nav__link">Agenda</a></li>
-          <li><a href="noticias.html" class="nav__link">Notícias</a></li>
-          <li><a href="galeria.html" class="nav__link">Galeria</a></li>
-          <li><a href="videos.html" class="nav__link">Vídeos</a></li>
-          <li><a href="resultados.html" class="nav__link">Resultados</a></li>
+          <li class="nav__dropdown">
+            <button class="nav__link nav__dropdown-toggle" aria-haspopup="true" aria-expanded="false">
+              Media <span class="nav__chevron">&#9662;</span>
+            </button>
+            <ul class="nav__submenu">
+              <li><a href="noticias.html" class="nav__sublink">&#128240; Notícias</a></li>
+              <li><a href="galeria.html" class="nav__sublink">&#128247; Galeria</a></li>
+              <li><a href="videos.html" class="nav__sublink">&#127909; Vídeos</a></li>
+            </ul>
+          </li>
           <li><a href="contacto.html" class="nav__link" style="color:var(--yellow)">Contacto</a></li>
           <li><a href="pesquisa.html" class="nav__search-btn" aria-label="Pesquisar" title="Pesquisar">&#128269;</a></li>
           <li><a href="inscricao.html" class="btn btn--nav">Inscrever</a></li>
