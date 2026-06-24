@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacidade &amp; Termos – Juventude Sport Campinense</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" />
+  <link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" />
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" /></noscript>
+  <meta name="theme-color" content="#001f4d" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/images/logo.png" />
+  <style>
+    .legal-tabs { display:flex; gap:12px; margin-bottom:40px; flex-wrap:wrap; }
+    .legal-tab  { padding:10px 24px; border-radius:30px; border:2px solid var(--blue,#001f4d); background:transparent; color:var(--blue,#001f4d); font-weight:700; font-size:0.95rem; cursor:pointer; transition:all .2s; }
+    .legal-tab.active, .legal-tab:hover { background:var(--blue,#001f4d); color:#fff; }
+    .legal-section { display:none; }
+    .legal-section.active { display:block; }
+    .legal-section h2 { font-size:1.5rem; color:var(--blue,#001f4d); margin:2rem 0 0.6rem; border-bottom:2px solid var(--yellow,#FFD700); padding-bottom:6px; }
+    .legal-section h2:first-child { margin-top:0; }
+    .legal-section p, .legal-section li { color:#444; line-height:1.75; font-size:0.97rem; }
+    .legal-section ul { margin:0.5rem 0 1rem 1.4rem; }
+    .legal-section ul li { margin-bottom:0.3rem; }
+    .legal-section strong { color:#001f4d; }
+    .legal-highlight { background:#f0f5ff; border-left:4px solid var(--blue,#001f4d); padding:14px 18px; border-radius:0 8px 8px 0; margin:1.2rem 0; font-size:0.93rem; color:#333; }
+    .legal-date { font-size:0.85rem; color:#888; margin-bottom:2rem; }
+    .legal-contact-box { background:var(--blue,#001f4d); color:#fff; border-radius:12px; padding:24px 28px; margin-top:2rem; }
+    .legal-contact-box h3 { color:var(--yellow,#FFD700); margin-bottom:8px; font-size:1.1rem; }
+    .legal-contact-box p { color:rgba(255,255,255,0.85); font-size:0.93rem; line-height:1.7; margin:0; }
+    .legal-contact-box a { color:var(--yellow,#FFD700); }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="header" id="header">
+    <div class="container header__inner">
+      <a href="index.html" class="logo">
+        <img src="images/logo.png" alt="JS Campinense" class="logo__img" />
+        <div class="logo__text">
+          <span class="logo__name">JS Campinense</span>
+          <span class="logo__sub">Juventude</span>
+        </div>
+      </a>
+      <nav class="nav" id="nav">
+        <ul class="nav__list">
+          <li><a href="index.html#sobre" class="nav__link">Sobre</a></li>
+          <li class="nav__dropdown">
+            <button class="nav__link nav__dropdown-toggle" aria-haspopup="true" aria-expanded="false">
+              Futebol <span class="nav__chevron">&#9662;</span>
+            </button>
+            <ul class="nav__submenu">
+              <li><a href="equipa-principal.html" class="nav__sublink">&#9917; Equipa Principal</a></li>
+              <li><a href="formacao.html" class="nav__sublink">&#128100; Formação</a></li>
+            </ul>
+          </li>
+          <li><a href="index.html#modalidades" class="nav__link">Modalidades</a></li>
+          <li><a href="agenda.html" class="nav__link">Agenda</a></li>
+          <li><a href="noticias.html" class="nav__link">Notícias</a></li>
+          <li><a href="galeria.html" class="nav__link">Galeria</a></li>
+          <li><a href="resultados.html" class="nav__link">Resultados</a></li>
+          <li><a href="contacto.html" class="nav__link">Contacto</a></li>
+          <li><a href="pesquisa.html" class="nav__search-btn" aria-label="Pesquisar" title="Pesquisar">&#128269;</a></li>
+          <li><a href="inscricao.html" class="btn btn--nav">Inscrever</a></li>
+        </ul>
+      </nav>
+      <button class="hamburger" id="hamburger" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- PAGE HERO -->
+  <div class="page-hero page-hero--blue">
+    <div class="container page-hero__content">
+      <p class="page-hero__tag">Legal</p>
+      <h1 class="page-hero__title">Privacidade &amp; Termos</h1>
+      <p class="page-hero__desc">Informação sobre como tratamos os seus dados e as condições de utilização do nosso site.</p>
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <section class="section" style="padding-top:56px">
+    <div class="container" style="max-width:860px">
+
+      <div class="legal-tabs" role="tablist">
+        <button class="legal-tab active" role="tab" aria-selected="true" onclick="showTab('privacidade',this)">Política de Privacidade</button>
+        <button class="legal-tab" role="tab" aria-selected="false" onclick="showTab('termos',this)">Termos de Utilização</button>
+      </div>
+
+      <!-- PRIVACIDADE -->
+      <div class="legal-section active" id="tab-privacidade">
+        <p class="legal-date">Última atualização: junho de 2026</p>
+
+        <h2>1. Quem somos</h2>
+        <p>A <strong>Juventude Sport Campinense</strong> (doravante "o Clube") é uma associação desportiva com sede no Estádio Municipal de Loulé, Algarve, Portugal. Somos responsáveis pelo tratamento dos dados pessoais recolhidos através deste site.</p>
+        <p>Contacto do responsável pelo tratamento: <a href="mailto:juventude@sportcampinense.pt">juventude@sportcampinense.pt</a></p>
+
+        <h2>2. Que dados recolhemos</h2>
+        <p>Recolhemos apenas os dados estritamente necessários para as finalidades indicadas:</p>
+        <ul>
+          <li><strong>Formulário de inscrição:</strong> nome completo, data de nascimento, morada, contacto telefónico, endereço de email, escalão pretendido e, quando aplicável, dados do encarregado de educação.</li>
+          <li><strong>Formulário de contacto:</strong> nome, email, telefone e mensagem.</li>
+          <li><strong>Dados técnicos:</strong> preferências guardadas localmente no seu dispositivo (localStorage) para configurações do site. Não utilizamos cookies de rastreio nem partilhamos dados com terceiros para fins publicitários.</li>
+        </ul>
+
+        <h2>3. Finalidade e base legal</h2>
+        <ul>
+          <li><strong>Gestão de atletas e inscrições</strong> — execução de um contrato (art. 6.º n.º 1 al. b) do RGPD).</li>
+          <li><strong>Resposta a pedidos de contacto</strong> — interesse legítimo do Clube (art. 6.º n.º 1 al. f) do RGPD).</li>
+          <li><strong>Comunicação de atividades, eventos e notícias do Clube</strong> — consentimento do titular (art. 6.º n.º 1 al. a) do RGPD).</li>
+        </ul>
+
+        <h2>4. Menores de idade</h2>
+        <div class="legal-highlight">
+          Os dados de crianças e jovens com menos de 16 anos só podem ser tratados com o consentimento dos pais ou encarregados de educação. Ao submeter um formulário de inscrição de um menor, o encarregado de educação declara ter autoridade legal para o fazer.
+        </div>
+
+        <h2>5. Conservação dos dados</h2>
+        <p>Os dados são conservados pelo período necessário à finalidade para que foram recolhidos:</p>
+        <ul>
+          <li>Dados de atletas inscritos: durante a vigência do vínculo com o Clube e pelo período legalmente exigido após o seu término.</li>
+          <li>Contactos/mensagens: até 12 meses após a resolução do assunto.</li>
+        </ul>
+
+        <h2>6. Os seus direitos (RGPD)</h2>
+        <p>Enquanto titular de dados, tem os seguintes direitos:</p>
+        <ul>
+          <li><strong>Acesso</strong> — saber quais os seus dados que tratamos.</li>
+          <li><strong>Retificação</strong> — corrigir dados inexatos ou incompletos.</li>
+          <li><strong>Apagamento</strong> — solicitar a eliminação dos seus dados ("direito ao esquecimento").</li>
+          <li><strong>Portabilidade</strong> — receber os seus dados num formato legível por máquina.</li>
+          <li><strong>Oposição</strong> — opor-se ao tratamento baseado em interesse legítimo.</li>
+          <li><strong>Limitação</strong> — solicitar a suspensão temporária do tratamento.</li>
+          <li><strong>Reclamação</strong> — apresentar queixa à <a href="https://www.cnpd.pt" target="_blank" rel="noopener">CNPD (Comissão Nacional de Proteção de Dados)</a>.</li>
+        </ul>
+        <p>Para exercer qualquer um destes direitos, contacte-nos por email ou carta (endereços abaixo). Responderemos no prazo de 30 dias.</p>
+
+        <h2>7. Cookies e armazenamento local</h2>
+        <p>Este site utiliza <strong>localStorage</strong> exclusivamente para guardar preferências de navegação e configurações visuais no seu dispositivo. Não são utilizados cookies de rastreio, publicidade ou análise de comportamento. Pode limpar estes dados a qualquer momento através das definições do seu navegador.</p>
+
+        <h2>8. Segurança</h2>
+        <p>Adotamos medidas técnicas e organizativas adequadas para proteger os dados pessoais contra acesso não autorizado, divulgação, alteração ou destruição. O site utiliza HTTPS para encriptação das comunicações.</p>
+
+        <h2>9. Alterações a esta política</h2>
+        <p>Quaisquer alterações serão publicadas nesta página com indicação da data de atualização. Alterações significativas serão comunicadas por email aos titulares dos dados afetados.</p>
+
+        <div class="legal-contact-box">
+          <h3>Contacto para questões de privacidade</h3>
+          <p>Juventude Sport Campinense<br>
+          Estádio Municipal de Loulé, Algarve, Portugal<br>
+          Email: <a href="mailto:juventude@sportcampinense.pt">juventude@sportcampinense.pt</a><br>
+          Tel: +351 289 000 000</p>
+        </div>
+      </div>
+
+      <!-- TERMOS -->
+      <div class="legal-section" id="tab-termos">
+        <p class="legal-date">Última atualização: junho de 2026</p>
+
+        <h2>1. Aceitação dos termos</h2>
+        <p>Ao aceder e utilizar o site da <strong>Juventude Sport Campinense</strong> (doravante "o Clube"), aceita os presentes Termos de Utilização. Se não concordar com algum destes termos, por favor não utilize o site.</p>
+
+        <h2>2. Utilização do site</h2>
+        <p>Este site é disponibilizado gratuitamente para fins informativos sobre as atividades do Clube. O utilizador compromete-se a:</p>
+        <ul>
+          <li>Utilizar o site apenas para fins lícitos e legítimos.</li>
+          <li>Não tentar aceder a áreas restritas sem autorização.</li>
+          <li>Não introduzir conteúdo falso, ofensivo ou que viole direitos de terceiros.</li>
+          <li>Não utilizar ferramentas automatizadas para recolha massiva de dados (scraping).</li>
+        </ul>
+
+        <h2>3. Propriedade intelectual</h2>
+        <p>Todo o conteúdo publicado neste site — incluindo textos, imagens, logótipos, vídeos e design — é propriedade da Juventude Sport Campinense ou de terceiros que autorizaram a sua utilização. É proibida a reprodução, distribuição ou utilização comercial sem autorização prévia e escrita do Clube.</p>
+        <div class="legal-highlight">
+          As fotografias de atletas menores de idade não podem ser reproduzidas ou partilhadas fora do contexto deste site sem o consentimento expresso dos respetivos encarregados de educação.
+        </div>
+
+        <h2>4. Inscrições e pagamentos</h2>
+        <p>O formulário de inscrição disponível no site constitui uma manifestação de interesse. A inscrição só fica efetiva após confirmação por parte dos serviços do Clube e, quando aplicável, após o pagamento das quotas devidas. O Clube reserva-se o direito de recusar inscrições que não cumpram os critérios de elegibilidade de cada escalão.</p>
+
+        <h2>5. Disponibilidade do serviço</h2>
+        <p>O Clube envidará os melhores esforços para manter o site disponível, mas não garante disponibilidade ininterrupta. O site pode ser temporariamente suspenso para manutenção ou por razões técnicas, sem aviso prévio.</p>
+
+        <h2>6. Limitação de responsabilidade</h2>
+        <p>O Clube não se responsabiliza por:</p>
+        <ul>
+          <li>Erros ou omissões no conteúdo publicado.</li>
+          <li>Danos decorrentes da utilização ou impossibilidade de utilização do site.</li>
+          <li>Conteúdo de sites externos para os quais este site possa conter ligações.</li>
+        </ul>
+
+        <h2>7. Links externos</h2>
+        <p>Este site pode conter ligações para sites de terceiros (ex.: redes sociais, AF Algarve, FPF). O Clube não controla esses sites e não é responsável pelo seu conteúdo ou políticas de privacidade. A inclusão de uma ligação não implica endosso.</p>
+
+        <h2>8. Lei aplicável e foro</h2>
+        <p>Os presentes Termos de Utilização são regidos pela lei portuguesa. Qualquer litígio resultante da utilização deste site será submetido à jurisdição exclusiva dos tribunais portugueses competentes, sem prejuízo do direito de recurso a mecanismos alternativos de resolução de conflitos.</p>
+
+        <h2>9. Alterações aos termos</h2>
+        <p>O Clube reserva-se o direito de alterar estes Termos de Utilização a qualquer momento. As alterações entram em vigor a partir da data de publicação nesta página. Recomendamos a consulta periódica desta página.</p>
+
+        <div class="legal-contact-box">
+          <h3>Dúvidas sobre os termos?</h3>
+          <p>Contacte-nos em <a href="mailto:juventude@sportcampinense.pt">juventude@sportcampinense.pt</a> ou através do nosso <a href="contacto.html">formulário de contacto</a>.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container footer__inner">
+      <div class="footer__brand">
+        <div class="logo">
+          <img src="images/logo.png" alt="JS Campinense" class="logo__img logo__img--small" />
+          <div class="logo__text">
+            <span class="logo__name">JS Campinense</span>
+            <span class="logo__sub">Juventude</span>
+          </div>
+        </div>
+        <p class="footer__tagline">Formando campeões dentro e fora do campo.</p>
+      </div>
+      <div class="footer__links">
+        <h4>Links rápidos</h4>
+        <ul>
+          <li><a href="index.html#sobre">Sobre</a></li>
+          <li><a href="equipa-principal.html">Equipa Principal</a></li>
+          <li><a href="noticias.html">Notícias</a></li>
+          <li><a href="inscricao.html">Inscrição</a></li>
+        </ul>
+      </div>
+      <div class="footer__links">
+        <h4>Escalões</h4>
+        <ul>
+          <li><a href="formacao.html">Sub-9 | Sub-11</a></li>
+          <li><a href="formacao.html">Sub-13 | Sub-15</a></li>
+          <li><a href="formacao.html">Sub-17 | Sub-19</a></li>
+        </ul>
+      </div>
+      <div class="footer__contact">
+        <h4>Contacto</h4>
+        <p>Estádio Municipal de Loulé, Algarve</p>
+        <p>+351 289 000 000</p>
+        <p id="footerEmail">juventude@sportcampinense.pt</p>
+      </div>
+    </div>
+    <div class="footer__bottom">
+      <p>&copy; 2026 Juventude Sport Campinense – Loulé. Todos os direitos reservados. &nbsp;|&nbsp; <a href="privacidade.html" style="color:rgba(255,255,255,0.5);text-decoration:none;">Privacidade &amp; Termos</a></p>
+    </div>
+  </footer>
+
+  <script src="js/security.js"></script>
+  <script src="js/site-config.js"></script>
+  <script src="js/main.js"></script>
+  <script src="/js/pwa.js"></script>
+  <script>
+    function showTab(id, btn) {
+      document.querySelectorAll('.legal-section').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.legal-tab').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
+      document.getElementById('tab-' + id).classList.add('active');
+      btn.classList.add('active');
+      btn.setAttribute('aria-selected','true');
+      // honour URL hash
+      history.replaceState(null,'','#' + id);
+    }
+    // open correct tab from hash
+    (function() {
+      const h = window.location.hash.replace('#','');
+      if (h === 'termos') {
+        const btn = document.querySelectorAll('.legal-tab')[1];
+        showTab('termos', btn);
+      }
+    })();
+  </script>
+</body>
+</html>

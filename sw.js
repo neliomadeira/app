@@ -1,5 +1,5 @@
 // Service Worker — Juventude Sport Campinense
-const CACHE_NAME = 'jsc-v7';
+const CACHE_NAME = 'jsc-v8';
 const PRECACHE = [
   '/',
   '/index.html',
@@ -16,6 +16,8 @@ const PRECACHE = [
   '/patrocinadores.html',
   '/contacto.html',
   '/manutencao.html',
+  '/privacidade.html',
+  '/404.html',
   '/css/styles.css',
   '/css/resultados.css',
   '/js/site-config.js',
