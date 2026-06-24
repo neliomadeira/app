@@ -1136,6 +1136,39 @@
             </div>
           </div>
 
+          <!-- Política de Privacidade & Termos -->
+          <div class="card" style="margin-bottom:20px">
+            <div class="card-header"><h3>&#128220; Política de Privacidade &amp; Termos</h3></div>
+            <div style="padding:16px;display:grid;gap:14px">
+              <p style="font-size:0.82rem;color:#666;margin:0">
+                O conteúdo é escrito em HTML. Use <code>&lt;h2&gt;</code> para títulos, <code>&lt;p&gt;</code> para parágrafos, <code>&lt;ul&gt;&lt;li&gt;</code> para listas e <code>&lt;strong&gt;</code> para negrito.
+                Se deixar em branco, o texto padrão incorporado na página é utilizado.
+              </p>
+              <!-- Tabs -->
+              <div style="display:flex;gap:8px;border-bottom:2px solid #eee;padding-bottom:0">
+                <button class="tab-filter active" id="legalTabPriv" onclick="switchLegalTab('privacidade')" style="border-radius:6px 6px 0 0;margin-bottom:-2px;border-bottom:2px solid var(--blue)">Privacidade</button>
+                <button class="tab-filter" id="legalTabTermos" onclick="switchLegalTab('termos')" style="border-radius:6px 6px 0 0;margin-bottom:-2px">Termos</button>
+              </div>
+              <div id="legalPanelPrivacidade">
+                <label class="form-label">Conteúdo — Política de Privacidade</label>
+                <textarea id="cfgLegalPrivacidade" class="form-input" rows="16"
+                  style="font-family:monospace;font-size:0.8rem;resize:vertical"
+                  placeholder="Deixe em branco para usar o texto padrão da página."></textarea>
+              </div>
+              <div id="legalPanelTermos" style="display:none">
+                <label class="form-label">Conteúdo — Termos de Utilização</label>
+                <textarea id="cfgLegalTermos" class="form-input" rows="16"
+                  style="font-family:monospace;font-size:0.8rem;resize:vertical"
+                  placeholder="Deixe em branco para usar o texto padrão da página."></textarea>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                <button class="btn-save" onclick="guardarLegal()">&#128190; Guardar</button>
+                <button class="btn-sm" onclick="resetarLegal()" style="color:#c00;border-color:#c00">&#8635; Repor texto padrão</button>
+                <a href="../privacidade.html" target="_blank" class="btn-sm">&#128065; Ver página</a>
+              </div>
+            </div>
+          </div>
+
           <!-- Alterar senha -->
           <div class="card" style="margin-bottom:20px;max-width:520px">
             <div class="card-header"><h3>&#128274; Segurança</h3></div>

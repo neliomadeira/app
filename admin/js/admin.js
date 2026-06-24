@@ -3719,7 +3719,43 @@ function initConfiguracoes() {
   }
 
   _updateEmailStatus(emailCfg);
+
+  // Carregar conteúdo legal
+  const legal = JSON.parse(localStorage.getItem('site_legal') || '{}');
+  const privEl = document.getElementById('cfgLegalPrivacidade');
+  const termEl = document.getElementById('cfgLegalTermos');
+  if (privEl && legal.privacidade) privEl.value = legal.privacidade;
+  if (termEl && legal.termos)      termEl.value  = legal.termos;
 }
+
+window.switchLegalTab = function(tab) {
+  document.getElementById('legalPanelPrivacidade').style.display = tab === 'privacidade' ? '' : 'none';
+  document.getElementById('legalPanelTermos').style.display      = tab === 'termos'      ? '' : 'none';
+  document.getElementById('legalTabPriv').classList.toggle('active',  tab === 'privacidade');
+  document.getElementById('legalTabTermos').classList.toggle('active', tab === 'termos');
+  const activeStyle = 'border-bottom:2px solid var(--blue)';
+  document.getElementById('legalTabPriv').style.borderBottom   = tab === 'privacidade' ? '2px solid var(--blue)' : '';
+  document.getElementById('legalTabTermos').style.borderBottom = tab === 'termos'      ? '2px solid var(--blue)' : '';
+};
+
+window.guardarLegal = function() {
+  const legal = {
+    privacidade: (document.getElementById('cfgLegalPrivacidade')?.value || '').trim(),
+    termos:      (document.getElementById('cfgLegalTermos')?.value      || '').trim(),
+  };
+  localStorage.setItem('site_legal', JSON.stringify(legal));
+  showToast('Conteúdo legal guardado!', 'green');
+};
+
+window.resetarLegal = function() {
+  if (!confirm('Repor o texto padrão? O conteúdo guardado será apagado.')) return;
+  localStorage.removeItem('site_legal');
+  const privEl = document.getElementById('cfgLegalPrivacidade');
+  const termEl = document.getElementById('cfgLegalTermos');
+  if (privEl) privEl.value = '';
+  if (termEl) termEl.value = '';
+  showToast('Texto padrão reposto.', 'green');
+};
 
 async function guardarSeguranca() {
   const user = document.getElementById('cfgAdminUser').value.trim();
