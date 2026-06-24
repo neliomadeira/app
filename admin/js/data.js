@@ -76,6 +76,8 @@ const DB = {
     { id:9, nome:'Empresa Bronze 4', sector:'Turismo',       tier:'Bronze', website:'',                   ativo:false, desde:'2024' },
   ],
 
+  videos: [],
+
   galeria: [
     { id:1, titulo:'Treino Sub-17',               categoria:'Treino',    data:'2026-04-05', url:'', descricao:'Treino tático no estádio municipal' },
     { id:2, titulo:'Jogo Sub-13 vs Silves 4-1',   categoria:'Jogo',      data:'2026-03-29', url:'', descricao:'Grande vitória em casa' },
@@ -146,6 +148,7 @@ const DB = {
 // Persistência no localStorage
 window.saveDB = function() {
   try {
+    localStorage.setItem('db_videos',         JSON.stringify(DB.videos));
     localStorage.setItem('db_atletas',        JSON.stringify(DB.atletas));
     localStorage.setItem('db_escaloes',       JSON.stringify(DB.escaloes));
     localStorage.setItem('db_galeria',        JSON.stringify(DB.galeria));
@@ -184,6 +187,7 @@ window.saveDB = function() {
   try { localStorage.removeItem('db_noticias'); } catch(_) {}
 
   try {
+    const vi = localStorage.getItem('db_videos');
     const at = localStorage.getItem('db_atletas');
     const e  = localStorage.getItem('db_escaloes');
     const g  = localStorage.getItem('db_galeria');
@@ -193,6 +197,7 @@ window.saveDB = function() {
     const t  = localStorage.getItem('db_treinadores');
     const s  = localStorage.getItem('db_seniores');
     const si = localStorage.getItem('db_seniores_info');
+    if (vi) DB.videos         = JSON.parse(vi);
     if (at) DB.atletas        = JSON.parse(at);
     if (e)  DB.escaloes       = JSON.parse(e);
     if (g)  DB.galeria        = JSON.parse(g);

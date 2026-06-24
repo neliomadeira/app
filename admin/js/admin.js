@@ -239,7 +239,7 @@ function goToPage(name) {
     jogos: 'Jogos', patrocinadores: 'Patrocinadores', facebook: 'Facebook',
     historia: 'História do Clube',
     'pagina-inicial': 'Página Inicial',
-    galeria: 'Galeria', treinadores: 'Treinadores & Staff',
+    galeria: 'Galeria', videos: 'Vídeos', treinadores: 'Treinadores & Staff',
     agenda: 'Agenda & Eventos', modalidades: 'Modalidades',
     seniores: 'Equipa Sénior', configuracoes: 'Configurações',
     formacao: 'Futebol Formação',
@@ -252,6 +252,7 @@ function goToPage(name) {
   if (name === 'historia') initHistoria();
   if (name === 'pagina-inicial') initPaginaInicial();
   if (name === 'galeria') initGaleria();
+  if (name === 'videos')  initVideosAdmin();
   if (name === 'treinadores') initTreinadores();
   if (name === 'agenda') initAgenda();
   if (name === 'modalidades') initModalidades();
@@ -3364,6 +3365,109 @@ function deleteFoto(idx) {
   DB.galeria.splice(idx, 1);
   saveDB(); renderGaleria();
   showToast('Foto removida', 'green');
+}
+
+// =============================================
+// VÍDEOS
+// =============================================
+let videosFiltro = '';
+
+function _ytIdAdmin(url) {
+  if (!url) return '';
+  const m = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  return m ? m[1] : '';
+}
+
+function initVideosAdmin() {
+  renderVideos();
+  document.getElementById('btnNovoVideo')?.addEventListener('click', () => editVideo(-1));
+  document.querySelectorAll('#videosCatFilters .tab-filter').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#videosCatFilters .tab-filter').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      videosFiltro = btn.dataset.cat;
+      renderVideos();
+    });
+  });
+}
+
+function renderVideos() {
+  const grid = document.getElementById('videosAdminGrid');
+  if (!grid) return;
+  const items = videosFiltro
+    ? (DB.videos || []).filter(v => v.categoria === videosFiltro)
+    : (DB.videos || []);
+
+  grid.innerHTML = items.length ? items.map((v, i) => {
+    const id    = _ytIdAdmin(v.url);
+    const thumb = id ? `https://img.youtube.com/vi/${id}/mqdefault.jpg` : '';
+    return `
+    <div class="galeria-card">
+      <div class="galeria-card__img" ${thumb ? `style="background-image:url('${thumb}')"` : 'style="background:#001f4d"'}>
+        ${!thumb ? '<span style="font-size:2rem">🎬</span>' : ''}
+        <span class="galeria-card__cat">${v.categoria || 'Outro'}</span>
+      </div>
+      <div class="galeria-card__body">
+        <p class="galeria-card__title">${v.titulo}</p>
+        <p class="galeria-card__date">${fmtDate(v.data)}</p>
+      </div>
+      <div class="galeria-card__actions">
+        <button class="btn btn-sm" onclick="editVideo(${(DB.videos||[]).indexOf(v)})">✏️ Editar</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteVideo(${(DB.videos||[]).indexOf(v)})">🗑️</button>
+      </div>
+    </div>`; }).join('') :
+    '<p style="padding:24px;color:#999;text-align:center">Nenhum vídeo nesta categoria.</p>';
+}
+
+function editVideo(idx) {
+  if (!DB.videos) DB.videos = [];
+  const v = idx >= 0 ? DB.videos[idx] : { titulo:'', categoria:'Golos', data:'', url:'', descricao:'' };
+  const id = _ytIdAdmin(v.url);
+  openModal(idx >= 0 ? 'Editar Vídeo' : 'Adicionar Vídeo', `
+    <div class="modal-row">
+      <div class="modal-field"><label>Título</label>
+        <input class="form-input" id="mVidTitulo" value="${v.titulo}" placeholder="Ex: Sub-17 — Golo de Pedro Costa vs Tavira" /></div>
+      <div class="modal-field"><label>Categoria</label>
+        <select class="form-input" id="mVidCat">
+          ${['Golos','Melhores Momentos','Entrevistas','Treino','Jogo','Outro'].map(c => `<option ${v.categoria===c?'selected':''}>${c}</option>`).join('')}
+        </select></div>
+    </div>
+    <div class="modal-field"><label>Data</label>
+      <input class="form-input" type="date" id="mVidData" value="${v.data}" /></div>
+    <div class="modal-field">
+      <label>URL do YouTube</label>
+      <input class="form-input" type="url" id="mVidUrl" value="${v.url}" placeholder="https://www.youtube.com/watch?v=..." />
+      <small style="color:#888;font-size:11px;margin-top:4px;display:block">Cole o link de qualquer vídeo do YouTube (incluindo Shorts)</small>
+    </div>
+    ${id ? `<div id="mVidPreview" style="margin-top:8px"><img src="https://img.youtube.com/vi/${id}/mqdefault.jpg" style="max-width:100%;border-radius:8px" /></div>` : ''}
+    <div class="modal-field"><label>Descrição (opcional)</label>
+      <textarea class="form-input" id="mVidDesc" rows="2">${v.descricao}</textarea></div>
+  `, `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarVideo(${idx})">Guardar</button>`);
+}
+
+function salvarVideo(idx) {
+  if (!DB.videos) DB.videos = [];
+  const item = {
+    titulo:    document.getElementById('mVidTitulo').value.trim(),
+    categoria: document.getElementById('mVidCat').value,
+    data:      document.getElementById('mVidData').value,
+    url:       document.getElementById('mVidUrl').value.trim(),
+    descricao: document.getElementById('mVidDesc').value.trim(),
+  };
+  if (!item.titulo) { showToast('Preencha o título', 'red'); return; }
+  if (!item.url)    { showToast('Cole o URL do YouTube', 'red'); return; }
+  if (idx >= 0) DB.videos[idx] = { ...DB.videos[idx], ...item };
+  else DB.videos.unshift({ id: Date.now(), ...item });
+  saveDB(); closeModal(); renderVideos();
+  showToast(idx >= 0 ? 'Vídeo atualizado' : 'Vídeo adicionado', 'green');
+}
+
+function deleteVideo(idx) {
+  if (!confirm('Remover este vídeo?')) return;
+  DB.videos.splice(idx, 1);
+  saveDB(); renderVideos();
+  showToast('Vídeo removido', 'green');
 }
 
 // =============================================

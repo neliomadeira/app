@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vídeos – Juventude Sport Campinense</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" />
+  <link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" />
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" /></noscript>
+  <meta name="theme-color" content="#001f4d" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/images/logo.png" />
+  <style>
+    /* ── Video grid ── */
+    .videos-grid {
+      display: grid;
+      gap: 20px;
+      grid-template-columns: 1fr;
+    }
+    @media (min-width: 480px) { .videos-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (min-width: 900px) { .videos-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (min-width: 1200px) { .videos-grid { grid-template-columns: repeat(4, 1fr); } }
+
+    /* ── Video card ── */
+    .video-card {
+      border-radius: 10px;
+      overflow: hidden;
+      background: #fff;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      cursor: pointer;
+      transition: transform .2s, box-shadow .2s;
+      display: flex;
+      flex-direction: column;
+    }
+    .video-card:hover { transform: translateY(-4px); box-shadow: 0 6px 24px rgba(0,0,0,0.14); }
+    .video-card:focus { outline: 3px solid var(--yellow,#FFD700); outline-offset: 2px; }
+
+    .video-card__thumb {
+      position: relative;
+      aspect-ratio: 16 / 9;
+      background: #111;
+      overflow: hidden;
+    }
+    .video-card__img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: transform .3s;
+    }
+    .video-card:hover .video-card__img { transform: scale(1.04); }
+
+    .video-card__no-thumb {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3rem;
+      background: #001f4d;
+      color: rgba(255,255,255,0.3);
+    }
+
+    .video-card__play {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.35);
+      opacity: 0;
+      transition: opacity .2s;
+      font-size: 3.5rem;
+      color: #fff;
+      text-shadow: 0 2px 12px rgba(0,0,0,0.6);
+    }
+    .video-card:hover .video-card__play { opacity: 1; }
+
+    .video-card__cat {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(0,31,77,0.85);
+      color: #FFD700;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 20px;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+    }
+
+    .video-card__body {
+      padding: 12px 14px 14px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .video-card__title {
+      font-weight: 700;
+      font-size: 0.93rem;
+      color: #001f4d;
+      line-height: 1.35;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .video-card__date {
+      font-size: 0.78rem;
+      color: #888;
+      margin-top: auto;
+    }
+
+    /* ── Video modal ── */
+    .video-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.88);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .video-modal[hidden] { display: none; }
+
+    .video-modal__inner {
+      background: #0a1628;
+      border-radius: 12px;
+      overflow: hidden;
+      width: 100%;
+      max-width: 860px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 16px 60px rgba(0,0,0,0.7);
+    }
+
+    .video-modal__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: #001226;
+      gap: 12px;
+    }
+    .video-modal__cat {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #FFD700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      background: rgba(255,215,0,0.12);
+      padding: 3px 10px;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+    .video-modal__title {
+      font-weight: 700;
+      color: #fff;
+      font-size: 0.95rem;
+      flex: 1;
+      line-height: 1.3;
+    }
+    .video-modal__close {
+      background: rgba(255,255,255,0.1);
+      border: none;
+      color: #fff;
+      font-size: 1.2rem;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background .15s;
+    }
+    .video-modal__close:hover { background: rgba(255,255,255,0.2); }
+
+    .video-modal__frame-wrap {
+      position: relative;
+      padding-top: 56.25%; /* 16:9 */
+      background: #000;
+    }
+    .video-modal__frame-wrap iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    .video-modal__meta {
+      padding: 12px 16px;
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .video-modal__date { font-size: 0.82rem; color: rgba(255,255,255,0.5); }
+    .video-modal__desc { font-size: 0.88rem; color: rgba(255,255,255,0.75); line-height: 1.5; flex: 1; }
+
+    /* ── Empty state ── */
+    .videos-empty {
+      text-align: center;
+      padding: 80px 24px;
+      color: #aaa;
+    }
+    .videos-empty__icon { font-size: 3.5rem; margin-bottom: 16px; }
+    .videos-empty p { font-size: 1rem; }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="header" id="header">
+    <div class="container header__inner">
+      <a href="index.html" class="logo">
+        <img src="images/logo.png" alt="JS Campinense" class="logo__img" />
+        <div class="logo__text">
+          <span class="logo__name">JS Campinense</span>
+          <span class="logo__sub">Juventude</span>
+        </div>
+      </a>
+      <nav class="nav" id="nav">
+        <ul class="nav__list">
+          <li><a href="index.html#sobre" class="nav__link">Sobre</a></li>
+          <li class="nav__dropdown">
+            <button class="nav__link nav__dropdown-toggle" aria-haspopup="true" aria-expanded="false">
+              Futebol <span class="nav__chevron">&#9662;</span>
+            </button>
+            <ul class="nav__submenu">
+              <li><a href="equipa-principal.html" class="nav__sublink">&#9917; Equipa Principal</a></li>
+              <li><a href="formacao.html" class="nav__sublink">&#128100; Formação</a></li>
+            </ul>
+          </li>
+          <li><a href="index.html#modalidades" class="nav__link">Modalidades</a></li>
+          <li><a href="agenda.html" class="nav__link">Agenda</a></li>
+          <li><a href="noticias.html" class="nav__link">Notícias</a></li>
+          <li><a href="galeria.html" class="nav__link">Galeria</a></li>
+          <li><a href="videos.html" class="nav__link" style="color:var(--yellow)">Vídeos</a></li>
+          <li><a href="resultados.html" class="nav__link">Resultados</a></li>
+          <li><a href="contacto.html" class="nav__link">Contacto</a></li>
+          <li><a href="pesquisa.html" class="nav__search-btn" aria-label="Pesquisar" title="Pesquisar">&#128269;</a></li>
+          <li><a href="inscricao.html" class="btn btn--nav">Inscrever</a></li>
+        </ul>
+      </nav>
+      <button class="hamburger" id="hamburger" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- PAGE HERO -->
+  <div class="page-hero page-hero--blue">
+    <div class="container page-hero__content">
+      <p class="page-hero__tag">Media</p>
+      <h1 class="page-hero__title">Vídeos</h1>
+      <p class="page-hero__desc">Golos, melhores momentos, entrevistas e muito mais da Juventude Sport Campinense.</p>
+    </div>
+  </div>
+
+  <!-- VIDEOS -->
+  <section class="section section--dark" style="padding-top:48px">
+    <div class="container">
+
+      <!-- Filters -->
+      <div id="videosFilters" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:32px"></div>
+
+      <!-- Grid -->
+      <div class="videos-grid" id="videosGrid"></div>
+
+      <!-- Empty -->
+      <div class="videos-empty" id="videosEmpty" style="display:none">
+        <div class="videos-empty__icon">&#127909;</div>
+        <p>Ainda não há vídeos publicados.<br>Volte em breve!</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- VIDEO MODAL -->
+  <div class="video-modal" id="videoModal" hidden role="dialog" aria-modal="true" aria-labelledby="vmTitle">
+    <div class="video-modal__inner">
+      <div class="video-modal__header">
+        <span class="video-modal__cat" id="vmCat"></span>
+        <p class="video-modal__title" id="vmTitle"></p>
+        <button class="video-modal__close" id="vmClose" aria-label="Fechar">&#10005;</button>
+      </div>
+      <div class="video-modal__frame-wrap">
+        <iframe id="videoFrame" allowfullscreen allow="autoplay; encrypted-media" title="Vídeo"></iframe>
+      </div>
+      <div class="video-modal__meta">
+        <span class="video-modal__date" id="vmDate"></span>
+        <span class="video-modal__desc" id="vmDesc"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container footer__inner">
+      <div class="footer__brand">
+        <div class="logo">
+          <img src="images/logo.png" alt="JS Campinense" class="logo__img logo__img--small" />
+          <div class="logo__text">
+            <span class="logo__name">JS Campinense</span>
+            <span class="logo__sub">Juventude</span>
+          </div>
+        </div>
+        <p class="footer__tagline">Formando campeões dentro e fora do campo.</p>
+      </div>
+      <div class="footer__links">
+        <h4>Links rápidos</h4>
+        <ul>
+          <li><a href="index.html#sobre">Sobre</a></li>
+          <li><a href="equipa-principal.html">Equipa Principal</a></li>
+          <li><a href="noticias.html">Notícias</a></li>
+          <li><a href="inscricao.html">Inscrição</a></li>
+        </ul>
+      </div>
+      <div class="footer__links">
+        <h4>Escalões</h4>
+        <ul>
+          <li><a href="formacao.html">Sub-9 | Sub-11</a></li>
+          <li><a href="formacao.html">Sub-13 | Sub-15</a></li>
+          <li><a href="formacao.html">Sub-17 | Sub-19</a></li>
+        </ul>
+      </div>
+      <div class="footer__contact">
+        <h4>Contacto</h4>
+        <p>Estádio Municipal de Loulé, Algarve</p>
+        <p>+351 289 000 000</p>
+        <p id="footerEmail">juventude@sportcampinense.pt</p>
+      </div>
+    </div>
+    <div class="footer__bottom">
+      <p>&copy; 2026 Juventude Sport Campinense – Loulé. Todos os direitos reservados. &nbsp;|&nbsp; <a href="privacidade.html" style="color:rgba(255,255,255,0.5);text-decoration:none;">Privacidade &amp; Termos</a></p>
+    </div>
+  </footer>
+
+  <script src="js/security.js"></script>
+  <script src="js/site-config.js"></script>
+  <script src="js/main.js"></script>
+  <script src="js/videos.js"></script>
+  <script src="/js/pwa.js"></script>
+</body>
+</html>
