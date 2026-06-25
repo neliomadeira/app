@@ -780,6 +780,120 @@
             </div>
           </div>
 
+          <!-- BOTÕES HERO -->
+          <div class="card" style="margin-bottom:20px">
+            <div class="card-header"><h3>🔘 Botões de Ação (Hero)</h3></div>
+            <div style="padding:16px;display:grid;gap:12px">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                <div class="modal-field">
+                  <label class="form-label">Botão 1 — Texto</label>
+                  <input class="form-input" type="text" id="cfgHeroBtn1Text" placeholder="Quero inscrever-me" />
+                </div>
+                <div class="modal-field">
+                  <label class="form-label">Botão 1 — Link</label>
+                  <input class="form-input" type="text" id="cfgHeroBtn1Url" placeholder="inscricao.html" />
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                <div class="modal-field">
+                  <label class="form-label">Botão 2 — Texto</label>
+                  <input class="form-input" type="text" id="cfgHeroBtn2Text" placeholder="Conhecer o clube" />
+                </div>
+                <div class="modal-field">
+                  <label class="form-label">Botão 2 — Link</label>
+                  <input class="form-input" type="text" id="cfgHeroBtn2Url" placeholder="#sobre" />
+                </div>
+              </div>
+              <small style="color:#888;font-size:11px">Deixe em branco para usar o texto/link original da página.</small>
+            </div>
+          </div>
+
+          <!-- AVISO / BANNER -->
+          <div class="card" style="margin-bottom:20px">
+            <div class="card-header">
+              <h3>📢 Aviso / Banner de Topo</h3>
+              <label class="toggle-switch" title="Ativar aviso">
+                <input type="checkbox" id="cfgAvisoAtivo" />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <div style="padding:16px;display:grid;gap:12px">
+              <div class="modal-field">
+                <label class="form-label">Mensagem do aviso</label>
+                <input class="form-input" type="text" id="cfgAvisoTexto" placeholder="Ex: Inscrições abertas para 2025/26! Clique para saber mais." />
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                <div class="modal-field">
+                  <label class="form-label">Tipo / Cor</label>
+                  <select class="form-input" id="cfgAvisoTipo">
+                    <option value="info">ℹ️ Informação (azul)</option>
+                    <option value="averto">⚠️ Aviso (laranja)</option>
+                    <option value="sucesso">✅ Sucesso (verde)</option>
+                    <option value="urgente">🚨 Urgente (vermelho)</option>
+                  </select>
+                </div>
+                <div class="modal-field">
+                  <label class="form-label">Link (opcional)</label>
+                  <input class="form-input" type="text" id="cfgAvisoLink" placeholder="inscricao.html" />
+                </div>
+              </div>
+              <button class="btn-save" onclick="guardarAviso()" style="max-width:200px">💾 Guardar aviso</button>
+            </div>
+          </div>
+
+          <!-- SEO -->
+          <div class="card" style="margin-bottom:20px">
+            <div class="card-header"><h3>🔍 SEO — Título e Descrição</h3></div>
+            <div style="padding:16px;display:grid;gap:12px">
+              <div class="modal-field">
+                <label class="form-label">Título da página (aparece no separador do browser e no Google)</label>
+                <input class="form-input" type="text" id="cfgSeoTitle" placeholder="Juventude Sport Campinense – Loulé" />
+                <small style="color:#888;font-size:11px;margin-top:4px;display:block">Recomendado: 50–60 caracteres. <span id="cfgSeoTitleCount" style="color:#003B8E;font-weight:600"></span></small>
+              </div>
+              <div class="modal-field">
+                <label class="form-label">Meta descrição (texto que o Google mostra nos resultados)</label>
+                <textarea class="form-input" id="cfgSeoDesc" rows="3" placeholder="Formação de futebol de excelência em Loulé, Algarve. Escalões Sub-9 a Sub-19."></textarea>
+                <small style="color:#888;font-size:11px;margin-top:4px;display:block">Recomendado: 120–160 caracteres. <span id="cfgSeoDescCount" style="color:#003B8E;font-weight:600"></span></small>
+              </div>
+            </div>
+          </div>
+
+          <!-- RODAPÉ E NOTÍCIAS -->
+          <div class="card" style="margin-bottom:20px">
+            <div class="card-header"><h3>🗂️ Rodapé e Notícias</h3></div>
+            <div style="padding:16px;display:grid;gap:12px">
+              <div class="modal-field">
+                <label class="form-label">Frase do rodapé (tagline)</label>
+                <input class="form-input" type="text" id="cfgFooterTagline" placeholder="Formando campeões dentro e fora do campo." />
+              </div>
+              <div class="modal-field">
+                <label class="form-label">Notícias na página inicial</label>
+                <select class="form-input" id="cfgHomepageNewsCount">
+                  <option value="3">3 notícias (padrão)</option>
+                  <option value="4">4 notícias</option>
+                  <option value="6">6 notícias</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- JOGO EM DESTAQUE -->
+          <div class="card" style="margin-bottom:20px">
+            <div class="card-header">
+              <h3>⚽ Jogo em Destaque</h3>
+              <label class="toggle-switch" title="Mostrar próximo jogo na página inicial">
+                <input type="checkbox" id="cfgJogoDestaqueAtivo" />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <div style="padding:12px 16px">
+              <p style="font-size:0.85rem;color:#64748b;margin:0">
+                Quando ativado, mostra automaticamente o próximo jogo agendado (da Agenda) na página inicial, logo abaixo do hero.
+                Para gerir jogos, vá a <strong>Agenda</strong>.
+              </p>
+            </div>
+          </div>
+
         </section>
 
         <!-- ===== GALERIA ===== -->

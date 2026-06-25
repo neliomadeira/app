@@ -77,6 +77,62 @@
 
   // Footer
   set('footerEmail', cfg.footerEmail);
+  if (cfg.footerTagline) {
+    document.querySelectorAll('.footer__tagline').forEach(el => { el.textContent = cfg.footerTagline; });
+  }
+
+  // Hero buttons
+  if (cfg.heroBtn1Text) {
+    const bt1 = document.getElementById('heroBt1');
+    if (bt1) bt1.textContent = cfg.heroBtn1Text;
+  }
+  if (cfg.heroBtn1Url) {
+    const bt1 = document.getElementById('heroBt1');
+    if (bt1) bt1.href = cfg.heroBtn1Url;
+  }
+  if (cfg.heroBtn2Text) {
+    const bt2 = document.getElementById('heroBt2');
+    if (bt2) bt2.textContent = cfg.heroBtn2Text;
+  }
+  if (cfg.heroBtn2Url) {
+    const bt2 = document.getElementById('heroBt2');
+    if (bt2) bt2.href = cfg.heroBtn2Url;
+  }
+
+  // SEO
+  if (cfg.seoTitle) document.title = cfg.seoTitle;
+  if (cfg.seoDesc) {
+    let meta = document.getElementById('metaDesc');
+    if (!meta) {
+      meta = document.querySelector('meta[name="description"]');
+    }
+    if (meta) meta.setAttribute('content', cfg.seoDesc);
+  }
+
+  // Aviso bar
+  const aviso = JSON.parse(localStorage.getItem('site_aviso') || '{}');
+  if (aviso.ativo && aviso.texto) {
+    const bar = document.getElementById('avisoBar');
+    if (bar) {
+      const tipoColors = {
+        info:    { bg: '#003B8E', color: '#fff' },
+        averto:  { bg: '#d97706', color: '#fff' },
+        sucesso: { bg: '#15803d', color: '#fff' },
+        urgente: { bg: '#dc2626', color: '#fff' },
+      };
+      const t = tipoColors[aviso.tipo] || tipoColors.info;
+      bar.style.background = t.bg;
+      bar.style.color = t.color;
+      bar.style.display = '';
+      const span = document.getElementById('avisoTexto');
+      if (span) span.textContent = aviso.texto;
+      const lnk = document.getElementById('avisoLink');
+      if (lnk) {
+        if (aviso.link) { lnk.href = aviso.link; lnk.style.display = ''; }
+        else lnk.style.display = 'none';
+      }
+    }
+  }
 
   // Club identity — logo, nav name, nav subtitle
   const clube = JSON.parse(localStorage.getItem('dados_clube') || '{}');

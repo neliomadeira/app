@@ -11,6 +11,7 @@
   <link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" />
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" /></noscript>
   <meta name="theme-color" content="#001f4d" />
+  <meta name="description" id="metaDesc" content="Juventude Sport Campinense – formação de futebol em Loulé, Algarve. Escalões Sub-9 a Sub-19, inscrições abertas." />
   <link rel="manifest" href="/manifest.json" />
   <link rel="apple-touch-icon" href="/images/logo.png" />
 </head>
@@ -69,6 +70,12 @@
     </div>
   </header>
 
+  <!-- AVISO BAR -->
+  <div id="avisoBar" style="display:none;padding:10px 16px;text-align:center;font-size:0.88rem;font-weight:600;position:relative;z-index:100">
+    <span id="avisoTexto"></span>
+    <a id="avisoLink" href="#" style="margin-left:8px;color:inherit;text-decoration:underline;display:none">Saber mais</a>
+  </div>
+
   <!-- HERO -->
   <section class="hero" id="inicio">
     <div class="hero__slide-bg" id="heroSlideBg"></div>
@@ -80,8 +87,8 @@
         Desenvolvendo talentos, construindo carácter e cultivando a paixão pelo futebol em Loulé, Algarve.
       </p>
       <div class="hero__actions">
-        <a href="inscricao.html" class="btn btn--primary">Quero inscrever-me</a>
-        <a href="#sobre" class="btn btn--outline">Conhecer o clube</a>
+        <a href="inscricao.html" class="btn btn--primary" id="heroBt1">Quero inscrever-me</a>
+        <a href="#sobre" class="btn btn--outline" id="heroBt2">Conhecer o clube</a>
       </div>
     </div>
     <div class="hero__stats">
@@ -103,6 +110,13 @@
           <span class="stat__label" id="stat4Label">Títulos</span>
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- JOGO EM DESTAQUE -->
+  <section id="jogoDestaqueSection" style="display:none;background:#001226;padding:28px 0">
+    <div class="container">
+      <div id="jogoDestaqueWidget" style="display:flex;align-items:center;justify-content:center;gap:20px;flex-wrap:wrap;text-align:center"></div>
     </div>
   </section>
 

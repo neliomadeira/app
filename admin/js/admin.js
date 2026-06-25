@@ -3183,19 +3183,39 @@ function loadPaginaInicialForm() {
     cfgSocialInstagram: 'socialInstagramUrl',
     cfgSocialFacebook: 'socialFacebookUrl',
     cfgSocialWhatsapp: 'socialWhatsappUrl',
+    cfgHeroBtn1Text: 'heroBtn1Text', cfgHeroBtn1Url: 'heroBtn1Url',
+    cfgHeroBtn2Text: 'heroBtn2Text', cfgHeroBtn2Url: 'heroBtn2Url',
+    cfgSeoTitle: 'seoTitle', cfgSeoDesc: 'seoDesc',
+    cfgFooterTagline: 'footerTagline',
+    cfgHomepageNewsCount: 'homepageNewsCount',
   };
   for (const [elId, cfgKey] of Object.entries(fields)) {
     const el = document.getElementById(elId);
     if (el && cfg[cfgKey] !== undefined) el.value = cfg[cfgKey];
   }
-  // Checkbox slideshow
+  // Checkboxes
   const sl = document.getElementById('cfgHeroSlideshow');
   if (sl) sl.checked = cfg.heroSlideshow === true || cfg.heroSlideshow === 'true';
+  const jd = document.getElementById('cfgJogoDestaqueAtivo');
+  if (jd) jd.checked = cfg.jogoDestaqueAtivo === true || cfg.jogoDestaqueAtivo === 'true';
   // Preview imagem
   if (cfg.heroImagem) {
     const prev = document.getElementById('cfgHeroPreview');
     if (prev) { prev.style.display = ''; prev.querySelector('img').src = cfg.heroImagem; }
   }
+  // Aviso
+  const aviso = JSON.parse(localStorage.getItem('site_aviso') || '{}');
+  const avisoAtivo = document.getElementById('cfgAvisoAtivo');
+  if (avisoAtivo) avisoAtivo.checked = aviso.ativo === true;
+  const avisoTexto = document.getElementById('cfgAvisoTexto');
+  if (avisoTexto && aviso.texto) avisoTexto.value = aviso.texto;
+  const avisoTipo = document.getElementById('cfgAvisoTipo');
+  if (avisoTipo && aviso.tipo) avisoTipo.value = aviso.tipo;
+  const avisoLink = document.getElementById('cfgAvisoLink');
+  if (avisoLink && aviso.link) avisoLink.value = aviso.link;
+  // SEO char counters
+  _setupSeoCounter('cfgSeoTitle', 'cfgSeoTitleCount', 60);
+  _setupSeoCounter('cfgSeoDesc', 'cfgSeoDescCount', 160);
 }
 
 function guardarPaginaInicial() {
@@ -3216,19 +3236,50 @@ function guardarPaginaInicial() {
     cfgSocialInstagram: 'socialInstagramUrl',
     cfgSocialFacebook: 'socialFacebookUrl',
     cfgSocialWhatsapp: 'socialWhatsappUrl',
+    cfgHeroBtn1Text: 'heroBtn1Text', cfgHeroBtn1Url: 'heroBtn1Url',
+    cfgHeroBtn2Text: 'heroBtn2Text', cfgHeroBtn2Url: 'heroBtn2Url',
+    cfgSeoTitle: 'seoTitle', cfgSeoDesc: 'seoDesc',
+    cfgFooterTagline: 'footerTagline',
+    cfgHomepageNewsCount: 'homepageNewsCount',
   };
   for (const [elId, cfgKey] of Object.entries(fields)) {
     const el = document.getElementById(elId);
     if (el) cfg[cfgKey] = el.value.trim();
   }
-  // Checkbox slideshow
+  // Checkboxes
   const sl = document.getElementById('cfgHeroSlideshow');
   if (sl) cfg.heroSlideshow = sl.checked;
+  const jd = document.getElementById('cfgJogoDestaqueAtivo');
+  if (jd) cfg.jogoDestaqueAtivo = jd.checked;
   try {
     saveSiteConfig(cfg);
     showToast('✓ Alterações guardadas! Abra o site para ver as mudanças.', 'green');
   } catch(_) { /* saveSiteConfig already shows error toast */ }
 }
+
+function guardarAviso() {
+  const ativo = document.getElementById('cfgAvisoAtivo')?.checked || false;
+  const texto = document.getElementById('cfgAvisoTexto')?.value.trim() || '';
+  const tipo  = document.getElementById('cfgAvisoTipo')?.value || 'info';
+  const link  = document.getElementById('cfgAvisoLink')?.value.trim() || '';
+  localStorage.setItem('site_aviso', JSON.stringify({ ativo, texto, tipo, link }));
+  showToast('✓ Aviso guardado!', 'green');
+}
+
+function _setupSeoCounter(inputId, countId, max) {
+  const el = document.getElementById(inputId);
+  const cnt = document.getElementById(countId);
+  if (!el || !cnt) return;
+  function update() {
+    const n = el.value.length;
+    cnt.textContent = `${n}/${max} caracteres`;
+    cnt.style.color = n > max ? '#e53e3e' : n > max * 0.85 ? '#d97706' : '#003B8E';
+  }
+  el.addEventListener('input', update);
+  update();
+}
+
+window.guardarAviso = guardarAviso;
 
 window.removerHeroImagem = function() {
   const cfg = getSiteConfig();

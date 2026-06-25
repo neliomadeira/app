@@ -216,7 +216,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btn) btn.style.display = 'none';
         return;
       }
-      grid.innerHTML = lista.slice(0, 3).map((n, i) => `
+      const cfg = JSON.parse(localStorage.getItem('site_config') || '{}');
+      const newsCount = parseInt(cfg.homepageNewsCount) || 3;
+      grid.innerHTML = lista.slice(0, newsCount).map((n, i) => `
         <article class="news-card${i === 0 ? ' news-card--featured' : ''}" style="cursor:pointer" onclick="window.location='noticias.html?id=${n.id}'">
           <div class="news-card__img${n.imagem ? '' : ` news-card__img--${(i % 3) + 1}`}" ${newsCardImg(n)}>
             <span class="news-card__cat">${n.categoria || ''}</span>
@@ -230,7 +232,7 @@ document.addEventListener('DOMContentLoaded', () => {
         </article>`).join('');
 
       const btn = document.getElementById('btnVerTodasNoticias');
-      if (btn) btn.style.display = lista.length > 3 ? '' : 'none';
+      if (btn) btn.style.display = lista.length > newsCount ? '' : 'none';
     } catch(e) {
       // Erro ao renderizar noticias — mantém HTML estático
     }
@@ -346,6 +348,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'jsc_noticias') renderNoticias();
     if (e.key === 'db_atletas')   renderAniversarios();
   });
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'site_aviso') location.reload();
+  });
 
   // Aniversários do dia
   function renderAniversarios() {
@@ -439,6 +444,39 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>`;
           }).join('');
         }
+      }
+    }
+  } catch(e) {}
+
+  // Jogo em destaque
+  try {
+    const cfgJogo = JSON.parse(localStorage.getItem('site_config') || '{}');
+    if (cfgJogo.jogoDestaqueAtivo) {
+      const agRaw = localStorage.getItem('db_agenda');
+      const hoje2 = new Date(); hoje2.setHours(0,0,0,0);
+      const jogos = agRaw
+        ? JSON.parse(agRaw)
+            .filter(e => e.tipo === 'Jogo' && e.estado !== 'Cancelado' && new Date(e.data + 'T00:00:00') >= hoje2)
+            .sort((a,b) => new Date(a.data + 'T' + (a.hora||'00:00')) - new Date(b.data + 'T' + (b.hora||'00:00')))
+        : [];
+      const jogo = jogos[0];
+      const section = document.getElementById('jogoDestaqueSection');
+      const widget  = document.getElementById('jogoDestaqueWidget');
+      if (jogo && section && widget) {
+        const d = new Date(jogo.data + 'T00:00:00');
+        const MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+        widget.innerHTML = `
+          <div style="color:rgba(255,255,255,0.55);font-size:0.78rem;letter-spacing:1px;text-transform:uppercase;font-weight:700">Próximo Jogo</div>
+          <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;justify-content:center">
+            <div style="color:#fff;font-size:1.1rem;font-weight:700;max-width:220px">${jogo.titulo}</div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+              <span style="font-size:2rem;font-weight:900;color:#FFD700;font-family:'Bebas Neue',sans-serif;letter-spacing:1px">${d.getDate()} ${MESES_PT[d.getMonth()]}</span>
+              <span style="color:rgba(255,255,255,0.6);font-size:0.82rem">${jogo.hora || ''} &nbsp;·&nbsp; ${jogo.local || ''}</span>
+            </div>
+            ${jogo.escalao && jogo.escalao !== 'Todos' ? `<span style="background:rgba(255,215,0,0.15);color:#FFD700;padding:4px 12px;border-radius:20px;font-size:0.78rem;font-weight:700">${jogo.escalao}</span>` : ''}
+            <a href="agenda.html" style="background:#FFD700;color:#001f4d;padding:8px 18px;border-radius:6px;font-size:0.82rem;font-weight:700;text-decoration:none">Ver agenda →</a>
+          </div>`;
+        section.style.display = '';
       }
     }
   } catch(e) {}
