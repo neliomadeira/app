@@ -4,6 +4,23 @@
 
 document.addEventListener('DOMContentLoaded', () => {
 
+  // ---- SCROLL-AWARE NAV ----
+  const header = document.getElementById('header');
+  if (header && document.querySelector('.hero')) {
+    const THRESHOLD = 80;
+    function updateNav() {
+      if (window.scrollY > THRESHOLD) {
+        header.classList.remove('header--transparent');
+        header.classList.add('header--scrolled');
+      } else {
+        header.classList.remove('header--scrolled');
+        header.classList.add('header--transparent');
+      }
+    }
+    updateNav();
+    window.addEventListener('scroll', updateNav, { passive: true });
+  }
+
   // ---- HAMBURGER MENU ----
   const hamburger = document.getElementById('hamburger');
   const nav = document.getElementById('nav');

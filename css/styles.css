@@ -105,7 +105,23 @@ ul { list-style: none; }
   background: rgba(0,27,77,0.96);
   backdrop-filter: blur(12px);
   border-bottom: 3px solid var(--yellow);
-  transition: background var(--transition);
+  transition: background 0.4s ease, box-shadow 0.4s ease, border-bottom-color 0.4s ease, backdrop-filter 0.4s ease;
+}
+
+/* Transparente — apenas na homepage quando no topo */
+.header--transparent {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  border-bottom-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Sólida após scroll */
+.header--scrolled {
+  background: rgba(0,14,40,0.98) !important;
+  backdrop-filter: blur(16px) !important;
+  border-bottom-color: var(--yellow) !important;
+  box-shadow: 0 4px 32px rgba(0,0,0,0.35) !important;
 }
 
 .header__inner {
