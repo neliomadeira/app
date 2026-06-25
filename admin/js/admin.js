@@ -1500,6 +1500,19 @@ function abrirModalNoticia(n) {
   const sz    = n?.imagemSize || 'cover';
 
   openModal(isNew ? 'Nova Notícia' : 'Editar Notícia', `
+    ${isNew ? `<div class="tpl-bar">
+      <span class="tpl-bar__label">⚡ Template:</span>
+      <div class="tpl-dropdown">
+        <button class="tpl-trigger" type="button" onclick="toggleTplMenu('Noticia')">Escolher template &#9662;</button>
+        <div class="tpl-menu" id="tplMenuNoticia" style="display:none">
+          <button type="button" onclick="aplicarTemplateNoticia('resultado')">⚽ Resultado de Jogo</button>
+          <button type="button" onclick="aplicarTemplateNoticia('convocatoria')">📋 Convocatória</button>
+          <button type="button" onclick="aplicarTemplateNoticia('inscricoes')">📝 Inscrições Abertas</button>
+          <button type="button" onclick="aplicarTemplateNoticia('conquista')">🏆 Conquista / Título</button>
+          <button type="button" onclick="aplicarTemplateNoticia('comunicado')">📢 Comunicado Oficial</button>
+        </div>
+      </div>
+    </div>` : ''}
     <div class="modal-field">
       <label>Título *</label>
       <input type="text" class="form-input" id="mTitulo" value="${n?.titulo || ''}" placeholder="Título da notícia" />
@@ -3281,6 +3294,133 @@ function _setupSeoCounter(inputId, countId, max) {
 
 window.guardarAviso = guardarAviso;
 
+// =============================================
+// TEMPLATES DE CONTEÚDO
+// =============================================
+
+const TEMPLATES_NOTICIA = {
+  resultado: {
+    categoria: 'Resultado',
+    titulo: 'Resultado | [Escalão] vs [Adversário] — [x-x]',
+    corpo: '<p><strong>⚽ Resultado do Jogo</strong></p><p>[Escalão] <strong>[x]</strong> — <strong>[x]</strong> [Adversário]</p><p>⚽ Golos: [Nome do jogador] ([min]\')</p><p>📍 Local: [Local do jogo]</p><p>🏆 Competição: [Nome da competição]</p><p>Parabéns a todos os jogadores e equipa técnica por mais uma excelente exibição!</p>',
+  },
+  convocatoria: {
+    categoria: 'Seleção',
+    titulo: 'Convocatória | [Escalão] – [Competição]',
+    corpo: '<p><strong>📋 Convocatória para o próximo jogo</strong></p><p>📅 Data: [Data]</p><p>⏰ Concentração: [Hora]</p><p>📍 Local de concentração: [Local]</p><p><strong>Jogadores convocados:</strong></p><p>[Nomes dos jogadores convocados]</p><p>Bom trabalho a todos! 💪 <em>Raça, Garra e Tradição!</em></p>',
+  },
+  inscricoes: {
+    categoria: 'Clube',
+    titulo: 'Inscrições Abertas | Época 2025/26',
+    corpo: '<p>A <strong>Juventude Sport Campinense</strong> tem prazer em anunciar que as inscrições para a época <strong>2025/26</strong> estão abertas!</p><p><strong>Escalões disponíveis:</strong></p><p>⚽ Sub-9 · Sub-11 · Sub-13 · Sub-15 · Sub-17 · Sub-19</p><p><strong>Como inscrever:</strong></p><p>📞 Telefone: [número]</p><p>📧 E-mail: [email]</p><p>📍 Presencialmente em: [morada]</p><p>🗓️ Período de inscrições: [data início] a [data fim]</p><p>Não perca esta oportunidade! Vagas limitadas.</p>',
+  },
+  conquista: {
+    categoria: 'Conquista',
+    titulo: 'Campeões! [Escalão] vence [Competição]',
+    corpo: '<p>🏆 <strong>CAMPEÕES!</strong></p><p>A equipa <strong>[Escalão]</strong> da Juventude Sport Campinense sagrou-se campeã de <strong>[Competição]</strong>!</p><p>Uma época de muito trabalho e dedicação culminou nesta merecida conquista. Parabéns a todos os jogadores, equipa técnica, famílias e adeptos que tornaram este momento possível.</p><p>💛💙 <em>Raça, Garra e Tradição!</em></p>',
+  },
+  comunicado: {
+    categoria: 'Clube',
+    titulo: 'Comunicado | [Assunto]',
+    corpo: '<p><strong>Comunicado Oficial da Juventude Sport Campinense</strong></p><p>A direção da Juventude Sport Campinense vem por este meio informar todos os sócios, atletas, pais e encarregados de educação sobre <strong>[assunto]</strong>.</p><p>[Corpo do comunicado]</p><p>Para mais informações, contacte a secretaria através de [e-mail/telefone].</p><p>Atenciosamente,<br><strong>A Direção</strong></p>',
+  },
+};
+
+const TEMPLATES_EVENTO = {
+  jogoCasa: {
+    tipo: 'Jogo',
+    titulo: '[Escalão] vs [Adversário]',
+    hora: '10:00',
+    local: 'Estádio Municipal de Loulé',
+    descricao: 'Jogo em casa. Entrada livre para todos os adeptos.',
+  },
+  jogoFora: {
+    tipo: 'Jogo',
+    titulo: '[Adversário] vs [Escalão]',
+    hora: '10:00',
+    local: '',
+    descricao: 'Jogo fora. Concentração no local indicado 1 hora antes do início.',
+  },
+  treino: {
+    tipo: 'Treino',
+    titulo: 'Sessão de Treino',
+    hora: '17:00',
+    local: 'Campo de Treino',
+    descricao: '',
+  },
+  torneio: {
+    tipo: 'Torneio',
+    titulo: 'Torneio [Nome]',
+    hora: '09:00',
+    local: 'Estádio Municipal de Loulé',
+    descricao: 'Torneio inter-clubes. Mais informações em breve.',
+  },
+  reuniaoPais: {
+    tipo: 'Reunião',
+    titulo: 'Reunião de Encarregados de Educação',
+    hora: '19:00',
+    local: 'Sede do Clube',
+    descricao: 'Presença obrigatória de todos os encarregados de educação dos atletas.',
+  },
+  evento: {
+    tipo: 'Outro',
+    titulo: '[Nome do Evento]',
+    hora: '10:00',
+    local: '',
+    descricao: '',
+  },
+};
+
+window.toggleTplMenu = function(tipo) {
+  const menu = document.getElementById('tplMenu' + tipo);
+  if (!menu) return;
+  const isOpen = menu.style.display !== 'none';
+  // Fechar todos os menus abertos
+  document.querySelectorAll('.tpl-menu').forEach(m => { m.style.display = 'none'; });
+  if (!isOpen) menu.style.display = '';
+};
+
+// Fechar menus ao clicar fora
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.tpl-dropdown')) {
+    document.querySelectorAll('.tpl-menu').forEach(m => { m.style.display = 'none'; });
+  }
+});
+
+window.aplicarTemplateNoticia = function(key) {
+  const tpl = TEMPLATES_NOTICIA[key];
+  if (!tpl) return;
+  const titulo = document.getElementById('mTitulo');
+  const cat    = document.getElementById('mCat');
+  const editor = document.getElementById('mResumoEditor');
+  if (titulo) titulo.value    = tpl.titulo;
+  if (cat)    cat.value       = tpl.categoria;
+  if (editor) editor.innerHTML = tpl.corpo;
+  const menu = document.getElementById('tplMenuNoticia');
+  if (menu) menu.style.display = 'none';
+  titulo?.focus();
+  showToast('Template aplicado! Complete os campos entre [ ]', 'green');
+};
+
+window.aplicarTemplateEvento = function(key) {
+  const tpl = TEMPLATES_EVENTO[key];
+  if (!tpl) return;
+  const titulo = document.getElementById('mEvTitulo');
+  const tipo   = document.getElementById('mEvTipo');
+  const hora   = document.getElementById('mEvHora');
+  const local  = document.getElementById('mEvLocal');
+  const desc   = document.getElementById('mEvDesc');
+  if (titulo) titulo.value = tpl.titulo;
+  if (tipo)   tipo.value   = tpl.tipo;
+  if (hora)   hora.value   = tpl.hora;
+  if (local)  local.value  = tpl.local;
+  if (desc)   desc.value   = tpl.descricao;
+  const menu = document.getElementById('tplMenuEvento');
+  if (menu) menu.style.display = 'none';
+  titulo?.focus();
+  showToast('Template aplicado! Complete os campos entre [ ]', 'green');
+};
+
 window.removerHeroImagem = function() {
   const cfg = getSiteConfig();
   cfg.heroImagem = '';
@@ -3662,6 +3802,20 @@ function renderAgenda() {
 function editEvento(idx) {
   const e = idx >= 0 ? DB.agenda[idx] : { titulo:'', tipo:'Jogo', escalao:'Todos', data:'', hora:'', local:'', descricao:'', estado:'Agendado' };
   openModal(idx >= 0 ? 'Editar Evento' : 'Novo Evento', `
+    ${idx < 0 ? `<div class="tpl-bar">
+      <span class="tpl-bar__label">⚡ Template:</span>
+      <div class="tpl-dropdown">
+        <button class="tpl-trigger" type="button" onclick="toggleTplMenu('Evento')">Escolher template &#9662;</button>
+        <div class="tpl-menu" id="tplMenuEvento" style="display:none">
+          <button type="button" onclick="aplicarTemplateEvento('jogoCasa')">🏠 Jogo em Casa</button>
+          <button type="button" onclick="aplicarTemplateEvento('jogoFora')">✈️ Jogo Fora</button>
+          <button type="button" onclick="aplicarTemplateEvento('treino')">⚽ Sessão de Treino</button>
+          <button type="button" onclick="aplicarTemplateEvento('torneio')">🏆 Torneio</button>
+          <button type="button" onclick="aplicarTemplateEvento('reuniaoPais')">👨‍👩‍👧 Reunião de Pais</button>
+          <button type="button" onclick="aplicarTemplateEvento('evento')">📅 Outro Evento</button>
+        </div>
+      </div>
+    </div>` : ''}
     <div class="modal-field"><label>Título</label>
       <input class="form-input" id="mEvTitulo" value="${e.titulo}" /></div>
     <div class="modal-row">
