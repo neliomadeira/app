@@ -4,6 +4,31 @@
 
 document.addEventListener('DOMContentLoaded', () => {
 
+  // ---- ACTIVE PAGE INDICATOR ----
+  (function() {
+    const page = window.location.pathname.split('/').pop() || 'index.html';
+    const hash = window.location.hash;
+    // Mark active sublinks
+    document.querySelectorAll('.nav__sublink').forEach(link => {
+      const href = link.getAttribute('href') || '';
+      const linkPage = href.split('/').pop().split('#')[0];
+      const linkHash = href.includes('#') ? href.substring(href.indexOf('#')) : '';
+      const isMatch = linkPage && linkPage === page ||
+                      (page === '' || page === 'index.html') && href.startsWith('#');
+      if (isMatch) {
+        link.classList.add('nav__sublink--active');
+        const toggle = link.closest('.nav__dropdown')?.querySelector('.nav__dropdown-toggle');
+        if (toggle) toggle.classList.add('nav__link--active');
+      }
+    });
+    // Mark active direct nav links (e.g. Contacto)
+    document.querySelectorAll('a.nav__link').forEach(link => {
+      const href = link.getAttribute('href') || '';
+      const linkPage = href.split('/').pop().split('#')[0];
+      if (linkPage && linkPage === page) link.classList.add('nav__link--active');
+    });
+  })();
+
   // ---- SCROLL-AWARE NAV ----
   const header = document.getElementById('header');
   if (header && document.querySelector('.hero')) {
