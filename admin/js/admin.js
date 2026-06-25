@@ -3307,7 +3307,7 @@ const TEMPLATES_NOTICIA = {
   convocatoria: {
     categoria: 'Seleção',
     titulo: 'Convocatória | [Escalão] – [Competição]',
-    corpo: '<p><strong>📋 Convocatória para o próximo jogo</strong></p><p>📅 Data: [Data]</p><p>⏰ Concentração: [Hora]</p><p>📍 Local de concentração: [Local]</p><p><strong>Jogadores convocados:</strong></p><p>[Nomes dos jogadores convocados]</p><p>Bom trabalho a todos! 💪 <em>Raça, Garra e Tradição!</em></p>',
+    corpo: '<p><strong>📋 Convocatória para o próximo jogo</strong></p><p>📅 Data: [Data]</p><p>⏰ Concentração: [Hora]</p><p>📍 Local de concentração: [Local]</p><p><strong>Jogadores convocados:</strong></p><p>[Nomes dos jogadores convocados]</p><p>Bom trabalho a todos! 💪 <em>Mais que um Clube, uma família!!</em></p>',
   },
   inscricoes: {
     categoria: 'Clube',
@@ -3317,7 +3317,7 @@ const TEMPLATES_NOTICIA = {
   conquista: {
     categoria: 'Conquista',
     titulo: 'Campeões! [Escalão] vence [Competição]',
-    corpo: '<p>🏆 <strong>CAMPEÕES!</strong></p><p>A equipa <strong>[Escalão]</strong> da Juventude Sport Campinense sagrou-se campeã de <strong>[Competição]</strong>!</p><p>Uma época de muito trabalho e dedicação culminou nesta merecida conquista. Parabéns a todos os jogadores, equipa técnica, famílias e adeptos que tornaram este momento possível.</p><p>💛💙 <em>Raça, Garra e Tradição!</em></p>',
+    corpo: '<p>🏆 <strong>CAMPEÕES!</strong></p><p>A equipa <strong>[Escalão]</strong> da Juventude Sport Campinense sagrou-se campeã de <strong>[Competição]</strong>!</p><p>Uma época de muito trabalho e dedicação culminou nesta merecida conquista. Parabéns a todos os jogadores, equipa técnica, famílias e adeptos que tornaram este momento possível.</p><p>💛💙 <em>Mais que um Clube, uma família!!</em></p>',
   },
   comunicado: {
     categoria: 'Clube',
