@@ -346,6 +346,35 @@ ul { list-style: none; }
 }
 .btn--nav { animation: navPulse 2.5s ease-in-out 1.5s infinite; }
 
+/* ---- AVISO BAR ---- */
+#avisoBar {
+  position: fixed;
+  top: 72px;
+  left: 0; right: 0;
+  z-index: 999;
+  padding: 10px 48px 10px 16px;
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+#avisoClose {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 1.3rem;
+  cursor: pointer;
+  opacity: 0.7;
+  line-height: 1;
+  padding: 4px 6px;
+}
+#avisoClose:hover { opacity: 1; }
+
 /* ---- HERO ---- */
 .hero {
   position: relative;

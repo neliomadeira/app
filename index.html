@@ -72,9 +72,10 @@
   </header>
 
   <!-- AVISO BAR -->
-  <div id="avisoBar" style="display:none;padding:10px 16px;text-align:center;font-size:0.88rem;font-weight:600;position:relative;z-index:100">
+  <div id="avisoBar" style="display:none">
     <span id="avisoTexto"></span>
-    <a id="avisoLink" href="#" style="margin-left:8px;color:inherit;text-decoration:underline;display:none">Saber mais</a>
+    <a id="avisoLink" href="#" style="margin-left:10px;color:inherit;text-decoration:underline;font-weight:700;display:none">Saber mais &rsaquo;</a>
+    <button id="avisoClose" aria-label="Fechar aviso" onclick="document.getElementById('avisoBar').style.display='none';sessionStorage.setItem('jsc_aviso_closed','1')">&times;</button>
   </div>
 
   <!-- HERO -->
