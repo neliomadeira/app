@@ -4064,28 +4064,40 @@ function resetarCores() {
 }
 
 function exportarDados() {
+  const ls = (key) => { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; } };
   const dados = {
-    exportadoEm: new Date().toISOString(),
-    inscricoes:   DB.inscricoes,
-    atletas:      DB.atletas,
-    noticias:     loadNoticias(),
-    mensagens:    DB.mensagens,
-    escaloes:     DB.escaloes,
-    jogos:        DB.jogos,
+    exportadoEm:    new Date().toISOString(),
+    versao:         '2',
+    // Dados operacionais
+    inscricoes:     DB.inscricoes,
+    atletas:        DB.atletas,
+    noticias:       loadNoticias(),
+    mensagens:      DB.mensagens,
+    escaloes:       DB.escaloes,
+    jogos:          DB.jogos,
     patrocinadores: DB.patrocinadores,
     galeria:        DB.galeria,
     treinadores:    DB.treinadores,
     agenda:         DB.agenda,
     modalidades:    DB.modalidades,
-    patrocinadores: DB.patrocinadores,
-    siteConfig:     JSON.parse(localStorage.getItem('site_config') || '{}'),
+    videos:         DB.videos,
+    seniores:       ls('db_seniores'),
+    senioresInfo:   ls('db_seniores_info'),
+    // Configurações do site
+    siteConfig:     ls('site_config'),
+    dadosClube:     ls('dados_clube'),
+    siteAviso:      ls('site_aviso'),
+    siteManutencao: ls('site_manutencao'),
+    siteLegal:      ls('site_legal'),
+    siteCores:      ls('site_cores'),
+    adminCreds:     ls('admin_creds'),
   };
   const blob = new Blob([JSON.stringify(dados, null, 2)], { type: 'application/json' });
   const a    = document.createElement('a');
   a.href     = URL.createObjectURL(blob);
-  a.download = `backup-jscampinense-${new Date().toISOString().slice(0,10)}.json`;
+  a.download = `backup-campinense-${new Date().toISOString().slice(0,10)}.json`;
   a.click();
-  showToast('Backup exportado com sucesso', 'green');
+  showToast('✓ Backup completo exportado!', 'green');
 }
 
 function importarDados() {
@@ -4098,22 +4110,35 @@ function processarImportBackup(e) {
   const reader = new FileReader();
   reader.onload = (ev) => {
     try {
-      const dados = JSON.parse(ev.target.result);
-      if (dados.inscricoes)     DB.inscricoes     = dados.inscricoes;
-      if (dados.atletas)        DB.atletas        = dados.atletas;
-      if (dados.noticias)       saveNoticias(dados.noticias);
-      if (dados.mensagens)      DB.mensagens      = dados.mensagens;
-      if (dados.jogos)          DB.jogos          = dados.jogos;
-      if (dados.patrocinadores) DB.patrocinadores = dados.patrocinadores;
-      if (dados.galeria)        DB.galeria        = dados.galeria;
-      if (dados.treinadores)    DB.treinadores    = dados.treinadores;
-      if (dados.agenda)         DB.agenda         = dados.agenda;
-      if (dados.modalidades)    DB.modalidades    = dados.modalidades;
-      if (dados.patrocinadores) DB.patrocinadores = dados.patrocinadores;
-      if (dados.siteConfig)     localStorage.setItem('site_config', JSON.stringify(dados.siteConfig));
-      showToast('✓ Backup importado com sucesso! Recarregue a página.', 'green');
+      const d = JSON.parse(ev.target.result);
+      // Dados operacionais
+      if (d.inscricoes)     DB.inscricoes     = d.inscricoes;
+      if (d.atletas)        DB.atletas        = d.atletas;
+      if (d.noticias)       saveNoticias(d.noticias);
+      if (d.mensagens)      DB.mensagens      = d.mensagens;
+      if (d.jogos)          DB.jogos          = d.jogos;
+      if (d.patrocinadores) DB.patrocinadores = d.patrocinadores;
+      if (d.galeria)        DB.galeria        = d.galeria;
+      if (d.treinadores)    DB.treinadores    = d.treinadores;
+      if (d.agenda)         DB.agenda         = d.agenda;
+      if (d.modalidades)    DB.modalidades    = d.modalidades;
+      if (d.videos)         DB.videos         = d.videos;
+      saveDB();
+      // localStorage direto
+      const lsSet = (key, val) => { if (val !== null && val !== undefined) localStorage.setItem(key, JSON.stringify(val)); };
+      lsSet('db_seniores',      d.seniores);
+      lsSet('db_seniores_info', d.senioresInfo);
+      lsSet('site_config',      d.siteConfig);
+      lsSet('dados_clube',      d.dadosClube);
+      lsSet('site_aviso',       d.siteAviso);
+      lsSet('site_manutencao',  d.siteManutencao);
+      lsSet('site_legal',       d.siteLegal);
+      lsSet('site_cores',       d.siteCores);
+      if (d.adminCreds) lsSet('admin_creds', d.adminCreds);
+      showToast('✓ Backup importado com sucesso! A recarregar...', 'green');
+      setTimeout(() => location.reload(), 1500);
     } catch {
-      showToast('Ficheiro inválido', 'red');
+      showToast('Ficheiro inválido ou corrompido', 'red');
     }
   };
   reader.readAsText(file);
