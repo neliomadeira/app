@@ -3881,6 +3881,16 @@ function initConfiguracoes() {
   const msgEl = document.getElementById('cfgManutencaoMsg');
   if (msgEl && manu.mensagem) msgEl.value = manu.mensagem;
 
+  // Carregar token de publicação
+  const apiToken = localStorage.getItem('jsc_api_token');
+  const apiTokenEl = document.getElementById('cfgApiToken');
+  if (apiTokenEl && apiToken) apiTokenEl.value = apiToken;
+
+  // Última publicação
+  const ultimaPub = localStorage.getItem('jsc_ultima_publicacao');
+  const ultimaPubEl = document.getElementById('ultimaPublicacao');
+  if (ultimaPubEl && ultimaPub) ultimaPubEl.textContent = 'Última publicação: ' + ultimaPub;
+
   // Carregar credenciais guardadas
   const creds = JSON.parse(localStorage.getItem('admin_creds') || '{}');
   if (creds.user) document.getElementById('cfgAdminUser').value = creds.user;
@@ -3990,6 +4000,66 @@ async function guardarSeguranca() {
 
   showToast('✓ Credenciais guardadas com segurança (SHA-256)', 'green');
 }
+
+// ---- TOKEN DE PUBLICAÇÃO ----
+function guardarApiToken() {
+  const token = document.getElementById('cfgApiToken')?.value.trim();
+  if (!token) { showToast('Introduza o token', 'red'); return; }
+  localStorage.setItem('jsc_api_token', token);
+  showToast('✓ Token guardado', 'green');
+}
+
+// ---- PUBLICAR NO SERVIDOR ----
+async function publicarNoServidor() {
+  const token = localStorage.getItem('jsc_api_token') || 'campinense2025';
+  const ls = (key) => { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; } };
+  const dados = {
+    publicadoEm:    new Date().toISOString(),
+    noticias:       loadNoticias(),
+    agenda:         DB.agenda,
+    galeria:        DB.galeria,
+    videos:         DB.videos,
+    atletas:        DB.atletas,
+    escaloes:       DB.escaloes,
+    treinadores:    DB.treinadores,
+    patrocinadores: DB.patrocinadores,
+    modalidades:    DB.modalidades,
+    seniores:       ls('db_seniores'),
+    senioresInfo:   ls('db_seniores_info'),
+    siteConfig:     ls('site_config'),
+    dadosClube:     ls('dados_clube'),
+    siteAviso:      ls('site_aviso'),
+    siteCores:      ls('site_cores'),
+  };
+  try {
+    const btn = document.querySelector('[onclick="publicarNoServidor()"]');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ A publicar...'; }
+    const resp = await fetch('/api/save.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-JSC-Token': token },
+      body: JSON.stringify(dados),
+    });
+    const json = await resp.json();
+    if (btn) { btn.disabled = false; btn.innerHTML = '&#128640; Publicar agora'; }
+    if (resp.ok && json.ok) {
+      const ts = new Date().toLocaleString('pt-PT');
+      localStorage.setItem('jsc_ultima_publicacao', ts);
+      const el = document.getElementById('ultimaPublicacao');
+      if (el) el.textContent = 'Última publicação: ' + ts;
+      showToast('✓ Site atualizado! Visitantes já veem o novo conteúdo.', 'green');
+    } else if (resp.status === 401) {
+      showToast('❌ Token inválido. Verifique em Configurações > Segurança.', 'red');
+    } else {
+      showToast('❌ Erro ao publicar: ' + (json.error || resp.status), 'red');
+    }
+  } catch (e) {
+    showToast('❌ Sem ligação ao servidor: ' + e.message, 'red');
+    const btn = document.querySelector('[onclick="publicarNoServidor()"]');
+    if (btn) { btn.disabled = false; btn.innerHTML = '&#128640; Publicar agora'; }
+  }
+}
+window.publicarNoServidor = publicarNoServidor;
+window.guardarApiToken    = guardarApiToken;
 
 // ---- MANUTENÇÃO ----
 function _applyManutencaoSlider(on) {

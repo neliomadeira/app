@@ -394,6 +394,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'site_aviso') location.reload();
   });
 
+  // Re-render após sincronização com o servidor
+  document.addEventListener('jsc:synced', () => {
+    renderNoticias();
+    renderAniversarios();
+  });
+
   // Aniversários do dia
   function renderAniversarios() {
     try {
