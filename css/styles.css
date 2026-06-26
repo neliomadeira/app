@@ -576,18 +576,6 @@ ul { list-style: none; }
 .value-item strong { color: #111; font-size: 0.97rem; display: block; margin-bottom: 2px; }
 .value-item p { color: var(--gray-mid); font-size: 0.875rem; margin: 0; }
 
-.about__cta {
-  margin-top: 28px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--blue) !important;
-  border-color: var(--blue);
-}
-.about__cta:hover {
-  background: var(--blue) !important;
-  color: var(--white) !important;
-}
 
 .about__card {
   background: linear-gradient(160deg, var(--blue) 0%, var(--blue-dark) 100%);
