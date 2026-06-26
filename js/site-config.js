@@ -63,9 +63,12 @@
   set('aboutText2', cfg.aboutText2);
   set('aboutEst',   cfg.aboutEst);
   set('aboutMotto', cfg.aboutMotto);
-  set('aboutStatAnos',     cfg.aboutStatAnos);
-  set('aboutStatAtletas',  cfg.aboutStatAtletas);
-  set('aboutStatEscaloes', cfg.aboutStatEscaloes);
+  set('aboutVal1Title', cfg.aboutVal1Title);
+  set('aboutVal1Desc',  cfg.aboutVal1Desc);
+  set('aboutVal2Title', cfg.aboutVal2Title);
+  set('aboutVal2Desc',  cfg.aboutVal2Desc);
+  set('aboutVal3Title', cfg.aboutVal3Title);
+  set('aboutVal3Desc',  cfg.aboutVal3Desc);
 
   // Contacto
   setHtml('contactAddress', cfg.contactAddress);
