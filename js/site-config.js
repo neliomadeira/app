@@ -56,10 +56,16 @@
 
   // Club identity — independente de site_config, corre sempre
   const clube = JSON.parse(localStorage.getItem('dados_clube') || '{}');
-  if (clube.logo) {
-    document.querySelectorAll('.logo__img').forEach(el => { el.src = clube.logo; });
+  if (clube.logo && clube.logo.length > 10) {
+    document.querySelectorAll('.logo__img').forEach(function(el) {
+      el.onerror = function() { this.src = 'images/logo.png'; this.onerror = null; };
+      el.src = clube.logo;
+    });
     const emblem = document.querySelector('.about__emblem-large');
-    if (emblem) emblem.src = clube.logo;
+    if (emblem) {
+      emblem.onerror = function() { this.src = 'images/logo.png'; this.onerror = null; };
+      emblem.src = clube.logo;
+    }
   }
   if (clube.navNome) document.querySelectorAll('.logo__name').forEach(el => { el.textContent = clube.navNome; });
   if (clube.navSub)  document.querySelectorAll('.logo__sub').forEach(el => { el.textContent = clube.navSub; });

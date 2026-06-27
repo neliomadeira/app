@@ -281,7 +281,7 @@ ul { list-style: none; }
   flex-direction: column;
   gap: 2px;
   box-shadow: 0 16px 40px rgba(0,0,0,0.4);
-  z-index: 200;
+  z-index: 1100;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
