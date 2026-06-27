@@ -77,6 +77,23 @@
     <a id="avisoLink" href="#" style="margin-left:10px;color:inherit;text-decoration:underline;font-weight:700;display:none">Saber mais &rsaquo;</a>
     <button id="avisoClose" aria-label="Fechar aviso" onclick="document.getElementById('avisoBar').style.display='none';sessionStorage.setItem('jsc_aviso_closed','1')">&times;</button>
   </div>
+  <script>
+  (function(){
+    try {
+      if (sessionStorage.getItem('jsc_aviso_closed')) return;
+      var a = JSON.parse(localStorage.getItem('site_aviso') || '{}');
+      if (!a.ativo || !a.texto) return;
+      var c = {info:'#003B8E', averto:'#d97706', sucesso:'#15803d', urgente:'#dc2626'};
+      var bar = document.getElementById('avisoBar');
+      bar.style.background = c[a.tipo] || c.info;
+      bar.style.color = '#fff';
+      bar.style.display = 'block';
+      document.getElementById('avisoTexto').textContent = a.texto;
+      var lnk = document.getElementById('avisoLink');
+      if (a.link) { lnk.href = a.link; lnk.style.display = ''; }
+    } catch(e) {}
+  })();
+  </script>
 
   <!-- HERO -->
   <section class="hero" id="inicio">
@@ -686,7 +703,7 @@
 
   <script src="js/security.js?v=20260413"></script>
   <script src="js/sync.js"></script>
-  <script src="js/site-config.js?v=20260413"></script>
+  <script src="js/site-config.js?v=20260628"></script>
   <script src="js/email.js?v=20260413"></script>
   <script src="js/facebook.js?v=20260413"></script>
   <script src="js/main.js?v=20260413"></script>
