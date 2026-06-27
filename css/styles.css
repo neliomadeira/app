@@ -1654,6 +1654,7 @@ ul { list-style: none; }
   .nav {
     position: fixed;
     top: 72px; left: 0; right: 0;
+    z-index: 1050;
     background: rgba(0,14,40,0.98);
     backdrop-filter: blur(16px);
     padding: 16px 20px 24px;
