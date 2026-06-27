@@ -97,18 +97,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // ---- HEADER SCROLL EFFECT ----
-  const header = document.getElementById('header');
-
-  const onScroll = () => {
-    if (window.scrollY > 60) {
-      header?.classList.add('header--scrolled');
-    } else {
-      header?.classList.remove('header--scrolled');
-    }
-  };
-
-  window.addEventListener('scroll', onScroll, { passive: true });
 
   // ---- ACTIVE NAV LINK (Intersection Observer) ----
   const sections = document.querySelectorAll('section[id]');
