@@ -31,29 +31,6 @@
     if (el && val) el.setAttribute(attr, val);
   }
 
-  // Aviso bar — independente de site_config, corre sempre
-  const aviso = JSON.parse(localStorage.getItem('site_aviso') || '{}');
-  const bar = document.getElementById('avisoBar');
-  if (bar && aviso.ativo && aviso.texto && !sessionStorage.getItem('jsc_aviso_closed')) {
-    const tipoColors = {
-      info:    { bg: '#003B8E', color: '#fff' },
-      averto:  { bg: '#d97706', color: '#fff' },
-      sucesso: { bg: '#15803d', color: '#fff' },
-      urgente: { bg: '#dc2626', color: '#fff' },
-    };
-    const t = tipoColors[aviso.tipo] || tipoColors.info;
-    bar.style.background = t.bg;
-    bar.style.color = t.color;
-    bar.style.display = 'block';
-    const span = document.getElementById('avisoTexto');
-    if (span) span.textContent = aviso.texto;
-    const lnk = document.getElementById('avisoLink');
-    if (lnk) {
-      if (aviso.link) { lnk.href = aviso.link; lnk.style.display = ''; }
-      else lnk.style.display = 'none';
-    }
-  }
-
   // Club identity — independente de site_config, corre sempre
   const clube = JSON.parse(localStorage.getItem('dados_clube') || '{}');
   if (clube.logo && clube.logo.length > 10) {

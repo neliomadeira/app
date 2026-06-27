@@ -835,24 +835,28 @@
             </div>
           </div>
 
-          <!-- AVISO / BANNER -->
+          <!-- POPUP DE ANÚNCIO -->
           <div class="card" style="margin-bottom:20px">
             <div class="card-header">
-              <h3>📢 Aviso / Banner de Topo</h3>
-              <label class="toggle-switch" title="Ativar aviso">
-                <input type="checkbox" id="cfgAvisoAtivo" />
+              <h3>📣 Popup de Anúncio</h3>
+              <label class="toggle-switch" title="Ativar popup">
+                <input type="checkbox" id="cfgPopupAtivo" />
                 <span class="toggle-slider"></span>
               </label>
             </div>
             <div style="padding:16px;display:grid;gap:12px">
               <div class="modal-field">
-                <label class="form-label">Mensagem do aviso</label>
-                <input class="form-input" type="text" id="cfgAvisoTexto" placeholder="Ex: Inscrições abertas para 2025/26! Clique para saber mais." />
+                <label class="form-label">Título do popup</label>
+                <input class="form-input" type="text" id="cfgPopupTitulo" placeholder="Ex: Inscrições Abertas 2025/26!" />
+              </div>
+              <div class="modal-field">
+                <label class="form-label">Mensagem</label>
+                <textarea class="form-input" id="cfgPopupTexto" rows="3" placeholder="Ex: As inscrições para a nova época já estão abertas. Garanta já o seu lugar!"></textarea>
               </div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
                 <div class="modal-field">
                   <label class="form-label">Tipo / Cor</label>
-                  <select class="form-input" id="cfgAvisoTipo">
+                  <select class="form-input" id="cfgPopupTipo">
                     <option value="info">ℹ️ Informação (azul)</option>
                     <option value="averto">⚠️ Aviso (laranja)</option>
                     <option value="sucesso">✅ Sucesso (verde)</option>
@@ -860,11 +864,15 @@
                   </select>
                 </div>
                 <div class="modal-field">
-                  <label class="form-label">Link (opcional)</label>
-                  <input class="form-input" type="text" id="cfgAvisoLink" placeholder="inscricao.html" />
+                  <label class="form-label">Botão — texto</label>
+                  <input class="form-input" type="text" id="cfgPopupBtnTexto" placeholder="Saber mais" />
                 </div>
               </div>
-              <button class="btn-save" onclick="guardarAviso()" style="max-width:200px">💾 Guardar aviso</button>
+              <div class="modal-field">
+                <label class="form-label">Botão — link (opcional)</label>
+                <input class="form-input" type="text" id="cfgPopupBtnLink" placeholder="inscricao.html" />
+              </div>
+              <button class="btn-save" onclick="guardarPopup()" style="max-width:200px">💾 Guardar popup</button>
             </div>
           </div>
 

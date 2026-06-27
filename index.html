@@ -71,30 +71,6 @@
     </div>
   </header>
 
-  <!-- AVISO BAR -->
-  <div id="avisoBar" style="display:none">
-    <span id="avisoTexto"></span>
-    <a id="avisoLink" href="#" style="margin-left:10px;color:inherit;text-decoration:underline;font-weight:700;display:none">Saber mais &rsaquo;</a>
-    <button id="avisoClose" aria-label="Fechar aviso" onclick="document.getElementById('avisoBar').style.display='none';sessionStorage.setItem('jsc_aviso_closed','1')">&times;</button>
-  </div>
-  <script>
-  (function(){
-    try {
-      if (sessionStorage.getItem('jsc_aviso_closed')) return;
-      var a = JSON.parse(localStorage.getItem('site_aviso') || '{}');
-      if (!a.ativo || !a.texto) return;
-      var c = {info:'#003B8E', averto:'#d97706', sucesso:'#15803d', urgente:'#dc2626'};
-      var bar = document.getElementById('avisoBar');
-      bar.style.background = c[a.tipo] || c.info;
-      bar.style.color = '#fff';
-      bar.style.display = 'block';
-      document.getElementById('avisoTexto').textContent = a.texto;
-      var lnk = document.getElementById('avisoLink');
-      if (a.link) { lnk.href = a.link; lnk.style.display = ''; }
-    } catch(e) {}
-  })();
-  </script>
-
   <!-- HERO -->
   <section class="hero" id="inicio">
     <div class="hero__slide-bg" id="heroSlideBg"></div>
@@ -700,6 +676,47 @@
       <p>&copy; 2026 Juventude Sport Campinense – Loulé. Todos os direitos reservados. &nbsp;|&nbsp; <a href="privacidade.html" style="color:rgba(255,255,255,0.5);text-decoration:none;">Privacidade &amp; Termos</a></p>
     </div>
   </footer>
+
+  <!-- POPUP DE ANÚNCIO -->
+  <div id="jscPopupOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:8000;align-items:center;justify-content:center;padding:16px"></div>
+  <div id="jscPopup" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:8001;background:#fff;border-radius:16px;max-width:440px;width:calc(100% - 32px);box-shadow:0 24px 64px rgba(0,0,0,0.3);overflow:hidden">
+    <div id="jscPopupHeader" style="padding:20px 48px 20px 24px;position:relative">
+      <button onclick="fecharPopup()" style="position:absolute;top:14px;right:16px;background:none;border:none;font-size:1.5rem;cursor:pointer;opacity:0.6;line-height:1">&times;</button>
+      <p id="jscPopupTitulo" style="font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:1px;color:#fff;margin:0"></p>
+    </div>
+    <div style="padding:20px 24px 24px">
+      <p id="jscPopupTexto" style="color:#444;font-size:0.97rem;line-height:1.6;margin:0 0 20px"></p>
+      <div style="display:flex;gap:12px;justify-content:flex-end">
+        <button onclick="fecharPopup()" style="background:none;border:1px solid #ccc;border-radius:8px;padding:9px 18px;cursor:pointer;font-size:0.9rem;color:#666">Fechar</button>
+        <a id="jscPopupBtn" href="#" style="display:none;background:var(--blue,#003B8E);color:#fff;border-radius:8px;padding:9px 20px;font-size:0.9rem;font-weight:700;text-decoration:none">Saber mais</a>
+      </div>
+    </div>
+  </div>
+  <script>
+  function fecharPopup(){
+    document.getElementById('jscPopupOverlay').style.display='none';
+    document.getElementById('jscPopup').style.display='none';
+    sessionStorage.setItem('jsc_popup_closed','1');
+  }
+  document.getElementById('jscPopupOverlay').addEventListener('click', fecharPopup);
+  (function(){
+    try {
+      if(sessionStorage.getItem('jsc_popup_closed')) return;
+      var p=JSON.parse(localStorage.getItem('site_popup')||'{}');
+      if(!p.ativo||!p.texto) return;
+      var colors={info:'#003B8E',averto:'#d97706',sucesso:'#15803d',urgente:'#dc2626'};
+      document.getElementById('jscPopupHeader').style.background=colors[p.tipo]||colors.info;
+      document.getElementById('jscPopupTitulo').textContent=p.titulo||'Aviso';
+      document.getElementById('jscPopupTexto').textContent=p.texto;
+      var btn=document.getElementById('jscPopupBtn');
+      if(p.btnLink){btn.href=p.btnLink;btn.textContent=p.btnTexto||'Saber mais';btn.style.display='';}
+      setTimeout(function(){
+        document.getElementById('jscPopupOverlay').style.display='flex';
+        document.getElementById('jscPopup').style.display='block';
+      },1500);
+    }catch(e){}
+  })();
+  </script>
 
   <script src="js/security.js?v=20260413"></script>
   <script src="js/sync.js"></script>

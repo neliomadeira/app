@@ -3219,16 +3219,15 @@ function loadPaginaInicialForm() {
     const prev = document.getElementById('cfgHeroPreview');
     if (prev) { prev.style.display = ''; prev.querySelector('img').src = cfg.heroImagem; }
   }
-  // Aviso
-  const aviso = JSON.parse(localStorage.getItem('site_aviso') || '{}');
-  const avisoAtivo = document.getElementById('cfgAvisoAtivo');
-  if (avisoAtivo) avisoAtivo.checked = aviso.ativo === true;
-  const avisoTexto = document.getElementById('cfgAvisoTexto');
-  if (avisoTexto && aviso.texto) avisoTexto.value = aviso.texto;
-  const avisoTipo = document.getElementById('cfgAvisoTipo');
-  if (avisoTipo && aviso.tipo) avisoTipo.value = aviso.tipo;
-  const avisoLink = document.getElementById('cfgAvisoLink');
-  if (avisoLink && aviso.link) avisoLink.value = aviso.link;
+  // Popup
+  const popup = JSON.parse(localStorage.getItem('site_popup') || '{}');
+  const el = (id) => document.getElementById(id);
+  if (el('cfgPopupAtivo'))    el('cfgPopupAtivo').checked = popup.ativo === true;
+  if (el('cfgPopupTitulo') && popup.titulo)   el('cfgPopupTitulo').value = popup.titulo;
+  if (el('cfgPopupTexto')  && popup.texto)    el('cfgPopupTexto').value  = popup.texto;
+  if (el('cfgPopupTipo')   && popup.tipo)     el('cfgPopupTipo').value   = popup.tipo;
+  if (el('cfgPopupBtnTexto') && popup.btnTexto) el('cfgPopupBtnTexto').value = popup.btnTexto;
+  if (el('cfgPopupBtnLink')  && popup.btnLink)  el('cfgPopupBtnLink').value  = popup.btnLink;
   // SEO char counters
   _setupSeoCounter('cfgSeoTitle', 'cfgSeoTitleCount', 60);
   _setupSeoCounter('cfgSeoDesc', 'cfgSeoDescCount', 160);
@@ -3276,13 +3275,16 @@ function guardarPaginaInicial() {
   } catch(_) { /* saveSiteConfig already shows error toast */ }
 }
 
-function guardarAviso() {
-  const ativo = document.getElementById('cfgAvisoAtivo')?.checked || false;
-  const texto = document.getElementById('cfgAvisoTexto')?.value.trim() || '';
-  const tipo  = document.getElementById('cfgAvisoTipo')?.value || 'info';
-  const link  = document.getElementById('cfgAvisoLink')?.value.trim() || '';
-  localStorage.setItem('site_aviso', JSON.stringify({ ativo, texto, tipo, link }));
-  showToast('✓ Aviso guardado!', 'green');
+function guardarPopup() {
+  const g = (id) => document.getElementById(id);
+  const ativo    = g('cfgPopupAtivo')?.checked || false;
+  const titulo   = g('cfgPopupTitulo')?.value.trim() || '';
+  const texto    = g('cfgPopupTexto')?.value.trim() || '';
+  const tipo     = g('cfgPopupTipo')?.value || 'info';
+  const btnTexto = g('cfgPopupBtnTexto')?.value.trim() || '';
+  const btnLink  = g('cfgPopupBtnLink')?.value.trim() || '';
+  localStorage.setItem('site_popup', JSON.stringify({ ativo, titulo, texto, tipo, btnTexto, btnLink }));
+  showToast('✓ Popup guardado!', 'green');
 }
 
 function _setupSeoCounter(inputId, countId, max) {
@@ -3298,7 +3300,7 @@ function _setupSeoCounter(inputId, countId, max) {
   update();
 }
 
-window.guardarAviso = guardarAviso;
+window.guardarPopup = guardarPopup;
 
 // =============================================
 // TEMPLATES DE CONTEÚDO
@@ -4034,7 +4036,7 @@ async function publicarNoServidor() {
     senioresInfo:   ls('db_seniores_info'),
     siteConfig:     ls('site_config'),
     dadosClube:     ls('dados_clube'),
-    siteAviso:      ls('site_aviso'),
+    sitePopup:      ls('site_popup'),
     siteCores:      ls('site_cores'),
   };
   try {
@@ -4162,7 +4164,7 @@ function exportarDados() {
     // Configurações do site
     siteConfig:     ls('site_config'),
     dadosClube:     ls('dados_clube'),
-    siteAviso:      ls('site_aviso'),
+    sitePopup:      ls('site_popup'),
     siteManutencao: ls('site_manutencao'),
     siteLegal:      ls('site_legal'),
     siteCores:      ls('site_cores'),
@@ -4206,7 +4208,7 @@ function processarImportBackup(e) {
       lsSet('db_seniores_info', d.senioresInfo);
       lsSet('site_config',      d.siteConfig);
       lsSet('dados_clube',      d.dadosClube);
-      lsSet('site_aviso',       d.siteAviso);
+      lsSet('site_popup',       d.sitePopup);
       lsSet('site_manutencao',  d.siteManutencao);
       lsSet('site_legal',       d.siteLegal);
       lsSet('site_cores',       d.siteCores);
