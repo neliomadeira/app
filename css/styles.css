@@ -3561,3 +3561,163 @@ ul { list-style: none; }
   .search-bar { padding: 10px 12px; }
   .search-bar__input { font-size: 0.95rem; }
 }
+
+/* =============================================
+   BUTTON ENHANCEMENTS
+   ============================================= */
+
+.btn { position: relative; overflow: hidden; }
+
+.btn:active { transform: scale(0.97) !important; }
+
+.btn:focus-visible {
+  outline: 3px solid var(--yellow);
+  outline-offset: 3px;
+}
+
+/* Ripple */
+.btn__ripple {
+  position: absolute;
+  border-radius: 50%;
+  transform: scale(0);
+  animation: rippleAnim 0.55s linear;
+  background: rgba(255,255,255,0.35);
+  pointer-events: none;
+}
+.btn--primary .btn__ripple { background: rgba(0,0,0,0.12); }
+
+@keyframes rippleAnim {
+  to { transform: scale(4); opacity: 0; }
+}
+
+/* Size variants */
+.btn--sm {
+  padding: 8px 18px;
+  font-size: 0.82rem;
+  letter-spacing: 0.3px;
+}
+.btn--lg {
+  padding: 18px 44px;
+  font-size: 1.05rem;
+}
+
+/* Danger */
+.btn--danger {
+  background: #c0392b;
+  color: #fff;
+  border-color: #c0392b;
+}
+.btn--danger:hover {
+  background: #a93226;
+  border-color: #a93226;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(192,57,43,0.35);
+}
+
+/* =============================================
+   SITE ANNOUNCEMENT BANNER
+   ============================================= */
+
+.site-banner {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 9px 48px 9px 16px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  line-height: 1.4;
+  transform: translateY(-100%);
+  transition: transform 0.35s ease;
+}
+.site-banner--visible { transform: translateY(0); }
+
+.site-banner--info    { background: var(--blue);   color: #fff; }
+.site-banner--aviso   { background: var(--yellow);  color: var(--blue); }
+.site-banner--urgente { background: #c0392b; color: #fff; }
+
+.site-banner__text { flex: 1; text-align: center; max-width: 800px; margin: 0 auto; }
+.site-banner__link {
+  display: inline-block;
+  font-weight: 700;
+  text-decoration: underline;
+  white-space: nowrap;
+  color: inherit;
+  opacity: 0.9;
+}
+.site-banner__link:hover { opacity: 1; }
+
+.site-banner__close {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.7;
+  padding: 4px 8px;
+  font-size: 1.1rem;
+  line-height: 1;
+  transition: opacity 0.2s;
+}
+.site-banner__close:hover { opacity: 1; }
+
+body.has-banner { padding-top: 38px; }
+body.has-banner .header { top: 38px; }
+
+@media (max-width: 600px) {
+  .site-banner { font-size: 0.8rem; padding: 8px 40px 8px 12px; }
+  body.has-banner { padding-top: 46px; }
+  body.has-banner .header { top: 46px; }
+}
+
+/* =============================================
+   SKELETON LOADERS
+   ============================================= */
+
+@keyframes shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position:  600px 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #e8ecf0 25%, #f4f6f8 50%, #e8ecf0 75%);
+  background-size: 600px 100%;
+  animation: shimmer 1.4s infinite linear;
+  border-radius: var(--radius);
+}
+
+/* News card skeleton */
+.news-card--skel {
+  background: #fff;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+.news-card--skel .skel-img  { height: 180px; }
+.news-card--skel .skel-body { padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+.news-card--skel .skel-cat  { height: 14px; width: 70px; border-radius: 20px; }
+.news-card--skel .skel-title{ height: 20px; width: 90%; border-radius: 4px; }
+.news-card--skel .skel-title2{ height: 20px; width: 65%; border-radius: 4px; }
+.news-card--skel .skel-text { height: 13px; border-radius: 4px; }
+.news-card--skel .skel-text--short { width: 60%; }
+
+/* Agenda skeleton */
+.agenda-card--skel {
+  background: #fff;
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  box-shadow: var(--shadow);
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+.agenda-card--skel .skel-date { width: 52px; height: 60px; border-radius: var(--radius); flex-shrink: 0; }
+.agenda-card--skel .skel-info { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.agenda-card--skel .skel-line { height: 14px; border-radius: 4px; }
+.agenda-card--skel .skel-line--sm { width: 50%; }

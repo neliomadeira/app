@@ -876,6 +876,42 @@
             </div>
           </div>
 
+          <!-- BANNER DE ANÚNCIO -->
+          <div class="card" style="margin-bottom:20px">
+            <div class="card-header">
+              <h3>📢 Banner de Topo</h3>
+              <label class="toggle-switch" title="Ativar banner">
+                <input type="checkbox" id="cfgBannerAtivo" />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <div style="padding:16px;display:grid;gap:12px">
+              <div class="modal-field">
+                <label class="form-label">Mensagem do banner</label>
+                <input class="form-input" type="text" id="cfgBannerTexto" placeholder="Ex: Inscrições abertas para 2026/27!" />
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                <div class="modal-field">
+                  <label class="form-label">Tipo / Cor</label>
+                  <select class="form-input" id="cfgBannerTipo">
+                    <option value="info">ℹ️ Informação (azul)</option>
+                    <option value="aviso">⚠️ Aviso (amarelo)</option>
+                    <option value="urgente">🚨 Urgente (vermelho)</option>
+                  </select>
+                </div>
+                <div class="modal-field">
+                  <label class="form-label">Texto do link (opcional)</label>
+                  <input class="form-input" type="text" id="cfgBannerLinkTexto" placeholder="Saber mais" />
+                </div>
+              </div>
+              <div class="modal-field">
+                <label class="form-label">URL do link (opcional)</label>
+                <input class="form-input" type="text" id="cfgBannerLink" placeholder="inscricao.html" />
+              </div>
+              <button class="btn-save" onclick="guardarBanner()" style="max-width:200px">💾 Guardar banner</button>
+            </div>
+          </div>
+
           <!-- SEO -->
           <div class="card" style="margin-bottom:20px">
             <div class="card-header"><h3>🔍 SEO — Título e Descrição</h3></div>

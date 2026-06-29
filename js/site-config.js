@@ -147,6 +147,30 @@
   }
 
 
+  // ---- ANNOUNCEMENT BANNER ----
+  (function () {
+    const banner = JSON.parse(localStorage.getItem('site_banner') || '{}');
+    if (!banner.ativo || !banner.texto) return;
+    const sessKey = 'banner_dismissed_' + (banner.texto || '').slice(0, 20);
+    if (sessionStorage.getItem(sessKey)) return;
+    const tipo = banner.tipo || 'info';
+    const el = document.createElement('div');
+    el.className = `site-banner site-banner--${tipo}`;
+    el.setAttribute('role', 'alert');
+    el.innerHTML = `<p class="site-banner__text">${banner.texto}${
+      banner.link && banner.linkTexto
+        ? ` <a class="site-banner__link" href="${banner.link}">${banner.linkTexto}</a>`
+        : ''
+    }</p><button class="site-banner__close" aria-label="Fechar" onclick="
+      this.closest('.site-banner').classList.remove('site-banner--visible');
+      document.body.classList.remove('has-banner');
+      sessionStorage.setItem('${sessKey}', '1');
+    ">&times;</button>`;
+    document.body.insertAdjacentElement('afterbegin', el);
+    document.body.classList.add('has-banner');
+    requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('site-banner--visible')));
+  })();
+
   // Map — update iframe when coordinates configured
   if (cfg.contactLat && cfg.contactLon) {
     const lat = parseFloat(cfg.contactLat);

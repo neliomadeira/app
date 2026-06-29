@@ -3234,6 +3234,13 @@ function loadPaginaInicialForm() {
   if (el('cfgPopupTipo')   && popup.tipo)     el('cfgPopupTipo').value   = popup.tipo;
   if (el('cfgPopupBtnTexto') && popup.btnTexto) el('cfgPopupBtnTexto').value = popup.btnTexto;
   if (el('cfgPopupBtnLink')  && popup.btnLink)  el('cfgPopupBtnLink').value  = popup.btnLink;
+  // Banner
+  const banner = JSON.parse(localStorage.getItem('site_banner') || '{}');
+  if (el('cfgBannerAtivo'))    el('cfgBannerAtivo').checked = banner.ativo === true;
+  if (el('cfgBannerTexto') && banner.texto)       el('cfgBannerTexto').value     = banner.texto;
+  if (el('cfgBannerTipo')  && banner.tipo)        el('cfgBannerTipo').value      = banner.tipo;
+  if (el('cfgBannerLinkTexto') && banner.linkTexto) el('cfgBannerLinkTexto').value = banner.linkTexto;
+  if (el('cfgBannerLink')  && banner.link)        el('cfgBannerLink').value      = banner.link;
   // SEO char counters
   _setupSeoCounter('cfgSeoTitle', 'cfgSeoTitleCount', 60);
   _setupSeoCounter('cfgSeoDesc', 'cfgSeoDescCount', 160);
@@ -3306,7 +3313,19 @@ function _setupSeoCounter(inputId, countId, max) {
   update();
 }
 
-window.guardarPopup = guardarPopup;
+function guardarBanner() {
+  const g = (id) => document.getElementById(id);
+  const ativo     = g('cfgBannerAtivo')?.checked || false;
+  const texto     = g('cfgBannerTexto')?.value.trim() || '';
+  const tipo      = g('cfgBannerTipo')?.value || 'info';
+  const linkTexto = g('cfgBannerLinkTexto')?.value.trim() || '';
+  const link      = g('cfgBannerLink')?.value.trim() || '';
+  localStorage.setItem('site_banner', JSON.stringify({ ativo, texto, tipo, linkTexto, link }));
+  showToast('✓ Banner guardado!', 'green');
+}
+
+window.guardarPopup  = guardarPopup;
+window.guardarBanner = guardarBanner;
 
 // =============================================
 // TEMPLATES DE CONTEÚDO
@@ -4043,6 +4062,7 @@ async function publicarNoServidor() {
     siteConfig:     ls('site_config'),
     dadosClube:     ls('dados_clube'),
     sitePopup:      ls('site_popup'),
+    siteBanner:     ls('site_banner'),
     siteCores:      ls('site_cores'),
   };
   try {
@@ -4173,6 +4193,7 @@ function exportarDados() {
     sitePopup:      ls('site_popup'),
     siteManutencao: ls('site_manutencao'),
     siteLegal:      ls('site_legal'),
+    siteBanner:     ls('site_banner'),
     siteCores:      ls('site_cores'),
     adminCreds:     ls('admin_creds'),
   };
@@ -4215,6 +4236,7 @@ function processarImportBackup(e) {
       lsSet('site_config',      d.siteConfig);
       lsSet('dados_clube',      d.dadosClube);
       lsSet('site_popup',       d.sitePopup);
+      lsSet('site_banner',      d.siteBanner);
       lsSet('site_manutencao',  d.siteManutencao);
       lsSet('site_legal',       d.siteLegal);
       lsSet('site_cores',       d.siteCores);
