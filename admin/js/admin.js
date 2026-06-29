@@ -4458,14 +4458,24 @@ function abrirFormPostMod(modId, modNome, postId) {
           <img id="mpPreviewImg" src="${p.imagem || ''}" style="max-height:80px;border-radius:6px;object-fit:cover" />
         </div>
       </div>
-      <div class="modal-field">
-        <label class="form-label">Tamanho da imagem</label>
-        <select class="form-input" id="mpImagemSize">
-          <option value="cover"   ${(p.imagemSize||'cover')==='cover'   ?'selected':''}>Cover (preencher)</option>
-          <option value="contain" ${p.imagemSize==='contain'            ?'selected':''}>Contain (imagem completa)</option>
-          <option value="110%"    ${p.imagemSize==='110%'               ?'selected':''}>110%</option>
-          <option value="140%"    ${p.imagemSize==='140%'               ?'selected':''}>140%</option>
-        </select>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="modal-field">
+          <label class="form-label">Tamanho</label>
+          <select class="form-input" id="mpImagemSize" onchange="updateModPostPreview()">
+            <option value="cover"   ${(p.imagemSize||'cover')==='cover'   ?'selected':''}>Preencher (recortar)</option>
+            <option value="contain" ${p.imagemSize==='contain'            ?'selected':''}>Completa (sem recorte)</option>
+          </select>
+        </div>
+        <div class="modal-field">
+          <label class="form-label">Posição</label>
+          <select class="form-input" id="mpImagemPos" onchange="updateModPostPreview()">
+            <option value="top"    ${p.imagemPos==='top'                      ?'selected':''}>Topo</option>
+            <option value="center" ${(p.imagemPos||'center')==='center'       ?'selected':''}>Centro</option>
+            <option value="bottom" ${p.imagemPos==='bottom'                   ?'selected':''}>Baixo</option>
+            <option value="left"   ${p.imagemPos==='left'                     ?'selected':''}>Esquerda</option>
+            <option value="right"  ${p.imagemPos==='right'                    ?'selected':''}>Direita</option>
+          </select>
+        </div>
       </div>
     </div>`,
     `<button class="btn-save" onclick="savePostMod(${modId},'${modNome.replace(/'/g,"\\'")}',${postId||null})">Guardar</button>
@@ -4477,9 +4487,20 @@ function previewModPostImg(url) {
   const prev = document.getElementById('mpPreview');
   const img  = document.getElementById('mpPreviewImg');
   if (!prev || !img) return;
-  if (url) { img.src = url; prev.style.display = ''; }
-  else { prev.style.display = 'none'; }
+  if (url) {
+    img.src = url;
+    img.style.objectFit     = document.getElementById('mpImagemSize')?.value === 'contain' ? 'contain' : 'cover';
+    img.style.objectPosition = document.getElementById('mpImagemPos')?.value || 'center';
+    prev.style.display = '';
+  } else {
+    prev.style.display = 'none';
+  }
 }
+function updateModPostPreview() {
+  const src = document.getElementById('mpImagem')?.value.trim();
+  if (src) previewModPostImg(src);
+}
+window.updateModPostPreview = updateModPostPreview;
 
 function uploadModPostImg(input) {
   if (!input.files || !input.files[0]) return;
@@ -4501,6 +4522,7 @@ function savePostMod(modId, modNome, postId) {
     data:      document.getElementById('mpData')?.value || '',
     imagem:      document.getElementById('mpImagem')?.value.trim() || '',
     imagemSize:  document.getElementById('mpImagemSize')?.value || 'cover',
+    imagemPos:   document.getElementById('mpImagemPos')?.value  || 'center',
     publicada:   document.getElementById('mpPublicada')?.value === '1',
   };
   const posts = loadModPosts();

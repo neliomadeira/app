@@ -83,7 +83,9 @@
     grid.innerHTML = posts.map((p, i) => `
       <div class="mod-post-card" onclick="openPost(${p.id})">
         <div class="mod-post-card__img-wrap mod-post-card__img--${(i % 3) + 1}">
-          ${p.imagem ? `<img src="${p.imagem}" class="mod-post-card__img-el" alt="${p.titulo}" loading="lazy" onerror="this.parentElement.removeAttribute('style')">` : ''}
+          ${p.imagem ? `<img src="${p.imagem}" class="mod-post-card__img-el"
+            style="object-fit:${p.imagemSize === 'contain' ? 'contain' : 'cover'};object-position:${p.imagemPos || 'center'}"
+            alt="${p.titulo}" loading="lazy" onerror="this.style.display='none'">` : ''}
         </div>
         <div class="mod-post-card__body">
           <div class="mod-post-card__date">${ptDate(p.data)}</div>
