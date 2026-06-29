@@ -158,6 +158,9 @@ window.saveDB = function() {
     localStorage.setItem('db_treinadores',    JSON.stringify(DB.treinadores));
     localStorage.setItem('db_seniores',       JSON.stringify(DB.seniores));
     localStorage.setItem('db_seniores_info',  JSON.stringify(DB.senioresInfo));
+    // Mensagens e inscrições — bridge com formulários públicos
+    localStorage.setItem('db_contact_msgs',   JSON.stringify(DB.mensagens));
+    localStorage.setItem('db_inscricoes',     JSON.stringify(DB.inscricoes));
   } catch(e) {
     if (e.name === 'QuotaExceededError' || e.code === 22) {
       const libertar = confirm(
@@ -207,5 +210,51 @@ window.saveDB = function() {
     if (t)  DB.treinadores    = JSON.parse(t);
     if (s)  DB.seniores       = JSON.parse(s);
     if (si) DB.senioresInfo   = JSON.parse(si);
+
+    // Bridge: mensagens do formulário de contacto
+    const rawMsgs = localStorage.getItem('db_contact_msgs');
+    if (rawMsgs !== null) {
+      try { DB.mensagens = JSON.parse(rawMsgs); } catch(_) {}
+    }
+
+    // Bridge: inscrições — admin-managed tem prioridade; fallback para formulário público
+    const rawInscAdmin = localStorage.getItem('db_inscricoes');
+    if (rawInscAdmin !== null) {
+      try { DB.inscricoes = JSON.parse(rawInscAdmin); } catch(_) {}
+    } else {
+      const rawInscSite = localStorage.getItem('db_inscricoes_modalidades');
+      if (rawInscSite !== null) {
+        try {
+          const EMAP = { sub9:'Sub-9', sub11:'Sub-11', sub13:'Sub-13', sub15:'Sub-15', sub17:'Sub-17', sub19:'Sub-19' };
+          DB.inscricoes = JSON.parse(rawInscSite).map(function(item) {
+            var idade = '—';
+            if (item.dataNasc) {
+              var hoje = new Date(), n = new Date(item.dataNasc + 'T00:00:00');
+              var a = hoje.getFullYear() - n.getFullYear();
+              if (hoje.getMonth() < n.getMonth() || (hoje.getMonth() === n.getMonth() && hoje.getDate() < n.getDate())) a--;
+              if (a >= 0 && a <= 99) idade = a;
+            }
+            return {
+              id:        item.id,
+              nome:      item.nome       || '—',
+              modalidade:item.modalidade || 'Futebol',
+              escalao:   EMAP[item.escalao] || item.escalao || '—',
+              nivel:     item.nivel      || '—',
+              idade:     idade,
+              dataNasc:  item.dataNasc   || '',
+              posicao:   item.posicao    || '—',
+              pref:      item.pePreferido|| '—',
+              altura:    item.altura     || '—',
+              peso:      item.peso       || '—',
+              nomeResp:  item.nomeResp   || '—',
+              telefone:  item.telefone   || '—',
+              email:     item.email      || '—',
+              data:      item.data       || new Date().toISOString().slice(0,10),
+              estado:    item.estado     || 'Pendente',
+            };
+          });
+        } catch(_) {}
+      }
+    }
   } catch(e) {}
 })();

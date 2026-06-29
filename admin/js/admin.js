@@ -497,11 +497,14 @@ window.verInscricao = function (id) {
   openModal(`Inscrição — ${i.nome}`, `
     <div class="detail-grid">
       <div class="detail-item"><span class="detail-item__label">Nome</span><span class="detail-item__val">${i.nome}</span></div>
+      ${i.modalidade ? `<div class="detail-item"><span class="detail-item__label">Modalidade</span><span class="detail-item__val">${i.modalidade}</span></div>` : ''}
       <div class="detail-item"><span class="detail-item__label">Escalão</span><span class="detail-item__val">${i.escalao}</span></div>
+      ${i.nivel && i.nivel !== '—' ? `<div class="detail-item"><span class="detail-item__label">Nível</span><span class="detail-item__val">${i.nivel}</span></div>` : ''}
       <div class="detail-item"><span class="detail-item__label">Idade</span><span class="detail-item__val">${i.idade} anos</span></div>
       <div class="detail-item"><span class="detail-item__label">Posição</span><span class="detail-item__val">${i.posicao || '—'}</span></div>
-      <div class="detail-item"><span class="detail-item__label">Pé preferido</span><span class="detail-item__val">${i.pref}</span></div>
-      <div class="detail-item"><span class="detail-item__label">Altura / Peso</span><span class="detail-item__val">${i.altura} cm / ${i.peso} kg</span></div>
+      ${i.pref && i.pref !== '—' ? `<div class="detail-item"><span class="detail-item__label">Pé preferido</span><span class="detail-item__val">${i.pref}</span></div>` : ''}
+      ${i.altura && i.altura !== '—' ? `<div class="detail-item"><span class="detail-item__label">Altura / Peso</span><span class="detail-item__val">${i.altura} cm / ${i.peso || '—'} kg</span></div>` : ''}
+      ${i.nomeResp && i.nomeResp !== '—' ? `<div class="detail-item"><span class="detail-item__label">Encarregado</span><span class="detail-item__val">${i.nomeResp}</span></div>` : ''}
       <div class="detail-item"><span class="detail-item__label">Contacto</span><span class="detail-item__val">${i.telefone}</span></div>
       <div class="detail-item"><span class="detail-item__label">E-mail</span><span class="detail-item__val">${i.email}</span></div>
       <div class="detail-item"><span class="detail-item__label">Data</span><span class="detail-item__val">${fmtDate(i.data)}</span></div>
@@ -519,14 +522,14 @@ window.aprovarInscricao = function (id) {
   const i = DB.inscricoes.find(x => x.id === id);
   if (!i) return;
   i.estado = 'Aprovado';
-  // Add to athletes if not already there
   if (!DB.atletas.find(a => a.nome === i.nome)) {
     DB.atletas.push({
       id: DB.atletas.length + 1, nome: i.nome, escalao: i.escalao,
-      posicao: i.posicao, idade: i.idade, encarregado: '—',
+      posicao: i.posicao, idade: i.idade, encarregado: i.nomeResp || '—',
       telefone: i.telefone, estado: 'Activo'
     });
   }
+  saveDB();
   renderInscricoes();
   renderDashboard();
   renderAtletas();
@@ -538,6 +541,7 @@ window.rejeitarInscricao = function (id) {
   const i = DB.inscricoes.find(x => x.id === id);
   if (!i) return;
   i.estado = 'Rejeitado';
+  saveDB();
   renderInscricoes();
   renderDashboard();
   updateBadges();
@@ -1783,7 +1787,7 @@ document.getElementById('filterMsgEstado')?.addEventListener('change', function 
 window.verMensagem = function (id) {
   const m = DB.mensagens.find(x => x.id === id);
   if (!m) return;
-  if (m.estado === 'Não lida') { m.estado = 'Lida'; renderMensagens(); updateBadges(); }
+  if (m.estado === 'Não lida') { m.estado = 'Lida'; saveDB(); renderMensagens(); updateBadges(); }
   openModal(`Mensagem de ${m.nome}`, `
     <div class="detail-grid">
       <div class="detail-item"><span class="detail-item__label">Nome</span><span class="detail-item__val">${m.nome}</span></div>
@@ -1804,6 +1808,7 @@ window.marcarRespondida = function (id) {
   const m = DB.mensagens.find(x => x.id === id);
   if (!m) return;
   m.estado = 'Respondida';
+  saveDB();
   renderMensagens();
   updateBadges();
   showToast('Mensagem marcada como respondida.', 'green');
@@ -1813,6 +1818,7 @@ window.removeMensagem = function (id) {
   if (!confirm('Eliminar esta mensagem?')) return;
   const idx = DB.mensagens.findIndex(x => x.id === id);
   if (idx > -1) DB.mensagens.splice(idx, 1);
+  saveDB();
   renderMensagens();
   updateBadges();
   showToast('Mensagem eliminada.', 'red');

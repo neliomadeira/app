@@ -108,18 +108,30 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.disabled = true;
 
     const modalidade = document.querySelector('input[name="modalidade"]:checked')?.value || 'Futebol';
+    const g = id => document.getElementById(id)?.value || '';
     const insc = {
-      id:         Date.now(),
+      id:          Date.now(),
       modalidade,
-      nome:       document.getElementById('nomeAtleta')?.value || '',
-      dataNasc:   document.getElementById('dataNasc')?.value || '',
-      escalao:    isFutebol() ? (document.getElementById('categoria')?.value || '') : '',
-      nivel:      !isFutebol() ? (document.getElementById('nivel')?.value || '') : '',
-      posicao:    document.getElementById('posicao')?.value || '',
-      telefone:   document.getElementById('telefoneResp')?.value || '',
-      email:      document.getElementById('emailResp')?.value || '',
-      data:       new Date().toISOString().slice(0, 10),
-      estado:     'Pendente',
+      nome:        g('nomeAtleta'),
+      dataNasc:    g('dataNasc'),
+      nifAtleta:   g('nifAtleta'),
+      escalao:     isFutebol() ? g('categoria') : '',
+      nivel:       !isFutebol() ? g('nivel') : '',
+      posicao:     g('posicao'),
+      pePreferido: g('pePreferido'),
+      altura:      g('altura'),
+      peso:        g('peso'),
+      experiencia: g('experiencia'),
+      nomeResp:    g('nomeResp'),
+      parentesco:  g('parentesco'),
+      telefone:    g('telefoneResp'),
+      email:       g('emailResp'),
+      codigoPostal:g('codigoPostal'),
+      localidade:  g('localidade'),
+      rua:         g('rua'),
+      numero:      g('numero'),
+      data:        new Date().toISOString().slice(0, 10),
+      estado:      'Pendente',
     };
 
     // Guardar em localStorage
