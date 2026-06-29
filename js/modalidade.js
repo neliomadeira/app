@@ -82,10 +82,9 @@
   } else {
     grid.innerHTML = posts.map((p, i) => `
       <div class="mod-post-card" onclick="openPost(${p.id})">
-        ${p.imagem
-          ? `<img src="${p.imagem}" class="mod-post-card__img-el" alt="${p.titulo}" loading="lazy" onerror="this.style.display='none'">`
-          : `<div class="mod-post-card__img mod-post-card__img--${(i % 3) + 1}"></div>`
-        }
+        <div class="mod-post-card__img-wrap mod-post-card__img--${(i % 3) + 1}">
+          ${p.imagem ? `<img src="${p.imagem}" class="mod-post-card__img-el" alt="${p.titulo}" loading="lazy" onerror="this.parentElement.removeAttribute('style')">` : ''}
+        </div>
         <div class="mod-post-card__body">
           <div class="mod-post-card__date">${ptDate(p.data)}</div>
           <h3 class="mod-post-card__title">${p.titulo}</h3>

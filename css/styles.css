@@ -2852,10 +2852,17 @@ ul { list-style: none; }
   background-position: center;
   background-repeat: no-repeat;
 }
+.mod-post-card__img-wrap {
+  aspect-ratio: 3/2;
+  overflow: hidden;
+  background: linear-gradient(135deg, #1a3a80 0%, #0055cc 100%);
+}
 .mod-post-card__img-el {
   width: 100%;
-  height: auto;
+  height: 100%;
   display: block;
+  object-fit: cover;
+  object-position: center;
 }
 .mod-post-card__img--1 { background-color: #1a3a80; }
 .mod-post-card__img--2 { background-color: #0055cc; }
