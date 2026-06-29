@@ -3721,3 +3721,161 @@ body.has-banner .header { top: 38px; }
 .agenda-card--skel .skel-info { flex: 1; display: flex; flex-direction: column; gap: 8px; }
 .agenda-card--skel .skel-line { height: 14px; border-radius: 4px; }
 .agenda-card--skel .skel-line--sm { width: 50%; }
+
+/* =============================================
+   VISUAL & CONTENT — IMPROVEMENTS
+   ============================================= */
+
+/* -- Section title yellow accent bar -- */
+.section__title::after {
+  content: '';
+  display: block;
+  width: 44px;
+  height: 4px;
+  background: var(--yellow);
+  border-radius: 2px;
+  margin: 12px auto 0;
+}
+.section__header--left .section__title::after { margin: 12px 0 0; }
+/* Dark sections: accent stays yellow (already visible) */
+.section--dark .section__title::after { background: var(--yellow); }
+
+/* -- Section tag with horizontal rule lines -- */
+.section__tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.section__tag::before,
+.section__tag::after {
+  content: '';
+  display: block;
+  width: 22px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.4;
+}
+
+/* -- Section subtitle / lead text -- */
+.section__subtitle {
+  font-size: 1rem;
+  color: var(--gray-mid);
+  max-width: 580px;
+  margin: -48px auto 52px;
+  line-height: 1.7;
+  text-align: center;
+}
+.section__header--light .section__subtitle,
+.section--dark .section__subtitle { color: rgba(255,255,255,0.65); }
+
+/* -- Stat count-up animation -- */
+@keyframes statPop {
+  0%   { transform: scale(0.7); opacity: 0; }
+  60%  { transform: scale(1.08); }
+  100% { transform: scale(1);   opacity: 1; }
+}
+.stat--animated .stat__num {
+  animation: statPop 0.55s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+
+/* -- News card hover accent (inset bottom shadow — works with overflow:hidden) -- */
+.news-card:hover {
+  box-shadow: var(--shadow-lg), inset 0 -3px 0 var(--yellow);
+}
+
+/* -- Value item left accent on hover -- */
+.value-item:hover {
+  border-color: var(--yellow);
+  box-shadow: -3px 0 0 var(--yellow);
+}
+
+/* -- Staff card top accent on hover (inset — works with overflow:hidden) -- */
+.staff-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-lg), inset 0 3px 0 var(--yellow);
+}
+
+/* -- Gallery placeholder improvement -- */
+.gallery-placeholder {
+  background: linear-gradient(135deg, var(--blue-dark) 0%, var(--blue) 60%, var(--blue-mid) 100%);
+  position: relative;
+  overflow: hidden;
+}
+.gallery-placeholder::before {
+  content: '⚽';
+  position: absolute;
+  font-size: 5rem;
+  opacity: 0.06;
+  bottom: -10px;
+  right: -5px;
+  line-height: 1;
+  pointer-events: none;
+}
+.gallery-placeholder > span {
+  position: relative;
+  z-index: 1;
+  padding: 6px 14px;
+  background: rgba(0,0,0,0.25);
+  border-radius: 20px;
+  font-size: 0.78rem;
+  letter-spacing: 0.5px;
+}
+
+/* -- Modality card yellow bottom border on hover -- */
+.modality-card {
+  border-bottom: 3px solid transparent;
+  transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition);
+}
+.modality-card:hover { border-color: var(--yellow); }
+
+/* -- Category card (formação) improvements -- */
+.category-card {
+  position: relative;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+.category-card:hover { transform: translateY(-4px); }
+
+/* -- Sponsor card improvements -- */
+.sponsor-card {
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+.sponsor-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* -- Page hero decorative accent line -- */
+.page-hero::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(to right, var(--yellow) 0%, var(--yellow-dark) 50%, transparent 100%);
+}
+
+/* -- Improved section tag on dark backgrounds -- */
+.section--dark .section__tag { color: var(--yellow); }
+.section__header--light .section__tag { color: var(--yellow); }
+
+/* -- Contact info items visual -- */
+.contact-info__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid #eef0f4;
+}
+.contact-info__item:last-child { border-bottom: none; }
+.contact-info__icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(0,59,142,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  flex-shrink: 0;
+  color: var(--blue);
+}

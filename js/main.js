@@ -2,6 +2,35 @@
 // JUVENTUDE SPORT CAMPINENSE — MAIN JS
 // =============================================
 
+// ---- STAT COUNTER ANIMATION ----
+(function () {
+  if (!window.IntersectionObserver) return;
+  const stats = document.querySelectorAll('.stat__num');
+  if (!stats.length) return;
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      obs.unobserve(entry.target);
+      const el = entry.target;
+      const raw = el.textContent.trim();
+      const suffix = raw.replace(/[\d,]/g, '');
+      const target = parseInt(raw.replace(/\D/g, ''), 10);
+      if (!target) return;
+      el.closest('.stat')?.classList.add('stat--animated');
+      const duration = 900;
+      const start = performance.now();
+      function step(now) {
+        const p = Math.min((now - start) / duration, 1);
+        const ease = 1 - Math.pow(1 - p, 3);
+        el.textContent = Math.round(ease * target) + suffix;
+        if (p < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    });
+  }, { threshold: 0.6 });
+  stats.forEach(s => obs.observe(s));
+})();
+
 // ---- BUTTON RIPPLE ----
 document.addEventListener('click', function (e) {
   const btn = e.target.closest('.btn');
