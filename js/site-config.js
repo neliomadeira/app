@@ -92,10 +92,25 @@
   set('contactEmail',   cfg.contactEmail);
   set('contactHours',   cfg.contactHours);
 
-  // Redes sociais
-  setHref('socialInstagram', cfg.socialInstagramUrl);
-  setHref('socialFacebook',  cfg.socialFacebookUrl);
-  setHref('socialWhatsapp',  cfg.socialWhatsappUrl ? 'https://wa.me/' + cfg.socialWhatsappUrl.replace(/\D/g,'') : null);
+  // Redes sociais — abre em nova tab, popula contact section + footer
+  function setSocial(id, url) {
+    const el = document.getElementById(id);
+    if (!el || !url) return;
+    el.href = url;
+    el.target = '_blank';
+    el.rel = 'noopener noreferrer';
+  }
+  const waUrl = cfg.socialWhatsappUrl ? 'https://wa.me/' + cfg.socialWhatsappUrl.replace(/\D/g,'') : null;
+  setSocial('socialInstagram',       cfg.socialInstagramUrl);
+  setSocial('socialFacebook',        cfg.socialFacebookUrl);
+  setSocial('socialWhatsapp',        waUrl);
+  setSocial('footerSocialInstagram', cfg.socialInstagramUrl);
+  setSocial('footerSocialFacebook',  cfg.socialFacebookUrl);
+  setSocial('footerSocialWhatsapp',  waUrl);
+  // Botão "Ver página no Facebook" na secção de feed
+  if (cfg.socialFacebookUrl) {
+    setSocial('fbSectionLink', cfg.socialFacebookUrl);
+  }
 
   // Footer
   set('footerEmail', cfg.footerEmail);

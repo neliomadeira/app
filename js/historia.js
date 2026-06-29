@@ -102,10 +102,26 @@
 
   renderTimeline();
   renderPalmares();
+  initReveal();
 
   window.addEventListener('storage', e => {
-    if (e.key === 'db_historia') renderTimeline();
-    if (e.key === 'db_palmares') renderPalmares();
+    if (e.key === 'db_historia') { renderTimeline(); initReveal(); }
+    if (e.key === 'db_palmares') { renderPalmares(); initReveal(); }
   });
+
+  function initReveal() {
+    if (!window.IntersectionObserver) return;
+    const items = document.querySelectorAll('.timeline-item:not(.tl-reveal), .palmares-card:not(.tl-reveal)');
+    if (!items.length) return;
+    const obs = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.classList.add('tl-visible');
+          obs.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.12 });
+    items.forEach(el => { el.classList.add('tl-reveal'); obs.observe(el); });
+  }
 
 })();
