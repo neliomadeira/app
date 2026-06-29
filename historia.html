@@ -31,7 +31,7 @@
   <header class="header" id="header">
     <div class="container header__inner">
       <a href="index.html" class="logo">
-        <img src="images/logo.png" alt="JS Campinense" class="logo__img" onerror="this.src='images/logo.png';this.onerror=null" />
+        <img src="images/logo.png" alt="JS Campinense" class="logo__img" onerror="this.src='images/logo.png';this.onerror=null"  fetchpriority="high">
         <div class="logo__text">
           <span class="logo__name">JS Campinense</span>
           <span class="logo__sub">Juventude</span>
@@ -121,7 +121,7 @@
           <p>A nossa história é feita de dedicação, superação e comunidade — um legado vivo que continua a crescer a cada geração de atletas, treinadores e famílias que fazem parte desta família.</p>
         </div>
         <div class="historia-intro__badge">
-          <img src="images/logo.png" alt="JS Campinense" class="logo__img" style="width:80px;height:80px;object-fit:contain" onerror="this.src='images/logo.png';this.onerror=null" />
+          <img src="images/logo.png" alt="JS Campinense" class="logo__img" style="width:80px;height:80px;object-fit:contain" onerror="this.src='images/logo.png';this.onerror=null"  fetchpriority="high">
           <strong>Est. 1923</strong>
           <span>Loulé · Algarve</span>
         </div>
@@ -170,7 +170,7 @@
     <div class="container footer__inner">
       <div class="footer__brand">
         <div class="logo">
-          <img src="images/logo.png" alt="JS Campinense" class="logo__img logo__img--small" />
+          <img src="images/logo.png" alt="JS Campinense" class="logo__img logo__img--small" / loading="lazy">
           <div class="logo__text">
             <span class="logo__name">JS Campinense</span>
             <span class="logo__sub">Juventude</span>
@@ -218,10 +218,10 @@
     </div>
   </footer>
 
-  <script src="js/security.js?v=20260628"></script>
-  <script src="js/sync.js"></script>
-  <script src="js/site-config.js?v=20260628"></script>
-  <script src="js/historia.js?v=20260617"></script>
-  <script src="/js/pwa.js"></script>
+  <script src="js/security.js?v=20260628" defer></script>
+  <script src="js/sync.js" defer></script>
+  <script src="js/site-config.js?v=20260628" defer></script>
+  <script src="js/historia.js?v=20260617" defer></script>
+  <script src="/js/pwa.js" defer></script>
 </body>
 </html>
