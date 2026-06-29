@@ -4454,9 +4454,6 @@ function abrirFormPostMod(modId, modNome, postId) {
         <input class="form-input" type="text" id="mpImagem" value="${p.imagem || ''}" placeholder="https://..." oninput="previewModPostImg(this.value)" />
         <input type="file" id="mpFicheiro" accept="image/*" style="display:none" onchange="uploadModPostImg(this)" />
         <button type="button" class="btn-sm" style="margin-top:6px" onclick="document.getElementById('mpFicheiro').click()">&#128190; Carregar</button>
-        <div id="mpPreview" style="${p.imagem ? '' : 'display:none'};margin-top:8px">
-          <img id="mpPreviewImg" src="${p.imagem || ''}" style="max-height:80px;border-radius:6px;object-fit:cover" />
-        </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div class="modal-field">
@@ -4477,6 +4474,13 @@ function abrirFormPostMod(modId, modNome, postId) {
           </select>
         </div>
       </div>
+      <div id="mpPreview" style="${p.imagem ? '' : 'display:none'}">
+        <label class="form-label">Pré-visualização</label>
+        <div style="height:180px;border-radius:8px;overflow:hidden;background:#1a3a80">
+          <img id="mpPreviewImg" src="${p.imagem || ''}"
+            style="width:100%;height:100%;object-fit:${(p.imagemSize||'cover')==='contain'?'contain':'cover'};object-position:${p.imagemPos||'center'}" />
+        </div>
+      </div>
     </div>`,
     `<button class="btn-save" onclick="savePostMod(${modId},'${modNome.replace(/'/g,"\\'")}',${postId||null})">Guardar</button>
      <button class="btn-cancel" onclick="gerirPostsMod(${modId},'${modNome.replace(/'/g,"\\'")}')">&#8592; Voltar</button>`
@@ -4488,8 +4492,8 @@ function previewModPostImg(url) {
   const img  = document.getElementById('mpPreviewImg');
   if (!prev || !img) return;
   if (url) {
-    img.src = url;
-    img.style.objectFit     = document.getElementById('mpImagemSize')?.value === 'contain' ? 'contain' : 'cover';
+    img.src              = url;
+    img.style.objectFit      = document.getElementById('mpImagemSize')?.value === 'contain' ? 'contain' : 'cover';
     img.style.objectPosition = document.getElementById('mpImagemPos')?.value || 'center';
     prev.style.display = '';
   } else {
@@ -4499,6 +4503,11 @@ function previewModPostImg(url) {
 function updateModPostPreview() {
   const src = document.getElementById('mpImagem')?.value.trim();
   if (src) previewModPostImg(src);
+  const img = document.getElementById('mpPreviewImg');
+  if (img) {
+    img.style.objectFit      = document.getElementById('mpImagemSize')?.value === 'contain' ? 'contain' : 'cover';
+    img.style.objectPosition = document.getElementById('mpImagemPos')?.value || 'center';
+  }
 }
 window.updateModPostPreview = updateModPostPreview;
 
