@@ -14,10 +14,17 @@
     return `${d.getDate()} de ${MESES[d.getMonth()]}, ${d.getFullYear()}`;
   }
 
+  var DEFAULT_MODALIDADES = [
+    { id:1, nome:'Kickboxing', icone:'🥊', descricao:'Artes marciais de impacto que combinam técnicas de boxe e karaté. Aberto a todas as idades e níveis, com grupos adaptados.', treinos:'3ª e 5ª — 19h00', local:'Pavilhão Municipal de Loulé', responsavel:'', ativo:true, imagem:'', imagemPos:'center' },
+    { id:2, nome:'Judo',       icone:'🥋', descricao:'Arte marcial japonesa focada em técnicas de projeção e imobilização. Desenvolve disciplina, respeito e autoconfiança desde criança.', treinos:'2ª, 4ª e 6ª — 18h30', local:'Pavilhão Municipal de Loulé', responsavel:'', ativo:true, imagem:'', imagemPos:'center' },
+    { id:3, nome:'Futsal',     icone:'⚽', descricao:'Futebol em espaço reduzido que potencia a técnica e velocidade de decisão. Escalões de formação com competição distrital.', treinos:'2ª e 4ª — 20h00', local:'Pavilhão Desportivo de Loulé', responsavel:'', ativo:true, imagem:'', imagemPos:'center' },
+  ];
+
   // ---- Carregar modalidade ----
   const params  = new URLSearchParams(window.location.search);
   const modId   = parseInt(params.get('id'));
-  const lista   = JSON.parse(localStorage.getItem('db_modalidades') || '[]');
+  var rawMod = localStorage.getItem('db_modalidades');
+  const lista   = rawMod ? JSON.parse(rawMod) : DEFAULT_MODALIDADES;
   const m       = lista.find(x => x.id == modId);
 
   if (!m) {
