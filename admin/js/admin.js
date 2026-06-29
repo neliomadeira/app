@@ -4429,7 +4429,7 @@ function abrirFormPostMod(modId, modNome, postId) {
   const curSize = p.imagemSize || 'cover';
   const FOCAL_POS = ['top left','top','top right','left','center','right','bottom left','bottom','bottom right'];
   const focalCells = FOCAL_POS.map(pos =>
-    `<div class="mp-focal-cell${pos===curPos?' active':''}" onclick="setModPostFocal('${pos}',this)" title="${pos}"></div>`
+    `<div class="mp-focal-cell${pos===curPos?' active':''}" data-pos="${pos}" title="${pos}"></div>`
   ).join('');
   openModal(
     postId ? 'Editar Publicação' : 'Nova Publicação',
@@ -4476,13 +4476,28 @@ function abrirFormPostMod(modId, modNome, postId) {
             <img id="mpPreviewImg" src="${p.imagem || ''}"
               style="width:100%;height:100%;object-fit:${curSize==='contain'?'contain':'cover'};object-position:${curPos}" />
           </div>
-          <div class="mp-focal-grid">${focalCells}</div>
+          <div class="mp-focal-grid" id="mpFocalGrid">${focalCells}</div>
         </div>
       </div>
     </div>`,
     `<button class="btn-save" onclick="savePostMod(${modId},'${modNome.replace(/'/g,"\\'")}',${postId||null})">Guardar</button>
      <button class="btn-cancel" onclick="gerirPostsMod(${modId},'${modNome.replace(/'/g,"\\'")}')">&#8592; Voltar</button>`
   );
+  setTimeout(function () {
+    const grid = document.getElementById('mpFocalGrid');
+    if (!grid) return;
+    grid.addEventListener('click', function (e) {
+      const cell = e.target.closest('.mp-focal-cell');
+      if (!cell) return;
+      const pos = cell.dataset.pos;
+      const input = document.getElementById('mpImagemPos');
+      const img   = document.getElementById('mpPreviewImg');
+      if (input) input.value = pos;
+      if (img)   img.style.objectPosition = pos;
+      grid.querySelectorAll('.mp-focal-cell').forEach(function (c) { c.classList.remove('active'); });
+      cell.classList.add('active');
+    });
+  }, 0);
 }
 
 function previewModPostImg(url) {
