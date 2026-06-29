@@ -4425,6 +4425,12 @@ function gerirPostsMod(modId, modNome) {
 function abrirFormPostMod(modId, modNome, postId) {
   const posts = loadModPosts();
   const p = postId ? (posts.find(x => x.id == postId) || {}) : {};
+  const curPos  = p.imagemPos  || 'center';
+  const curSize = p.imagemSize || 'cover';
+  const FOCAL_POS = ['top left','top','top right','left','center','right','bottom left','bottom','bottom right'];
+  const focalCells = FOCAL_POS.map(pos =>
+    `<div class="mp-focal-cell${pos===curPos?' active':''}" onclick="setModPostFocal('${pos}',this)" title="${pos}"></div>`
+  ).join('');
   openModal(
     postId ? 'Editar Publicação' : 'Nova Publicação',
     `<div style="display:grid;gap:14px">
@@ -4455,30 +4461,22 @@ function abrirFormPostMod(modId, modNome, postId) {
         <input type="file" id="mpFicheiro" accept="image/*" style="display:none" onchange="uploadModPostImg(this)" />
         <button type="button" class="btn-sm" style="margin-top:6px" onclick="document.getElementById('mpFicheiro').click()">&#128190; Carregar</button>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div class="modal-field">
-          <label class="form-label">Tamanho</label>
-          <select class="form-input" id="mpImagemSize" onchange="updateModPostPreview()">
-            <option value="cover"   ${(p.imagemSize||'cover')==='cover'   ?'selected':''}>Preencher (recortar)</option>
-            <option value="contain" ${p.imagemSize==='contain'            ?'selected':''}>Completa (sem recorte)</option>
-          </select>
-        </div>
-        <div class="modal-field">
-          <label class="form-label">Posição</label>
-          <select class="form-input" id="mpImagemPos" onchange="updateModPostPreview()">
-            <option value="top"    ${p.imagemPos==='top'                      ?'selected':''}>Topo</option>
-            <option value="center" ${(p.imagemPos||'center')==='center'       ?'selected':''}>Centro</option>
-            <option value="bottom" ${p.imagemPos==='bottom'                   ?'selected':''}>Baixo</option>
-            <option value="left"   ${p.imagemPos==='left'                     ?'selected':''}>Esquerda</option>
-            <option value="right"  ${p.imagemPos==='right'                    ?'selected':''}>Direita</option>
-          </select>
-        </div>
+      <div class="modal-field">
+        <label class="form-label">Tamanho</label>
+        <select class="form-input" id="mpImagemSize" onchange="updateModPostPreview()">
+          <option value="cover"   ${curSize==='cover'   ?'selected':''}>Preencher (recortar)</option>
+          <option value="contain" ${curSize==='contain' ?'selected':''}>Completa (sem recorte)</option>
+        </select>
       </div>
+      <input type="hidden" id="mpImagemPos" value="${curPos}" />
       <div id="mpPreview" style="${p.imagem ? '' : 'display:none'}">
-        <label class="form-label">Pré-visualização</label>
-        <div style="height:180px;border-radius:8px;overflow:hidden;background:#1a3a80">
-          <img id="mpPreviewImg" src="${p.imagem || ''}"
-            style="width:100%;height:100%;object-fit:${(p.imagemSize||'cover')==='contain'?'contain':'cover'};object-position:${p.imagemPos||'center'}" />
+        <label class="form-label" style="margin-bottom:6px;display:block">Pré-visualização &nbsp;<small style="color:#888;font-weight:400">— clique para ajustar o recorte</small></label>
+        <div style="position:relative;border-radius:8px;overflow:hidden;background:#1a3a80">
+          <div style="height:200px">
+            <img id="mpPreviewImg" src="${p.imagem || ''}"
+              style="width:100%;height:100%;object-fit:${curSize==='contain'?'contain':'cover'};object-position:${curPos}" />
+          </div>
+          <div class="mp-focal-grid">${focalCells}</div>
         </div>
       </div>
     </div>`,
@@ -4492,7 +4490,7 @@ function previewModPostImg(url) {
   const img  = document.getElementById('mpPreviewImg');
   if (!prev || !img) return;
   if (url) {
-    img.src              = url;
+    img.src = url;
     img.style.objectFit      = document.getElementById('mpImagemSize')?.value === 'contain' ? 'contain' : 'cover';
     img.style.objectPosition = document.getElementById('mpImagemPos')?.value || 'center';
     prev.style.display = '';
@@ -4501,15 +4499,25 @@ function previewModPostImg(url) {
   }
 }
 function updateModPostPreview() {
-  const src = document.getElementById('mpImagem')?.value.trim();
-  if (src) previewModPostImg(src);
   const img = document.getElementById('mpPreviewImg');
-  if (img) {
-    img.style.objectFit      = document.getElementById('mpImagemSize')?.value === 'contain' ? 'contain' : 'cover';
-    img.style.objectPosition = document.getElementById('mpImagemPos')?.value || 'center';
-  }
+  if (!img) return;
+  const src = document.getElementById('mpImagem')?.value.trim();
+  if (src && !img.src) img.src = src;
+  img.style.objectFit      = document.getElementById('mpImagemSize')?.value === 'contain' ? 'contain' : 'cover';
+  img.style.objectPosition = document.getElementById('mpImagemPos')?.value || 'center';
+  const prev = document.getElementById('mpPreview');
+  if (prev && src) prev.style.display = '';
+}
+function setModPostFocal(pos, cell) {
+  const input = document.getElementById('mpImagemPos');
+  const img   = document.getElementById('mpPreviewImg');
+  if (input) input.value = pos;
+  if (img)   img.style.objectPosition = pos;
+  document.querySelectorAll('.mp-focal-cell').forEach(c => c.classList.remove('active'));
+  if (cell) cell.classList.add('active');
 }
 window.updateModPostPreview = updateModPostPreview;
+window.setModPostFocal = setModPostFocal;
 
 function uploadModPostImg(input) {
   if (!input.files || !input.files[0]) return;
