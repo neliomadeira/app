@@ -2902,29 +2902,6 @@ ul { list-style: none; }
   text-decoration: none;
 }
 
-/* Focal point grid (admin mod post editor) */
-.mp-focal-grid {
-  display: inline-grid;
-  grid-template-columns: repeat(3, 30px);
-  grid-template-rows: repeat(3, 30px);
-  gap: 3px;
-}
-.mp-focal-cell {
-  width: 30px;
-  height: 30px;
-  border: 2px solid #dde2ec;
-  border-radius: 5px;
-  background: #fff;
-  cursor: pointer;
-  font-size: 0.95rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: border-color 0.12s, background 0.12s, color 0.12s;
-  user-select: none;
-}
-.mp-focal-cell:hover { border-color: var(--blue); background: #eef2ff; }
-.mp-focal-cell.active { background: var(--blue); border-color: var(--blue); color: #fff; }
 
 /* Post overlay */
 .post-overlay {

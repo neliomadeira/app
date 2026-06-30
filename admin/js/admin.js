@@ -4422,16 +4422,24 @@ function gerirPostsMod(modId, modNome) {
   );
 }
 
+function focalToPercent(pos) {
+  var map = {
+    'top left':[0,0],'top':[50,0],'top right':[100,0],
+    'left':[0,50],'center':[50,50],'right':[100,50],
+    'bottom left':[0,100],'bottom':[50,100],'bottom right':[100,100]
+  };
+  if (map[pos]) return map[pos];
+  var parts = String(pos).split(' ');
+  if (parts.length === 2) return [parseFloat(parts[0]), parseFloat(parts[1])];
+  return [50, 50];
+}
+
 function abrirFormPostMod(modId, modNome, postId) {
   const posts = loadModPosts();
   const p = postId ? (posts.find(x => x.id == postId) || {}) : {};
   const curPos  = p.imagemPos  || 'center';
   const curSize = p.imagemSize || 'cover';
-  const FOCAL_LABELS = ['↖','↑','↗','←','⊙','→','↙','↓','↘'];
-  const FOCAL_POS    = ['top left','top','top right','left','center','right','bottom left','bottom','bottom right'];
-  const focalCells = FOCAL_POS.map((pos, i) =>
-    `<div class="mp-focal-cell${pos===curPos?' active':''}" data-pos="${pos}" title="${pos}">${FOCAL_LABELS[i]}</div>`
-  ).join('');
+  const pct = focalToPercent(curPos);
   openModal(
     postId ? 'Editar Publicação' : 'Nova Publicação',
     `<div style="display:grid;gap:14px">
@@ -4471,14 +4479,23 @@ function abrirFormPostMod(modId, modNome, postId) {
       </div>
       <input type="hidden" id="mpImagemPos" value="${curPos}" />
       <div id="mpPreview" style="${p.imagem ? '' : 'display:none'}">
-        <label class="form-label" style="margin-bottom:6px;display:block">Pré-visualização</label>
-        <div style="border-radius:8px;overflow:hidden;background:#1a3a80;height:200px">
+        <label class="form-label" style="margin-bottom:4px;display:block">
+          Pré-visualização
+          <small style="color:#888;font-weight:400;margin-left:6px">— clique na imagem para definir o ponto focal</small>
+        </label>
+        <div id="mpPreviewWrap" style="position:relative;border-radius:8px;overflow:hidden;background:#1a3a80;height:220px;cursor:crosshair">
           <img id="mpPreviewImg" src="${p.imagem || ''}"
-            style="width:100%;height:100%;object-fit:${curSize==='contain'?'contain':'cover'};object-position:${curPos}" />
-        </div>
-        <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
-          <span style="font-size:0.78rem;color:#666;font-weight:600;white-space:nowrap">Ponto focal:</span>
-          <div class="mp-focal-grid" id="mpFocalGrid">${focalCells}</div>
+            style="width:100%;height:100%;object-fit:${curSize==='contain'?'contain':'cover'};object-position:${curPos};pointer-events:none;display:block" />
+          <div id="mpFocalPin" style="position:absolute;left:${pct[0]}%;top:${pct[1]}%;transform:translate(-50%,-50%);pointer-events:none;z-index:3;display:${p.imagem?'block':'none'}">
+            <svg width="30" height="30" viewBox="0 0 30 30" style="filter:drop-shadow(0 1px 4px rgba(0,0,0,0.6))">
+              <circle cx="15" cy="15" r="13" fill="white" fill-opacity="0.92"/>
+              <circle cx="15" cy="15" r="5" fill="#0055cc"/>
+              <line x1="15" y1="2" x2="15" y2="8" stroke="#0055cc" stroke-width="2" stroke-linecap="round"/>
+              <line x1="15" y1="22" x2="15" y2="28" stroke="#0055cc" stroke-width="2" stroke-linecap="round"/>
+              <line x1="2" y1="15" x2="8" y2="15" stroke="#0055cc" stroke-width="2" stroke-linecap="round"/>
+              <line x1="22" y1="15" x2="28" y2="15" stroke="#0055cc" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
         </div>
       </div>
     </div>`,
@@ -4486,55 +4503,48 @@ function abrirFormPostMod(modId, modNome, postId) {
      <button class="btn-cancel" onclick="gerirPostsMod(${modId},'${modNome.replace(/'/g,"\\'")}')">&#8592; Voltar</button>`
   );
   setTimeout(function () {
-    const grid = document.getElementById('mpFocalGrid');
-    if (!grid) return;
-    grid.addEventListener('click', function (e) {
-      const cell = e.target.closest('.mp-focal-cell');
-      if (!cell) return;
-      const pos = cell.dataset.pos;
-      const input = document.getElementById('mpImagemPos');
-      const img   = document.getElementById('mpPreviewImg');
+    var wrap = document.getElementById('mpPreviewWrap');
+    if (!wrap) return;
+    wrap.addEventListener('click', function (e) {
+      var rect = wrap.getBoundingClientRect();
+      var x = Math.round((e.clientX - rect.left) / rect.width * 100);
+      var y = Math.round((e.clientY - rect.top)  / rect.height * 100);
+      var pos = x + '% ' + y + '%';
+      var input = document.getElementById('mpImagemPos');
+      var img   = document.getElementById('mpPreviewImg');
+      var pin   = document.getElementById('mpFocalPin');
       if (input) input.value = pos;
       if (img)   img.style.objectPosition = pos;
-      grid.querySelectorAll('.mp-focal-cell').forEach(function (c) { c.classList.remove('active'); });
-      cell.classList.add('active');
+      if (pin) { pin.style.left = x + '%'; pin.style.top = y + '%'; pin.style.display = 'block'; }
     });
   }, 0);
 }
 
 function previewModPostImg(url) {
-  const prev = document.getElementById('mpPreview');
-  const img  = document.getElementById('mpPreviewImg');
+  var prev = document.getElementById('mpPreview');
+  var img  = document.getElementById('mpPreviewImg');
+  var pin  = document.getElementById('mpFocalPin');
   if (!prev || !img) return;
   if (url) {
     img.src = url;
     img.style.objectFit      = document.getElementById('mpImagemSize')?.value === 'contain' ? 'contain' : 'cover';
     img.style.objectPosition = document.getElementById('mpImagemPos')?.value || 'center';
+    if (pin) pin.style.display = 'block';
     prev.style.display = '';
   } else {
     prev.style.display = 'none';
   }
 }
 function updateModPostPreview() {
-  const img = document.getElementById('mpPreviewImg');
+  var img = document.getElementById('mpPreviewImg');
   if (!img) return;
-  const src = document.getElementById('mpImagem')?.value.trim();
-  if (src && !img.src) img.src = src;
   img.style.objectFit      = document.getElementById('mpImagemSize')?.value === 'contain' ? 'contain' : 'cover';
   img.style.objectPosition = document.getElementById('mpImagemPos')?.value || 'center';
-  const prev = document.getElementById('mpPreview');
+  var src  = document.getElementById('mpImagem')?.value.trim();
+  var prev = document.getElementById('mpPreview');
   if (prev && src) prev.style.display = '';
 }
-function setModPostFocal(pos, cell) {
-  const input = document.getElementById('mpImagemPos');
-  const img   = document.getElementById('mpPreviewImg');
-  if (input) input.value = pos;
-  if (img)   img.style.objectPosition = pos;
-  document.querySelectorAll('.mp-focal-cell').forEach(c => c.classList.remove('active'));
-  if (cell) cell.classList.add('active');
-}
 window.updateModPostPreview = updateModPostPreview;
-window.setModPostFocal = setModPostFocal;
 
 function uploadModPostImg(input) {
   if (!input.files || !input.files[0]) return;
