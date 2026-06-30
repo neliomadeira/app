@@ -1498,10 +1498,12 @@ function renderNoticias() {
 }
 
 function abrirModalNoticia(n) {
-  const isNew = !n;
-  const cats  = ['Resultado','Seleção','Conquista','Clube','Evento','Formação','Seniores'];
-  const pos   = n?.imagemPos  || 'top';
-  const sz    = n?.imagemSize || 'cover';
+  const isNew     = !n;
+  const cats      = ['Resultado','Seleção','Conquista','Clube','Evento','Formação','Seniores'];
+  const pos       = n?.imagemPos  || 'top';
+  const sz        = n?.imagemSize || 'cover';
+  const focalPos  = n?.focalPos   || 'center';
+  const focalPct  = focalToPercent(focalPos);
 
   openModal(isNew ? 'Nova Notícia' : 'Editar Notícia', `
     ${isNew ? `<div class="tpl-bar">
@@ -1564,7 +1566,13 @@ function abrirModalNoticia(n) {
         <button type="button" class="rte-btn" data-cmd="justifyCenter" title="Centrar">&#8677;</button>
         <button type="button" class="rte-btn" data-cmd="justifyRight"  title="Alinhar direita">&#8677;</button>
         <span class="rte-sep"></span>
-        <button type="button" class="rte-btn" data-cmd="insertUnorderedList" title="Lista">&#8226;</button>
+        <button type="button" class="rte-btn" data-cmd="insertUnorderedList"  title="Lista com pontos">&#8226;</button>
+        <button type="button" class="rte-btn" data-cmd="insertOrderedList"   title="Lista numerada">1.</button>
+        <span class="rte-sep"></span>
+        <button type="button" class="rte-btn rte-btn--block" data-block="h2" title="Título H2" style="font-weight:700;font-size:0.78rem">H2</button>
+        <button type="button" class="rte-btn rte-btn--block" data-block="h3" title="Título H3" style="font-weight:700;font-size:0.78rem">H3</button>
+        <button type="button" class="rte-btn rte-btn--block" data-block="p"  title="Parágrafo normal" style="font-size:0.82rem">¶</button>
+        <span class="rte-sep"></span>
         <button type="button" class="rte-btn rte-btn--clear" id="rteClear" title="Limpar formatação">&#10005; Limpar</button>
       </div>
       <div class="rte-editor form-input" id="mResumoEditor" contenteditable="true" data-placeholder="Texto da notícia...">${n?.resumo || ''}</div>
@@ -1581,9 +1589,25 @@ function abrirModalNoticia(n) {
         <input type="url" class="form-input" id="mImagem" value="${n?.imagem || ''}" placeholder="https://..." style="flex:1;min-width:160px" oninput="previewNoticiaUrl(this.value)" />
       </div>
       <div id="mImagemPreview" style="${n?.imagem ? '' : 'display:none'}">
-        <img id="mImagemPreviewImg" src="${n?.imagem || ''}" style="max-width:100%;max-height:140px;border-radius:8px;object-fit:cover;display:block" onerror="this.parentElement.style.display='none'" />
+        <div style="font-size:0.78rem;color:#888;margin-bottom:4px">Clique na imagem para definir o ponto focal do recorte</div>
+        <div id="mNoticiaPreviewWrap" style="position:relative;border-radius:8px;overflow:hidden;background:#1a3a80;height:180px;cursor:crosshair">
+          <img id="mImagemPreviewImg" src="${n?.imagem || ''}"
+            style="width:100%;height:100%;object-fit:cover;object-position:${focalPos};pointer-events:none;display:block"
+            onerror="this.parentElement.parentElement.style.display='none'" />
+          <div id="mNoticiaFocalPin" style="position:absolute;left:${focalPct[0]}%;top:${focalPct[1]}%;transform:translate(-50%,-50%);pointer-events:none;z-index:3;display:${n?.imagem?'block':'none'}">
+            <svg width="30" height="30" viewBox="0 0 30 30" style="filter:drop-shadow(0 1px 4px rgba(0,0,0,0.6))">
+              <circle cx="15" cy="15" r="13" fill="white" fill-opacity="0.92"/>
+              <circle cx="15" cy="15" r="5" fill="#0055cc"/>
+              <line x1="15" y1="2" x2="15" y2="8" stroke="#0055cc" stroke-width="2" stroke-linecap="round"/>
+              <line x1="15" y1="22" x2="15" y2="28" stroke="#0055cc" stroke-width="2" stroke-linecap="round"/>
+              <line x1="2" y1="15" x2="8" y2="15" stroke="#0055cc" stroke-width="2" stroke-linecap="round"/>
+              <line x1="22" y1="15" x2="28" y2="15" stroke="#0055cc" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+        </div>
         <div id="mImagemTamanho" style="font-size:11px;color:#888;margin-top:3px"></div>
       </div>
+      <input type="hidden" id="mFocalPos" value="${focalPos}" />
     </div>
 
     <div class="modal-row" style="margin-top:4px">
@@ -1636,13 +1660,32 @@ function _initRTE() {
   if (!editor || !toolbar) return;
 
   toolbar.addEventListener('mousedown', e => {
-    const btn = e.target.closest('[data-cmd]');
+    const btn = e.target.closest('[data-cmd],[data-block]');
     if (!btn) return;
     e.preventDefault();
     editor.focus();
-    document.execCommand(btn.dataset.cmd, false, null);
+    if (btn.dataset.cmd)   document.execCommand(btn.dataset.cmd,   false, null);
+    if (btn.dataset.block) document.execCommand('formatBlock', false, btn.dataset.block);
     _updateToolbarState();
   });
+
+  // click-to-focus for news image
+  setTimeout(function () {
+    var wrap = document.getElementById('mNoticiaPreviewWrap');
+    if (!wrap) return;
+    wrap.addEventListener('click', function (e) {
+      var rect  = wrap.getBoundingClientRect();
+      var x     = Math.round((e.clientX - rect.left) / rect.width  * 100);
+      var y     = Math.round((e.clientY - rect.top)  / rect.height * 100);
+      var pos   = x + '% ' + y + '%';
+      var input = document.getElementById('mFocalPos');
+      var img   = document.getElementById('mImagemPreviewImg');
+      var pin   = document.getElementById('mNoticiaFocalPin');
+      if (input) input.value = pos;
+      if (img)   img.style.objectPosition = pos;
+      if (pin)   { pin.style.left = x + '%'; pin.style.top = y + '%'; pin.style.display = 'block'; }
+    });
+  }, 0);
 
   document.getElementById('rteFonte')?.addEventListener('change', e => {
     editor.focus();
@@ -1682,9 +1725,11 @@ window.previewNoticiaImg = function(input) {
     document.getElementById('mImagem').value = dataUrl;
     const prev = document.getElementById('mImagemPreview');
     const img  = document.getElementById('mImagemPreviewImg');
+    const pin  = document.getElementById('mNoticiaFocalPin');
     const info = document.getElementById('mImagemTamanho');
     prev.style.display = '';
     img.src = dataUrl;
+    if (pin) pin.style.display = 'block';
     const kb = Math.round(dataUrl.length * 0.75 / 1024);
     if (info) info.textContent = `Tamanho comprimido: ~${kb} KB`;
   });
@@ -1693,7 +1738,8 @@ window.previewNoticiaImg = function(input) {
 window.previewNoticiaUrl = function(url) {
   const prev = document.getElementById('mImagemPreview');
   const img  = document.getElementById('mImagemPreviewImg');
-  if (url) { prev.style.display = ''; img.src = url; }
+  const pin  = document.getElementById('mNoticiaFocalPin');
+  if (url) { prev.style.display = ''; img.src = url; if (pin) pin.style.display = 'block'; }
   else { prev.style.display = 'none'; }
 };
 
@@ -1722,6 +1768,7 @@ window.saveNoticia = function(id) {
     imagem:     document.getElementById('mImagem')?.value.trim() || '',
     imagemPos:  document.getElementById('mImagemPos')?.value     || 'top',
     imagemSize: document.getElementById('mImagemSize')?.value    || 'cover',
+    focalPos:   document.getElementById('mFocalPos')?.value      || 'center',
     publicada:  document.getElementById('mPublicada')?.checked   ?? true,
   };
 

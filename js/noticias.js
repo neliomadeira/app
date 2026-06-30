@@ -74,7 +74,7 @@
 
     grid.innerHTML = show.map((n, i) => {
       const imgStyle = n.imagem
-        ? `background-image:url('${n.imagem}');background-size:${n.imagemSize || 'cover'};background-position:center;background-repeat:no-repeat`
+        ? `background-image:url('${n.imagem}');background-size:${n.imagemSize || 'cover'};background-position:${n.focalPos || 'center'};background-repeat:no-repeat`
         : '';
       const plainText = (n.resumo || '').replace(/<[^>]+>/g, '');
       const excerpt = plainText.length > 130 ? plainText.slice(0, 130) + '…' : plainText;
@@ -131,7 +131,7 @@
     const imgPos   = n.imagemPos  || 'top';
     const imgSize  = n.imagemSize || 'cover';
     const imgStyle = n.imagem
-      ? `background-image:url('${n.imagem}');background-size:${imgSize};background-position:center;background-repeat:no-repeat`
+      ? `background-image:url('${n.imagem}');background-size:${imgSize};background-position:${n.focalPos || 'center'};background-repeat:no-repeat`
       : '';
     const imgHtml = n.imagem
       ? `<div class="news-article__img news-article__img--${imgPos}" style="${imgStyle}"></div>`
