@@ -2904,30 +2904,27 @@ ul { list-style: none; }
 
 /* Focal point grid (admin mod post editor) */
 .mp-focal-grid {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(3, 1fr);
-  z-index: 2;
+  display: inline-grid;
+  grid-template-columns: repeat(3, 30px);
+  grid-template-rows: repeat(3, 30px);
+  gap: 3px;
 }
 .mp-focal-cell {
-  border: 1px solid rgba(255,255,255,0.18);
-  cursor: crosshair;
+  width: 30px;
+  height: 30px;
+  border: 2px solid #dde2ec;
+  border-radius: 5px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.95rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.12s;
+  transition: border-color 0.12s, background 0.12s, color 0.12s;
+  user-select: none;
 }
-.mp-focal-cell:hover { background: rgba(255,255,255,0.18); }
-.mp-focal-cell.active::after {
-  content: '';
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #ffd700;
-  box-shadow: 0 0 0 3px rgba(0,0,0,0.45);
-}
+.mp-focal-cell:hover { border-color: var(--blue); background: #eef2ff; }
+.mp-focal-cell.active { background: var(--blue); border-color: var(--blue); color: #fff; }
 
 /* Post overlay */
 .post-overlay {

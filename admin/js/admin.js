@@ -4427,9 +4427,10 @@ function abrirFormPostMod(modId, modNome, postId) {
   const p = postId ? (posts.find(x => x.id == postId) || {}) : {};
   const curPos  = p.imagemPos  || 'center';
   const curSize = p.imagemSize || 'cover';
-  const FOCAL_POS = ['top left','top','top right','left','center','right','bottom left','bottom','bottom right'];
-  const focalCells = FOCAL_POS.map(pos =>
-    `<div class="mp-focal-cell${pos===curPos?' active':''}" data-pos="${pos}" title="${pos}"></div>`
+  const FOCAL_LABELS = ['↖','↑','↗','←','⊙','→','↙','↓','↘'];
+  const FOCAL_POS    = ['top left','top','top right','left','center','right','bottom left','bottom','bottom right'];
+  const focalCells = FOCAL_POS.map((pos, i) =>
+    `<div class="mp-focal-cell${pos===curPos?' active':''}" data-pos="${pos}" title="${pos}">${FOCAL_LABELS[i]}</div>`
   ).join('');
   openModal(
     postId ? 'Editar Publicação' : 'Nova Publicação',
@@ -4470,12 +4471,13 @@ function abrirFormPostMod(modId, modNome, postId) {
       </div>
       <input type="hidden" id="mpImagemPos" value="${curPos}" />
       <div id="mpPreview" style="${p.imagem ? '' : 'display:none'}">
-        <label class="form-label" style="margin-bottom:6px;display:block">Pré-visualização &nbsp;<small style="color:#888;font-weight:400">— clique para ajustar o recorte</small></label>
-        <div style="position:relative;border-radius:8px;overflow:hidden;background:#1a3a80">
-          <div style="height:200px">
-            <img id="mpPreviewImg" src="${p.imagem || ''}"
-              style="width:100%;height:100%;object-fit:${curSize==='contain'?'contain':'cover'};object-position:${curPos}" />
-          </div>
+        <label class="form-label" style="margin-bottom:6px;display:block">Pré-visualização</label>
+        <div style="border-radius:8px;overflow:hidden;background:#1a3a80;height:200px">
+          <img id="mpPreviewImg" src="${p.imagem || ''}"
+            style="width:100%;height:100%;object-fit:${curSize==='contain'?'contain':'cover'};object-position:${curPos}" />
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+          <span style="font-size:0.78rem;color:#666;font-weight:600;white-space:nowrap">Ponto focal:</span>
           <div class="mp-focal-grid" id="mpFocalGrid">${focalCells}</div>
         </div>
       </div>
