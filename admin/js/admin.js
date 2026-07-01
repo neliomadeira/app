@@ -294,6 +294,16 @@ function closeModal() {
 document.getElementById('modalClose')?.addEventListener('click', closeModal);
 modalOverlay?.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
 
+// Ctrl+S / Cmd+S saves the open modal
+document.addEventListener('keydown', function (e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    if (modalOverlay?.style.display !== 'none') {
+      e.preventDefault();
+      modalFooter?.querySelector('.btn-save')?.click();
+    }
+  }
+});
+
 // ---- TOAST ---- //
 const toastEl = document.getElementById('toast');
 let toastTimer;
@@ -1586,8 +1596,11 @@ function abrirModalNoticia(n) {
         <button type="button" class="rte-btn rte-btn--block" data-block="h3" title="Título H3" style="font-weight:700;font-size:0.78rem">H3</button>
         <button type="button" class="rte-btn rte-btn--block" data-block="p"  title="Parágrafo normal" style="font-size:0.82rem">¶</button>
         <span class="rte-sep"></span>
+        <button type="button" class="rte-btn" data-img="1" title="Inserir imagem no texto">&#128247;</button>
+        <span class="rte-sep"></span>
         <button type="button" class="rte-btn rte-btn--clear" id="rteClear" title="Limpar formatação">&#10005; Limpar</button>
       </div>
+      <div id="rteImgPanel" style="display:none;border:1px solid #dde3ef;border-radius:10px;padding:14px;margin-top:4px;background:#f8faff"></div>
       <div class="rte-editor form-input" id="mResumoEditor" contenteditable="true" data-placeholder="Texto da notícia...">${n?.resumo || ''}</div>
       <div id="mAutoSaveIndicator" style="font-size:0.74rem;color:#94a3b8;margin-top:4px;min-height:16px"></div>
     </div>
@@ -1707,12 +1720,18 @@ function _initRTE(articleId) {
   if (!editor || !toolbar) return;
 
   toolbar.addEventListener('mousedown', e => {
-    const btn = e.target.closest('[data-cmd],[data-block]');
+    const btn = e.target.closest('[data-cmd],[data-block],[data-img]');
     if (!btn) return;
     e.preventDefault();
     editor.focus();
     if (btn.dataset.cmd)   document.execCommand(btn.dataset.cmd,   false, null);
     if (btn.dataset.block) document.execCommand('formatBlock', false, btn.dataset.block);
+    if (btn.dataset.img) {
+      // Save cursor position before showing panel
+      const sel = window.getSelection();
+      window._rteRange = sel.rangeCount > 0 ? sel.getRangeAt(0).cloneRange() : null;
+      _toggleRteImgPanel();
+    }
     _updateToolbarState();
   });
 
@@ -1791,6 +1810,97 @@ function _initRTE(articleId) {
     } catch (e) {}
   }, 30000);
 }
+
+function _toggleRteImgPanel() {
+  const panel = document.getElementById('rteImgPanel');
+  if (!panel) return;
+  if (panel.style.display !== 'none') { panel.style.display = 'none'; return; }
+  panel.style.display = '';
+  panel.innerHTML = `
+    <div style="font-weight:700;font-size:0.82rem;color:#001f4d;margin-bottom:10px">&#128247; Inserir imagem no texto</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+      <label class="img-upload-btn" for="rteImgFile" style="cursor:pointer;background:var(--blue);color:#fff;padding:5px 12px;border-radius:6px;font-size:0.8rem;font-weight:600">&#128193; Ficheiro</label>
+      <input type="file" id="rteImgFile" accept="image/*" style="display:none">
+      <span style="color:#aaa;font-size:0.8rem">ou</span>
+      <input type="url" class="form-input" id="rteImgUrl" placeholder="https://url-da-imagem..." style="flex:1;min-width:180px;font-size:0.82rem;padding:6px 10px">
+    </div>
+    <div style="display:flex;gap:12px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:6px">
+        <label style="font-size:0.8rem;color:#555">Alinhamento:</label>
+        <select id="rteImgAlign" class="form-input" style="font-size:0.8rem;padding:5px 8px">
+          <option value="block">&#8596; Centralizada</option>
+          <option value="left">&#9664; Flutua esquerda</option>
+          <option value="right">&#9654; Flutua direita</option>
+          <option value="inline">Inline</option>
+        </select>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <label style="font-size:0.8rem;color:#555">Legenda:</label>
+        <input type="text" class="form-input" id="rteImgCaption" placeholder="Opcional..." style="font-size:0.8rem;padding:5px 8px;width:160px">
+      </div>
+    </div>
+    <div id="rteImgPreviewBox" style="display:none;margin-bottom:10px;text-align:center">
+      <img id="rteImgPreviewImg" style="max-width:100%;max-height:140px;border-radius:6px;object-fit:contain;border:1px solid #e2e8f0">
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button type="button" onclick="document.getElementById('rteImgPanel').style.display='none'" style="background:none;border:1px solid #dde3ef;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:0.8rem">Cancelar</button>
+      <button type="button" onclick="doInsertImageRTE()" style="background:var(--blue);color:#fff;border:none;padding:5px 14px;border-radius:6px;cursor:pointer;font-size:0.8rem;font-weight:700">Inserir</button>
+    </div>`;
+
+  document.getElementById('rteImgFile')?.addEventListener('change', function () {
+    const file = this.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { showToast('Ficheiro demasiado grande (máx 5MB)', 'red'); return; }
+    compressImage(file, function (dataUrl) {
+      const urlInput = document.getElementById('rteImgUrl');
+      if (urlInput) urlInput.value = dataUrl;
+      _showRteImgPreview(dataUrl);
+    });
+  });
+  document.getElementById('rteImgUrl')?.addEventListener('input', function () {
+    _showRteImgPreview(this.value);
+  });
+  document.getElementById('rteImgUrl')?.focus();
+}
+
+function _showRteImgPreview(src) {
+  const box = document.getElementById('rteImgPreviewBox');
+  const img = document.getElementById('rteImgPreviewImg');
+  if (!box || !img) return;
+  if (src) { box.style.display = ''; img.src = src; img.onerror = () => { box.style.display = 'none'; }; }
+  else { box.style.display = 'none'; }
+}
+
+window.doInsertImageRTE = function () {
+  const url = document.getElementById('rteImgUrl')?.value.trim();
+  if (!url) { showToast('Escolha um ficheiro ou introduza um URL.', 'red'); return; }
+
+  const align   = document.getElementById('rteImgAlign')?.value || 'block';
+  const caption = document.getElementById('rteImgCaption')?.value.trim() || '';
+
+  let imgStyle;
+  if (align === 'block')  imgStyle = 'display:block;max-width:100%;height:auto;border-radius:6px;margin:12px auto';
+  else if (align === 'left')   imgStyle = 'float:left;max-width:46%;height:auto;border-radius:6px;margin:4px 16px 8px 0;clear:left';
+  else if (align === 'right')  imgStyle = 'float:right;max-width:46%;height:auto;border-radius:6px;margin:4px 0 8px 16px;clear:right';
+  else imgStyle = 'max-width:100%;height:auto;border-radius:6px;margin:4px 2px';
+
+  let html = `<img src="${url}" style="${imgStyle}" loading="lazy" alt="${caption || ''}">`;
+  if (caption) html += `<span style="display:block;text-align:center;font-size:0.82rem;color:#888;margin:4px 0 12px">${caption}</span>`;
+  html += align === 'block' ? '<br>' : '';
+
+  const editor = document.getElementById('mResumoEditor');
+  if (!editor) return;
+  editor.focus();
+
+  if (window._rteRange) {
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(window._rteRange);
+    window._rteRange = null;
+  }
+  document.execCommand('insertHTML', false, html);
+  document.getElementById('rteImgPanel').style.display = 'none';
+};
 
 window.previewNoticiaImg = function(input) {
   const file = input.files[0];

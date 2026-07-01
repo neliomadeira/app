@@ -204,6 +204,18 @@
       });
     });
 
+    // Vídeos
+    var videos = load('db_videos', []);
+    videos.forEach(function (v) {
+      index.push({
+        type:     'video',
+        title:    v.titulo || '',
+        subtitle: (v.categoria || '') + (v.data ? ' · ' + ptDate(v.data) : ''),
+        url:      'videos.html',
+        text:     [(v.titulo || ''), (v.categoria || ''), (v.descricao || '')].join(' ').toLowerCase(),
+      });
+    });
+
     return index;
   }
 
@@ -263,10 +275,11 @@
     evento:    { icon: '📅', label: 'Eventos'     },
     historia:  { icon: '🏆', label: 'História'    },
     treinador: { icon: '👨‍🏫', label: 'Treinadores' },
+    video:     { icon: '🎥', label: 'Vídeos'      },
   };
 
   // Group order
-  var TYPE_ORDER = ['noticia', 'atleta', 'escalao', 'evento', 'historia', 'treinador'];
+  var TYPE_ORDER = ['noticia', 'atleta', 'escalao', 'evento', 'historia', 'treinador', 'video'];
 
   // ------------------------------------------------------------------
   // Render
