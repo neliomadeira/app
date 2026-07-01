@@ -144,6 +144,32 @@
     }
   }
 
+  function injectArticleSchema(n) {
+    const old = document.getElementById('articleJsonLd');
+    if (old) old.remove();
+    if (!n || n.id === '__preview__') return;
+    const plain = (n.resumo || '').replace(/<[^>]+>/g, ' ').trim().slice(0, 500);
+    const schema = {
+      '@context': 'https://schema.org',
+      '@type': 'NewsArticle',
+      'headline': n.titulo,
+      'description': plain,
+      'datePublished': n.data ? n.data + 'T00:00:00+00:00' : '',
+      'url': 'https://www.jscampinense.pt/noticias.html?id=' + n.id,
+      'publisher': {
+        '@type': 'Organization',
+        'name': 'Juventude Sport Campinense',
+        'logo': { '@type': 'ImageObject', 'url': 'https://www.jscampinense.pt/images/logo.png' }
+      }
+    };
+    if (n.imagem && !n.imagem.startsWith('data:')) schema.image = n.imagem;
+    const s = document.createElement('script');
+    s.id = 'articleJsonLd';
+    s.type = 'application/ld+json';
+    s.textContent = JSON.stringify(schema);
+    document.head.appendChild(s);
+  }
+
   function openArticle(id) {
     const n = _all.find(x => x.id == id);
     if (!n) return;
@@ -225,6 +251,8 @@
         ${relacionadosHtml}
       </div>`;
 
+    injectArticleSchema(n);
+
     document.getElementById('notBack')?.addEventListener('click', () => {
       history.pushState({}, '', 'noticias.html');
       backToList();
@@ -244,6 +272,7 @@
     if (article)  article.style.display  = 'none';
     if (grid)     grid.style.display     = '';
     if (featured) featured.style.display = '';
+    document.getElementById('articleJsonLd')?.remove();
     renderFilters();
     renderGrid();
     renderFeatured();
