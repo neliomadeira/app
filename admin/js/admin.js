@@ -1477,23 +1477,33 @@ function renderNoticias() {
         <div style="font-weight:700;font-size:0.9rem">Nova Notícia</div>
       </div>
     </div>`,
-    ...lista.map((n, i) => `
+    ...lista.map((n, i) => {
+      let statusHtml;
+      if (n.scheduledAt && !n.publicada) {
+        const dt = n.scheduledAt.replace('T', ' ').slice(0, 16);
+        statusHtml = `<span style="color:#7c3aed;font-weight:700">&#9200; ${dt}</span>`;
+      } else if (n.publicada) {
+        statusHtml = `<span style="color:#16a34a;font-weight:700">&#10003; Publicada</span>`;
+      } else {
+        statusHtml = `<span style="color:#d97706;font-weight:700">&#9646; Rascunho</span>`;
+      }
+      const destaqueHtml = n.destaque ? `<span style="background:#f59e0b;color:#fff;font-size:0.7rem;padding:2px 7px;border-radius:20px;font-weight:700;margin-left:6px">&#11088;</span>` : '';
+      return `
       <div class="news-admin-card">
         <div class="news-admin-img news-admin-img--${(i % 3) + 1}"
              style="${n.imagem ? `background-image:url('${n.imagem}');background-size:cover;background-position:center;background-repeat:no-repeat` : ''}">
           <span class="news-cat-badge">${n.categoria || ''}</span>
         </div>
         <div class="news-admin-body">
-          <div class="news-admin-title">${n.titulo}</div>
-          <div class="news-admin-date">${fmtDate(n.data)} · ${n.publicada
-            ? '<span style="color:#16a34a;font-weight:700">✓ Publicada</span>'
-            : '<span style="color:#d97706;font-weight:700">⏸ Rascunho</span>'}</div>
+          <div class="news-admin-title">${n.titulo}${destaqueHtml}</div>
+          <div class="news-admin-date">${fmtDate(n.data)} &middot; ${statusHtml}</div>
         </div>
         <div class="news-admin-footer">
           <button class="btn-icon" onclick="editNoticia(${n.id})" title="Editar">&#9998;</button>
           <button class="btn-icon btn-icon--red" onclick="removeNoticia(${n.id})" title="Eliminar">&#128465;</button>
         </div>
-      </div>`)
+      </div>`;
+    })
   ].join('');
 }
 
@@ -1642,13 +1652,28 @@ function abrirModalNoticia(n) {
       </div>
     </div>
 
+    <div class="modal-row" style="margin-top:8px">
+      <div class="modal-field">
+        <label>Estado</label>
+        <select class="form-input" id="mStatus" onchange="toggleAgendamento()">
+          <option value="publicada" ${(isNew || (n?.publicada && !n?.scheduledAt)) ? 'selected' : ''}>&#10003; Publicada</option>
+          <option value="rascunho"  ${(!isNew && !n?.publicada && !n?.scheduledAt) ? 'selected' : ''}>&#9646; Rascunho</option>
+          <option value="agendada"  ${n?.scheduledAt ? 'selected' : ''}>&#9200; Agendada</option>
+        </select>
+      </div>
+      <div class="modal-field" id="mAgendamentoWrap" style="${n?.scheduledAt ? '' : 'display:none'}">
+        <label>Data e hora de publicação</label>
+        <input type="datetime-local" class="form-input" id="mScheduledAt" value="${n?.scheduledAt || ''}" />
+      </div>
+    </div>
     <div class="modal-field" style="margin-top:8px">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-        <input type="checkbox" id="mPublicada" ${isNew || n?.publicada ? 'checked' : ''} />
-        Publicar no site
+        <input type="checkbox" id="mDestaque" ${n?.destaque ? 'checked' : ''} />
+        &#11088; Artigo em destaque (aparece no topo da página de notícias)
       </label>
     </div>`,
     `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+     <button class="btn-cancel" onclick="previewNoticiaForm()" style="background:#f0f4ff;color:#003B8E;border:1px solid #c7d8f8">&#128065; Pré-visualizar</button>
      <button class="btn-save" onclick="saveNoticia(${isNew ? 'null' : n.id})">${isNew ? 'Criar Notícia' : 'Guardar'}</button>`
   );
   _initRTE();
@@ -1760,6 +1785,10 @@ window.saveNoticia = function(id) {
   const titulo = document.getElementById('mTitulo')?.value.trim();
   if (!titulo) { showToast('Introduza o título.', 'red'); return; }
 
+  const status      = document.getElementById('mStatus')?.value || 'publicada';
+  const scheduledAt = status === 'agendada' ? document.getElementById('mScheduledAt')?.value || '' : '';
+  if (status === 'agendada' && !scheduledAt) { showToast('Escolha uma data e hora para agendar.', 'red'); return; }
+
   const dados = {
     titulo,
     categoria:  document.getElementById('mCat')?.value          || 'Resultado',
@@ -1769,7 +1798,9 @@ window.saveNoticia = function(id) {
     imagemPos:  document.getElementById('mImagemPos')?.value     || 'top',
     imagemSize: document.getElementById('mImagemSize')?.value    || 'cover',
     focalPos:   document.getElementById('mFocalPos')?.value      || 'center',
-    publicada:  document.getElementById('mPublicada')?.checked   ?? true,
+    publicada:  status === 'publicada',
+    scheduledAt,
+    destaque:   document.getElementById('mDestaque')?.checked    || false,
   };
 
   const lista = loadNoticias();
@@ -1783,8 +1814,9 @@ window.saveNoticia = function(id) {
 
   if (!saveNoticias(lista)) return;
 
-  const pub = lista.filter(n => n.publicada).length;
-  showToast(`${id === null ? 'Notícia criada' : 'Notícia actualizada'}! ${pub} publicada(s) no site.`, 'green');
+  const now = new Date().toISOString();
+  const pub = lista.filter(n => n.publicada || (n.scheduledAt && n.scheduledAt <= now)).length;
+  showToast(`${id === null ? 'Notícia criada' : 'Notícia actualizada'}! ${pub} visível(is) no site.`, 'green');
   renderNoticias();
   closeModal();
 };
@@ -1800,6 +1832,30 @@ window.removeNoticia = function(id) {
   saveNoticias(lista);
   renderNoticias();
   showToast('Notícia eliminada.', 'red');
+};
+
+window.toggleAgendamento = function() {
+  const status = document.getElementById('mStatus')?.value;
+  const wrap   = document.getElementById('mAgendamentoWrap');
+  if (wrap) wrap.style.display = status === 'agendada' ? '' : 'none';
+};
+
+window.previewNoticiaForm = function() {
+  const titulo = document.getElementById('mTitulo')?.value.trim();
+  if (!titulo) { showToast('Introduza o título para pré-visualizar.', 'red'); return; }
+  const dados = {
+    id:         '__preview__',
+    titulo,
+    categoria:  document.getElementById('mCat')?.value          || '',
+    data:       document.getElementById('mData')?.value          || '',
+    resumo:     document.getElementById('mResumoEditor')?.innerHTML.trim() || '',
+    imagem:     document.getElementById('mImagem')?.value.trim() || '',
+    imagemPos:  document.getElementById('mImagemPos')?.value     || 'top',
+    imagemSize: document.getElementById('mImagemSize')?.value    || 'cover',
+    focalPos:   document.getElementById('mFocalPos')?.value      || 'center',
+  };
+  sessionStorage.setItem('news_preview', JSON.stringify(dados));
+  window.open('../noticias.html?preview=1', '_blank');
 };
 
 // ==================================================

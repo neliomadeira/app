@@ -19,8 +19,9 @@
     try {
       const raw = localStorage.getItem(NEWS_KEY);
       if (!raw) return [];
+      const now = new Date().toISOString();
       return JSON.parse(raw)
-        .filter(n => n.publicada)
+        .filter(n => n.publicada || (n.scheduledAt && n.scheduledAt <= now))
         .sort((a, b) => (b.data || '').localeCompare(a.data || ''));
     } catch (e) { return []; }
   }
@@ -38,6 +39,32 @@
     bar.innerHTML = ['Todas', ...cats].map(c =>
       `<button class="news-filter-btn${(c === 'Todas' ? '' : c) === _cat ? ' active' : ''}" data-cat="${c === 'Todas' ? '' : c}">${c}</button>`
     ).join('');
+  }
+
+  function renderFeatured() {
+    const wrap = document.getElementById('notFeatured');
+    if (!wrap) return;
+    const destaque = _all.find(n => n.destaque);
+    if (!destaque) { wrap.innerHTML = ''; return; }
+    const plainText = (destaque.resumo || '').replace(/<[^>]+>/g, '');
+    const excerpt = plainText.length > 200 ? plainText.slice(0, 200) + '…' : plainText;
+    const imgStyle = destaque.imagem
+      ? `background-image:url('${destaque.imagem}');background-size:cover;background-position:${destaque.focalPos || 'center'};background-repeat:no-repeat`
+      : '';
+    wrap.innerHTML = `
+      <article class="news-hero-card" data-id="${destaque.id}" style="cursor:pointer">
+        <div class="news-hero-card__img" ${imgStyle ? `style="${imgStyle}"` : ''}>
+          <span class="news-hero-card__tag">&#11088; Destaque</span>
+        </div>
+        <div class="news-hero-card__body">
+          <span class="news-card__cat">${destaque.categoria || ''}</span>
+          <time class="news-card__date">${ptDate(destaque.data)}</time>
+          <h2 class="news-hero-card__title">${destaque.titulo}</h2>
+          ${excerpt ? `<p class="news-hero-card__excerpt">${excerpt}</p>` : ''}
+          <span class="news-card__link">Ler mais &rarr;</span>
+        </div>
+      </article>`;
+    wrap.querySelector('.news-hero-card').addEventListener('click', () => openArticle(destaque.id));
   }
 
   const SHARE_BTN_STYLE = 'font-size:0.75rem;padding:5px 10px;border-radius:20px;background:#f0f4ff;color:#003B8E;border:none;cursor:pointer;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:4px';
@@ -116,16 +143,18 @@
   }
 
   function showArticle(n) {
-    const grid    = document.getElementById('notGrid');
-    const filters = document.getElementById('notFilters');
+    const grid     = document.getElementById('notGrid');
+    const filters  = document.getElementById('notFilters');
     const moreWrap = document.getElementById('notMoreWrap');
-    const article = document.getElementById('notArticle');
-    const empty   = document.getElementById('notEmpty');
+    const article  = document.getElementById('notArticle');
+    const empty    = document.getElementById('notEmpty');
+    const featured = document.getElementById('notFeatured');
 
-    if (grid)    grid.style.display    = 'none';
-    if (filters) filters.style.display = 'none';
+    if (grid)     grid.style.display     = 'none';
+    if (filters)  filters.style.display  = 'none';
     if (moreWrap) moreWrap.style.display = 'none';
-    if (empty)   empty.style.display   = 'none';
+    if (empty)    empty.style.display    = 'none';
+    if (featured) featured.style.display = 'none';
     if (!article) return;
 
     const imgPos   = n.imagemPos  || 'top';
@@ -156,7 +185,7 @@
             ${bodyImg}${n.resumo || '<em style="color:#aaa">Sem texto disponível.</em>'}
           </div>
           <div style="clear:both"></div>
-          ${shareRowHtml(n.id, n.titulo)}
+          ${n.id !== '__preview__' ? shareRowHtml(n.id, n.titulo) : ''}
         </div>
       </div>`;
 
@@ -168,14 +197,17 @@
   }
 
   function backToList() {
-    const grid    = document.getElementById('notGrid');
-    const filters = document.getElementById('notFilters');
-    const article = document.getElementById('notArticle');
+    const grid     = document.getElementById('notGrid');
+    const filters  = document.getElementById('notFilters');
+    const article  = document.getElementById('notArticle');
+    const featured = document.getElementById('notFeatured');
 
-    if (article) article.style.display = 'none';
-    if (grid)    grid.style.display    = '';
+    if (article)  article.style.display  = 'none';
+    if (grid)     grid.style.display     = '';
+    if (featured) featured.style.display = '';
     renderFilters();
     renderGrid();
+    renderFeatured();
   }
 
   window.addEventListener('popstate', e => {
@@ -206,20 +238,47 @@
   // Initialise
   _all = loadAll();
 
-  const params  = new URLSearchParams(window.location.search);
-  const idParam = params.get('id');
+  const params       = new URLSearchParams(window.location.search);
+  const idParam      = params.get('id');
+  const previewParam = params.get('preview');
 
-  if (idParam) {
+  if (previewParam === '1') {
+    // Preview mode — read draft from sessionStorage
+    try {
+      const prev = JSON.parse(sessionStorage.getItem('news_preview') || 'null');
+      if (prev) {
+        // Banner de pré-visualização
+        const section = document.querySelector('.section .container');
+        if (section) {
+          const banner = document.createElement('div');
+          banner.style.cssText = 'background:#fef3c7;border:2px solid #f59e0b;padding:12px 20px;border-radius:10px;margin-bottom:24px;display:flex;align-items:center;gap:12px;font-size:0.9rem;font-weight:600;color:#92400e';
+          banner.innerHTML = '<span style="font-size:1.1rem">&#9889;</span> Pré-visualização &mdash; esta notícia ainda não está publicada. <button onclick="window.close()" style="margin-left:auto;background:rgba(0,0,0,0.08);border:none;cursor:pointer;border-radius:6px;padding:4px 10px;font-size:0.85rem">Fechar</button>';
+          section.prepend(banner);
+        }
+        showArticle(prev);
+      } else {
+        renderFilters();
+        renderGrid();
+        renderFeatured();
+      }
+    } catch (e) {
+      renderFilters();
+      renderGrid();
+      renderFeatured();
+    }
+  } else if (idParam) {
     const n = _all.find(x => x.id == idParam);
     if (n) {
       showArticle(n);
     } else {
       renderFilters();
       renderGrid();
+      renderFeatured();
     }
   } else {
     renderFilters();
     renderGrid();
+    renderFeatured();
   }
 
   window.addEventListener('storage', e => {
@@ -229,6 +288,7 @@
       if (!article || article.style.display === 'none') {
         renderFilters();
         renderGrid();
+        renderFeatured();
       }
     }
   });
