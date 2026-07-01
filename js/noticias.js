@@ -15,6 +15,12 @@
     return `${dt.getDate()} de ${MESES[dt.getMonth()]}, ${dt.getFullYear()}`;
   }
 
+  function readingTime(html) {
+    const words = (html || '').replace(/<[^>]+>/g, ' ').trim().split(/\s+/).filter(Boolean).length;
+    const mins  = Math.max(1, Math.round(words / 200));
+    return `${mins} min`;
+  }
+
   function loadAll() {
     try {
       const raw = localStorage.getItem(NEWS_KEY);
@@ -111,7 +117,10 @@
             <span class="news-card__cat">${n.categoria || ''}</span>
           </div>
           <div class="news-card__body">
-            <time class="news-card__date">${ptDate(n.data)}</time>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <time class="news-card__date">${ptDate(n.data)}</time>
+              <span class="news-card__date" style="opacity:0.6">&#128336; ${readingTime(n.resumo)} de leitura</span>
+            </div>
             <h2 class="news-card__title" style="font-size:1.05rem">${n.titulo}</h2>
             ${excerpt ? `<p class="news-card__excerpt">${excerpt}</p>` : ''}
             <span class="news-card__link">Ler mais &rarr;</span>
@@ -169,6 +178,28 @@
     const midImg  = imgPos === 'center' ? imgHtml : '';
     const bodyImg = (imgPos === 'left' || imgPos === 'right') ? imgHtml : '';
 
+    const relacionados = n.id === '__preview__' ? [] :
+      _all.filter(x => x.id != n.id && x.categoria === n.categoria).slice(0, 3);
+
+    const relacionadosHtml = relacionados.length ? `
+      <div class="not-related">
+        <h3 class="not-related__title">Mais em ${n.categoria}</h3>
+        <div class="not-related__grid">
+          ${relacionados.map((r, i) => {
+            const imgStyle = r.imagem
+              ? `background-image:url('${r.imagem}');background-size:cover;background-position:${r.focalPos || 'center'}`
+              : '';
+            return `<article class="not-related__card" data-rel-id="${r.id}" style="cursor:pointer">
+              <div class="not-related__img not-related__img--${(i % 3) + 1}"${imgStyle ? ` style="${imgStyle}"` : ''}></div>
+              <div class="not-related__body">
+                <time class="news-card__date">${ptDate(r.data)}</time>
+                <p class="not-related__heading">${r.titulo}</p>
+              </div>
+            </article>`;
+          }).join('')}
+        </div>
+      </div>` : '';
+
     article.style.display = '';
     article.innerHTML = `
       <div class="not-article-wrap">
@@ -179,6 +210,7 @@
           <div class="news-article__meta">
             <span class="news-article__cat-badge">${n.categoria || ''}</span>
             <time>${ptDate(n.data)}</time>
+            <span style="color:#999;font-size:0.82rem">&#128336; ${readingTime(n.resumo)} de leitura</span>
           </div>
           ${midImg}
           <div class="news-article__body">
@@ -187,11 +219,15 @@
           <div style="clear:both"></div>
           ${n.id !== '__preview__' ? shareRowHtml(n.id, n.titulo) : ''}
         </div>
+        ${relacionadosHtml}
       </div>`;
 
     document.getElementById('notBack')?.addEventListener('click', () => {
       history.pushState({}, '', 'noticias.html');
       backToList();
+    });
+    article.querySelectorAll('.not-related__card').forEach(card => {
+      card.addEventListener('click', () => openArticle(card.dataset.relId));
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }

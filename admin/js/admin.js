@@ -286,7 +286,10 @@ function openModal(title, bodyHTML, footerHTML = '') {
   modalOverlay.style.display = 'flex';
 }
 
-function closeModal() { modalOverlay.style.display = 'none'; }
+function closeModal() {
+  modalOverlay.style.display = 'none';
+  if (window._noticiaDraftTimer) { clearInterval(window._noticiaDraftTimer); window._noticiaDraftTimer = null; }
+}
 
 document.getElementById('modalClose')?.addEventListener('click', closeModal);
 modalOverlay?.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
@@ -1586,6 +1589,7 @@ function abrirModalNoticia(n) {
         <button type="button" class="rte-btn rte-btn--clear" id="rteClear" title="Limpar formatação">&#10005; Limpar</button>
       </div>
       <div class="rte-editor form-input" id="mResumoEditor" contenteditable="true" data-placeholder="Texto da notícia...">${n?.resumo || ''}</div>
+      <div id="mAutoSaveIndicator" style="font-size:0.74rem;color:#94a3b8;margin-top:4px;min-height:16px"></div>
     </div>
 
     <div class="modal-field">
@@ -1676,10 +1680,28 @@ function abrirModalNoticia(n) {
      <button class="btn-cancel" onclick="previewNoticiaForm()" style="background:#f0f4ff;color:#003B8E;border:1px solid #c7d8f8">&#128065; Pré-visualizar</button>
      <button class="btn-save" onclick="saveNoticia(${isNew ? 'null' : n.id})">${isNew ? 'Criar Notícia' : 'Guardar'}</button>`
   );
-  _initRTE();
+  _initRTE(n ? n.id : null);
+
+  // Restore draft offer
+  (function () {
+    try {
+      const draft = JSON.parse(localStorage.getItem('news_autosave') || 'null');
+      if (!draft) return;
+      const draftId  = draft.articleId ?? null;
+      const curId    = n ? n.id : null;
+      if (String(draftId) !== String(curId)) return;
+      const ts = draft.savedAt ? new Date(draft.savedAt).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }) : '';
+      const banner = document.createElement('div');
+      banner.style.cssText = 'background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.83rem;display:flex;align-items:center;gap:10px;flex-wrap:wrap';
+      banner.innerHTML = `<span>&#128190; Rascunho automático encontrado (${ts}). Restaurar?</span>`
+        + `<button onclick="restoreNoticiaDraft()" style="background:#f59e0b;color:#fff;border:none;padding:4px 12px;border-radius:6px;cursor:pointer;font-weight:700;font-size:0.8rem">Restaurar</button>`
+        + `<button onclick="discardNoticiaDraft()" style="background:transparent;color:#92400e;border:none;cursor:pointer;font-size:0.8rem;text-decoration:underline">Descartar</button>`;
+      modalBody.prepend(banner);
+    } catch (e) {}
+  })();
 }
 
-function _initRTE() {
+function _initRTE(articleId) {
   const editor  = document.getElementById('mResumoEditor');
   const toolbar = document.getElementById('rteToolbar');
   if (!editor || !toolbar) return;
@@ -1740,6 +1762,34 @@ function _initRTE() {
       try { btn.classList.toggle('active', document.queryCommandState(btn.dataset.cmd)); } catch(e) {}
     });
   }
+
+  // Auto-save draft every 30 s
+  if (window._noticiaDraftTimer) clearInterval(window._noticiaDraftTimer);
+  window._noticiaDraftTimer = setInterval(function () {
+    try {
+      const titulo = document.getElementById('mTitulo')?.value.trim();
+      if (!titulo) return;
+      const draft = {
+        articleId:  articleId,
+        savedAt:    new Date().toISOString(),
+        titulo,
+        categoria:  document.getElementById('mCat')?.value          || '',
+        data:       document.getElementById('mData')?.value          || '',
+        resumo:     document.getElementById('mResumoEditor')?.innerHTML || '',
+        imagem:     document.getElementById('mImagem')?.value.trim() || '',
+        imagemPos:  document.getElementById('mImagemPos')?.value     || 'top',
+        imagemSize: document.getElementById('mImagemSize')?.value    || 'cover',
+        focalPos:   document.getElementById('mFocalPos')?.value      || 'center',
+        status:     document.getElementById('mStatus')?.value        || 'publicada',
+        scheduledAt:document.getElementById('mScheduledAt')?.value   || '',
+        destaque:   document.getElementById('mDestaque')?.checked    || false,
+      };
+      localStorage.setItem('news_autosave', JSON.stringify(draft));
+      const hm = new Date().toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+      const ind = document.getElementById('mAutoSaveIndicator');
+      if (ind) ind.textContent = `&#10003; Guardado automaticamente às ${hm}`;
+    } catch (e) {}
+  }, 30000);
 }
 
 window.previewNoticiaImg = function(input) {
@@ -1814,6 +1864,7 @@ window.saveNoticia = function(id) {
 
   if (!saveNoticias(lista)) return;
 
+  try { localStorage.removeItem('news_autosave'); } catch (e) {}
   const now = new Date().toISOString();
   const pub = lista.filter(n => n.publicada || (n.scheduledAt && n.scheduledAt <= now)).length;
   showToast(`${id === null ? 'Notícia criada' : 'Notícia actualizada'}! ${pub} visível(is) no site.`, 'green');
@@ -1838,6 +1889,38 @@ window.toggleAgendamento = function() {
   const status = document.getElementById('mStatus')?.value;
   const wrap   = document.getElementById('mAgendamentoWrap');
   if (wrap) wrap.style.display = status === 'agendada' ? '' : 'none';
+};
+
+window.restoreNoticiaDraft = function() {
+  try {
+    const d = JSON.parse(localStorage.getItem('news_autosave') || 'null');
+    if (!d) return;
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+    const setHTML = (id, val) => { const el = document.getElementById(id); if (el) el.innerHTML = val || ''; };
+    const setChk  = (id, val) => { const el = document.getElementById(id); if (el) el.checked = !!val; };
+    set('mTitulo', d.titulo);
+    set('mCat',    d.categoria);
+    set('mData',   d.data);
+    setHTML('mResumoEditor', d.resumo);
+    set('mImagem', d.imagem);
+    set('mImagemPos', d.imagemPos);
+    set('mImagemSize', d.imagemSize);
+    set('mFocalPos', d.focalPos);
+    set('mStatus', d.status);
+    set('mScheduledAt', d.scheduledAt);
+    setChk('mDestaque', d.destaque);
+    if (d.status === 'agendada') { const w = document.getElementById('mAgendamentoWrap'); if (w) w.style.display = ''; }
+    if (d.imagem) { previewNoticiaUrl(d.imagem); }
+    if (d.imagemPos) { selectImagePos(d.imagemPos); }
+    modalBody.querySelector('[style*="fef9c3"]')?.remove();
+    const ind = document.getElementById('mAutoSaveIndicator');
+    if (ind) ind.textContent = 'Rascunho restaurado.';
+  } catch (e) {}
+};
+
+window.discardNoticiaDraft = function() {
+  try { localStorage.removeItem('news_autosave'); } catch (e) {}
+  modalBody.querySelector('[style*="fef9c3"]')?.remove();
 };
 
 window.previewNoticiaForm = function() {
