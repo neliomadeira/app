@@ -203,7 +203,10 @@
     article.style.display = '';
     article.innerHTML = `
       <div class="not-article-wrap">
-        <button class="news-archive__back" id="notBack" style="padding:20px 0 0">&#8592; Voltar às notícias</button>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding-top:20px;flex-wrap:wrap;gap:8px">
+          <button class="news-archive__back" id="notBack">&#8592; Voltar às notícias</button>
+          <button onclick="window.print()" style="background:none;border:1px solid #dde3ef;border-radius:8px;padding:6px 14px;font-size:0.82rem;cursor:pointer;color:#64748b;display:inline-flex;align-items:center;gap:6px">&#128438; Imprimir</button>
+        </div>
         <div class="news-article" style="padding:0 0 32px">
           ${topImg}
           <h1 class="news-article__title">${n.titulo}</h1>
