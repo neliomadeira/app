@@ -504,6 +504,42 @@ document.getElementById('filterInscEstado')?.addEventListener('change', function
   renderInscricoes(document.getElementById('filterInscEscalao').value, this.value);
 });
 
+window.exportarInscricoesCSV = function () {
+  const escalao = document.getElementById('filterInscEscalao')?.value || '';
+  const estado  = document.getElementById('filterInscEstado')?.value  || '';
+  let data = DB.inscricoes;
+  if (escalao) data = data.filter(i => i.escalao === escalao);
+  if (estado)  data = data.filter(i => i.estado  === estado);
+
+  const cols = ['id','nome','escalao','idade','posicao','pref','altura','peso',
+                 'nomeResp','telefone','email','modalidade','nivel','data','estado'];
+  const labels = ['ID','Nome','Escalão','Idade','Posição','Pé preferido','Altura (cm)','Peso (kg)',
+                   'Encarregado','Telefone','E-mail','Modalidade','Nível','Data inscrição','Estado'];
+
+  function esc(val) {
+    const s = val == null ? '' : String(val);
+    return s.includes(',') || s.includes('"') || s.includes('\n')
+      ? '"' + s.replace(/"/g, '""') + '"'
+      : s;
+  }
+
+  const rows = [labels.join(',')];
+  data.forEach(i => rows.push(cols.map(c => esc(i[c])).join(',')));
+
+  const blob = new Blob(['﻿' + rows.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const ts   = new Date().toISOString().slice(0,10);
+  const suf  = [escalao, estado].filter(Boolean).join('_') || 'todos';
+  a.href     = url;
+  a.download = `inscricoes_${suf}_${ts}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast(`✓ ${data.length} inscrição(ões) exportada(s)`, 'green');
+};
+
 window.verInscricao = function (id) {
   const i = DB.inscricoes.find(x => x.id === id);
   if (!i) return;
