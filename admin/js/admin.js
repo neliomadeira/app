@@ -3578,30 +3578,51 @@ function loadPaginaInicialForm() {
   _setupSeoCounter('cfgSeoDesc', 'cfgSeoDescCount', 160);
 }
 
+async function _nominatimSearch(q) {
+  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1&countrycodes=pt&addressdetails=1`;
+  const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+  const data = await res.json();
+  return data && data.length ? data[0] : null;
+}
+
 async function geocodificarMorada() {
   const addr = document.getElementById('cfgContactAddress')?.value.trim();
   const status = document.getElementById('geoStatus');
   const btn = document.getElementById('btnGeocodificar');
   if (!addr) { if (status) status.textContent = 'Introduza uma morada primeiro.'; return; }
-  if (status) status.textContent = '⏳ A localizar...';
+  if (status) { status.textContent = '⏳ A localizar...'; status.style.color = '#888'; }
   if (btn) btn.disabled = true;
+
   try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addr)}&format=json&limit=1&countrycodes=pt`,
-      { headers: { 'Accept': 'application/json' } }
-    );
-    const data = await res.json();
-    if (data && data.length) {
-      const lat = parseFloat(data[0].lat).toFixed(6);
-      const lon = parseFloat(data[0].lon).toFixed(6);
-      const latEl = document.getElementById('cfgContactLat');
-      const lonEl = document.getElementById('cfgContactLon');
-      if (latEl) latEl.value = lat;
-      if (lonEl) lonEl.value = lon;
-      if (status) status.innerHTML = `✓ Localizado: <strong>${lat}, ${lon}</strong> — ${data[0].display_name.split(',').slice(0,3).join(',')}`;
-      status.style.color = '#2e7d32';
+    // Estratégia 1: morada completa tal como está
+    let result = await _nominatimSearch(addr);
+
+    // Estratégia 2: remover número de porta (ex: "Rua X 43" → "Rua X")
+    if (!result) {
+      const semNumero = addr.replace(/\s+\d+\s*$/, '').trim();
+      if (semNumero !== addr) result = await _nominatimSearch(semNumero);
+    }
+
+    // Estratégia 3: adicionar "Portugal" se não constar
+    if (!result && !/portugal/i.test(addr)) {
+      result = await _nominatimSearch(addr + ', Portugal');
+    }
+
+    // Estratégia 4: só a rua + "Loulé Portugal"
+    if (!result) {
+      const soPrimeiro = addr.split(',')[0].trim();
+      result = await _nominatimSearch(soPrimeiro + ', Loulé, Portugal');
+    }
+
+    if (result) {
+      const lat = parseFloat(result.lat).toFixed(6);
+      const lon = parseFloat(result.lon).toFixed(6);
+      document.getElementById('cfgContactLat').value = lat;
+      document.getElementById('cfgContactLon').value = lon;
+      const label = result.display_name.split(',').slice(0, 3).join(',');
+      if (status) { status.innerHTML = `✓ Localizado: <strong>${lat}, ${lon}</strong><br><small>${label}</small>`; status.style.color = '#2e7d32'; }
     } else {
-      if (status) { status.textContent = '⚠ Morada não encontrada. Verifique o texto.'; status.style.color = '#c00'; }
+      if (status) { status.textContent = '⚠ Não encontrado. Tente incluir a cidade: "Rua X, Loulé".'; status.style.color = '#c00'; }
     }
   } catch(e) {
     if (status) { status.textContent = '⚠ Erro de ligação. Tente novamente.'; status.style.color = '#c00'; }
