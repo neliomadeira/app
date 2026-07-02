@@ -3,6 +3,23 @@
    Cores: Amarelo #FFD100 | Azul #003B8E | Branco #FFFFFF
    ============================================= */
 
+/* Skip-to-content (accessibility) */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 0;
+  z-index: 9999;
+  padding: 10px 20px;
+  background: var(--yellow, #FFD100);
+  color: #000;
+  font-weight: 700;
+  font-size: 0.9rem;
+  border-radius: 0 0 6px 0;
+  text-decoration: none;
+  transition: top 0.1s;
+}
+.skip-link:focus { top: 0; }
+
 :root {
   --yellow: #FFD100;
   --yellow-dark: #E6B800;
@@ -4141,6 +4158,11 @@ html[data-theme="dark"] .atleta-card {
 html[data-theme="dark"] .news-share-btn {
   background: #1e293b !important;
   color: #93c5fd !important;
+}
+
+/* OpenStreetMap iframe — invert to dark in dark mode */
+html[data-theme="dark"] .contact__map iframe {
+  filter: invert(0.9) hue-rotate(180deg);
 }
 
 /* Page hero stays dark blue — already fine */

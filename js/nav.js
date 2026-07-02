@@ -81,6 +81,35 @@
       });
     });
 
+    // ---- KEYBOARD NAVIGATION ----
+    // Escape: close open dropdown
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        document.querySelectorAll('.nav__dropdown.open').forEach(function (d) {
+          d.classList.remove('open');
+          var t = d.querySelector('.nav__dropdown-toggle');
+          if (t) { t.setAttribute('aria-expanded', 'false'); t.focus(); }
+        });
+      }
+    });
+
+    // Arrow keys inside open dropdowns
+    document.querySelectorAll('.nav__dropdown').forEach(function (dropdown) {
+      dropdown.addEventListener('keydown', function (e) {
+        if (!dropdown.classList.contains('open')) return;
+        var links = Array.from(dropdown.querySelectorAll('.nav__sublink'));
+        if (!links.length) return;
+        var idx = links.indexOf(document.activeElement);
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          links[idx + 1 < links.length ? idx + 1 : 0].focus();
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          links[idx - 1 >= 0 ? idx - 1 : links.length - 1].focus();
+        }
+      });
+    });
+
     // Close dropdown + mobile nav when a submenu link is clicked
     document.querySelectorAll('.nav__sublink').forEach(function (link) {
       link.addEventListener('click', function () {

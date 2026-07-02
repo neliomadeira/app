@@ -90,17 +90,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // ---- PHONE MASK ----
+  // ---- PHONE MASK (Portuguese: 9XX XXX XXX or +351 9XX XXX XXX) ----
   const telefone = document.getElementById('telefone');
   if (telefone) {
     telefone.addEventListener('input', (e) => {
-      let v = e.target.value.replace(/\D/g, '');
-      if (v.length <= 10) {
-        v = v.replace(/^(\d{2})(\d{4})(\d{0,4})/, '($1) $2-$3');
-      } else {
-        v = v.replace(/^(\d{2})(\d{1})(\d{4})(\d{0,4})/, '($1) $2 $3-$4');
-      }
-      e.target.value = v;
+      let v = e.target.value;
+      const hasPrefix = v.startsWith('+351') || v.startsWith('00351');
+      let digits = v.replace(/\D/g, '');
+      if (digits.startsWith('351')) digits = digits.slice(3);
+      digits = digits.slice(0, 9);
+      let formatted = digits.replace(/^(\d{3})(\d{0,3})(\d{0,3})/, (_, a, b, c) =>
+        b ? (c ? `${a} ${b} ${c}` : `${a} ${b}`) : a
+      );
+      e.target.value = hasPrefix ? '+351 ' + formatted : formatted;
     });
   }
 
