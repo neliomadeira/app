@@ -3578,7 +3578,39 @@ function loadPaginaInicialForm() {
   _setupSeoCounter('cfgSeoDesc', 'cfgSeoDescCount', 160);
 }
 
-function guardarPaginaInicial() {
+async function geocodificarMorada() {
+  const addr = document.getElementById('cfgContactAddress')?.value.trim();
+  const status = document.getElementById('geoStatus');
+  const btn = document.getElementById('btnGeocodificar');
+  if (!addr) { if (status) status.textContent = 'Introduza uma morada primeiro.'; return; }
+  if (status) status.textContent = '⏳ A localizar...';
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addr)}&format=json&limit=1&countrycodes=pt`,
+      { headers: { 'Accept': 'application/json' } }
+    );
+    const data = await res.json();
+    if (data && data.length) {
+      const lat = parseFloat(data[0].lat).toFixed(6);
+      const lon = parseFloat(data[0].lon).toFixed(6);
+      const latEl = document.getElementById('cfgContactLat');
+      const lonEl = document.getElementById('cfgContactLon');
+      if (latEl) latEl.value = lat;
+      if (lonEl) lonEl.value = lon;
+      if (status) status.innerHTML = `✓ Localizado: <strong>${lat}, ${lon}</strong> — ${data[0].display_name.split(',').slice(0,3).join(',')}`;
+      status.style.color = '#2e7d32';
+    } else {
+      if (status) { status.textContent = '⚠ Morada não encontrada. Verifique o texto.'; status.style.color = '#c00'; }
+    }
+  } catch(e) {
+    if (status) { status.textContent = '⚠ Erro de ligação. Tente novamente.'; status.style.color = '#c00'; }
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function guardarPaginaInicial() {
   const cfg = getSiteConfig();
   const fields = {
     cfgHeroTag: 'heroTag', cfgHeroTitle: 'heroTitle', cfgHeroDesc: 'heroDesc',
@@ -3614,6 +3646,35 @@ function guardarPaginaInicial() {
   if (sl) cfg.heroSlideshow = sl.checked;
   const jd = document.getElementById('cfgJogoDestaqueAtivo');
   if (jd) cfg.jogoDestaqueAtivo = jd.checked;
+
+  // Auto-geocode address if changed and no coords yet
+  const newAddr = cfg.contactAddress;
+  const hasCoords = cfg.contactLat && cfg.contactLon;
+  const addrChanged = newAddr && newAddr !== (getSiteConfig().contactAddress);
+  if (newAddr && (!hasCoords || addrChanged)) {
+    showToast('⏳ A localizar morada no mapa...', 'blue');
+    fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(newAddr)}&format=json&limit=1&countrycodes=pt`,
+      { headers: { 'Accept': 'application/json' } })
+      .then(r => r.json())
+      .then(data => {
+        if (data && data.length) {
+          cfg.contactLat = parseFloat(data[0].lat).toFixed(6);
+          cfg.contactLon = parseFloat(data[0].lon).toFixed(6);
+          const latEl = document.getElementById('cfgContactLat');
+          const lonEl = document.getElementById('cfgContactLon');
+          if (latEl) latEl.value = cfg.contactLat;
+          if (lonEl) lonEl.value = cfg.contactLon;
+        }
+        saveSiteConfig(cfg);
+        showToast('✓ Alterações guardadas e mapa atualizado!', 'green');
+      })
+      .catch(() => {
+        saveSiteConfig(cfg);
+        showToast('✓ Alterações guardadas! (geocodificação indisponível)', 'green');
+      });
+    return;
+  }
+
   try {
     saveSiteConfig(cfg);
     showToast('✓ Alterações guardadas! Abra o site para ver as mudanças.', 'green');

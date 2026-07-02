@@ -171,16 +171,38 @@
     requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('site-banner--visible')));
   })();
 
-  // Map — update iframe when coordinates configured
+  // Map — update iframe from stored coordinates or geocode address on the fly
+  function applyMapCoords(lat, lon) {
+    const d   = 0.015;
+    const src = `https://www.openstreetmap.org/export/embed.html?bbox=${(lon-d).toFixed(4)}%2C${(lat-d).toFixed(4)}%2C${(lon+d).toFixed(4)}%2C${(lat+d).toFixed(4)}&layer=mapnik&marker=${lat}%2C${lon}`;
+    setAttr('contactMapIframe', 'src', src);
+    const link = document.getElementById('contactMapLink');
+    if (link) link.href = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=16/${lat}/${lon}`;
+  }
+
   if (cfg.contactLat && cfg.contactLon) {
     const lat = parseFloat(cfg.contactLat);
     const lon = parseFloat(cfg.contactLon);
-    if (!isNaN(lat) && !isNaN(lon)) {
-      const d   = 0.02;
-      const src = `https://www.openstreetmap.org/export/embed.html?bbox=${lon-d}%2C${lat-d}%2C${lon+d}%2C${lat+d}&layer=mapnik&marker=${lat}%2C${lon}`;
-      setAttr('contactMapIframe', 'src', src);
-      const link = document.getElementById('contactMapLink');
-      if (link) link.href = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=15/${lat}/${lon}`;
-    }
+    if (!isNaN(lat) && !isNaN(lon)) applyMapCoords(lat, lon);
+  } else if (cfg.contactAddress && document.getElementById('contactMapIframe')) {
+    // No stored coordinates — geocode address from the browser
+    fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(cfg.contactAddress)}&format=json&limit=1&countrycodes=pt`,
+      { headers: { 'Accept': 'application/json' } })
+      .then(r => r.json())
+      .then(data => {
+        if (data && data.length) {
+          const lat = parseFloat(data[0].lat);
+          const lon = parseFloat(data[0].lon);
+          applyMapCoords(lat, lon);
+          // Cache coordinates so next load is instant
+          try {
+            const stored = JSON.parse(localStorage.getItem('site_config') || '{}');
+            stored.contactLat = lat.toFixed(6);
+            stored.contactLon = lon.toFixed(6);
+            localStorage.setItem('site_config', JSON.stringify(stored));
+          } catch(_) {}
+        }
+      })
+      .catch(() => {});
   }
 })();

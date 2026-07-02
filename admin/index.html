@@ -757,35 +757,14 @@
             <div style="padding:16px;display:grid;gap:12px">
               <div class="modal-field">
                 <label class="form-label">Morada</label>
-                <input class="form-input" type="text" id="cfgContactAddress" placeholder="Estádio Municipal de Loulé, Rua..." />
-              </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-                <div class="modal-field">
-                  <label class="form-label">Telefone / WhatsApp</label>
-                  <input class="form-input" type="text" id="cfgContactPhone" placeholder="+351 289 000 000" />
+                <div style="display:flex;gap:8px;align-items:center">
+                  <input class="form-input" type="text" id="cfgContactAddress" placeholder="Rua Nuno A. de Mascarenhas, Lote 16, Loulé" style="flex:1" />
+                  <button type="button" class="btn-sm" id="btnGeocodificar" onclick="geocodificarMorada()" title="Localizar morada no mapa automaticamente">📍 Localizar</button>
                 </div>
-                <div class="modal-field">
-                  <label class="form-label">E-mail</label>
-                  <input class="form-input" type="email" id="cfgContactEmail" placeholder="juventude@sportcampinense.pt" />
-                </div>
+                <p id="geoStatus" style="font-size:0.78rem;margin:4px 0 0;color:#888"></p>
               </div>
-              <div class="modal-field">
-                <label class="form-label">Horário de atendimento</label>
-                <input class="form-input" type="text" id="cfgContactHours" placeholder="Segunda a Sexta, das 9h às 18h" />
-              </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-                <div class="modal-field">
-                  <label class="form-label">Latitude do estádio</label>
-                  <input class="form-input" type="number" step="any" id="cfgContactLat" placeholder="37.1389" />
-                </div>
-                <div class="modal-field">
-                  <label class="form-label">Longitude do estádio</label>
-                  <input class="form-input" type="number" step="any" id="cfgContactLon" placeholder="-8.0272" />
-                </div>
-              </div>
-              <p style="font-size:0.78rem;color:#888;margin:0">
-                Abra <a href="https://www.openstreetmap.org" target="_blank" rel="noopener" style="color:var(--blue)">openstreetmap.org</a>, clique com o botão direito no local e copie as coordenadas.
-              </p>
+              <input type="hidden" id="cfgContactLat" />
+              <input type="hidden" id="cfgContactLon" />
             </div>
           </div>
 
