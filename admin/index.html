@@ -756,15 +756,42 @@
             <div class="card-header"><h3>📞 Informações de Contacto</h3></div>
             <div style="padding:16px;display:grid;gap:12px">
               <div class="modal-field">
-                <label class="form-label">Morada</label>
+                <label class="form-label">Morada completa</label>
                 <div style="display:flex;gap:8px;align-items:center">
-                  <input class="form-input" type="text" id="cfgContactAddress" placeholder="Rua Nuno A. de Mascarenhas, Lote 16, Loulé" style="flex:1" />
+                  <input class="form-input" type="text" id="cfgContactAddress" placeholder="Rua Nuno A. de Mascarenhas, Lote 16, 8100-610 Loulé" style="flex:1" />
                   <button type="button" class="btn-sm" id="btnGeocodificar" onclick="geocodificarMorada()" title="Localizar morada no mapa automaticamente">📍 Localizar</button>
                 </div>
                 <p id="geoStatus" style="font-size:0.78rem;margin:4px 0 0;color:#888"></p>
               </div>
-              <input type="hidden" id="cfgContactLat" />
-              <input type="hidden" id="cfgContactLon" />
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                <div class="modal-field">
+                  <label class="form-label">Telefone / WhatsApp</label>
+                  <input class="form-input" type="text" id="cfgContactPhone" placeholder="+351 289 000 000" />
+                </div>
+                <div class="modal-field">
+                  <label class="form-label">E-mail</label>
+                  <input class="form-input" type="email" id="cfgContactEmail" placeholder="geral@jscampinense.pt" />
+                </div>
+              </div>
+              <div class="modal-field">
+                <label class="form-label">Horário de atendimento</label>
+                <input class="form-input" type="text" id="cfgContactHours" placeholder="Segunda a Sexta, das 9h às 18h" />
+              </div>
+              <div style="border-top:1px solid #eee;padding-top:12px">
+                <p style="font-size:0.78rem;color:#888;margin:0 0 8px">
+                  📍 <strong>Localização no mapa</strong> — clique em "Localizar" para preencher automaticamente, ou introduza as coordenadas manualmente.
+                </p>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                  <div class="modal-field">
+                    <label class="form-label">Latitude</label>
+                    <input class="form-input" type="number" step="any" id="cfgContactLat" placeholder="37.1468" />
+                  </div>
+                  <div class="modal-field">
+                    <label class="form-label">Longitude</label>
+                    <input class="form-input" type="number" step="any" id="cfgContactLon" placeholder="-8.0208" />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
