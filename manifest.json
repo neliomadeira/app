@@ -13,14 +13,20 @@
   "icons": [
     {
       "src": "images/logo.png",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "sizes": "192x192",
+      "type": "image/png",
       "purpose": "any"
     },
     {
       "src": "images/logo.png",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "images/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "maskable"
     }
   ],
@@ -29,26 +35,34 @@
       "name": "Resultados",
       "short_name": "Resultados",
       "url": "/resultados.html",
-      "icons": [{ "src": "images/logo.png", "sizes": "any", "type": "image/svg+xml" }]
+      "icons": [{ "src": "images/logo.png", "sizes": "96x96", "type": "image/png" }]
     },
     {
       "name": "Notícias",
       "short_name": "Notícias",
       "url": "/noticias.html",
-      "icons": [{ "src": "images/logo.png", "sizes": "any", "type": "image/svg+xml" }]
+      "icons": [{ "src": "images/logo.png", "sizes": "96x96", "type": "image/png" }]
     },
     {
       "name": "Inscrição",
       "short_name": "Inscrição",
       "url": "/inscricao.html",
-      "icons": [{ "src": "images/logo.png", "sizes": "any", "type": "image/svg+xml" }]
+      "icons": [{ "src": "images/logo.png", "sizes": "96x96", "type": "image/png" }]
     },
     {
       "name": "Agenda",
       "short_name": "Agenda",
       "url": "/agenda.html",
-      "icons": [{ "src": "images/logo.png", "sizes": "any", "type": "image/svg+xml" }]
+      "icons": [{ "src": "images/logo.png", "sizes": "96x96", "type": "image/png" }]
     }
   ],
-  "screenshots": []
+  "screenshots": [
+    {
+      "src": "images/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Página inicial – Juventude Sport Campinense"
+    }
+  ]
 }

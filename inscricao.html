@@ -25,7 +25,10 @@
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" /></noscript>
   <meta name="theme-color" content="#001f4d" />
   <link rel="manifest" href="/manifest.json" />
-  <link rel="apple-touch-icon" href="/images/logo.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/logo.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/logo.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/logo.png" />
+  <link rel="canonical" href="https://www.jscampinense.pt/inscricao.html" />
 </head>
 <body>
 
@@ -33,7 +36,7 @@
   <header class="header" id="header">
     <div class="container header__inner">
       <a href="index.html" class="logo">
-        <img src="images/logo.png" alt="JS Campinense" class="logo__img" onerror="this.src='images/logo.png';this.onerror=null"  fetchpriority="high">
+        <img src="images/logo.png" alt="JS Campinense" class="logo__img" onerror="this.src='images/logo.png';this.onerror=null"  fetchpriority="high" width="48" height="48">
         <div class="logo__text">
           <span class="logo__name">JS Campinense</span>
           <span class="logo__sub">Juventude</span>
@@ -92,7 +95,7 @@
 
       <!-- FORM -->
       <main class="insc-form-wrap">
-        <form class="insc-form" id="inscForm">
+        <form class="insc-form" id="inscForm" novalidate>
 
           <!-- PASSO 1: MODALIDADE -->
           <div class="insc-form__section">
@@ -131,11 +134,11 @@
             <div class="form-row">
               <div class="form-group">
                 <label for="nomeAtleta">Nome completo *</label>
-                <input type="text" id="nomeAtleta" name="nomeAtleta" placeholder="Nome do atleta" required />
+                <input type="text" id="nomeAtleta" name="nomeAtleta" placeholder="Nome do atleta" required aria-required="true" />
               </div>
               <div class="form-group">
                 <label for="dataNasc">Data de nascimento *</label>
-                <input type="date" id="dataNasc" name="dataNasc" required />
+                <input type="date" id="dataNasc" name="dataNasc" required aria-required="true" />
               </div>
             </div>
             <div class="form-row">
@@ -235,7 +238,7 @@
             <div class="form-row">
               <div class="form-group">
                 <label for="telefoneResp">Telefone / WhatsApp *</label>
-                <input type="tel" id="telefoneResp" name="telefoneResp" placeholder="+351 9XX XXX XXX" required />
+                <input type="tel" id="telefoneResp" name="telefoneResp" placeholder="+351 9XX XXX XXX" required aria-required="true" />
               </div>
               <div class="form-group">
                 <label for="emailResp">E-mail</label>
@@ -251,7 +254,7 @@
             <div class="form-row">
               <div class="form-group">
                 <label for="codigoPostal">Código Postal *</label>
-                <input type="text" id="codigoPostal" name="codigoPostal" placeholder="0000-000" maxlength="8" required />
+                <input type="text" id="codigoPostal" name="codigoPostal" placeholder="0000-000" maxlength="8" required aria-required="true" />
               </div>
               <div class="form-group">
                 <label for="localidade">Localidade / Freguesia</label>
@@ -261,7 +264,7 @@
             <div class="form-row">
               <div class="form-group form-group--lg">
                 <label for="rua">Rua / Morada *</label>
-                <input type="text" id="rua" name="rua" placeholder="Nome da rua" required />
+                <input type="text" id="rua" name="rua" placeholder="Nome da rua" required aria-required="true" />
               </div>
               <div class="form-group form-group--sm">
                 <label for="numero">Número</label>
@@ -272,7 +275,7 @@
 
           <div class="insc-form__section insc-form__section--terms">
             <label class="checkbox-label">
-              <input type="checkbox" id="termos" name="termos" required />
+              <input type="checkbox" id="termos" name="termos" required aria-required="true" />
               <span>Declaro que li e concordo com os <a href="#">termos e regulamento</a> da Juventude Sport Campinense e autorizo a utilização da imagem do atleta para fins institucionais, ao abrigo do RGPD.</span>
             </label>
           </div>
