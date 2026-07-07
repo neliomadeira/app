@@ -2937,6 +2937,26 @@ html[data-theme="dark"] .form-group textarea.is-invalid {
   border-color: var(--yellow);
   box-shadow: 0 0 20px rgba(255, 209, 0, 0.25);
 }
+.birthday__foto {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--yellow);
+  flex-shrink: 0;
+}
+.birthday__escalao {
+  display: inline-block;
+  align-self: flex-start;
+  background: var(--yellow);
+  color: var(--blue-bg);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  margin: 2px 0;
+}
 @media (max-width: 640px) {
   .birthday__card { min-width: 160px; padding: 12px 16px; }
 }

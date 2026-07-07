@@ -355,13 +355,18 @@ document.addEventListener('DOMContentLoaded', () => {
       section.style.display = '';
       document.getElementById('aniversariosLista').innerHTML = lista.map(a => {
         const detalhe = a._hoje
-          ? `${a.escalao} &middot; faz ${a._idade} anos <strong>hoje</strong> 🎉`
-          : `${a.escalao} &middot; dia ${a._dia} &middot; faz ${a._idade} anos`;
+          ? `faz ${a._idade} anos <strong>hoje</strong> 🎉`
+          : `dia ${a._dia} &middot; faz ${a._idade} anos`;
+        const avatar = a.foto
+          ? `<img src="${a.foto}" alt="" class="birthday__foto" loading="lazy"
+               onerror="this.outerHTML='<div class=&quot;birthday__icon&quot;>🎂</div>'">`
+          : `<div class="birthday__icon">🎂</div>`;
         return `
           <div class="birthday__card${a._hoje ? ' birthday__card--today' : ''}">
-            <div class="birthday__icon">🎂</div>
+            ${avatar}
             <div class="birthday__info">
               <strong class="birthday__nome">${a.nome}</strong>
+              ${a.escalao ? `<span class="birthday__escalao">${a.escalao}</span>` : ''}
               <span class="birthday__detalhe">${detalhe}</span>
             </div>
           </div>`;
