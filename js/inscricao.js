@@ -186,6 +186,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   form?.addEventListener('submit', async (e) => {
     e.preventDefault();
+    // Honeypot: se preenchido, é um bot — ignorar silenciosamente
+    if (document.getElementById('hp_website')?.value) { form.reset(); return; }
     if (!validateForm(form)) return;
     const btn = form.querySelector('button[type="submit"]');
     btn.textContent = 'A enviar...';

@@ -4,7 +4,7 @@
   Header always set X-Frame-Options "SAMEORIGIN"
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
   Header always set Permissions-Policy "geolocation=(), camera=(), microphone=()"
-  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.emailjs.com https://www.youtube.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://img.youtube.com https://*.tile.openstreetmap.org https://www.jscampinense.pt; frame-src https://www.youtube.com https://www.openstreetmap.org; connect-src 'self' https://api.emailjs.com; worker-src 'self'"
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdn.emailjs.com https://www.youtube.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; frame-src https://www.youtube.com https://www.openstreetmap.org; connect-src 'self' https://api.emailjs.com https://nominatim.openstreetmap.org https://graph.facebook.com https://api.allorigins.win https://corsproxy.io https://api.codetabs.com; worker-src 'self'"
 </IfModule>
 
 # Prevent directory listing

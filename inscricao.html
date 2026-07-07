@@ -98,6 +98,11 @@
       <!-- FORM -->
       <main class="insc-form-wrap">
         <form class="insc-form" id="inscForm" novalidate>
+          <!-- honeypot anti-spam: humanos não veem este campo; bots preenchem-no -->
+          <div style="position:absolute;left:-9999px" aria-hidden="true">
+            <label for="hp_website">Website</label>
+            <input type="text" id="hp_website" name="hp_website" tabindex="-1" autocomplete="off" />
+          </div>
 
           <!-- PASSO 1: MODALIDADE -->
           <div class="insc-form__section">
