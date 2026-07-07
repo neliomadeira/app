@@ -321,35 +321,48 @@ document.addEventListener('DOMContentLoaded', () => {
     renderAniversarios();
   });
 
-  // Aniversários do dia
+  // Aniversariantes do mês (os de hoje aparecem primeiro, destacados)
   function renderAniversarios() {
     try {
       const atletas = JSON.parse(localStorage.getItem('db_atletas') || '[]');
       const hoje    = new Date();
       const dia     = hoje.getDate();
       const mes     = hoje.getMonth(); // 0-11
+      const MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
-      const lista = atletas.filter(a => {
-        if (!a.dataNascimento || a.estado === 'Inactivo') return false;
-        const n = new Date(a.dataNascimento + 'T00:00:00');
-        return n.getDate() === dia && n.getMonth() === mes;
-      });
+      const lista = atletas
+        .filter(a => {
+          if (!a.dataNascimento || a.estado === 'Inactivo') return false;
+          const n = new Date(a.dataNascimento + 'T00:00:00');
+          return n.getMonth() === mes;
+        })
+        .map(a => {
+          const n = new Date(a.dataNascimento + 'T00:00:00');
+          return { ...a, _dia: n.getDate(), _idade: hoje.getFullYear() - n.getFullYear(), _hoje: n.getDate() === dia };
+        })
+        .sort((a, b) => (b._hoje - a._hoje) || (a._dia - b._dia));
 
       const section = document.getElementById('aniversariosSection');
       if (!section) return;
 
       if (!lista.length) { section.style.display = 'none'; return; }
 
+      const tag   = section.querySelector('.section__tag');
+      const title = section.querySelector('.section__title');
+      if (tag)   tag.textContent   = MESES_PT[mes];
+      if (title) title.textContent = 'Aniversariantes do Mês';
+
       section.style.display = '';
       document.getElementById('aniversariosLista').innerHTML = lista.map(a => {
-        const nasc  = new Date(a.dataNascimento + 'T00:00:00');
-        const idade = hoje.getFullYear() - nasc.getFullYear();
+        const detalhe = a._hoje
+          ? `${a.escalao} &middot; faz ${a._idade} anos <strong>hoje</strong> 🎉`
+          : `${a.escalao} &middot; dia ${a._dia} &middot; faz ${a._idade} anos`;
         return `
-          <div class="birthday__card">
+          <div class="birthday__card${a._hoje ? ' birthday__card--today' : ''}">
             <div class="birthday__icon">🎂</div>
             <div class="birthday__info">
               <strong class="birthday__nome">${a.nome}</strong>
-              <span class="birthday__detalhe">${a.escalao} &middot; faz ${idade} anos hoje</span>
+              <span class="birthday__detalhe">${detalhe}</span>
             </div>
           </div>`;
       }).join('');
@@ -434,6 +447,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (jogo && section && widget) {
         const d = new Date(jogo.data + 'T00:00:00');
         const MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+        const alvo = new Date(jogo.data + 'T' + (jogo.hora || '00:00'));
+        const cdBox = (id, label) => `
+          <div style="display:flex;flex-direction:column;align-items:center;min-width:52px;background:rgba(255,255,255,0.06);border-radius:8px;padding:8px 6px">
+            <span id="${id}" style="font-size:1.7rem;font-weight:900;color:#FFD700;font-family:'Bebas Neue',sans-serif;line-height:1">--</span>
+            <span style="color:rgba(255,255,255,0.5);font-size:0.62rem;letter-spacing:1px;text-transform:uppercase">${label}</span>
+          </div>`;
         widget.innerHTML = `
           <div style="color:rgba(255,255,255,0.55);font-size:0.78rem;letter-spacing:1px;text-transform:uppercase;font-weight:700">Próximo Jogo</div>
           <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;justify-content:center">
@@ -442,10 +461,38 @@ document.addEventListener('DOMContentLoaded', () => {
               <span style="font-size:2rem;font-weight:900;color:#FFD700;font-family:'Bebas Neue',sans-serif;letter-spacing:1px">${d.getDate()} ${MESES_PT[d.getMonth()]}</span>
               <span style="color:rgba(255,255,255,0.6);font-size:0.82rem">${jogo.hora || ''} &nbsp;·&nbsp; ${jogo.local || ''}</span>
             </div>
+            <div style="display:flex;gap:8px" aria-label="Contagem decrescente para o jogo">
+              ${cdBox('jdDias','Dias')}${cdBox('jdHoras','Horas')}${cdBox('jdMin','Min')}${cdBox('jdSeg','Seg')}
+            </div>
             ${jogo.escalao && jogo.escalao !== 'Todos' ? `<span style="background:rgba(255,215,0,0.15);color:#FFD700;padding:4px 12px;border-radius:20px;font-size:0.78rem;font-weight:700">${jogo.escalao}</span>` : ''}
-            <a href="agenda.html" style="background:#FFD700;color:#001f4d;padding:8px 18px;border-radius:6px;font-size:0.82rem;font-weight:700;text-decoration:none">Ver agenda →</a>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+              <button id="jdIcsBtn" style="background:transparent;color:#FFD700;border:1px solid rgba(255,215,0,0.5);padding:8px 14px;border-radius:6px;font-size:0.82rem;font-weight:700;cursor:pointer">&#128197; Calendário</button>
+              <a href="agenda.html" style="background:#FFD700;color:#001f4d;padding:8px 18px;border-radius:6px;font-size:0.82rem;font-weight:700;text-decoration:none">Ver agenda →</a>
+            </div>
           </div>`;
         section.style.display = '';
+
+        // Contagem decrescente ao segundo
+        const cdTick = () => {
+          let diff = alvo - new Date();
+          if (diff < 0) diff = 0;
+          const dias  = Math.floor(diff / 86400000);
+          const horas = Math.floor(diff % 86400000 / 3600000);
+          const min   = Math.floor(diff % 3600000 / 60000);
+          const seg   = Math.floor(diff % 60000 / 1000);
+          const setN = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = String(v).padStart(2, '0'); };
+          setN('jdDias', dias); setN('jdHoras', horas); setN('jdMin', min); setN('jdSeg', seg);
+          if (diff === 0) clearInterval(cdTimer);
+        };
+        const cdTimer = setInterval(cdTick, 1000);
+        cdTick();
+
+        document.getElementById('jdIcsBtn')?.addEventListener('click', () => {
+          if (window.JSC_ICS) window.JSC_ICS.download({
+            titulo: jogo.titulo, data: jogo.data, hora: jogo.hora,
+            local: jogo.local, descricao: jogo.descricao, tipo: 'Jogo',
+          });
+        });
       }
     }
   } catch(e) {}

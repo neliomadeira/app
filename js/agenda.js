@@ -225,6 +225,12 @@
         ? `<span>&#127942; ${e.escalao}</span>`
         : '';
 
+      const icsBtn = !past && window.JSC_ICS
+        ? `<button class="agenda-ics-btn" data-ics="${encodeURIComponent(JSON.stringify({
+             titulo: e.titulo, data: e.data, hora: e.hora, local: e.local, descricao: e.descricao, tipo: e.tipo,
+           }))}" title="Adicionar ao calendário">&#128197; Adicionar ao calendário</button>`
+        : '';
+
       return `
         <div class="agenda-pub-item${pastCls}" style="border-left-color:${cor}">
           <div class="agenda-pub-date">
@@ -239,10 +245,17 @@
               <span>&#128205; ${e.local}</span>
               ${escalaoMeta}
             </p>
+            ${icsBtn}
           </div>
         </div>
       `;
     }).join('');
+
+    container.querySelectorAll('.agenda-ics-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        try { window.JSC_ICS.download(JSON.parse(decodeURIComponent(btn.dataset.ics))); } catch (_) {}
+      });
+    });
   }
 
   // ---- Render all ----

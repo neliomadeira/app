@@ -2637,8 +2637,12 @@ function renderClassSyncRows() {
     html += `<tr style="background:var(--blue);color:#fff">
       <td colspan="4" style="padding:8px 14px;font-weight:700;letter-spacing:0.5px;display:flex;align-items:center;justify-content:space-between">
         <span>${escalao}</span>
-        <button class="btn-sm" style="background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3)"
-          onclick="adicionarEquipa('${escalao}')">+ Equipa / Série</button>
+        <span style="display:flex;gap:6px">
+          <button class="btn-sm" style="background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3)"
+            onclick="abrirEditorClass('${escalao}','')">&#9998; Editar manualmente</button>
+          <button class="btn-sm" style="background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3)"
+            onclick="adicionarEquipa('${escalao}')">+ Equipa / Série</button>
+        </span>
       </td>
     </tr>`;
 
@@ -2663,6 +2667,7 @@ function renderClassSyncRows() {
           </td>
           <td style="padding:8px 14px;text-align:right;white-space:nowrap;display:flex;gap:5px;justify-content:flex-end">
             <button class="btn-sm" onclick="abrirColar('${escalao}','class','${tk}')">&#128203; Classificação</button>
+            <button class="btn-sm" onclick="abrirEditorClass('${escalao}','${tk}')" title="Editar classificação manualmente">&#9998;</button>
             <button class="btn-sm" onclick="abrirColar('${escalao}','jogos','${tk}')">&#128197; Jogos</button>
             <button class="btn-sm" style="color:#c00" onclick="limparEquipa('${escalao}','${tk}')">&#x2715;</button>
           </td>
@@ -2671,6 +2676,112 @@ function renderClassSyncRows() {
     }
   }
   tbody.innerHTML = html;
+}
+
+// ── Editor manual de classificação ──────────────────────────────
+let _edClassCtx = null; // { escalao, teamKey }
+
+function abrirEditorClass(escalao, teamKey) {
+  _edClassCtx = { escalao, teamKey };
+  const key = teamStorageKey(escalao, teamKey, 'class');
+  let rows = [];
+  try { rows = JSON.parse(localStorage.getItem(key) || '[]'); } catch(e) {}
+  if (!rows.length) rows = [{ equipa: 'Sport Campinense', j:0, v:0, e:0, d:0, gm:0, gs:0, forma:'' }];
+
+  const cfg  = loadClassConfig();
+  const tNome = teamKey ? (cfg[escalao]?.teams?.[teamKey]?.nome || teamKey) : '';
+
+  openModal(`Editar Classificação — ${escalao}${tNome ? ' · ' + tNome : ''}`, `
+    <p style="font-size:0.78rem;color:#888;margin:0 0 10px">
+      Pontos calculados automaticamente (V×3 + E). "Forma" é opcional — últimas jornadas com V, E ou D (ex: VVEDV).
+    </p>
+    <div style="overflow-x:auto">
+      <table class="table" id="edClassTable" style="min-width:640px">
+        <thead><tr>
+          <th style="min-width:180px">Equipa</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GM</th><th>GS</th><th>Forma</th><th></th>
+        </tr></thead>
+        <tbody>${rows.map(_edClassRowHTML).join('')}</tbody>
+      </table>
+    </div>
+    <button type="button" class="btn-sm" style="margin-top:10px" onclick="edClassAddRow()">+ Adicionar equipa</button>
+  `, `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn-save" onclick="salvarEditorClass()">Guardar classificação</button>`);
+}
+
+function _edClassRowHTML(t) {
+  const num = (v) => v == null ? 0 : v;
+  const esc = (s) => String(s || '').replace(/"/g, '&quot;');
+  return `<tr>
+    <td><input class="form-input ed-equipa" value="${esc(t.equipa)}" placeholder="Nome da equipa" style="min-width:170px"></td>
+    <td><input class="form-input ed-j"  type="number" min="0" value="${num(t.j)}"  style="width:56px"></td>
+    <td><input class="form-input ed-v"  type="number" min="0" value="${num(t.v)}"  style="width:56px"></td>
+    <td><input class="form-input ed-e"  type="number" min="0" value="${num(t.e)}"  style="width:56px"></td>
+    <td><input class="form-input ed-d"  type="number" min="0" value="${num(t.d)}"  style="width:56px"></td>
+    <td><input class="form-input ed-gm" type="number" min="0" value="${num(t.gm)}" style="width:56px"></td>
+    <td><input class="form-input ed-gs" type="number" min="0" value="${num(t.gs)}" style="width:56px"></td>
+    <td><input class="form-input ed-forma" value="${esc(t.forma)}" placeholder="VVEDV" maxlength="5" style="width:76px;text-transform:uppercase"></td>
+    <td><button type="button" class="btn-sm" style="color:#c00" title="Remover linha"
+      onclick="this.closest('tr').remove()">&#x2715;</button></td>
+  </tr>`;
+}
+
+function edClassAddRow() {
+  const tbody = document.querySelector('#edClassTable tbody');
+  if (tbody) tbody.insertAdjacentHTML('beforeend', _edClassRowHTML({ equipa:'', j:0, v:0, e:0, d:0, gm:0, gs:0, forma:'' }));
+}
+
+function _abrevEquipa(nome) {
+  const stop = /^(de|da|do|dos|das|e|a|o)$/i;
+  const words = (nome || '').split(/\s+/).filter(w => w && !stop.test(w));
+  if (!words.length) return '???';
+  if (words.length === 1) return words[0].slice(0, 3).toUpperCase();
+  return words.map(w => w[0]).join('').slice(0, 3).toUpperCase();
+}
+
+function salvarEditorClass() {
+  if (!_edClassCtx) return;
+  const { escalao, teamKey } = _edClassCtx;
+
+  const rows = [];
+  document.querySelectorAll('#edClassTable tbody tr').forEach(tr => {
+    const g = (cls) => tr.querySelector('.' + cls);
+    const equipa = g('ed-equipa').value.trim();
+    if (!equipa) return;
+    const n = (cls) => Math.max(0, parseInt(g(cls).value, 10) || 0);
+    const forma = g('ed-forma').value.trim().toUpperCase().replace(/[^VED]/g, '').slice(0, 5);
+    rows.push({
+      equipa,
+      abrev: _abrevEquipa(equipa),
+      j: n('ed-j'), v: n('ed-v'), e: n('ed-e'), d: n('ed-d'),
+      gm: n('ed-gm'), gs: n('ed-gs'),
+      forma,
+      sc: /campinense/i.test(equipa),
+    });
+  });
+
+  if (!rows.length) { showToast('Adicione pelo menos uma equipa', 'red'); return; }
+
+  const key = teamStorageKey(escalao, teamKey, 'class');
+  localStorage.setItem(key, JSON.stringify(rows));
+
+  // Registar data de atualização para o badge "última sincronização"
+  const cfg = loadClassConfig();
+  if (teamKey) {
+    cfg[escalao] = cfg[escalao] || {};
+    cfg[escalao].teams = cfg[escalao].teams || {};
+    cfg[escalao].teams[teamKey] = cfg[escalao].teams[teamKey] || { nome: teamKey };
+    cfg[escalao].teams[teamKey].lastSync = new Date().toISOString();
+    cfg[escalao].teams[teamKey].nTeams   = rows.length;
+  } else {
+    cfg[escalao] = cfg[escalao] || {};
+    cfg[escalao].lastSync = new Date().toISOString();
+    cfg[escalao].nTeams   = rows.length;
+  }
+  saveClassConfig(cfg);
+
+  closeModal();
+  renderClassSyncRows();
+  showToast(`Classificação de ${escalao} guardada (${rows.length} equipas)`, 'green');
 }
 
 document.getElementById('btnImportarFPF')?.addEventListener('click', () => {
