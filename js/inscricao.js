@@ -97,12 +97,96 @@ document.addEventListener('DOMContentLoaded', () => {
     else if (age >= 18 && age <= 19) categoria.value = 'sub19';
   });
 
-  // ---- FORM SUBMIT ---- //
+  // ---- FORM SUBMIT SETUP ---- //
   const form    = document.getElementById('inscForm');
   const success = document.getElementById('inscSuccess');
 
+  // ---- FORM VALIDATION ---- //
+  function setFieldError(fieldId, msg) {
+    const el = document.getElementById(fieldId);
+    if (!el) return;
+    el.classList.add('is-invalid');
+    el.setAttribute('aria-invalid', 'true');
+    const parent = el.closest('.form-group') || el.parentElement;
+    let err = parent.querySelector('.field-error');
+    if (!err) {
+      err = document.createElement('span');
+      err.className = 'field-error';
+      err.setAttribute('role', 'alert');
+      parent.appendChild(err);
+    }
+    err.textContent = msg;
+    err.classList.add('visible');
+  }
+
+  function clearFieldError(el) {
+    el.classList.remove('is-invalid');
+    el.removeAttribute('aria-invalid');
+    const parent = el.closest('.form-group') || el.parentElement;
+    parent.querySelector('.field-error')?.classList.remove('visible');
+  }
+
+  function validateForm(form) {
+    // Clear previous errors
+    form.querySelectorAll('.is-invalid').forEach(el => {
+      el.classList.remove('is-invalid');
+      el.removeAttribute('aria-invalid');
+    });
+    form.querySelectorAll('.field-error').forEach(el => el.classList.remove('visible'));
+
+    let valid = true;
+
+    const nome = document.getElementById('nomeAtleta');
+    if (!nome?.value.trim()) { setFieldError('nomeAtleta', 'Nome completo obrigatório.'); valid = false; }
+
+    const dob = document.getElementById('dataNasc');
+    if (!dob?.value) { setFieldError('dataNasc', 'Data de nascimento obrigatória.'); valid = false; }
+
+    if (isFutebol()) {
+      const cat = document.getElementById('categoria');
+      if (!cat?.value) { setFieldError('categoria', 'Escolha um escalão.'); valid = false; }
+    }
+
+    const tel = document.getElementById('telefoneResp');
+    if (!tel?.value.trim()) { setFieldError('telefoneResp', 'Telefone obrigatório.'); valid = false; }
+
+    const email = document.getElementById('emailResp');
+    if (email?.value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value)) {
+      setFieldError('emailResp', 'E-mail inválido.'); valid = false;
+    }
+
+    const cp = document.getElementById('codigoPostal');
+    if (!cp?.value.trim()) {
+      setFieldError('codigoPostal', 'Código postal obrigatório.'); valid = false;
+    } else if (!/^\d{4}-\d{3}$/.test(cp.value)) {
+      setFieldError('codigoPostal', 'Formato inválido — use XXXX-XXX (ex: 8100-610).'); valid = false;
+    }
+
+    const rua = document.getElementById('rua');
+    if (!rua?.value.trim()) { setFieldError('rua', 'Morada obrigatória.'); valid = false; }
+
+    const termos = document.getElementById('termos');
+    if (!termos?.checked) { setFieldError('termos', 'Deve aceitar os termos para continuar.'); valid = false; }
+
+    if (!valid) {
+      const first = form.querySelector('.is-invalid');
+      first?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      first?.focus();
+    }
+    return valid;
+  }
+
+  // Clear individual field error on correction
+  form?.addEventListener('input', e => {
+    if (e.target.classList.contains('is-invalid')) clearFieldError(e.target);
+  });
+  form?.addEventListener('change', e => {
+    if (e.target.classList.contains('is-invalid')) clearFieldError(e.target);
+  });
+
   form?.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (!validateForm(form)) return;
     const btn = form.querySelector('button[type="submit"]');
     btn.textContent = 'A enviar...';
     btn.disabled = true;

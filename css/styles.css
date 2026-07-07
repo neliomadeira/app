@@ -1584,6 +1584,48 @@ ul { list-style: none; }
 
 .form-group textarea { resize: vertical; }
 
+.form-group input.is-invalid,
+.form-group select.is-invalid,
+.form-group textarea.is-invalid {
+  border-color: #e53e3e;
+  background: #fff5f5;
+}
+
+.form-group input.is-invalid:focus,
+.form-group select.is-invalid:focus,
+.form-group textarea.is-invalid:focus {
+  border-color: #c53030;
+  box-shadow: 0 0 0 3px rgba(229,62,62,.15);
+}
+
+.field-error {
+  display: none;
+  color: #e53e3e;
+  font-size: 0.78rem;
+  font-weight: 500;
+  margin-top: 5px;
+  line-height: 1.4;
+}
+
+.field-error.visible { display: block; }
+
+html[data-theme="dark"] .form-group label { color: #cbd5e0; }
+html[data-theme="dark"] .form-group input,
+html[data-theme="dark"] .form-group select,
+html[data-theme="dark"] .form-group textarea {
+  background: #0f1e3d;
+  border-color: #2a3f6e;
+  color: #e2e8f0;
+}
+html[data-theme="dark"] .form-group input::placeholder,
+html[data-theme="dark"] .form-group textarea::placeholder { color: #718096; }
+html[data-theme="dark"] .form-group input.is-invalid,
+html[data-theme="dark"] .form-group select.is-invalid,
+html[data-theme="dark"] .form-group textarea.is-invalid {
+  background: #2d1515;
+  border-color: #e53e3e;
+}
+
 .contact__map {
   margin-top: 48px;
 }

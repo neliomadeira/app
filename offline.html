@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8" />
+  <script>try{document.documentElement.setAttribute("data-theme",localStorage.getItem("jsc_theme")||"light")}catch(e){}</script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sem ligação – Juventude Sport Campinense</title>
+  <meta name="robots" content="noindex" />
+  <link rel="preload" as="image" href="/images/logo.png" fetchpriority="high" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <meta name="theme-color" content="#001f4d" />
+  <style>
+    .offline-wrap {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 40px 24px;
+      background: var(--blue-bg, #001f4d);
+      color: #fff;
+    }
+    .offline-logo { width: 80px; height: 80px; object-fit: contain; margin-bottom: 24px; }
+    .offline-icon { font-size: 3.5rem; margin-bottom: 16px; line-height: 1; }
+    .offline-title { font-family: 'Bebas Neue', sans-serif; font-size: 2.4rem; letter-spacing: 0.04em; margin: 0 0 12px; color: var(--yellow, #FFD100); }
+    .offline-msg { font-size: 1rem; color: rgba(255,255,255,0.75); max-width: 380px; line-height: 1.6; margin: 0 0 32px; }
+    .offline-btn { display: inline-block; padding: 12px 32px; background: var(--yellow, #FFD100); color: #000; font-weight: 700; border-radius: 8px; text-decoration: none; font-size: 0.95rem; transition: opacity .2s; }
+    .offline-btn:hover { opacity: .85; }
+    .offline-links { margin-top: 24px; display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+    .offline-links a { color: rgba(255,255,255,.55); font-size: .85rem; text-decoration: none; }
+    .offline-links a:hover { color: #fff; }
+  </style>
+</head>
+<body>
+  <div class="offline-wrap">
+    <img src="/images/logo.png" alt="JS Campinense" class="offline-logo" width="80" height="80" />
+    <div class="offline-icon">📡</div>
+    <h1 class="offline-title">Sem ligação à internet</h1>
+    <p class="offline-msg">Não foi possível carregar a página. Verifica a tua ligação e tenta novamente.</p>
+    <a href="/" class="offline-btn" onclick="location.reload(); return false;">Tentar novamente</a>
+    <div class="offline-links">
+      <a href="index.html">Início</a>
+      <a href="noticias.html">Notícias</a>
+      <a href="resultados.html">Resultados</a>
+      <a href="contacto.html">Contacto</a>
+    </div>
+  </div>
+</body>
+</html>
