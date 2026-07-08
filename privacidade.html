@@ -298,13 +298,14 @@
   </footer>
 
   <script src="js/security.js" defer></script>
+  <script src="js/sync.js" defer></script>
   <script src="js/nav.js?v=20260701" defer></script>
   <script src="js/site-config.js" defer></script>
   <script src="js/main.js" defer></script>
   <script src="/js/pwa.js" defer></script>
   <script>
     // Load admin-edited content from localStorage
-    (function() {
+    function applyLegalContent() {
       try {
         const legal = JSON.parse(localStorage.getItem('site_legal') || '{}');
         if (legal.privacidade) {
@@ -316,7 +317,9 @@
           if (el) el.innerHTML = legal.termos;
         }
       } catch(_) {}
-    })();
+    }
+    applyLegalContent();
+    document.addEventListener('jsc:synced', applyLegalContent);
 
     function showTab(id, btn) {
       document.querySelectorAll('.legal-section').forEach(s => s.classList.remove('active'));

@@ -4571,6 +4571,15 @@ function guardarApiToken() {
 async function publicarNoServidor() {
   const token = localStorage.getItem('jsc_api_token') || 'campinense2025';
   const ls = (key) => { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; } };
+  // Classificações e jogos por escalão/equipa (chaves dinâmicas fpf_class_* / fpf_jogos_*)
+  const classData = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && (k.startsWith('fpf_class_') || k.startsWith('fpf_jogos_'))) {
+      const v = ls(k);
+      if (v) classData[k] = v;
+    }
+  }
   const dados = {
     publicadoEm:    new Date().toISOString(),
     noticias:       loadNoticias(),
@@ -4582,13 +4591,19 @@ async function publicarNoServidor() {
     treinadores:    DB.treinadores,
     patrocinadores: DB.patrocinadores,
     modalidades:    DB.modalidades,
+    modPosts:       ls('db_mod_posts'),
     seniores:       ls('db_seniores'),
     senioresInfo:   ls('db_seniores_info'),
     siteConfig:     ls('site_config'),
     dadosClube:     ls('dados_clube'),
     sitePopup:      ls('site_popup'),
     siteBanner:     ls('site_banner'),
+    siteAviso:      ls('site_aviso'),
     siteCores:      ls('site_cores'),
+    siteLegal:      ls('site_legal'),
+    logos:          ls('db_logos'),
+    classConfig:    ls('fpf_sync_config'),
+    classData:      Object.keys(classData).length ? classData : null,
   };
   try {
     const btn = document.querySelector('[onclick="publicarNoServidor()"]');
