@@ -26,7 +26,7 @@
     },
     'contactPoint': {
       '@type': 'ContactPoint',
-      'telephone': '+351-289-000-000',
+      'telephone': '+351-937-952-710',
       'contactType': 'customer service',
       'availableLanguage': 'Portuguese'
     }
