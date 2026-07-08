@@ -38,6 +38,7 @@
       if (data.siteCores)      ls('site_cores',          data.siteCores);
       if (data.siteLegal)      ls('site_legal',          data.siteLegal);
       if (data.emailConfig)    ls('email_config',        data.emailConfig);
+      if (data.fbPosts)        ls('fb_posts',            data.fbPosts);
       if (data.logos)          ls('db_logos',            data.logos);
       if (data.classConfig)    ls('fpf_sync_config',     data.classConfig);
       if (data.classData && typeof data.classData === 'object') {
