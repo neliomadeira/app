@@ -4601,6 +4601,7 @@ async function publicarNoServidor() {
     siteAviso:      ls('site_aviso'),
     siteCores:      ls('site_cores'),
     siteLegal:      ls('site_legal'),
+    emailConfig:    ls('email_config'),
     logos:          ls('db_logos'),
     classConfig:    ls('fpf_sync_config'),
     classData:      Object.keys(classData).length ? classData : null,

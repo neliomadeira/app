@@ -10,12 +10,19 @@
 # Prevent directory listing
 Options -Indexes
 
-# Block access to admin from referrers (basic layer only — use server-side auth for production)
+# Block sensitive file types (data JSON, configs, dumps)
 <FilesMatch "\.(env|json|log|sql|bak|sh)$">
   <IfModule mod_authz_core.c>
     Require all denied
   </IfModule>
 </FilesMatch>
+# ...but the PWA manifest must stay public (blocking it breaks the
+# service worker install: cache.addAll fails on any 403)
+<Files "manifest.json">
+  <IfModule mod_authz_core.c>
+    Require all granted
+  </IfModule>
+</Files>
 
 # Gzip compression
 <IfModule mod_deflate.c>
