@@ -4752,6 +4752,7 @@ async function publicarNoServidor() {
     patrocinadores: DB.patrocinadores,
     modalidades:    DB.modalidades,
     modPosts:       ls('db_mod_posts'),
+    jogos:          DB.jogos,
     seniores:       ls('db_seniores'),
     senioresInfo:   ls('db_seniores_info'),
     siteConfig:     ls('site_config'),

@@ -178,19 +178,37 @@ function getTeams(escalao) {
   } catch(e) { return []; }
 }
 
-// ---- CARREGAR DADOS (localStorage FPF > estáticos) ---- //
+// ---- JOGOS GERIDOS NO ADMIN (db_jogos) ---- //
+// A página Jogos do admin (adicionar, editar, registar resultado, apagar)
+// é a fonte principal — as importações também são fundidas lá.
+function getAdminJogos(escalao, teamKey) {
+  try {
+    let jgs = JSON.parse(localStorage.getItem('db_jogos') || '[]')
+      .filter(j => j.escalao === escalao);
+    if (teamKey) {
+      const cfg  = JSON.parse(localStorage.getItem('fpf_sync_config') || '{}');
+      const nome = cfg[escalao]?.teams?.[teamKey]?.nome || teamKey;
+      jgs = jgs.filter(j => !j.equipa || j.equipa === nome);
+    }
+    return jgs;
+  } catch(e) { return []; }
+}
+
+// ---- CARREGAR DADOS (admin > FPF importado > estáticos) ---- //
 function getDados(escalao, teamKey) {
   const base    = DADOS[escalao] || { competicao: escalao, classificacao: [], jogos: [] };
   const clsKey  = teamKey ? `fpf_class_${escalao}__${teamKey}` : `fpf_class_${escalao}`;
   const jgsKey  = teamKey ? `fpf_jogos_${escalao}__${teamKey}` : `fpf_jogos_${escalao}`;
+  const adminJogos = getAdminJogos(escalao, teamKey);
   try {
     const cls = localStorage.getItem(clsKey);
     const jgs = localStorage.getItem(jgsKey);
-    if (cls || jgs) {
+    if (cls || jgs || adminJogos.length) {
+      const importados = jgs ? JSON.parse(jgs) : (teamKey || cls ? [] : base.jogos);
       return {
         competicao:    base.competicao,
         classificacao: cls ? JSON.parse(cls) : (teamKey ? [] : base.classificacao),
-        jogos:         jgs ? JSON.parse(jgs) : (teamKey ? [] : base.jogos),
+        jogos:         adminJogos.length ? adminJogos : importados,
         fromFPF:       true,
       };
     }

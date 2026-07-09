@@ -83,6 +83,12 @@
   }
 
   function loadJogos(escalaoNome) {
+    // Jogos geridos no admin (adicionar/editar/registar/apagar) têm prioridade
+    try {
+      const admin = JSON.parse(localStorage.getItem('db_jogos') || '[]')
+        .filter(function (j) { return j.escalao === escalaoNome; });
+      if (admin.length) return admin;
+    } catch (e) {}
     try {
       const raw = localStorage.getItem('fpf_jogos_' + escalaoNome);
       if (raw) return JSON.parse(raw);
@@ -485,7 +491,7 @@
 
   // Live update from admin in another tab
   window.addEventListener('storage', function (ev) {
-    if (['db_atletas', 'db_escaloes', 'db_treinadores'].indexOf(ev.key) !== -1) {
+    if (['db_atletas', 'db_escaloes', 'db_treinadores', 'db_jogos'].indexOf(ev.key) !== -1) {
       var params = new URLSearchParams(location.search);
       var escalaoNome = params.get('escalao');
       if (!escalaoNome) return;

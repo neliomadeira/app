@@ -28,6 +28,7 @@
       if (data.patrocinadores) ls('db_patrocinadores',   data.patrocinadores);
       if (data.modalidades)    ls('db_modalidades',      data.modalidades);
       if (data.modPosts)       ls('db_mod_posts',        data.modPosts);
+      if (data.jogos)          ls('db_jogos',            data.jogos);
       if (data.seniores)       ls('db_seniores',         data.seniores);
       if (data.senioresInfo)   ls('db_seniores_info',    data.senioresInfo);
       if (data.siteConfig)     ls('site_config',         data.siteConfig);
