@@ -117,6 +117,20 @@ function isSC(name) {
   return /sport campinense|js campinense|campinense/i.test(name || '');
 }
 
+// Logo da equipa num jogo: guardado no próprio jogo ou via mapa db_logos
+function jogoLogo(url, nome) {
+  let resolved = url;
+  if (!resolved) {
+    try {
+      const logos = JSON.parse(localStorage.getItem('db_logos') || '{}');
+      resolved = logos[(nome || '').toLowerCase()] || '';
+    } catch(e) {}
+  }
+  return resolved
+    ? `<img src="${resolved}" alt="" class="jogo-team-logo" loading="lazy" onerror="this.style.display='none'">`
+    : '';
+}
+
 function scClass(name) {
   return isSC(name) ? ' jogo-equipa--sc' : '';
 }
@@ -258,10 +272,10 @@ function renderJogos(escalao) {
           <div class="jogo-divider"></div>
           <div class="jogo-info">
             <div class="jogo-equipas">
-              <span class="jogo-equipa${scClass(j.casa)}">${j.casa}</span>
+              <span class="jogo-equipa${scClass(j.casa)}">${jogoLogo(j.logoCasa, j.casa)}${j.casa}</span>
               <div class="jogo-equipa-row">
                 <span class="vs">vs</span>
-                <span class="jogo-equipa${scClass(j.fora)}">${j.fora}</span>
+                <span class="jogo-equipa${scClass(j.fora)}">${jogoLogo(j.logoFora, j.fora)}${j.fora}</span>
               </div>
             </div>
             ${j.local ? `<div class="jogo-meta">${j.local}</div>` : ''}
@@ -297,10 +311,10 @@ function renderJogos(escalao) {
           <div class="jogo-divider"></div>
           <div class="jogo-info">
             <div class="jogo-equipas">
-              <span class="jogo-equipa${scClass(j.casa)}">${j.casa}</span>
+              <span class="jogo-equipa${scClass(j.casa)}">${jogoLogo(j.logoCasa, j.casa)}${j.casa}</span>
               <div class="jogo-equipa-row">
                 <span class="vs">vs</span>
-                <span class="jogo-equipa${scClass(j.fora)}">${j.fora}</span>
+                <span class="jogo-equipa${scClass(j.fora)}">${jogoLogo(j.logoFora, j.fora)}${j.fora}</span>
               </div>
             </div>
             ${j.local ? `<div class="jogo-meta">${j.local}</div>` : ''}

@@ -3197,7 +3197,66 @@ function parseZZJogos(lines, next) {
   return jogos;
 }
 
+// ── Resolução de logos → nomes de equipas ─────────
+// O ZeroZero cola jogos só com logos ([img:...]) sem nomes em texto.
+// Se a classificação já foi importada (com logos), reconhecemos as
+// equipas pelo id do logo e recuperamos os nomes.
+function _logoId(url) {
+  const m = (url || '').match(/equipas\/(\d+)_/);
+  return m ? m[1] : (url || '').split('?')[0];
+}
+
+function _logoTeamMaps() {
+  const idToName = {}, nameToLogo = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (!k || !k.startsWith('fpf_class_')) continue;
+    try {
+      JSON.parse(localStorage.getItem(k) || '[]').forEach(r => {
+        if (r.equipa && r.logo) {
+          idToName[_logoId(r.logo)] = r.equipa;
+          nameToLogo[r.equipa.toLowerCase()] = r.logo;
+        }
+      });
+    } catch(e) {}
+  }
+  // db_logos (nome → url) também conta
+  try {
+    const logos = JSON.parse(localStorage.getItem('db_logos') || '{}');
+    Object.entries(logos).forEach(([nome, url]) => {
+      if (!nameToLogo[nome]) nameToLogo[nome] = url;
+      const id = _logoId(url);
+      if (!idToName[id]) idToName[id] = nome.replace(/\b\w/g, c => c.toUpperCase());
+    });
+  } catch(e) {}
+  return { idToName, nameToLogo };
+}
+
+let _lastJogosUnresolved = 0; // equipas não reconhecidas na última colagem
+
+function _resolveImgTeamTokens(text) {
+  const { idToName } = _logoTeamMaps();
+  _lastJogosUnresolved = 0;
+  return text.replace(/\[img:(https?:[^\]\s]+)\]/g, (m, url) => {
+    const nome = idToName[_logoId(url)];
+    if (nome) return nome;
+    _lastJogosUnresolved++;
+    return '';
+  });
+}
+
+function _attachJogoLogos(jogos) {
+  const { nameToLogo } = _logoTeamMaps();
+  jogos.forEach(j => {
+    j.logoCasa = nameToLogo[(j.casa || '').toLowerCase()] || '';
+    j.logoFora = nameToLogo[(j.fora || '').toLowerCase()] || '';
+  });
+  return jogos;
+}
+
 function parsePastedJogos(text) {
+  // Substituir tokens [img:...] pelos nomes das equipas (via classificação importada)
+  text = _resolveImgTeamTokens(text);
   const raw = text.split('\n').map(l=>l.trim()).filter(Boolean);
   const idBase = { v: Date.now() };
   const next = () => idBase.v++;
@@ -3205,11 +3264,11 @@ function parsePastedJogos(text) {
   const dateFirstLines = raw.filter((l,i) => parseDate(l) && !parseScore(l) && /^\d{1,2}/.test(l) && i+1<raw.length && !parseDate(raw[i+1]) && !parseScore(raw[i+1]));
   if (dateFirstLines.length > 0) {
     const zzResult = parseZZJogos(raw, next);
-    if (zzResult.length > 0) return zzResult;
+    if (zzResult.length > 0) return _attachJogoLogos(zzResult);
   }
   const dateOnlyLines = raw.filter(l=>/^\d{1,2}\s+[A-Za-zÀ-ž]{3,}(\s+\d{4})?$/.test(l)&&parseDate(l));
-  if (dateOnlyLines.length > 0) return parseMultiLineJogos(raw, next);
-  return parseSingleLineJogos(raw, next);
+  if (dateOnlyLines.length > 0) return _attachJogoLogos(parseMultiLineJogos(raw, next));
+  return _attachJogoLogos(parseSingleLineJogos(raw, next));
 }
 
 function parseMultiLineJogos(lines, next) {
@@ -3233,9 +3292,12 @@ function parseSingleLineJogos(lines, next) {
   const jogos = [];
   for (const line of lines) {
     let parts=line.includes('\t')?line.split('\t').map(p=>p.trim()):line.split(/\s{2,}/).map(p=>p.trim());
-    // Remove standalone dashes (score placeholder for unplayed games) so they
-    // are never mistaken for a team name
-    parts=parts.filter(Boolean).filter(p=>!/^[-–—]$/.test(p));
+    // Remove standalone dashes (score placeholder for unplayed games) and
+    // junk tokens (h2h link text, estado words) so they are never mistaken
+    // for a team name or local
+    parts=parts.filter(Boolean)
+      .filter(p=>!/^[-–—]$/.test(p))
+      .filter(p=>!/^(h2h|realizado|agendado|adiado|cancelado|encerrado)$/i.test(p));
     if(parts.length<3) continue;
     let dateIdx=-1,scoreIdx=-1,timeIdx=-1;
     for(let i=0;i<parts.length;i++){
@@ -3332,7 +3394,21 @@ window.previewColarClass = function() {
       return;
     }
     const r=jogos.filter(j=>j.estado==='Realizado').length, a=jogos.filter(j=>j.estado==='Agendado').length;
-    div.innerHTML = `<p style="color:#22a75e;font-size:0.85rem;margin-bottom:8px">&#10003; ${jogos.length} jogos reconhecidos (${r} realizados · ${a} agendados)</p>
+    const scRe=/sport campinense|js campinense|campinense/i;
+    const nSC=jogos.filter(j=>scRe.test(j.casa)||scRe.test(j.fora)).length;
+    const logoImg = (url) => url ? `<img src="${url}" style="width:18px;height:18px;object-fit:contain;vertical-align:middle;margin-right:5px" onerror="this.style.display='none'">` : '';
+    const unresolvedHint = _lastJogosUnresolved > 0
+      ? `<p style="background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:10px;font-size:0.78rem;color:#7a5700;margin:0 0 10px">
+          &#9888; ${_lastJogosUnresolved} equipas vinham só com logo (sem nome) e não foram reconhecidas.
+          <strong>Importa primeiro a classificação deste escalão</strong> — assim fico a conhecer as equipas pelos logos e os nomes aparecem automaticamente.</p>`
+      : '';
+    div.innerHTML = `${unresolvedHint}
+    <p style="color:#22a75e;font-size:0.85rem;margin-bottom:8px">&#10003; ${jogos.length} jogos reconhecidos (${r} realizados · ${a} agendados)</p>
+    ${nSC > 0 && nSC < jogos.length ? `
+      <label style="display:flex;align-items:center;gap:8px;background:#e8f4fd;border:1px solid #b3d9f7;border-radius:8px;padding:10px;font-size:0.82rem;margin-bottom:10px;cursor:pointer">
+        <input type="checkbox" id="colarSoSC" checked style="width:16px;height:16px">
+        <span>Guardar apenas os <strong>${nSC} jogos do Campinense</strong> (ignorar os restantes ${jogos.length - nSC})</span>
+      </label>` : ''}
     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:0.8rem">
       <thead><tr style="background:#001b4d;color:#fff">
         <th style="padding:5px 8px">Data</th><th style="padding:5px 8px;text-align:left">Casa</th>
@@ -3341,12 +3417,12 @@ window.previewColarClass = function() {
         <th style="padding:5px 8px">Estado</th>
       </tr></thead>
       <tbody>${jogos.map((j,i)=>{
-        const sc=/sport campinense|campinense/i.test(j.casa+' '+j.fora);
+        const sc=scRe.test(j.casa+' '+j.fora);
         return `<tr style="background:${sc?'rgba(255,209,0,0.1)':i%2===0?'#f9f9f9':'#fff'}">
           <td style="padding:4px 8px;white-space:nowrap">${j.data}</td>
-          <td style="padding:4px 8px">${j.casa}</td>
+          <td style="padding:4px 8px">${logoImg(j.logoCasa)}${j.casa}</td>
           <td style="padding:4px 8px;text-align:center;font-weight:700">${j.gcasa!=null?j.gcasa+'–'+j.gfora:'–'}</td>
-          <td style="padding:4px 8px">${j.fora}</td>
+          <td style="padding:4px 8px">${logoImg(j.logoFora)}${j.fora}</td>
           <td style="padding:4px 8px;text-align:center">${j.hora}</td>
           <td style="padding:4px 8px;font-size:0.75rem">${j.local}</td>
           <td style="padding:4px 8px;text-align:center;font-size:0.75rem;color:${j.estado==='Realizado'?'#22a75e':'#888'}">${j.estado}</td>
@@ -3398,8 +3474,14 @@ window.guardarColarClass = function() {
     renderClassSyncRows();
     showToast(`${_colarEscalao}${teamCfg.nome && _colarTeam ? ' · ' + teamCfg.nome : ''}: ${final.length} equipas guardadas`, 'green');
   } else {
-    const jogos = parsePastedJogos(ta.value);
+    let jogos = parsePastedJogos(ta.value);
     if (!jogos.length) { showToast('Nenhum jogo válido para guardar', 'red'); return; }
+    // Filtro "só jogos do Campinense" (checkbox na pré-visualização)
+    if (document.getElementById('colarSoSC')?.checked) {
+      const scRe = /sport campinense|js campinense|campinense/i;
+      jogos = jogos.filter(j => scRe.test(j.casa) || scRe.test(j.fora));
+      if (!jogos.length) { showToast('Nenhum jogo do Campinense encontrado na colagem', 'red'); return; }
+    }
     localStorage.setItem(teamStorageKey(_colarEscalao, _colarTeam, 'jogos'), JSON.stringify(jogos));
 
     // Merge into DB.jogos
