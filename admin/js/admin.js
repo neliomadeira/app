@@ -1066,7 +1066,7 @@ async function _fetchViaProxy(url) {
       if (text) return text;
     } catch(e) { lastErr = e.message || lastErr; }
   }
-  throw new Error(`Não foi possível aceder à página. Tenta copiar manualmente.\n(${lastErr})`);
+  throw new Error('Não foi possível aceder à página automaticamente — o site pode bloquear robôs, ou o servidor ainda não tem PHP ativo. Solução: abre a página no browser, seleciona a tabela, copia (Ctrl+C) e cola aqui (Ctrl+V).');
 }
 
 // Convert a parsed HTML document to structured plain text (block elements → newlines, table cells → tabs)
@@ -2936,11 +2936,15 @@ function _makeClassRow(nome, nums, rowCount, ptsFirst) {
   }
   // Sanity: J should equal V+E+D (±2 for walkovers/rounding)
   if (Math.abs(j - (v + e + d)) > 2) {
-    // Fallback: try Pts-first ordering (ZeroZero without detected header)
-    if (!ptsFirst && seq.length >= 8) {
-      let [pts2, j2, v2, e2, d2, gm2, gs2] = seq;
-      if (Math.abs(j2 - (v2 + e2 + d2)) <= 2) {
-        pts = pts2; j = j2; v = v2; e = e2; d = d2; gm = gm2; gs = gs2;
+    // Fallback 1: try Pts-first ordering (ZeroZero without detected header)
+    let [pts2, j2, v2, e2, d2, gm2, gs2] = seq;
+    if (!ptsFirst && Math.abs(j2 - (v2 + e2 + d2)) <= 2) {
+      pts = pts2; j = j2; v = v2; e = e2; d = d2; gm = gm2; gs = gs2;
+    } else if (ptsFirst && seq.length >= 8) {
+      // Fallback 2: header said Pts-first but row is J-first (mixed copy)
+      let [j3, v3, e3, d3, gm3, gs3, , pts3] = seq;
+      if (Math.abs(j3 - (v3 + e3 + d3)) <= 2) {
+        j = j3; v = v3; e = e3; d = d3; gm = gm3; gs = gs3; pts = pts3 || 0;
       } else return null;
     } else return null;
   }
@@ -3260,7 +3264,18 @@ window.previewColarClass = function() {
   if(!ta||!div) return;
   if (_colarMode === 'class') {
     const rows = parsePastedTable(ta.value);
-    if (!rows.length) { div.innerHTML=`<p style="color:#c00;font-size:0.85rem">&#9888; Não foi possível reconhecer dados de classificação.<br>Certifique-se de que copiou a tabela completa (J, V, E, D, GM, GS, Pts).</p>`; return; }
+    if (!rows.length) {
+      const nLines = ta.value.split('\n').filter(l => l.trim()).length;
+      const nNums  = (ta.value.match(/\d+/g) || []).length;
+      div.innerHTML = `<div style="color:#c00;font-size:0.85rem;line-height:1.6">
+        &#9888; <strong>Não foi possível reconhecer dados de classificação</strong> (${nLines} linhas, ${nNums} números detetados).<br>
+        Dicas:<br>
+        &bull; Seleciona a tabela <strong>inteira</strong> no site — do "1º" até à última equipa, incluindo todas as colunas de números (J, V, E, D, golos, pontos)<br>
+        &bull; Cola diretamente com <strong>Ctrl+V</strong> (não uses "colar sem formatação")<br>
+        &bull; No telemóvel pode não funcionar — usa um computador ou o botão <strong>&#9998; Editar manualmente</strong><br>
+        &bull; Se continuar a falhar, o <strong>&#9998; Editar manualmente</strong> permite inserir a tabela à mão em 2 minutos</div>`;
+      return;
+    }
     const marked = markSCRows(rows);
     const hasLogos = rows.some(r => r.logo);
     div.innerHTML = `<p style="color:#22a75e;font-size:0.85rem;margin-bottom:8px">&#10003; ${rows.length} equipas reconhecidas${hasLogos?' · logos detectados':''}</p>
@@ -3297,7 +3312,17 @@ window.previewColarClass = function() {
     <p style="font-size:0.75rem;color:#888;margin-top:8px">&#11088; = JS Campinense. Confira antes de guardar.</p>`;
   } else {
     const jogos = parsePastedJogos(ta.value);
-    if (!jogos.length) { div.innerHTML=`<p style="color:#c00;font-size:0.85rem">&#9888; Não foi possível reconhecer jogos.<br>Cada jogo deve ter: data, equipa casa, resultado (ex: 3-1) ou –, equipa fora.</p>`; return; }
+    if (!jogos.length) {
+      div.innerHTML = `<div style="color:#c00;font-size:0.85rem;line-height:1.6">
+        &#9888; <strong>Não foi possível reconhecer jogos.</strong><br>
+        Cada jogo precisa de: <strong>data</strong> (ex: 22/03/2026), <strong>equipa casa</strong>, <strong>resultado</strong> (ex: 3-1, ou – se ainda não jogado) e <strong>equipa fora</strong>.<br>
+        Dicas:<br>
+        &bull; No ZeroZero: página da equipa &rarr; separador <em>Jogos</em>, seleciona a lista completa e copia<br>
+        &bull; Também podes escrever à mão, um jogo por linha:<br>
+        <code style="background:#f5f5f5;padding:2px 6px;border-radius:4px;display:inline-block;margin-top:4px">22/03/2026&#9;15:00&#9;Sport Campinense&#9;3-1&#9;CD Tavira&#9;Est. Municipal</code><br>
+        (separado por Tab ou 2+ espaços)</div>`;
+      return;
+    }
     const r=jogos.filter(j=>j.estado==='Realizado').length, a=jogos.filter(j=>j.estado==='Agendado').length;
     div.innerHTML = `<p style="color:#22a75e;font-size:0.85rem;margin-bottom:8px">&#10003; ${jogos.length} jogos reconhecidos (${r} realizados · ${a} agendados)</p>
     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:0.8rem">
