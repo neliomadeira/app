@@ -2937,6 +2937,18 @@ html[data-theme="dark"] .form-group textarea.is-invalid {
   border-color: var(--yellow);
   box-shadow: 0 0 20px rgba(255, 209, 0, 0.25);
 }
+/* Cartões de aniversário dentro da página de escalão (fundo azul próprio) */
+.escalao-section__body--birthday {
+  background: linear-gradient(135deg, var(--blue) 0%, #0055cc 100%);
+  border-radius: 10px;
+}
+.escalao-section__body--birthday .birthday__grid {
+  justify-content: flex-start;
+}
+.escalao-section__body--birthday .birthday__card {
+  min-width: 0;
+  width: 100%;
+}
 .birthday__foto {
   width: 56px;
   height: 56px;

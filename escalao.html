@@ -110,7 +110,8 @@
       <!-- LEFT COLUMN -->
       <div>
         <!-- PLANTEL -->
-        <section id="main-content" class="escalao-section" id="escPlantel">
+        <span id="main-content" aria-hidden="true"></span>
+        <section class="escalao-section" id="escPlantel">
           <div class="escalao-section__head"><h2>Plantel</h2></div>
           <div class="escalao-section__body">
             <p class="esc-empty">A carregar plantel…</p>
@@ -141,6 +142,14 @@
           <div class="escalao-section__head"><h2>Estatísticas da Época</h2></div>
           <div class="escalao-section__body">
             <p class="esc-empty">A carregar estatísticas…</p>
+          </div>
+        </section>
+
+        <!-- ANIVERSÁRIOS DO MÊS -->
+        <section class="escalao-section" id="escAniversarios" style="display:none">
+          <div class="escalao-section__head"><h2>&#127874; Aniversários do Mês</h2></div>
+          <div class="escalao-section__body escalao-section__body--birthday">
+            <div class="birthday__grid" id="escAniversariosLista"></div>
           </div>
         </section>
       </div>

@@ -392,6 +392,56 @@
   }
 
   // --------------------------------------------------
+  // ANIVERSÁRIOS DO MÊS (do escalão)
+  // --------------------------------------------------
+  function renderAniversarios(atletas, escalaoNome) {
+    var section = document.getElementById('escAniversarios');
+    var listaEl = document.getElementById('escAniversariosLista');
+    if (!section || !listaEl) return;
+
+    var hoje = new Date();
+    var dia  = hoje.getDate();
+    var mes  = hoje.getMonth();
+
+    var lista = atletas
+      .filter(function (a) {
+        if (a.escalao !== escalaoNome || !a.dataNascimento || a.estado === 'Inactivo') return false;
+        var n = new Date(a.dataNascimento + 'T00:00:00');
+        return !isNaN(n) && n.getMonth() === mes;
+      })
+      .map(function (a) {
+        var n = new Date(a.dataNascimento + 'T00:00:00');
+        return {
+          nome: a.nome, foto: a.foto || '',
+          _dia: n.getDate(),
+          _idade: hoje.getFullYear() - n.getFullYear(),
+          _hoje: n.getDate() === dia,
+        };
+      })
+      .sort(function (a, b) { return (b._hoje - a._hoje) || (a._dia - b._dia); });
+
+    if (!lista.length) { section.style.display = 'none'; return; }
+
+    section.style.display = '';
+    listaEl.innerHTML = lista.map(function (a) {
+      var detalhe = a._hoje
+        ? 'faz ' + a._idade + ' anos <strong>hoje</strong> 🎉'
+        : 'dia ' + a._dia + ' &middot; faz ' + a._idade + ' anos';
+      var avatar = a.foto
+        ? '<img src="' + a.foto + '" alt="" class="birthday__foto" loading="lazy" ' +
+          'onerror="this.outerHTML=\'<div class=&quot;birthday__icon&quot;>🎂</div>\'">'
+        : '<div class="birthday__icon">🎂</div>';
+      return '<div class="birthday__card' + (a._hoje ? ' birthday__card--today' : '') + '">' +
+        avatar +
+        '<div class="birthday__info">' +
+          '<strong class="birthday__nome">' + a.nome + '</strong>' +
+          '<span class="birthday__detalhe">' + detalhe + '</span>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  // --------------------------------------------------
   // INIT
   // --------------------------------------------------
   document.addEventListener('DOMContentLoaded', function () {
@@ -427,6 +477,7 @@
     renderTechnical(treinadores, escalaoNome);
     renderStats(jogos);
     renderFixtures(jogos);
+    renderAniversarios(atletas, escalaoNome);
   });
 
   // Live update from admin in another tab
@@ -446,6 +497,7 @@
       renderTechnical(treinadores, escalaoNome);
       renderStats(jogos);
       renderFixtures(jogos);
+      renderAniversarios(atletas, escalaoNome);
     }
   });
 

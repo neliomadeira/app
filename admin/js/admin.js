@@ -4711,9 +4711,18 @@ function resetarCores() {
 
 function exportarDados() {
   const ls = (key) => { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; } };
+  // Classificações e jogos por escalão/equipa (chaves dinâmicas)
+  const classData = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && (k.startsWith('fpf_class_') || k.startsWith('fpf_jogos_'))) {
+      const v = ls(k);
+      if (v) classData[k] = v;
+    }
+  }
   const dados = {
     exportadoEm:    new Date().toISOString(),
-    versao:         '2',
+    versao:         '3',
     // Dados operacionais
     inscricoes:     DB.inscricoes,
     atletas:        DB.atletas,
@@ -4726,9 +4735,15 @@ function exportarDados() {
     treinadores:    DB.treinadores,
     agenda:         DB.agenda,
     modalidades:    DB.modalidades,
+    modPosts:       ls('db_mod_posts'),
     videos:         DB.videos,
     seniores:       ls('db_seniores'),
     senioresInfo:   ls('db_seniores_info'),
+    fbPosts:        ls('fb_posts'),
+    fbConfig:       ls('fb_config'),
+    logos:          ls('db_logos'),
+    classConfig:    ls('fpf_sync_config'),
+    classData:      Object.keys(classData).length ? classData : null,
     // Configurações do site
     siteConfig:     ls('site_config'),
     dadosClube:     ls('dados_clube'),
@@ -4736,7 +4751,10 @@ function exportarDados() {
     siteManutencao: ls('site_manutencao'),
     siteLegal:      ls('site_legal'),
     siteBanner:     ls('site_banner'),
+    siteAviso:      ls('site_aviso'),
     siteCores:      ls('site_cores'),
+    emailConfig:    ls('email_config'),
+    apiToken:       ls('jsc_api_token'),
     adminCreds:     ls('admin_creds'),
   };
   const blob = new Blob([JSON.stringify(dados, null, 2)], { type: 'application/json' });
@@ -4763,6 +4781,7 @@ function processarImportBackup(e) {
       if (d.atletas)        DB.atletas        = d.atletas;
       if (d.noticias)       saveNoticias(d.noticias);
       if (d.mensagens)      DB.mensagens      = d.mensagens;
+      if (d.escaloes)       DB.escaloes       = d.escaloes;
       if (d.jogos)          DB.jogos          = d.jogos;
       if (d.patrocinadores) DB.patrocinadores = d.patrocinadores;
       if (d.galeria)        DB.galeria        = d.galeria;
@@ -4775,13 +4794,26 @@ function processarImportBackup(e) {
       const lsSet = (key, val) => { if (val !== null && val !== undefined) localStorage.setItem(key, JSON.stringify(val)); };
       lsSet('db_seniores',      d.seniores);
       lsSet('db_seniores_info', d.senioresInfo);
+      lsSet('db_mod_posts',     d.modPosts);
+      lsSet('fb_posts',         d.fbPosts);
+      lsSet('fb_config',        d.fbConfig);
+      lsSet('db_logos',         d.logos);
+      lsSet('fpf_sync_config',  d.classConfig);
+      if (d.classData && typeof d.classData === 'object') {
+        Object.keys(d.classData).forEach((k) => {
+          if (k.startsWith('fpf_class_') || k.startsWith('fpf_jogos_')) lsSet(k, d.classData[k]);
+        });
+      }
       lsSet('site_config',      d.siteConfig);
       lsSet('dados_clube',      d.dadosClube);
       lsSet('site_popup',       d.sitePopup);
       lsSet('site_banner',      d.siteBanner);
       lsSet('site_manutencao',  d.siteManutencao);
       lsSet('site_legal',       d.siteLegal);
+      lsSet('site_aviso',       d.siteAviso);
       lsSet('site_cores',       d.siteCores);
+      lsSet('email_config',     d.emailConfig);
+      lsSet('jsc_api_token',    d.apiToken);
       if (d.adminCreds) lsSet('admin_creds', d.adminCreds);
       showToast('✓ Backup importado com sucesso! A recarregar...', 'green');
       setTimeout(() => location.reload(), 1500);
