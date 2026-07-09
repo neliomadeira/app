@@ -117,6 +117,30 @@ function isSC(name) {
   return /sport campinense|js campinense|campinense/i.test(name || '');
 }
 
+// Bloco de equipas de um jogo: para jogos do Campinense mostra só o
+// adversário com etiqueta Casa/Fora; caso contrário mostra as duas equipas
+function jogoEquipasHtml(j) {
+  const scCasa = isSC(j.casa), scFora = isSC(j.fora);
+  if (scCasa || scFora) {
+    const emCasa    = scCasa;
+    const adversario = emCasa ? j.fora : j.casa;
+    const advLogo    = emCasa ? j.logoFora : j.logoCasa;
+    return `
+      <div class="jogo-equipas">
+        <span class="jogo-equipa">${jogoLogo(advLogo, adversario)}${adversario}</span>
+        <span class="jogo-lado jogo-lado--${emCasa ? 'casa' : 'fora'}">${emCasa ? 'Casa' : 'Fora'}</span>
+      </div>`;
+  }
+  return `
+      <div class="jogo-equipas">
+        <span class="jogo-equipa">${jogoLogo(j.logoCasa, j.casa)}${j.casa}</span>
+        <div class="jogo-equipa-row">
+          <span class="vs">vs</span>
+          <span class="jogo-equipa">${jogoLogo(j.logoFora, j.fora)}${j.fora}</span>
+        </div>
+      </div>`;
+}
+
 // Logo da equipa num jogo: guardado no próprio jogo ou via mapa db_logos
 function jogoLogo(url, nome) {
   let resolved = url;
@@ -271,13 +295,7 @@ function renderJogos(escalao) {
           </div>
           <div class="jogo-divider"></div>
           <div class="jogo-info">
-            <div class="jogo-equipas">
-              <span class="jogo-equipa${scClass(j.casa)}">${jogoLogo(j.logoCasa, j.casa)}${j.casa}</span>
-              <div class="jogo-equipa-row">
-                <span class="vs">vs</span>
-                <span class="jogo-equipa${scClass(j.fora)}">${jogoLogo(j.logoFora, j.fora)}${j.fora}</span>
-              </div>
-            </div>
+            ${jogoEquipasHtml(j)}
             ${j.local && j.local.length > 2 ? `<div class="jogo-meta">${j.local}</div>` : ''}
           </div>
           <div class="jogo-resultado">
@@ -310,13 +328,7 @@ function renderJogos(escalao) {
           </div>
           <div class="jogo-divider"></div>
           <div class="jogo-info">
-            <div class="jogo-equipas">
-              <span class="jogo-equipa${scClass(j.casa)}">${jogoLogo(j.logoCasa, j.casa)}${j.casa}</span>
-              <div class="jogo-equipa-row">
-                <span class="vs">vs</span>
-                <span class="jogo-equipa${scClass(j.fora)}">${jogoLogo(j.logoFora, j.fora)}${j.fora}</span>
-              </div>
-            </div>
+            ${jogoEquipasHtml(j)}
             ${j.local && j.local.length > 2 ? `<div class="jogo-meta">${j.local}</div>` : ''}
           </div>
           <div class="jogo-agendado">
