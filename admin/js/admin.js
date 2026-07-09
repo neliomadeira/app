@@ -3306,7 +3306,8 @@ function parseSingleLineJogos(lines, next) {
     // for a team name or local
     parts=parts.filter(Boolean)
       .filter(p=>!/^[-–—]$/.test(p))
-      .filter(p=>!/^(h2h|realizado|agendado|adiado|cancelado|encerrado)$/i.test(p));
+      .filter(p=>!/^(h2h|realizado|agendado|adiado|cancelado|encerrado)$/i.test(p))
+      .filter(p=>!/^[VED]$/.test(p)); // letras de forma (V/E/D) do ZeroZero
     if(parts.length<3) continue;
     let dateIdx=-1,scoreIdx=-1,timeIdx=-1;
     for(let i=0;i<parts.length;i++){

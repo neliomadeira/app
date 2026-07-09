@@ -200,14 +200,16 @@
 
 .jogo-info { flex: 1; min-width: 0; }
 
-.jogo-equipas { display: flex; flex-direction: column; gap: 3px; }
+.jogo-equipas { display: flex; flex-direction: column; gap: 4px; }
 
-.jogo-equipa-row { display: flex; align-items: baseline; gap: 5px; }
+.jogo-equipa-row { display: flex; align-items: center; gap: 6px; }
 
 .jogo-equipa {
+  display: flex; align-items: center; gap: 7px;
   font-size: 0.86rem; font-weight: 700; color: var(--black);
-  line-height: 1.25; word-break: break-word;
+  line-height: 1.25; min-width: 0;
 }
+.jogo-equipa > .jogo-team-logo { flex-shrink: 0; margin-right: 0; }
 .jogo-equipa--sc { color: var(--blue); }
 
 .jogo-equipas .vs {

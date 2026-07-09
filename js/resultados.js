@@ -278,7 +278,7 @@ function renderJogos(escalao) {
                 <span class="jogo-equipa${scClass(j.fora)}">${jogoLogo(j.logoFora, j.fora)}${j.fora}</span>
               </div>
             </div>
-            ${j.local ? `<div class="jogo-meta">${j.local}</div>` : ''}
+            ${j.local && j.local.length > 2 ? `<div class="jogo-meta">${j.local}</div>` : ''}
           </div>
           <div class="jogo-resultado">
             <div class="resultado-placar">${j.gcasa}–${j.gfora}</div>
@@ -317,7 +317,7 @@ function renderJogos(escalao) {
                 <span class="jogo-equipa${scClass(j.fora)}">${jogoLogo(j.logoFora, j.fora)}${j.fora}</span>
               </div>
             </div>
-            ${j.local ? `<div class="jogo-meta">${j.local}</div>` : ''}
+            ${j.local && j.local.length > 2 ? `<div class="jogo-meta">${j.local}</div>` : ''}
           </div>
           <div class="jogo-agendado">
             <div class="jogo-hora">${j.hora}</div>
