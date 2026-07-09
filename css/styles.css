@@ -513,6 +513,16 @@ ul { list-style: none; }
   background: var(--gray-light);
 }
 
+/* Cortes diagonais nas secções destacadas — dinamismo desportivo */
+.section--dark,
+.section--gray,
+.section--birthday {
+  --cut: clamp(14px, 2.5vw, 36px);
+  clip-path: polygon(0 0, 100% var(--cut), 100% 100%, 0 calc(100% - var(--cut)));
+  padding-top: calc(96px + var(--cut));
+  padding-bottom: calc(96px + var(--cut));
+}
+
 .section__header {
   text-align: center;
   margin-bottom: 64px;
@@ -806,6 +816,17 @@ ul { list-style: none; }
   transform: translateY(-4px);
   box-shadow: var(--shadow-lg);
 }
+
+/* Hover rico: zoom suave na imagem, título realçado, seta a deslizar */
+.news-card__img {
+  transition: transform 0.45s ease;
+  will-change: transform;
+}
+.news-card:hover .news-card__img { transform: scale(1.05); }
+.news-card__title { transition: color var(--transition); }
+.news-card:hover .news-card__title { color: var(--blue-mid); }
+.news-card__link { display: inline-block; transition: transform var(--transition), color var(--transition); }
+.news-card:hover .news-card__link { transform: translateX(5px); color: var(--blue-mid); }
 
 .news-card--featured {
   grid-row: span 2;
@@ -1608,6 +1629,22 @@ ul { list-style: none; }
 }
 
 .field-error.visible { display: block; }
+
+/* Barra de progresso de leitura (vista de artigo) */
+.reading-progress {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+  background: rgba(0, 31, 77, 0.08);
+  z-index: 3000;
+  pointer-events: none;
+}
+.reading-progress__fill {
+  height: 100%;
+  width: 0;
+  background: var(--yellow);
+}
+html[data-theme="dark"] .reading-progress { background: rgba(255,255,255,0.1); }
 
 .agenda-ics-btn {
   margin-top: 8px;

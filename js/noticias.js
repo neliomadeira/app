@@ -177,6 +177,40 @@
     showArticle(n);
   }
 
+  // ---- Barra de progresso de leitura ----
+  let _progressBar = null;
+
+  function _updateProgress() {
+    if (!_progressBar) return;
+    const wrap = document.querySelector('.not-article-wrap .news-article');
+    if (!wrap) return;
+    const rect  = wrap.getBoundingClientRect();
+    const total = rect.height - window.innerHeight;
+    const done  = Math.min(Math.max(-rect.top, 0), Math.max(total, 0));
+    const p     = total > 0 ? done / total : 1;
+    _progressBar.firstElementChild.style.width = (p * 100).toFixed(1) + '%';
+  }
+
+  function startReadingProgress() {
+    if (_progressBar) return;
+    _progressBar = document.createElement('div');
+    _progressBar.className = 'reading-progress';
+    _progressBar.setAttribute('aria-hidden', 'true');
+    _progressBar.innerHTML = '<div class="reading-progress__fill"></div>';
+    document.body.appendChild(_progressBar);
+    window.addEventListener('scroll', _updateProgress, { passive: true });
+    window.addEventListener('resize', _updateProgress);
+    _updateProgress();
+  }
+
+  function stopReadingProgress() {
+    if (!_progressBar) return;
+    window.removeEventListener('scroll', _updateProgress);
+    window.removeEventListener('resize', _updateProgress);
+    _progressBar.remove();
+    _progressBar = null;
+  }
+
   function showArticle(n) {
     const grid     = document.getElementById('notGrid');
     const filters  = document.getElementById('notFilters');
@@ -260,9 +294,11 @@
       card.addEventListener('click', () => openArticle(card.dataset.relId));
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    startReadingProgress();
   }
 
   function backToList() {
+    stopReadingProgress();
     const grid     = document.getElementById('notGrid');
     const filters  = document.getElementById('notFilters');
     const article  = document.getElementById('notArticle');
