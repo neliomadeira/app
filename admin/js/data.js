@@ -150,6 +150,7 @@ window.saveDB = function() {
   try {
     localStorage.setItem('db_videos',         JSON.stringify(DB.videos));
     localStorage.setItem('db_atletas',        JSON.stringify(DB.atletas));
+    localStorage.setItem('db_jogos',          JSON.stringify(DB.jogos));
     localStorage.setItem('db_escaloes',       JSON.stringify(DB.escaloes));
     localStorage.setItem('db_galeria',        JSON.stringify(DB.galeria));
     localStorage.setItem('db_modalidades',    JSON.stringify(DB.modalidades));
@@ -192,6 +193,7 @@ window.saveDB = function() {
   try {
     const vi = localStorage.getItem('db_videos');
     const at = localStorage.getItem('db_atletas');
+    const jg = localStorage.getItem('db_jogos');
     const e  = localStorage.getItem('db_escaloes');
     const g  = localStorage.getItem('db_galeria');
     const m  = localStorage.getItem('db_modalidades');
@@ -202,6 +204,7 @@ window.saveDB = function() {
     const si = localStorage.getItem('db_seniores_info');
     if (vi) DB.videos         = JSON.parse(vi);
     if (at) DB.atletas        = JSON.parse(at);
+    if (jg) DB.jogos          = JSON.parse(jg);
     if (e)  DB.escaloes       = JSON.parse(e);
     if (g)  DB.galeria        = JSON.parse(g);
     if (m)  DB.modalidades    = JSON.parse(m);
