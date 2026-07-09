@@ -17,10 +17,17 @@ if (!filter_var($url, FILTER_VALIDATE_URL) || !preg_match('#^https?://#i', $url)
     exit;
 }
 
-// Only allow fetching from known football data sites
-$allowed = ['zerozero.pt', 'fpf.pt', 'ligaportugal.pt', 'www.zerozero.pt'];
-$host = parse_url($url, PHP_URL_HOST);
-if (!in_array($host, $allowed, true)) {
+// Only allow fetching from known football data sites (any subdomain)
+$allowed = ['zerozero.pt', 'fpf.pt', 'ligaportugal.pt', 'afalgarve.pt'];
+$host = strtolower(parse_url($url, PHP_URL_HOST) ?: '');
+$ok = false;
+foreach ($allowed as $dom) {
+    if ($host === $dom || substr($host, -strlen('.' . $dom)) === '.' . $dom) {
+        $ok = true;
+        break;
+    }
+}
+if (!$ok) {
     http_response_code(403);
     echo 'Domain not allowed';
     exit;

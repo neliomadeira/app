@@ -2799,7 +2799,11 @@ document.getElementById('btnImportarFPF')?.addEventListener('click', () => {
   if (!ta) return;
   ta.addEventListener('paste', function(e) {
     const html = e.clipboardData?.getData('text/html');
-    if (!html || html.length < 300) return; // no HTML → fall through to plain text
+    if (!html || html.length < 300) {
+      // Plain-text paste — let it land in the textarea, then preview automatically
+      setTimeout(previewColarClass, 120);
+      return;
+    }
     e.preventDefault();
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const text = _htmlToStructuredText(doc);
@@ -2981,27 +2985,36 @@ function parsePastedTable(text) {
   }
 
   // ── Strategy 1: tab-separated or multi-space-separated rows ──────────────
-  // Also handles ZeroZero's block layout where position and logo appear on
-  // separate lines above each team-data line.
+  // Also handles ZeroZero's block layout where position, logo, abbreviation
+  // and team name each appear on their own line above the stats line.
   let pendingPos  = null; // position number seen alone on its own line
   let pendingLogo = '';   // [img:...] seen alone on its own line
+  let pendingName = '';   // team name seen alone on its own line
   for (const line of lines) {
     // Standalone position number (1–30) → hold for the next team line
     if (/^\d{1,2}$/.test(line) && parseInt(line) <= 30) {
-      pendingPos = parseInt(line); continue;
+      pendingPos = parseInt(line); pendingName = ''; continue;
     }
     // Standalone [img:...] → hold logo for the next team line
     if (/^\[img:https?:\/\//.test(line)) {
       pendingLogo = line.slice(5, -1); continue;
     }
+    // Standalone team abbreviation (SLB, SCP...) → ignore, keep pendings
+    if (/^[A-ZÁÉÍÓÚ]{2,4}$/.test(line)) continue;
 
     let parts = line.includes('\t')
       ? line.split('\t').map(p => p.trim())
       : line.split(/\s{2,}/).map(p => p.trim());
     parts = parts.filter(Boolean);
-    if (parts.length < 4) { pendingPos = null; pendingLogo = ''; continue; }
+    if (parts.length < 4) {
+      // Short non-numeric line after a position → team name on its own line
+      if (pendingPos !== null && !/\d/.test(line) && _isNameWord(line)) {
+        pendingName = pendingName ? pendingName + ' ' + line : line;
+      }
+      continue;
+    }
     if (parts.every(p => !/\d/.test(p) && !/^\[img:/.test(p))) {
-      pendingPos = null; continue; // header/label row
+      pendingPos = null; pendingName = ''; continue; // header/label row
     }
 
     // Extract logo URL from any inline [img:...] token, or use pending logo
@@ -3013,20 +3026,28 @@ function parsePastedTable(text) {
     });
 
     const nameIdx = parts.findIndex(_isNameWord);
-    if (nameIdx < 0) { pendingPos = null; continue; }
-    // Team name may span consecutive name-word parts
-    let name = parts[nameIdx];
-    let endIdx = nameIdx + 1;
-    while (endIdx < parts.length && _isNameWord(parts[endIdx])) {
-      name += ' ' + parts[endIdx++];
+    let name, endIdx;
+    if (nameIdx < 0) {
+      // Stats-only line: use the name collected from previous lines (ZeroZero block layout)
+      if (!pendingName) { pendingPos = null; continue; }
+      name = pendingName;
+      endIdx = 0;
+    } else {
+      // Team name may span consecutive name-word parts
+      name = parts[nameIdx];
+      endIdx = nameIdx + 1;
+      while (endIdx < parts.length && _isNameWord(parts[endIdx])) {
+        name += ' ' + parts[endIdx++];
+      }
     }
-    let nums = parts.filter((_, i) => i < nameIdx || i >= endIdx)
+    let nums = (nameIdx < 0 ? parts : parts.filter((_, i) => i < nameIdx || i >= endIdx))
       .map(p => _classNum(p)).filter(n => n !== null);
     // Prepend pending position if not already the first num
     if (pendingPos !== null) {
       if (nums.length === 0 || nums[0] !== pendingPos) nums = [pendingPos, ...nums];
       pendingPos = null;
     }
+    pendingName = '';
     const row = _makeClassRow(name, nums, rows.length, ptsFirst);
     if (row) { if (logoUrl) row.logo = logoUrl; rows.push(row); }
   }
@@ -3200,7 +3221,9 @@ function parseSingleLineJogos(lines, next) {
   const jogos = [];
   for (const line of lines) {
     let parts=line.includes('\t')?line.split('\t').map(p=>p.trim()):line.split(/\s{2,}/).map(p=>p.trim());
-    parts=parts.filter(Boolean);
+    // Remove standalone dashes (score placeholder for unplayed games) so they
+    // are never mistaken for a team name
+    parts=parts.filter(Boolean).filter(p=>!/^[-–—]$/.test(p));
     if(parts.length<3) continue;
     let dateIdx=-1,scoreIdx=-1,timeIdx=-1;
     for(let i=0;i<parts.length;i++){
