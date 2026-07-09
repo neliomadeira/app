@@ -228,8 +228,11 @@
       html += '<p class="esc-empty">Equipa técnica não disponível.</p>';
     } else {
       staff.forEach(function (t) {
+        var fotoStyle = t.foto
+          ? ' style="background-image:url(\'' + t.foto + '\');background-size:cover;background-position:center;color:transparent"'
+          : '';
         html += '<div class="esc-staff-card">';
-        html += '<div class="esc-staff__avatar">' + initials(t.nome) + '</div>';
+        html += '<div class="esc-staff__avatar"' + fotoStyle + '>' + initials(t.nome) + '</div>';
         html += '<div>';
         html += '<div class="esc-staff__name">' + t.nome + '</div>';
         html += '<div class="esc-staff__cargo">' + t.cargo + '</div>';

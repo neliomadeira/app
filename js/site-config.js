@@ -206,30 +206,5 @@
       .catch(() => {});
   }
 
-  // Staff cards — dynamic from db_treinadores if admin has been used
-  (function() {
-    const grid = document.getElementById('treinadoresPublicGrid');
-    if (!grid) return;
-    const raw = localStorage.getItem('db_treinadores');
-    if (!raw) return; // keep hardcoded HTML as fallback
-    let staff;
-    try { staff = JSON.parse(raw); } catch(_) { return; }
-    const active = (staff || []).filter(function(t) { return t.ativo !== false; });
-    if (!active.length) return;
-    grid.innerHTML = active.map(function(t) {
-      const initials = (t.nome || '').split(' ')
-        .filter(function(w) { return w.length > 1; })
-        .slice(0, 2)
-        .map(function(w) { return w[0].toUpperCase(); })
-        .join('') || '?';
-      return '<div class="staff-card">' +
-        '<div class="staff-card__avatar">' + initials + '</div>' +
-        '<div class="staff-card__body">' +
-          '<h3 class="staff-card__name">' + (t.nome || '') + '</h3>' +
-          '<span class="staff-card__role">' + (t.cargo || '') + '</span>' +
-          '<span class="staff-card__team">' + (t.escalao || '') + '</span>' +
-        '</div>' +
-      '</div>';
-    }).join('');
-  })();
+  // Staff cards: renderizados por main.js (com suporte a fotos) — ver "Treinadores públicos"
 })();

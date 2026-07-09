@@ -4255,8 +4255,11 @@ function renderTreinadores() {
   if (!grid) return;
   grid.innerHTML = DB.treinadores.map((t, i) => {
     const iniciais = t.nome.split(' ').map(n => n[0]).slice(0,2).join('');
+    const fotoStyle = t.foto
+      ? ` style="background-image:url('${t.foto}');background-size:cover;background-position:center;color:transparent"`
+      : '';
     return `<div class="staff-card ${t.ativo ? '' : 'inactive'}">
-      <div class="staff-avatar">${iniciais}</div>
+      <div class="staff-avatar"${fotoStyle}>${iniciais}</div>
       <div class="staff-info">
         <p class="staff-name">${t.nome} ${t.ativo ? '' : '<span style="font-size:11px;color:#999">(inactivo)</span>'}</p>
         <p class="staff-cargo">${t.cargo}</p>
