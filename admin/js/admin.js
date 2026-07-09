@@ -2634,13 +2634,21 @@ function renderClassSyncRows() {
     const teams    = escCfg.teams  || {};
     const teamKeys = Object.keys(teams);
 
+    const escLast = escCfg.lastSync
+      ? `<span style="font-weight:400;font-size:0.7rem;opacity:0.8;margin-left:10px">últ. atualização: ${new Date(escCfg.lastSync).toLocaleDateString('pt-PT')}${escCfg.nTeams ? ' ('+escCfg.nTeams+' eq.)' : ''}</span>`
+      : '';
     html += `<tr style="background:var(--blue);color:#fff">
-      <td colspan="4" style="padding:8px 14px;font-weight:700;letter-spacing:0.5px;display:flex;align-items:center;justify-content:space-between">
-        <span>${escalao}</span>
-        <span style="display:flex;gap:6px">
+      <td colspan="4" style="padding:8px 14px;font-weight:700;letter-spacing:0.5px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
+        <span>${escalao}${escLast}</span>
+        <span style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn-sm" style="background:var(--yellow);color:#001b4d;border:none;font-weight:700"
+            onclick="abrirColar('${escalao}','class','')">&#128203; Colar classificação</button>
+          <button class="btn-sm" style="background:var(--yellow);color:#001b4d;border:none;font-weight:700"
+            onclick="abrirColar('${escalao}','jogos','')">&#128197; Colar jogos</button>
           <button class="btn-sm" style="background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3)"
-            onclick="abrirEditorClass('${escalao}','')">&#9998; Editar manualmente</button>
+            onclick="abrirEditorClass('${escalao}','')">&#9998; Manual</button>
           <button class="btn-sm" style="background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3)"
+            title="Para escalões com várias equipas/séries (ex: equipa A e B)"
             onclick="adicionarEquipa('${escalao}')">+ Equipa / Série</button>
         </span>
       </td>
@@ -3354,8 +3362,14 @@ window.guardarColarClass = function() {
   const now     = new Date().toISOString();
   const cfg     = loadClassConfig();
   const escCfg  = cfg[_colarEscalao] || (cfg[_colarEscalao] = {});
-  const teams   = escCfg.teams || (escCfg.teams = {});
-  const teamCfg = teams[_colarTeam] || (teams[_colarTeam] = { nome: _colarTeam });
+  // Sem equipa/série: guardar ao nível do escalão (chave fpf_class_Sub-XX)
+  let teamCfg;
+  if (_colarTeam) {
+    const teams = escCfg.teams || (escCfg.teams = {});
+    teamCfg = teams[_colarTeam] || (teams[_colarTeam] = { nome: _colarTeam });
+  } else {
+    teamCfg = escCfg;
+  }
 
   if (_colarMode === 'class') {
     const rows = parsePastedTable(ta.value);
@@ -3382,14 +3396,14 @@ window.guardarColarClass = function() {
     saveClassConfig(cfg);
     fecharColarClass();
     renderClassSyncRows();
-    showToast(`${_colarEscalao} · ${teamCfg.nome}: ${final.length} equipas guardadas`, 'green');
+    showToast(`${_colarEscalao}${teamCfg.nome && _colarTeam ? ' · ' + teamCfg.nome : ''}: ${final.length} equipas guardadas`, 'green');
   } else {
     const jogos = parsePastedJogos(ta.value);
     if (!jogos.length) { showToast('Nenhum jogo válido para guardar', 'red'); return; }
     localStorage.setItem(teamStorageKey(_colarEscalao, _colarTeam, 'jogos'), JSON.stringify(jogos));
 
     // Merge into DB.jogos
-    const escalao = _colarEscalao, teamLabel = teamCfg.nome || _colarTeam;
+    const escalao = _colarEscalao, teamLabel = _colarTeam ? (teamCfg.nome || _colarTeam) : '';
     const scRe    = /sport campinense|js campinense|campinense/i;
     let added=0, updated=0;
     for (const j of jogos) {
@@ -3411,7 +3425,7 @@ window.guardarColarClass = function() {
     saveClassConfig(cfg);
     fecharColarClass();
     renderClassSyncRows();
-    showToast(`${escalao} · ${teamLabel}: ${added} jogos adicionados${updated?', '+updated+' actualizados':''}`, 'green');
+    showToast(`${escalao}${teamLabel ? ' · ' + teamLabel : ''}: ${added} jogos adicionados${updated?', '+updated+' actualizados':''}`, 'green');
   }
 };
 
