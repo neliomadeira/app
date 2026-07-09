@@ -3304,9 +3304,12 @@ function parseSingleLineJogos(lines, next) {
     // Remove standalone dashes (score placeholder for unplayed games) and
     // junk tokens (h2h link text, estado words) so they are never mistaken
     // for a team name or local
-    parts=parts.filter(Boolean)
+    parts=parts.filter(Boolean);
+    // Jogos anulados/cancelados (ZeroZero marca com ANU/CAN) não são importados
+    if (parts.some(p=>/^(anu|anulado|can|cancelado)$/i.test(p))) continue;
+    parts=parts
       .filter(p=>!/^[-–—]$/.test(p))
-      .filter(p=>!/^(h2h|realizado|agendado|adiado|cancelado|encerrado)$/i.test(p))
+      .filter(p=>!/^(h2h|realizado|agendado|adiado|adi|encerrado|int|interrompido)$/i.test(p))
       .filter(p=>!/^[VED]$/.test(p)); // letras de forma (V/E/D) do ZeroZero
     if(parts.length<3) continue;
     let dateIdx=-1,scoreIdx=-1,timeIdx=-1;

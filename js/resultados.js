@@ -296,7 +296,7 @@ function renderJogos(escalao) {
           <div class="jogo-divider"></div>
           <div class="jogo-info">
             ${jogoEquipasHtml(j)}
-            ${j.local && j.local.length > 2 ? `<div class="jogo-meta">${j.local}</div>` : ''}
+            ${j.local && j.local.length > 2 && !/^[A-Z]{2,4}$/.test(j.local) ? `<div class="jogo-meta">${j.local}</div>` : ''}
           </div>
           <div class="jogo-resultado">
             <div class="resultado-placar">${j.gcasa}–${j.gfora}</div>
@@ -329,7 +329,7 @@ function renderJogos(escalao) {
           <div class="jogo-divider"></div>
           <div class="jogo-info">
             ${jogoEquipasHtml(j)}
-            ${j.local && j.local.length > 2 ? `<div class="jogo-meta">${j.local}</div>` : ''}
+            ${j.local && j.local.length > 2 && !/^[A-Z]{2,4}$/.test(j.local) ? `<div class="jogo-meta">${j.local}</div>` : ''}
           </div>
           <div class="jogo-agendado">
             <div class="jogo-hora">${j.hora}</div>

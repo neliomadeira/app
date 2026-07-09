@@ -217,6 +217,15 @@
   flex-shrink: 0; letter-spacing: 0.5px; text-transform: uppercase;
 }
 
+/* Coluna lateral (Próximos Jogos): mais compacta, nomes não partem tanto */
+#proximosJogos .jogo-item { padding: 12px 14px; gap: 10px; }
+#proximosJogos .jogo-equipa { font-size: 0.78rem; line-height: 1.2; }
+#proximosJogos .jogo-team-logo { width: 17px; height: 17px; }
+#proximosJogos .jogo-data__day { font-size: 1.15rem; }
+#proximosJogos .jogo-data__mes { font-size: 0.6rem; }
+#proximosJogos .jogo-hora { font-size: 0.82rem; }
+#proximosJogos .jogo-lado { font-size: 0.58rem; padding: 2px 8px; }
+
 /* Etiqueta Casa/Fora (jogos do Campinense mostram só o adversário) */
 .jogo-lado {
   align-self: flex-start;
