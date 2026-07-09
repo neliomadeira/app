@@ -402,10 +402,6 @@
               <select class="filter-select" id="filterJogoEscalao">
                 <option value="">Todos os escalões</option>
               </select>
-              <select class="filter-select" id="filterJogoEstado">
-                <option value="">Todos</option>
-                <option>Agendado</option><option>Realizado</option>
-              </select>
               <button class="btn-fpf" id="btnImportarFPF">&#128203; Classificação &amp; Jogos</button>
               <button class="btn-primary" id="btnNovoJogo">+ Novo Jogo</button>
             </div>
@@ -473,12 +469,28 @@
             </div>
           </div>
 
+          <!-- PRÓXIMOS JOGOS -->
+          <div class="card" style="margin-bottom:20px">
+            <div class="card-header"><h3>&#128197; Próximos Jogos <span id="jogosProxCount" style="font-weight:400;font-size:0.8rem;color:#888"></span></h3></div>
+            <table class="table table--full" id="jogosProxTable">
+              <thead>
+                <tr>
+                  <th>Data</th><th>Escalão</th><th>Casa</th><th>Fora</th>
+                  <th>Resultado</th><th>Local</th><th>Ações</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <!-- ÚLTIMOS RESULTADOS -->
           <div class="card">
+            <div class="card-header"><h3>&#127942; Últimos Resultados <span id="jogosResCount" style="font-weight:400;font-size:0.8rem;color:#888"></span></h3></div>
             <table class="table table--full" id="jogosTable">
               <thead>
                 <tr>
                   <th>Data</th><th>Escalão</th><th>Casa</th><th>Fora</th>
-                  <th>Resultado</th><th>Local</th><th>Estado</th><th>Ações</th>
+                  <th>Resultado</th><th>Local</th><th>Ações</th>
                 </tr>
               </thead>
               <tbody></tbody>

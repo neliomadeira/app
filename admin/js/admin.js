@@ -2304,31 +2304,19 @@ function fmtDataJogo(str) {
   return d.toLocaleDateString('pt-PT', { day:'2-digit', month:'2-digit', year:'numeric' });
 }
 
-function renderJogos(filterEscalao = '', filterEstado = '') {
-  const tbody = document.querySelector('#jogosTable tbody');
-  let data = [...DB.jogos];
-  if (filterEscalao) data = data.filter(j => j.escalao === filterEscalao);
-  if (filterEstado)  data = data.filter(j => j.estado  === filterEstado);
-  data.sort((a, b) => b.data.localeCompare(a.data));
+function renderJogos(filterEscalao = '') {
+  const scRe = /sport campinense|js campinense|campinense/i;
 
-  tbody.innerHTML = data.map(j => {
-    const scRe = /sport campinense|js campinense|campinense/i;
-    const sc = scRe.test(j.casa) || scRe.test(j.fora);
-    const resultado = j.estado === 'Realizado'
-      ? `<strong>${j.gcasa} – ${j.gfora}</strong>`
-      : `<span style="color:var(--gray-text)">—</span>`;
-    const estadoBadge = j.estado === 'Realizado'
-      ? `<span class="status status--aprovado">Realizado</span>`
-      : `<span class="status status--pendente">Agendado</span>`;
-    return `
+  const jogoRow = (j) => `
       <tr>
         <td>${fmtDataJogo(j.data)}<br/><span style="font-size:0.75rem;color:var(--gray-text)">${j.hora}</span></td>
         <td>${j.escalao}</td>
         <td style="${scRe.test(j.casa)?'font-weight:700;color:var(--blue)':''}">${j.casa}</td>
         <td style="${scRe.test(j.fora)?'font-weight:700;color:var(--blue)':''}">${j.fora}</td>
-        <td style="text-align:center;font-size:1.1rem">${resultado}</td>
+        <td style="text-align:center;font-size:1.1rem">${j.estado === 'Realizado'
+          ? `<strong>${j.gcasa} – ${j.gfora}</strong>`
+          : `<span style="color:var(--gray-text)">—</span>`}</td>
         <td style="font-size:0.8rem;color:var(--gray-text)">${j.local}</td>
-        <td>${estadoBadge}</td>
         <td>
           <div class="btn-actions">
             ${j.estado === 'Agendado' ? `<button class="btn-icon btn-icon--green" onclick="registarResultado(${j.id})" title="Registar resultado">&#9999;</button>` : ''}
@@ -2337,14 +2325,35 @@ function renderJogos(filterEscalao = '', filterEstado = '') {
           </div>
         </td>
       </tr>`;
-  }).join('');
+
+  let data = [...DB.jogos];
+  if (filterEscalao) data = data.filter(j => j.escalao === filterEscalao);
+
+  // Próximos jogos: agendados, mais próximo primeiro
+  const prox = data.filter(j => j.estado !== 'Realizado')
+    .sort((a, b) => a.data.localeCompare(b.data));
+  // Últimos resultados: realizados, mais recente primeiro
+  const res = data.filter(j => j.estado === 'Realizado')
+    .sort((a, b) => b.data.localeCompare(a.data));
+
+  const proxBody = document.querySelector('#jogosProxTable tbody');
+  if (proxBody) {
+    proxBody.innerHTML = prox.length ? prox.map(jogoRow).join('')
+      : '<tr><td colspan="7" style="text-align:center;color:#999;padding:20px">Sem jogos agendados.</td></tr>';
+  }
+  const resBody = document.querySelector('#jogosTable tbody');
+  if (resBody) {
+    resBody.innerHTML = res.length ? res.map(jogoRow).join('')
+      : '<tr><td colspan="7" style="text-align:center;color:#999;padding:20px">Sem resultados registados.</td></tr>';
+  }
+  const pc = document.getElementById('jogosProxCount');
+  const rc = document.getElementById('jogosResCount');
+  if (pc) pc.textContent = prox.length ? `(${prox.length})` : '';
+  if (rc) rc.textContent = res.length ? `(${res.length})` : '';
 }
 
 document.getElementById('filterJogoEscalao')?.addEventListener('change', function () {
-  renderJogos(this.value, document.getElementById('filterJogoEstado').value);
-});
-document.getElementById('filterJogoEstado')?.addEventListener('change', function () {
-  renderJogos(document.getElementById('filterJogoEscalao').value, this.value);
+  renderJogos(this.value);
 });
 
 document.getElementById('btnNovoJogo')?.addEventListener('click', () => {
