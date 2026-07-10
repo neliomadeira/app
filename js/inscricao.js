@@ -227,6 +227,13 @@ document.addEventListener('DOMContentLoaded', () => {
       localStorage.setItem('db_inscricoes_modalidades', JSON.stringify(lst));
     } catch(_) {}
 
+    // Enviar para o servidor (base de dados) — silencioso se não configurado
+    fetch('/api/submit.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tipo: 'inscricao', dados: insc }),
+    }).catch(() => {});
+
     // Enviar email de notificação (se configurado)
     if (typeof sendEmail === 'function') {
       await sendEmail('tplInscricao', {

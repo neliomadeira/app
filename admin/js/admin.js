@@ -376,6 +376,9 @@ function initAdmin() {
 
   // Badges
   updateBadges();
+
+  // Puxar inscrições/mensagens novas da base de dados do servidor
+  if (typeof sincronizarRegistosServidor === 'function') sincronizarRegistosServidor();
 }
 
 function updateBadges() {
@@ -571,6 +574,7 @@ window.aprovarInscricao = function (id) {
   const i = DB.inscricoes.find(x => x.id === id);
   if (!i) return;
   i.estado = 'Aprovado';
+  _regPush('inscricao', i.id, 'Aprovado');
   if (!DB.atletas.find(a => a.nome === i.nome)) {
     DB.atletas.push({
       id: DB.atletas.length + 1, nome: i.nome, escalao: i.escalao,
@@ -590,6 +594,7 @@ window.rejeitarInscricao = function (id) {
   const i = DB.inscricoes.find(x => x.id === id);
   if (!i) return;
   i.estado = 'Rejeitado';
+  _regPush('inscricao', i.id, 'Rejeitado');
   saveDB();
   renderInscricoes();
   renderDashboard();
@@ -2119,7 +2124,7 @@ document.getElementById('filterMsgEstado')?.addEventListener('change', function 
 window.verMensagem = function (id) {
   const m = DB.mensagens.find(x => x.id === id);
   if (!m) return;
-  if (m.estado === 'Não lida') { m.estado = 'Lida'; saveDB(); renderMensagens(); updateBadges(); }
+  if (m.estado === 'Não lida') { m.estado = 'Lida'; _regPush('contacto', m.id, 'Lida'); saveDB(); renderMensagens(); updateBadges(); }
   openModal(`Mensagem de ${m.nome}`, `
     <div class="detail-grid">
       <div class="detail-item"><span class="detail-item__label">Nome</span><span class="detail-item__val">${m.nome}</span></div>
@@ -2140,6 +2145,7 @@ window.marcarRespondida = function (id) {
   const m = DB.mensagens.find(x => x.id === id);
   if (!m) return;
   m.estado = 'Respondida';
+  _regPush('contacto', m.id, 'Respondida');
   saveDB();
   renderMensagens();
   updateBadges();
@@ -2150,6 +2156,7 @@ window.removeMensagem = function (id) {
   if (!confirm('Eliminar esta mensagem?')) return;
   const idx = DB.mensagens.findIndex(x => x.id === id);
   if (idx > -1) DB.mensagens.splice(idx, 1);
+  _regDelete('contacto', id);
   saveDB();
   renderMensagens();
   updateBadges();
@@ -4797,6 +4804,99 @@ async function publicarNoServidor() {
 }
 window.publicarNoServidor = publicarNoServidor;
 window.guardarApiToken    = guardarApiToken;
+
+// ---- REGISTOS DO SERVIDOR (base de dados MySQL) ----
+// Inscrições e mensagens submetidas pelos visitantes chegam à BD via
+// api/submit.php; aqui puxamo-las para o admin e empurramos mudanças
+// de estado. Silencioso quando a BD não está configurada.
+function _regToken() { return localStorage.getItem('jsc_api_token') || 'campinense2025'; }
+
+function _regPush(tipo, id, estado) {
+  fetch('/api/registos.php?tipo=' + tipo, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-JSC-Token': _regToken() },
+    body: JSON.stringify({ acao: 'estado', id, estado }),
+  }).catch(() => {});
+}
+
+function _regDelete(tipo, id) {
+  fetch('/api/registos.php?tipo=' + tipo, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-JSC-Token': _regToken() },
+    body: JSON.stringify({ acao: 'apagar', id }),
+  }).catch(() => {});
+}
+
+function _mapInscricaoServidor(item) {
+  const EMAP = { sub9:'Sub-9', sub11:'Sub-11', sub13:'Sub-13', sub15:'Sub-15', sub17:'Sub-17', sub19:'Sub-19' };
+  let idade = '—';
+  if (item.dataNasc) {
+    const hoje = new Date(), n = new Date(item.dataNasc + 'T00:00:00');
+    let a = hoje.getFullYear() - n.getFullYear();
+    if (hoje.getMonth() < n.getMonth() || (hoje.getMonth() === n.getMonth() && hoje.getDate() < n.getDate())) a--;
+    if (a >= 0 && a <= 99) idade = a;
+  }
+  return {
+    id:         item.id,
+    nome:       item.nome        || '—',
+    modalidade: item.modalidade  || 'Futebol',
+    escalao:    EMAP[item.escalao] || item.escalao || '—',
+    nivel:      item.nivel       || '—',
+    idade,
+    dataNasc:   item.dataNasc    || '',
+    posicao:    item.posicao     || '—',
+    pref:       item.pePreferido || '—',
+    altura:     item.altura      || '—',
+    peso:       item.peso        || '—',
+    nomeResp:   item.nomeResp    || '—',
+    telefone:   item.telefone    || '—',
+    email:      item.email       || '—',
+    data:       item.data        || new Date().toISOString().slice(0, 10),
+    estado:     item.estado      || 'Pendente',
+  };
+}
+
+async function sincronizarRegistosServidor() {
+  const headers = { 'X-JSC-Token': _regToken() };
+  const puxar = async (tipo) => {
+    const r = await fetch('/api/registos.php?tipo=' + tipo, { headers });
+    if (!r.ok) return null;
+    const json = await r.json();
+    return json.ok ? json.registos : null;
+  };
+  let novasInsc = 0, novasMsgs = 0;
+  try {
+    const inscricoes = await puxar('inscricao');
+    if (inscricoes) {
+      inscricoes.forEach(item => {
+        if (!DB.inscricoes.find(x => x.id === item.id)) {
+          DB.inscricoes.unshift(_mapInscricaoServidor(item));
+          novasInsc++;
+        }
+      });
+    }
+    const mensagens = await puxar('contacto');
+    if (mensagens) {
+      mensagens.forEach(item => {
+        if (!DB.mensagens.find(x => x.id === item.id)) {
+          DB.mensagens.unshift(item);
+          novasMsgs++;
+        }
+      });
+    }
+  } catch (_) { return; }
+  if (novasInsc || novasMsgs) {
+    saveDB();
+    renderInscricoes();
+    renderMensagens();
+    renderDashboard();
+    updateBadges();
+    const partes = [];
+    if (novasInsc) partes.push(novasInsc + (novasInsc === 1 ? ' nova inscrição' : ' novas inscrições'));
+    if (novasMsgs) partes.push(novasMsgs + (novasMsgs === 1 ? ' nova mensagem' : ' novas mensagens'));
+    showToast('📥 ' + partes.join(' e ') + ' do servidor', 'green');
+  }
+}
 
 // ---- MANUTENÇÃO ----
 function _applyManutencaoSlider(on) {

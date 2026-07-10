@@ -74,11 +74,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Guardar mensagem em localStorage independentemente
+    const msgObj = { ...params, data: new Date().toISOString().slice(0,10), estado: 'Não lida', id: Date.now() };
     try {
       const msgs = JSON.parse(localStorage.getItem('db_contact_msgs') || '[]');
-      msgs.unshift({ ...params, data: new Date().toISOString().slice(0,10), estado: 'Não lida', id: Date.now() });
+      msgs.unshift(msgObj);
       localStorage.setItem('db_contact_msgs', JSON.stringify(msgs));
     } catch(_) {}
+
+    // Enviar para o servidor (base de dados) — silencioso se não configurado
+    fetch('/api/submit.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tipo: 'contacto', dados: msgObj }),
+    }).catch(() => {});
 
     form.reset();
     btn.textContent = 'Enviar mensagem';
