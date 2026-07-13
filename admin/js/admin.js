@@ -3791,6 +3791,32 @@ function saveSiteConfig(cfg) {
   }
 }
 
+// Textos padrão do site público (index.html) — mostrados nos campos do
+// admin enquanto não houver valor guardado, para se editar sobre o real
+const SITE_DEFAULTS = {
+  heroTag:   'Formando Campeões desde 1923 →',
+  heroTitle: 'Juventude<br /><span>Sport Campinense</span>',
+  heroDesc:  'Desenvolvendo talentos, construindo carácter e cultivando a paixão pelo futebol em Loulé, Algarve.',
+  stat1Num: '300+', stat1Label: 'Atletas',
+  stat2Num: '6',    stat2Label: 'Escalões',
+  stat3Num: '100+', stat3Label: 'Anos de história',
+  stat4Num: '80+',  stat4Label: 'Títulos',
+  aboutText1: 'O Juventude Sport Campinense é o departamento de formação do Sport Campinense de Loulé, um dos clubes mais emblemáticos do Algarve. A nossa missão é descobrir e desenvolver talentos do futebol algarvio, oferecendo estrutura profissional e uma formação de excelência.',
+  aboutText2: 'Para além do futebol de alto nível, priorizamos a formação humana dos nossos atletas, com acompanhamento pedagógico, psicológico e nutricional. Acreditamos que um atleta completo começa dentro do campo, mas constrói-se fora dele.',
+  aboutEst:   'EST. 1923',
+  aboutMotto: '"Mais que um Clube, uma família!"',
+  aboutVal1Title: 'Disciplina', aboutVal1Desc: 'Base para o sucesso dentro e fora do campo.',
+  aboutVal2Title: 'Respeito',   aboutVal2Desc: 'Com colegas, adversários e a família do futebol.',
+  aboutVal3Title: 'Dedicação',  aboutVal3Desc: 'Compromisso diário com a evolução e o colectivo.',
+  contactAddress: 'Rua Nuno A. de Mascarenhas, Lote 16<br />8100-610 Loulé, Portugal',
+  contactPhone:   '+351 937 952 710',
+  contactEmail:   'geral@campinense.pt',
+  contactHours:   'Segunda a Sexta, das 9h às 18h',
+  heroBtn1Text: 'Quero inscrever-me',  heroBtn1Url: 'inscricao.html',
+  heroBtn2Text: 'Conhecer o clube',    heroBtn2Url: '#sobre',
+  footerTagline: 'Formando campeões dentro e fora do campo.',
+};
+
 function loadPaginaInicialForm() {
   const cfg = getSiteConfig();
   const fields = {
@@ -3820,7 +3846,9 @@ function loadPaginaInicialForm() {
   };
   for (const [elId, cfgKey] of Object.entries(fields)) {
     const el = document.getElementById(elId);
-    if (el && cfg[cfgKey] !== undefined) el.value = cfg[cfgKey];
+    if (!el) continue;
+    if (cfg[cfgKey] !== undefined && cfg[cfgKey] !== '') el.value = cfg[cfgKey];
+    else if (SITE_DEFAULTS[cfgKey] !== undefined) el.value = SITE_DEFAULTS[cfgKey];
   }
   // Checkboxes
   const sl = document.getElementById('cfgHeroSlideshow');
