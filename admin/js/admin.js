@@ -4648,10 +4648,11 @@ function initConfiguracoes() {
   const creds = JSON.parse(localStorage.getItem('admin_creds') || '{}');
   if (creds.user) document.getElementById('cfgAdminUser').value = creds.user;
 
-  // Carregar cores guardadas
+  // Carregar cores guardadas + grelha de templates
   const cores = JSON.parse(localStorage.getItem('site_cores') || '{}');
   if (cores.azul)    document.getElementById('cfgCorAzul').value    = cores.azul;
   if (cores.amarelo) document.getElementById('cfgCorAmarelo').value = cores.amarelo;
+  renderTemaTemplates();
 
   // Carregar dados do clube
   const clube = JSON.parse(localStorage.getItem('dados_clube') || '{}');
@@ -4980,21 +4981,62 @@ window.removerLogoClube = function() {
   showToast('Logótipo removido.', 'green');
 };
 
+// ---- TEMPLATES DE CORES ----
+const TEMA_TEMPLATES = [
+  { nome: 'Clássico',        azul: '#003B8E', amarelo: '#FFD100' },
+  { nome: 'Verde Esperança', azul: '#0B6E4F', amarelo: '#FFC845' },
+  { nome: 'Vermelho Força',  azul: '#A31621', amarelo: '#FFD100' },
+  { nome: 'Vinho & Ouro',    azul: '#6E1423', amarelo: '#F2C94C' },
+  { nome: 'Preto & Dourado', azul: '#1C1C1C', amarelo: '#D4AF37' },
+  { nome: 'Azul Atlântico',  azul: '#0077C8', amarelo: '#FFE033' },
+  { nome: 'Roxo Real',       azul: '#4A2377', amarelo: '#FFB81C' },
+  { nome: 'Laranja Algarve', azul: '#1F3A5F', amarelo: '#FF8C42' },
+];
+
+function renderTemaTemplates() {
+  const grid = document.getElementById('temaTemplatesGrid');
+  if (!grid) return;
+  const atual = JSON.parse(localStorage.getItem('site_cores') || '{}');
+  grid.innerHTML = TEMA_TEMPLATES.map((t, i) => {
+    const ativo = atual.azul === t.azul && atual.amarelo === t.amarelo;
+    const ativoDefault = !atual.azul && t.nome === 'Clássico';
+    return `
+    <button type="button" onclick="aplicarTemplate(${i})"
+      style="display:flex;flex-direction:column;gap:0;border:2px solid ${ativo || ativoDefault ? t.azul : '#e0e0e0'};border-radius:10px;overflow:hidden;cursor:pointer;background:#fff;padding:0;${ativo || ativoDefault ? 'box-shadow:0 0 0 2px ' + t.azul + '33' : ''}">
+      <span style="display:flex;height:34px">
+        <span style="flex:2;background:${t.azul}"></span>
+        <span style="flex:1;background:${t.amarelo}"></span>
+      </span>
+      <span style="padding:6px 8px;font-size:0.72rem;font-weight:700;color:#333;display:flex;align-items:center;justify-content:center;gap:4px">
+        ${t.nome}${ativo || ativoDefault ? ' &#10003;' : ''}
+      </span>
+    </button>`;
+  }).join('');
+}
+
+window.aplicarTemplate = function (idx) {
+  const t = TEMA_TEMPLATES[idx];
+  if (!t) return;
+  document.getElementById('cfgCorAzul').value    = t.azul;
+  document.getElementById('cfgCorAmarelo').value = t.amarelo;
+  localStorage.setItem('site_cores', JSON.stringify({ azul: t.azul, amarelo: t.amarelo, template: t.nome }));
+  renderTemaTemplates();
+  showToast(`✓ Template "${t.nome}" aplicado! Abre o site para ver e "Publicar agora" para os visitantes.`, 'green');
+};
+
 function guardarAparencia() {
   const azul    = document.getElementById('cfgCorAzul').value;
   const amarelo = document.getElementById('cfgCorAmarelo').value;
   localStorage.setItem('site_cores', JSON.stringify({ azul, amarelo }));
-  document.documentElement.style.setProperty('--primary', azul);
-  document.documentElement.style.setProperty('--yellow', amarelo);
-  showToast('Cores aplicadas! Atualize o site para ver as mudanças.', 'green');
+  renderTemaTemplates();
+  showToast('Cores aplicadas! Abre o site para ver e "Publicar agora" para os visitantes.', 'green');
 }
 
 function resetarCores() {
   localStorage.removeItem('site_cores');
   document.getElementById('cfgCorAzul').value    = '#003B8E';
   document.getElementById('cfgCorAmarelo').value = '#FFD100';
-  document.documentElement.style.removeProperty('--primary');
-  document.documentElement.style.removeProperty('--yellow');
+  renderTemaTemplates();
   showToast('Cores originais restauradas', 'green');
 }
 

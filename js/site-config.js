@@ -14,6 +14,36 @@
     }
   }
 
+  // ---- TEMA / CORES PERSONALIZADAS (templates do admin) ----
+  (function () {
+    try {
+      const cores = JSON.parse(localStorage.getItem('site_cores') || '{}');
+      if (!cores.azul && !cores.amarelo) return;
+      const hex = (h) => {
+        h = (h || '').replace('#', '');
+        if (h.length === 3) h = h.split('').map(c => c + c).join('');
+        const n = parseInt(h, 16);
+        return h.length === 6 && !isNaN(n) ? [n >> 16 & 255, n >> 8 & 255, n & 255] : null;
+      };
+      const mix = (rgb, alvo, p) => rgb.map((c, i) => Math.round(c + (alvo[i] - c) * p));
+      const css = (rgb) => '#' + rgb.map(c => c.toString(16).padStart(2, '0')).join('');
+      const root = document.documentElement.style;
+      const azul = hex(cores.azul);
+      if (azul) {
+        root.setProperty('--blue',      css(azul));
+        root.setProperty('--blue-dark', css(mix(azul, [0, 0, 0], 0.25)));
+        root.setProperty('--blue-bg',   css(mix(azul, [0, 0, 0], 0.45)));
+        root.setProperty('--blue-mid',  css(mix(azul, [255, 255, 255], 0.18)));
+      }
+      const amarelo = hex(cores.amarelo);
+      if (amarelo) {
+        root.setProperty('--yellow',       css(amarelo));
+        root.setProperty('--yellow-dark',  css(mix(amarelo, [0, 0, 0], 0.12)));
+        root.setProperty('--yellow-light', css(mix(amarelo, [255, 255, 255], 0.2)));
+      }
+    } catch (e) {}
+  })();
+
   function set(id, val) {
     const el = document.getElementById(id);
     if (el && val !== undefined && val !== '') el.textContent = val;

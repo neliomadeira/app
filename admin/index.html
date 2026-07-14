@@ -1471,20 +1471,30 @@
 
           <!-- Aparência -->
           <div class="card" style="margin-bottom:20px;max-width:520px">
-            <div class="card-header"><h3>&#127912; Aparência</h3></div>
-            <div style="padding:16px;display:grid;gap:12px">
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-                <div class="modal-field">
-                  <label class="form-label">Cor principal (Azul)</label>
-                  <input class="form-input" type="color" id="cfgCorAzul" value="#003B8E" />
-                </div>
-                <div class="modal-field">
-                  <label class="form-label">Cor secundária (Amarelo)</label>
-                  <input class="form-input" type="color" id="cfgCorAmarelo" value="#FFD100" />
+            <div class="card-header"><h3>&#127912; Aparência &amp; Templates</h3></div>
+            <div style="padding:16px;display:grid;gap:14px">
+              <div>
+                <label class="form-label" style="margin-bottom:8px">Templates de cores</label>
+                <p style="font-size:0.76rem;color:#888;margin:0 0 10px">Clica num template para o aplicar ao site inteiro. Depois "&#128640; Publicar agora" para os visitantes verem.</p>
+                <div id="temaTemplatesGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px"></div>
+              </div>
+              <div style="border-top:1px solid #eee;padding-top:12px">
+                <label class="form-label" style="margin-bottom:8px">Ou cores personalizadas</label>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                  <div class="modal-field">
+                    <label class="form-label">Cor principal</label>
+                    <input class="form-input" type="color" id="cfgCorAzul" value="#003B8E" />
+                  </div>
+                  <div class="modal-field">
+                    <label class="form-label">Cor de destaque</label>
+                    <input class="form-input" type="color" id="cfgCorAmarelo" value="#FFD100" />
+                  </div>
                 </div>
               </div>
-              <button class="btn-save" onclick="guardarAparencia()">Aplicar cores</button>
-              <button class="btn-sm" onclick="resetarCores()">Repor cores originais</button>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn-save" onclick="guardarAparencia()">Aplicar cores</button>
+                <button class="btn-sm" onclick="resetarCores()">Repor original</button>
+              </div>
             </div>
           </div>
 
