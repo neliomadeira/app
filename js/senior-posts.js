@@ -1,6 +1,7 @@
 // =============================================
 // SENIOR-POSTS.JS — publicações da equipa principal
-// Filtro: db_noticias com categoria === 'Seniores'
+// Filtro: jsc_noticias com categoria === 'Seniores'
+// (criadas no admin em Notícias, categoria "Seniores")
 // =============================================
 (function () {
   'use strict';
@@ -11,7 +12,7 @@
 
   function getPosts() {
     try {
-      const raw = localStorage.getItem('db_noticias');
+      const raw = localStorage.getItem('jsc_noticias');
       if (!raw) return [];
       return JSON.parse(raw)
         .filter(n => n.publicada && n.categoria === 'Seniores')
@@ -147,8 +148,11 @@
 
   // Auto-update when admin saves from another tab
   window.addEventListener('storage', e => {
-    if (e.key === 'db_noticias') renderPosts();
+    if (e.key === 'jsc_noticias') renderPosts();
   });
+
+  // Re-render quando os dados do servidor chegam (sync.js)
+  document.addEventListener('jsc:synced', renderPosts);
 
   // Init
   document.addEventListener('DOMContentLoaded', renderPosts);
