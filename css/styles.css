@@ -1630,6 +1630,20 @@ ul { list-style: none; }
 
 .field-error.visible { display: block; }
 
+/* Botão "Ler mais" da secção Sobre (fundo claro) */
+.about-more-btn {
+  background: transparent;
+  color: var(--blue);
+  border: 2px solid var(--blue);
+  margin-bottom: 20px;
+}
+.about-more-btn:hover {
+  background: var(--blue);
+  color: #fff;
+}
+html[data-theme="dark"] .about-more-btn { color: var(--yellow); border-color: var(--yellow); }
+html[data-theme="dark"] .about-more-btn:hover { background: var(--yellow); color: #001f4d; }
+
 .jogo-team-logo {
   width: 20px;
   height: 20px;
