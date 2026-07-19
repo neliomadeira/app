@@ -4,7 +4,7 @@
 (function () {
 
   const DEFAULT_TIMELINE = [
-    { id: 1, ano: 1923, titulo: 'Fundação do Clube',
+    { id: 1, ano: 1947, titulo: 'Fundação do Clube',
       descricao: 'O Juventude Sport Campinense nasce em Loulé com a missão de desenvolver o desporto e a juventude da região do Algarve.',
       imagem: '', destaque: true },
     { id: 2, ano: 1950, titulo: 'Instalações Próprias',

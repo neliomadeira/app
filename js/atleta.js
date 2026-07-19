@@ -164,7 +164,7 @@
             </div>
             <div class="atleta-card__club-text">
               <strong>Juventude Sport Campinense</strong>
-              <span>Loulé · Algarve · Desde 1923</span>
+              <span>Loulé · Algarve · Desde 1947</span>
             </div>
           </div>
 

@@ -48,7 +48,7 @@
   ];
 
   var DEFAULT_HISTORIA = [
-    { id: 1, ano: 1923, titulo: 'Fundação do Clube',
+    { id: 1, ano: 1947, titulo: 'Fundação do Clube',
       descricao: 'O Juventude Sport Campinense nasce em Loulé com a missão de desenvolver o desporto e a juventude da região do Algarve.' },
     { id: 2, ano: 1950, titulo: 'Instalações Próprias',
       descricao: 'Inauguração das primeiras instalações permanentes do clube, marco fundamental para o crescimento da formação desportiva.' },

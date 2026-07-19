@@ -14,7 +14,7 @@
     'alternateName': 'JS Campinense',
     'url': 'https://www.jscampinense.pt',
     'logo': 'https://www.jscampinense.pt/images/logo.png',
-    'foundingDate': '1923',
+    'foundingDate': '1947',
     'sport': 'Football',
     'description': 'Clube desportivo de Loulé, Algarve, com escalões de formação de Sub-9 a Sub-19.',
     'address': {

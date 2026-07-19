@@ -3794,16 +3794,16 @@ function saveSiteConfig(cfg) {
 // Textos padrão do site público (index.html) — mostrados nos campos do
 // admin enquanto não houver valor guardado, para se editar sobre o real
 const SITE_DEFAULTS = {
-  heroTag:   'Formando Campeões desde 1923 →',
+  heroTag:   'Formando Campeões desde 1947 →',
   heroTitle: 'Juventude<br /><span>Sport Campinense</span>',
   heroDesc:  'Desenvolvendo talentos, construindo carácter e cultivando a paixão pelo futebol em Loulé, Algarve.',
   stat1Num: '300+', stat1Label: 'Atletas',
   stat2Num: '6',    stat2Label: 'Escalões',
-  stat3Num: '100+', stat3Label: 'Anos de história',
+  stat3Num: '75+', stat3Label: 'Anos de história',
   stat4Num: '80+',  stat4Label: 'Títulos',
-  aboutText1: 'O Juventude Sport Campinense é o departamento de formação do Sport Campinense de Loulé, um dos clubes mais emblemáticos do Algarve. A nossa missão é descobrir e desenvolver talentos do futebol algarvio, oferecendo estrutura profissional e uma formação de excelência.',
-  aboutText2: 'Para além do futebol de alto nível, priorizamos a formação humana dos nossos atletas, com acompanhamento pedagógico, psicológico e nutricional. Acreditamos que um atleta completo começa dentro do campo, mas constrói-se fora dele.',
-  aboutEst:   'EST. 1923',
+  aboutText1: 'Fundado a 12 de dezembro de 1947, o Juventude Sport Campinense é um dos clubes mais históricos e emblemáticos do concelho de Loulé e do distrito de Faro. Ao longo de mais de sete décadas de existência, tem desempenhado um papel fundamental na promoção do desporto, na formação de jovens atletas e na dinamização da comunidade local.',
+  aboutText2: 'Desde a sua fundação, o clube construiu uma identidade assente em valores como o respeito, a dedicação, o espírito de equipa, a formação humana e a paixão pelo desporto. Mais do que competir, o Juventude Sport Campinense tem como missão educar através do futebol, formando atletas e cidadãos preparados para os desafios da vida.',
+  aboutEst:   'EST. 1947',
   aboutMotto: '"Mais que um Clube, uma família!"',
   aboutVal1Title: 'Disciplina', aboutVal1Desc: 'Base para o sucesso dentro e fora do campo.',
   aboutVal2Title: 'Respeito',   aboutVal2Desc: 'Com colegas, adversários e a família do futebol.',
