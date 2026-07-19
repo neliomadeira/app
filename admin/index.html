@@ -1391,6 +1391,21 @@
               </div>
               <button class="btn-save" onclick="guardarSeguranca()">Guardar credenciais</button>
               <hr style="border:none;border-top:1px solid #e2e8f0;margin:4px 0">
+              <!-- Utilizadores adicionais -->
+              <div>
+                <label class="form-label">&#128101; Utilizadores adicionais</label>
+                <p style="font-size:0.76rem;color:#888;margin:2px 0 8px">Contas extra com acesso total ao painel (ex: outro dirigente ou treinador).</p>
+                <div id="adminUsersList" style="display:grid;gap:6px;margin-bottom:10px"></div>
+                <div style="display:grid;gap:8px">
+                  <input class="form-input" type="text" id="novoUserNome" placeholder="Nome de utilizador" autocomplete="off" />
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                    <input class="form-input" type="password" id="novoUserPw" placeholder="Palavra-passe (mín. 6)" autocomplete="new-password" />
+                    <input class="form-input" type="password" id="novoUserPwConf" placeholder="Confirmar" autocomplete="new-password" />
+                  </div>
+                  <button class="btn-sm" onclick="adicionarAdminUser()" style="justify-self:start">+ Adicionar utilizador</button>
+                </div>
+              </div>
+              <hr style="border:none;border-top:1px solid #e2e8f0;margin:4px 0">
               <div class="modal-field">
                 <label class="form-label">🔑 Token de publicação no servidor</label>
                 <input class="form-input" type="text" id="cfgApiToken" placeholder="campinense2025" />

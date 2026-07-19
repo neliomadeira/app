@@ -115,6 +115,14 @@ loginForm?.addEventListener('submit', async (e) => {
     }
   }
 
+  // Utilizadores adicionais (Configurações → Segurança → Utilizadores)
+  if (!match) {
+    try {
+      const extras = JSON.parse(localStorage.getItem('admin_users') || '[]');
+      match = extras.some(a => a.user === u && a.pass === inputHash);
+    } catch(_) {}
+  }
+
   if (match) {
     clearLockout();
     loginWrap.style.display = 'none';
@@ -4647,6 +4655,7 @@ function initConfiguracoes() {
   // Carregar credenciais guardadas
   const creds = JSON.parse(localStorage.getItem('admin_creds') || '{}');
   if (creds.user) document.getElementById('cfgAdminUser').value = creds.user;
+  renderAdminUsers();
 
   // Carregar cores guardadas + grelha de templates
   const cores = JSON.parse(localStorage.getItem('site_cores') || '{}');
@@ -4754,6 +4763,63 @@ async function guardarSeguranca() {
 
   showToast('✓ Credenciais guardadas com segurança (SHA-256)', 'green');
 }
+
+// ---- UTILIZADORES ADICIONAIS ----
+function _loadAdminUsers() {
+  try { return JSON.parse(localStorage.getItem('admin_users') || '[]'); } catch(_) { return []; }
+}
+
+function renderAdminUsers() {
+  const el = document.getElementById('adminUsersList');
+  if (!el) return;
+  const users = _loadAdminUsers();
+  if (!users.length) {
+    el.innerHTML = '<p style="font-size:0.78rem;color:#aaa;margin:0">Nenhum utilizador adicional.</p>';
+    return;
+  }
+  el.innerHTML = users.map((a, i) => `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:#f5f7fa;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px">
+      <span style="font-size:0.85rem;font-weight:600">&#128100; ${a.user}</span>
+      <button class="btn-sm" style="color:#c00" title="Remover utilizador" onclick="removerAdminUser(${i})">&#x2715;</button>
+    </div>`).join('');
+}
+
+window.adicionarAdminUser = async function () {
+  const nome = document.getElementById('novoUserNome')?.value.trim();
+  const pw   = document.getElementById('novoUserPw')?.value || '';
+  const conf = document.getElementById('novoUserPwConf')?.value || '';
+  if (!nome) { showToast('Introduza o nome de utilizador', 'red'); return; }
+  if (pw.length < 6) { showToast('A palavra-passe deve ter pelo menos 6 caracteres', 'red'); return; }
+  if (pw !== conf) { showToast('As palavras-passe não coincidem', 'red'); return; }
+
+  const principal = JSON.parse(localStorage.getItem('admin_creds') || 'null');
+  const users = _loadAdminUsers();
+  if ((principal && principal.user === nome) || users.some(a => a.user === nome)) {
+    showToast('Já existe um utilizador com esse nome', 'red'); return;
+  }
+
+  let hash;
+  try { hash = await sha256(pw); } catch(_) { hash = pw; }
+  users.push({ user: nome, pass: hash, hashed: true, criado: new Date().toISOString().slice(0, 10) });
+  localStorage.setItem('admin_users', JSON.stringify(users));
+
+  document.getElementById('novoUserNome').value = '';
+  document.getElementById('novoUserPw').value = '';
+  document.getElementById('novoUserPwConf').value = '';
+  renderAdminUsers();
+  showToast(`✓ Utilizador "${nome}" adicionado`, 'green');
+};
+
+window.removerAdminUser = function (idx) {
+  const users = _loadAdminUsers();
+  const u = users[idx];
+  if (!u) return;
+  if (!confirm(`Remover o utilizador "${u.user}"? Deixará de conseguir entrar no painel.`)) return;
+  users.splice(idx, 1);
+  localStorage.setItem('admin_users', JSON.stringify(users));
+  renderAdminUsers();
+  showToast(`Utilizador "${u.user}" removido`, 'green');
+};
 
 // ---- TOKEN DE PUBLICAÇÃO ----
 function guardarApiToken() {
@@ -5087,6 +5153,7 @@ function exportarDados() {
     emailConfig:    ls('email_config'),
     apiToken:       ls('jsc_api_token'),
     adminCreds:     ls('admin_creds'),
+    adminUsers:     ls('admin_users'),
   };
   const blob = new Blob([JSON.stringify(dados, null, 2)], { type: 'application/json' });
   const a    = document.createElement('a');
@@ -5146,6 +5213,7 @@ function processarImportBackup(e) {
       lsSet('email_config',     d.emailConfig);
       lsSet('jsc_api_token',    d.apiToken);
       if (d.adminCreds) lsSet('admin_creds', d.adminCreds);
+      if (d.adminUsers) lsSet('admin_users', d.adminUsers);
       showToast('✓ Backup importado com sucesso! A recarregar...', 'green');
       setTimeout(() => location.reload(), 1500);
     } catch {
