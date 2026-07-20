@@ -163,8 +163,8 @@ ul { list-style: none; }
 }
 
 .logo__img {
-  width: 48px;
-  height: 48px;
+  width: 58px;
+  height: 58px;
   object-fit: contain;
   flex-shrink: 0;
   filter: drop-shadow(0 1px 3px rgba(0,0,0,0.25));
