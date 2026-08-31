@@ -1409,8 +1409,8 @@
               <hr style="border:none;border-top:1px solid #e2e8f0;margin:4px 0">
               <div class="modal-field">
                 <label class="form-label">🔑 Token de publicação no servidor</label>
-                <input class="form-input" type="text" id="cfgApiToken" placeholder="campinense2025" />
-                <small style="color:#888;font-size:11px;margin-top:4px;display:block">Deve ser igual ao valor em <code>api/config.php</code> no servidor.</small>
+                <input class="form-input" type="password" id="cfgApiToken" placeholder="Cole aqui o token do servidor" autocomplete="off" />
+                <small style="color:#888;font-size:11px;margin-top:4px;display:block">Deve ser igual ao <code>JSC_TOKEN</code> definido em <code>api/config.local.php</code> no servidor.</small>
               </div>
               <button class="btn-save" onclick="guardarApiToken()">Guardar token</button>
             </div>

@@ -1,19 +1,31 @@
 <?php
-// Token de autenticação para publicar dados no servidor.
-// Deve corresponder ao token configurado no painel admin (Configurações > Segurança).
-// IMPORTANTE: altere este valor antes de colocar o site online!
-define('JSC_TOKEN', 'campinense2025');
-define('DATA_FILE', __DIR__ . '/../data/db.json');
+// =====================================================
+// Configuração pública — NÃO coloque segredos aqui.
+// Este ficheiro é versionado no git.
+// =====================================================
+// Os valores reais (token e credenciais MySQL) vivem em
+// api/config.local.php, que está fora do controlo de versões.
+// Para criar esse ficheiro no servidor, copie o modelo:
+//
+//     cp api/config.local.example.php api/config.local.php
+//
+// e preencha-o. Sem esse ficheiro o site continua a funcionar:
+// as páginas públicas leem os dados normalmente, apenas a
+// publicação a partir do admin e a base de dados ficam inativas.
+// =====================================================
 
-// ---- Base de dados MySQL (opcional) ----
-// Permite que as inscrições e mensagens de contacto dos visitantes
-// cheguem ao servidor (e ao admin em qualquer dispositivo).
-// 1. Cria a base de dados e o utilizador no cPanel (MySQL Databases)
-// 2. Executa api/schema.sql no phpMyAdmin (ou deixa as tabelas serem
-//    criadas automaticamente no primeiro registo)
-// 3. Preenche os 4 valores abaixo
-// Se DB_NAME ficar vazio, o site funciona sem base de dados.
-define('DB_HOST', 'localhost');
-define('DB_NAME', '');
-define('DB_USER', '');
-define('DB_PASS', '');
+if (is_file(__DIR__ . '/config.local.php')) {
+    require_once __DIR__ . '/config.local.php';
+}
+
+// Valores por omissão — aplicados apenas ao que config.local.php
+// não tenha já definido. Um token vazio faz save.php e registos.php
+// recusarem todos os pedidos, que é o comportamento seguro quando
+// o servidor ainda não foi configurado.
+if (!defined('JSC_TOKEN')) define('JSC_TOKEN', '');
+if (!defined('DB_HOST'))   define('DB_HOST', 'localhost');
+if (!defined('DB_NAME'))   define('DB_NAME', '');
+if (!defined('DB_USER'))   define('DB_USER', '');
+if (!defined('DB_PASS'))   define('DB_PASS', '');
+
+define('DATA_FILE', __DIR__ . '/../data/db.json');

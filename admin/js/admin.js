@@ -4831,7 +4831,7 @@ function guardarApiToken() {
 
 // ---- PUBLICAR NO SERVIDOR ----
 async function publicarNoServidor() {
-  const token = localStorage.getItem('jsc_api_token') || 'campinense2025';
+  const token = localStorage.getItem('jsc_api_token') || '';
   const ls = (key) => { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; } };
   // Classificações e jogos por escalão/equipa (chaves dinâmicas fpf_class_* / fpf_jogos_*)
   const classData = {};
@@ -4906,7 +4906,9 @@ window.guardarApiToken    = guardarApiToken;
 // Inscrições e mensagens submetidas pelos visitantes chegam à BD via
 // api/submit.php; aqui puxamo-las para o admin e empurramos mudanças
 // de estado. Silencioso quando a BD não está configurada.
-function _regToken() { return localStorage.getItem('jsc_api_token') || 'campinense2025'; }
+// Sem token configurado devolve vazio: o servidor responde 401, em vez de
+// enviarmos um valor por omissão que qualquer pessoa conheceria.
+function _regToken() { return localStorage.getItem('jsc_api_token') || ''; }
 
 function _regPush(tipo, id, estado) {
   fetch('/api/registos.php?tipo=' + tipo, {

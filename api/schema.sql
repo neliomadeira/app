@@ -6,7 +6,8 @@
 --   2. Criar utilizador MySQL e associá-lo à base (ALL PRIVILEGES)
 --   3. phpMyAdmin → selecionar a base → separador SQL → colar este
 --      ficheiro → Executar
---   4. Preencher DB_HOST / DB_NAME / DB_USER / DB_PASS em api/config.php
+--   4. Preencher DB_HOST / DB_NAME / DB_USER / DB_PASS em
+--      api/config.local.php (copiado de api/config.local.example.php)
 -- =====================================================
 
 CREATE TABLE IF NOT EXISTS jsc_inscricoes (

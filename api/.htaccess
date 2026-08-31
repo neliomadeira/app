@@ -1,1 +1,16 @@
 Options -Indexes
+
+# O config.local.php é PHP, por isso o Apache já o executa em vez de o
+# servir. Isto é uma segunda linha de defesa, para o caso de o handler
+# de PHP falhar ou ser desativado. Os dois blocos cobrem Apache 2.2 e
+# 2.4 — sem os IfModule, a diretiva errada devolveria 500 em toda a
+# pasta api/ e partiria o site.
+<Files "config.local.php">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</Files>
