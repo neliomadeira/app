@@ -2814,7 +2814,7 @@ html[data-theme="dark"] .form-group textarea.is-invalid {
   content: '';
   position: absolute;
   inset: 0;
-  background: url('images/logo.png') right -60px center / 420px no-repeat;
+  background: url('../images/logo.png') right -60px center / 420px no-repeat;
   opacity: 0.04;
   pointer-events: none;
 }
