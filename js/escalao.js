@@ -391,11 +391,11 @@
     var main = document.querySelector('main');
     if (!main) return;
     main.innerHTML = (
-      '<div style="text-align:center;padding:80px 20px">' +
-        '<div style="font-size:3.5rem;margin-bottom:16px">⚠️</div>' +
-        '<h2 style="font-family:\'Bebas Neue\',sans-serif;font-size:2rem;color:#001f4d;margin-bottom:12px">Escalão não encontrado</h2>' +
-        '<p style="color:#666;margin-bottom:24px">O escalão indicado não existe ou o endereço está incorreto.</p>' +
-        '<a href="formacao.html" style="background:#001f4d;color:#FFD100;font-family:\'Bebas Neue\',sans-serif;letter-spacing:1px;padding:12px 28px;border-radius:8px;text-decoration:none;font-size:1rem">← Voltar à Formação</a>' +
+      '<div class="esc-empty">' +
+        '<div class="esc-empty__icon">⚠️</div>' +
+        '<h2 class="esc-empty__title">Escalão não encontrado</h2>' +
+        '<p class="esc-empty__text">O escalão indicado não existe ou o endereço está incorreto.</p>' +
+        '<a href="formacao.html" class="esc-empty__btn">← Voltar à Formação</a>' +
       '</div>'
     );
   }

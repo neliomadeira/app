@@ -33,6 +33,7 @@
   --gray-mid: #666666;
   --gray-light: #f5f7fa;
   --white: #ffffff;
+  --black: #111827;
   --font-display: 'Bebas Neue', sans-serif;
   --font-body: 'Roboto', sans-serif;
   --radius: 8px;
@@ -102,6 +103,18 @@ ul { list-style: none; }
 .btn--outline:hover {
   background: rgba(255,255,255,0.12);
   border-color: var(--white);
+}
+
+/* Outline button for light surfaces — .btn--outline is white, so it
+   vanishes on anything pale. */
+.btn--outline-blue {
+  background: transparent;
+  color: var(--blue);
+  border-color: var(--blue);
+}
+.btn--outline-blue:hover {
+  background: var(--blue);
+  color: var(--white);
 }
 
 .btn--nav {
@@ -795,6 +808,27 @@ ul { list-style: none; }
 .category-card--featured .category-card__list { border-color: rgba(0,59,142,0.2); }
 .category-card--featured .category-card__list li { color: rgba(0,27,77,0.8); }
 .category-card--featured .category-card__list li::before { color: var(--blue); }
+/* .esc-link is yellow, which is this card's own background */
+.category-card--featured .esc-link { color: var(--blue); }
+
+/* ---- CTA CARDS (light cards sitting on a dark section) ---- */
+.cta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 24px;
+  max-width: 680px;
+  margin: 0 auto;
+}
+.cta-card {
+  background: var(--white);
+  border-radius: 12px;
+  padding: 32px 24px;
+  text-align: center;
+  box-shadow: 0 2px 12px rgba(0,0,0,.08);
+}
+.cta-card__icon { font-size: 2rem; margin-bottom: 12px; }
+.cta-card__title { margin: 0 0 8px; font-size: 1.15rem; color: var(--blue-bg); }
+.cta-card__text { margin: 0 0 20px; color: #555; font-size: 0.9rem; }
 
 /* ---- NEWS ---- */
 .news__grid {
@@ -1302,8 +1336,10 @@ ul { list-style: none; }
   transition: all var(--transition);
   letter-spacing: 0.4px;
 }
+/* noticias.js sets .active; videos.js and galeria.js set the modifier form */
 .news-filter-btn:hover,
-.news-filter-btn.active {
+.news-filter-btn.active,
+.news-filter-btn--active {
   background: var(--blue);
   border-color: var(--blue);
   color: #fff;
@@ -3621,6 +3657,23 @@ html[data-theme="dark"] .form-group textarea.is-invalid {
 .esc-link { display:inline-block; margin-top:12px; font-size:0.82rem; font-weight:700; color:#FFD100; text-decoration:none; letter-spacing:0.5px; transition:opacity 0.2s; }
 .esc-link:hover { opacity:0.8; }
 
+/* Empty state when ?escalao= matches nothing */
+.esc-empty { text-align:center; padding:80px 20px; }
+.esc-empty__icon { font-size:3.5rem; margin-bottom:16px; }
+.esc-empty__title {
+  font-family:'Bebas Neue',sans-serif; font-size:2rem;
+  color:var(--blue-bg); margin-bottom:12px;
+}
+.esc-empty__text { color:var(--gray-mid); margin-bottom:24px; }
+.esc-empty__btn {
+  display:inline-block; background:var(--blue-bg); color:var(--yellow);
+  font-family:'Bebas Neue',sans-serif; letter-spacing:1px;
+  padding:12px 28px; border-radius:8px; text-decoration:none; font-size:1rem;
+}
+html[data-theme="dark"] .esc-empty__title { color:#e2e8f0; }
+html[data-theme="dark"] .esc-empty__text { color:#94a3b8; }
+html[data-theme="dark"] .esc-empty__btn { background:var(--yellow); color:#001f4d; }
+
 /* ============================================
    PERFIL DE ATLETA
    ============================================ */
@@ -4299,7 +4352,8 @@ html[data-theme="dark"] .news-filter-btn {
   color: #94a3b8;
 }
 html[data-theme="dark"] .news-filter-btn:hover,
-html[data-theme="dark"] .news-filter-btn.active {
+html[data-theme="dark"] .news-filter-btn.active,
+html[data-theme="dark"] .news-filter-btn--active {
   background: var(--blue);
   color: #fff;
   border-color: var(--blue);
@@ -4324,6 +4378,151 @@ html[data-theme="dark"] .contact__map iframe {
 }
 
 /* Page hero stays dark blue — already fine */
+
+/* ----------------------------------------------
+   Dark mode, part 2 — surfaces and headings that
+   the rules above never reached. Palette matches
+   what is already in use here: #0f172a page,
+   #1e293b card, #e2e8f0 heading, #cbd5e1 body,
+   #94a3b8 muted, #93c5fd link.
+   Some selectors belong to resultados.css and
+   inscricao.css, which load after this file; the
+   html[data-theme] prefix keeps them winning on
+   specificity regardless of order.
+   ---------------------------------------------- */
+
+/* Section headings — .section__title is #111 and .section__tag is blue,
+   both unreadable on the dark page background. */
+html[data-theme="dark"] .section__title { color: #e2e8f0; }
+html[data-theme="dark"] .section__tag { color: #93c5fd; }
+html[data-theme="dark"] .section--dark .section__tag { color: var(--yellow); }
+html[data-theme="dark"] .about__text strong,
+html[data-theme="dark"] .value-item strong { color: #e2e8f0; }
+html[data-theme="dark"] .value-item {
+  background: #1e293b;
+  border-color: rgba(255,255,255,0.08);
+}
+html[data-theme="dark"] .value-item p { color: #94a3b8; }
+
+/* Light page sections */
+html[data-theme="dark"] .res-section,
+html[data-theme="dark"] .insc-section,
+html[data-theme="dark"] .section--sponsors { background: #0f172a; }
+
+/* Generic light cards */
+html[data-theme="dark"] .res-card,
+html[data-theme="dark"] .modality-card,
+html[data-theme="dark"] .staff-card,
+html[data-theme="dark"] .insc-info-card,
+html[data-theme="dark"] .insc-form-wrap,
+html[data-theme="dark"] .news-archive__panel,
+html[data-theme="dark"] .search-bar,
+html[data-theme="dark"] .tabs-bar,
+html[data-theme="dark"] .agenda-cal {
+  background: #1e293b;
+  border-color: rgba(255,255,255,0.08);
+}
+html[data-theme="dark"] .staff-card__name,
+html[data-theme="dark"] .modality-card__title { color: #e2e8f0; }
+html[data-theme="dark"] .staff-card__role,
+html[data-theme="dark"] .modality-card__desc { color: #94a3b8; }
+html[data-theme="dark"] .staff-card__team { background: #0f172a; color: #cbd5e1; }
+html[data-theme="dark"] .social-btn { background: #1e293b; color: #cbd5e1; }
+
+/* Standings table — the card went dark, so the rows must follow.
+   .class-table td asks for var(--black), which is right on white only. */
+html[data-theme="dark"] .class-table thead { background: #1e3a5f; }
+html[data-theme="dark"] .class-table th { color: #e2e8f0; }
+html[data-theme="dark"] .class-table td {
+  color: #cbd5e1;
+  border-bottom-color: rgba(255,255,255,0.07);
+}
+html[data-theme="dark"] .class-table tr:hover td { background: rgba(255,255,255,0.04); }
+html[data-theme="dark"] .class-table tr.sc-row td { background: rgba(255,209,0,0.10); color: #f1f5f9; }
+html[data-theme="dark"] .team-badge--other { background: #1e3a5f; color: #cbd5e1; border-color: transparent; }
+
+/* Fixture and result rows */
+html[data-theme="dark"] .jogo-item { border-bottom-color: rgba(255,255,255,0.07); }
+html[data-theme="dark"] .jogo-item:hover { background: rgba(255,255,255,0.04); }
+html[data-theme="dark"] .jogo-equipa { color: #e2e8f0; }
+html[data-theme="dark"] .jogo-meta,
+html[data-theme="dark"] .jogo-local { color: #94a3b8; }
+html[data-theme="dark"] .jogo-divider { background: rgba(255,255,255,0.10); }
+html[data-theme="dark"] .jogo-badge-prox { background: #1e3a5f; color: #cbd5e1; }
+html[data-theme="dark"] .jogo-share-btn { background: #0f172a; border-color: rgba(255,255,255,0.15); color: #cbd5e1; }
+html[data-theme="dark"] .jogo-lado--fora { color: #94a3b8; border-color: #94a3b8; }
+
+/* Tabs above the table */
+html[data-theme="dark"] .tab,
+html[data-theme="dark"] .team-tab { color: #94a3b8; }
+html[data-theme="dark"] .tab.active,
+html[data-theme="dark"] .team-tab.active { color: #93c5fd; border-bottom-color: #93c5fd; background: rgba(147,197,253,0.08); }
+
+/* Timeline and palmarés — the cards are already dark, their titles are not */
+html[data-theme="dark"] .timeline-card__title,
+html[data-theme="dark"] .palmares-card__title { color: #e2e8f0; }
+html[data-theme="dark"] .timeline-card__desc { color: #94a3b8; }
+html[data-theme="dark"] .timeline-year { color: #93c5fd; }
+html[data-theme="dark"] .timeline-item--destaque .timeline-year { color: var(--yellow); }
+
+/* Agenda */
+html[data-theme="dark"] .agenda-list-title { color: #e2e8f0; }
+html[data-theme="dark"] .cal-header-cell { background: #0f172a; color: #94a3b8; }
+html[data-theme="dark"] .cal-day { color: #cbd5e1; border-color: rgba(255,255,255,0.06); }
+html[data-theme="dark"] .cal-day--out { color: #475569; }
+
+/* Escalão / plantel inner surfaces */
+html[data-theme="dark"] .esc-player,
+html[data-theme="dark"] .esc-stat-box { background: #0f172a; }
+html[data-theme="dark"] .esc-staff-card { border-color: rgba(255,255,255,0.10); }
+html[data-theme="dark"] .esc-player__name,
+html[data-theme="dark"] .esc-staff__name,
+html[data-theme="dark"] .esc-stat-box__num { color: #e2e8f0; }
+html[data-theme="dark"] .esc-player__meta,
+html[data-theme="dark"] .esc-staff__cargo,
+html[data-theme="dark"] .esc-stat-box__label,
+html[data-theme="dark"] .esc-pos-label { color: #94a3b8; }
+html[data-theme="dark"] .esc-fixture { border-bottom-color: rgba(255,255,255,0.07); }
+
+/* Inscrição */
+html[data-theme="dark"] .insc-form__section-title { color: #e2e8f0; }
+html[data-theme="dark"] .insc-form__section--terms { background: #0f172a; }
+html[data-theme="dark"] .insc-info-card__title { color: #93c5fd; }
+html[data-theme="dark"] .insc-categories li { color: #cbd5e1; }
+html[data-theme="dark"] .modality-pick { border-color: rgba(255,255,255,0.12); color: #cbd5e1; }
+html[data-theme="dark"] .modality-pick--active { background: #1e3a5f; border-color: #93c5fd; }
+html[data-theme="dark"] .checkbox-label { color: #cbd5e1; }
+html[data-theme="dark"] .checkbox-label a { color: #93c5fd; }
+
+/* Contacto */
+html[data-theme="dark"] .contact__form { background: #1e293b; }
+html[data-theme="dark"] .contact__form label,
+html[data-theme="dark"] .form-group label { color: #cbd5e1; }
+html[data-theme="dark"] .contact__map-link { color: #93c5fd; }
+
+/* Links that stayed brand-blue on a dark surface */
+html[data-theme="dark"] .news-card__link { color: #93c5fd; }
+
+html[data-theme="dark"] .btn--outline-blue { color: #93c5fd; border-color: #93c5fd; }
+html[data-theme="dark"] .btn--outline-blue:hover { background: #93c5fd; color: #0f172a; }
+
+/* CTA cards */
+html[data-theme="dark"] .cta-card { background: #1e293b; }
+html[data-theme="dark"] .cta-card__title { color: #e2e8f0; }
+html[data-theme="dark"] .cta-card__text { color: #94a3b8; }
+
+/* Cards and pickers whose names stayed brand-blue on a now-dark surface */
+html[data-theme="dark"] .modality-card__name,
+html[data-theme="dark"] .modality-pick__name { color: #e2e8f0; }
+html[data-theme="dark"] .modality-card__link { color: #93c5fd; }
+
+/* Fixture dates, kick-off times and scores */
+html[data-theme="dark"] .jogo-data__day,
+html[data-theme="dark"] .jogo-hora,
+html[data-theme="dark"] .resultado-placar { color: #93c5fd; }
+
+/* Calendar day numbers */
+html[data-theme="dark"] .cal-day__num { color: #cbd5e1; }
 
 /* Dark mode toggle hover */
 #darkModeToggle:hover { opacity: 1 !important; }
