@@ -1213,6 +1213,10 @@ ul { list-style: none; }
   .timeline-item--left .timeline-card-wrap,
   .timeline-item--right .timeline-card-wrap { grid-column: 2; grid-row: 1; }
   .timeline-card__year-mobile { display: block; }
+  /* Single column here, so reveal vertically — the horizontal slide would
+     push right-side items past the viewport edge and scroll the page. */
+  .timeline-item--left.tl-reveal,
+  .timeline-item--right.tl-reveal { transform: translateY(20px); }
   .palmares__grid { grid-template-columns: 1fr; }
 }
 

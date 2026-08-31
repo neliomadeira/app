@@ -80,7 +80,9 @@
   align-items: start;
 }
 
-.res-col--main { display: flex; flex-direction: column; }
+/* min-width:0 lets the 1fr track shrink below the standings table's
+   min-content width, so .table-wrap scrolls the table instead of the page. */
+.res-col--main { display: flex; flex-direction: column; min-width: 0; }
 
 /* ---- CARD ---- */
 .res-card {
