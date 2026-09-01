@@ -36,16 +36,26 @@ async function apiAuth(payload) {
 // A acção vai no query string: em GET não há corpo onde a pôr.
 async function apiSessao() {
   const r = await fetch('/api/auth.php?acao=sessao', { credentials: 'same-origin' });
-  let j = {};
+  let j = null;
   try { j = await r.json(); } catch (_) {}
+  // Sem JSON de volta, o servidor não está a executar PHP — é o caso de
+  // quem serve a pasta com um servidor só de ficheiros, como o Live
+  // Server do VS Code, que devolve o código do .php em vez do resultado.
+  if (!j) return { status: r.status, semPhp: true };
   return { status: r.status, ...j };
 }
 
-function showLoginError(msg) {
+// persistente=true para erros que impedem mesmo de entrar (servidor sem
+// PHP, base de dados por configurar). Esses não podem desaparecer sozinhos:
+// quem abre o painel e olha para o lado perdia a única explicação do que
+// se passa.
+function showLoginError(msg, persistente) {
   loginError.textContent = msg;
   loginError.style.display = 'block';
   clearTimeout(showLoginError._t);
-  showLoginError._t = setTimeout(() => { loginError.style.display = 'none'; }, 6000);
+  if (!persistente) {
+    showLoginError._t = setTimeout(() => { loginError.style.display = 'none'; }, 6000);
+  }
 }
 
 function startSessionTimer() {
@@ -103,10 +113,21 @@ togglePw?.addEventListener('click', () => {
 // Ao abrir: perguntar ao servidor se já há sessão, e se o painel já foi
 // instalado. Evita pedir credenciais a quem já entrou.
 (async function arranque() {
-  const r = await apiSessao().catch(() => ({}));
+  const r = await apiSessao().catch(() => ({ semServidor: true }));
+  if (r.semServidor) {
+    mostrarEcra('loginForm');
+    showLoginError('Sem ligação ao servidor. O painel precisa de PHP a correr.', true);
+    return;
+  }
+  if (r.semPhp) {
+    mostrarEcra('loginForm');
+    showLoginError('O servidor não está a executar PHP. Um servidor só de ficheiros '
+      + '(como o Live Server do VS Code) não serve para o painel — use XAMPP ou "php -S".', true);
+    return;
+  }
   if (r.status === 503) {
     mostrarEcra('loginForm');
-    showLoginError(r.detalhe || 'Base de dados não configurada no servidor.');
+    showLoginError(r.detalhe || 'Base de dados não configurada no servidor.', true);
     return;
   }
   if (r.autenticado && r.utilizador) { mostrarPainel(r.utilizador); return; }
