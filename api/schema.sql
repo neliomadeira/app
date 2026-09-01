@@ -23,3 +23,45 @@ CREATE TABLE IF NOT EXISTS jsc_mensagens (
   estado     VARCHAR(20)     NOT NULL DEFAULT 'Não lida',
   criado_em  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- =====================================================
+-- AUTENTICAÇÃO DO PAINEL
+-- =====================================================
+-- Estas tabelas são criadas automaticamente por api/db.php na primeira
+-- ligação, tal como as de cima. Ficam aqui para referência e para quem
+-- preferir criá-las à mão no phpMyAdmin.
+
+CREATE TABLE IF NOT EXISTS jsc_utilizadores (
+  id             INT UNSIGNED    NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  utilizador     VARCHAR(50)     NOT NULL UNIQUE,
+  email          VARCHAR(190)    NOT NULL,
+  palavra_passe  VARCHAR(255)    NOT NULL,   -- password_hash(), nunca a password
+  papel          VARCHAR(20)     NOT NULL DEFAULT 'admin',
+  ativo          TINYINT(1)      NOT NULL DEFAULT 1,
+  criado_em      DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  ultimo_acesso  DATETIME        NULL,
+  INDEX idx_email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Tentativas falhadas, para bloqueio por utilizador e por IP.
+-- No servidor, ao contrário do bloqueio antigo que vivia no localStorage
+-- e desaparecia apagando uma chave.
+CREATE TABLE IF NOT EXISTS jsc_tentativas (
+  id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  utilizador  VARCHAR(50)     NOT NULL,
+  ip          VARCHAR(45)     NOT NULL,
+  quando      DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_utilizador (utilizador, quando),
+  INDEX idx_ip (ip, quando)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Pedidos de recuperação. Guarda-se o hash do token, não o token: quem
+-- ler a base de dados não consegue usar um pedido pendente.
+CREATE TABLE IF NOT EXISTS jsc_recuperacao (
+  token_hash     CHAR(64)        NOT NULL PRIMARY KEY,
+  utilizador_id  INT UNSIGNED    NOT NULL,
+  criado_em      DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  expira_em      DATETIME        NOT NULL,
+  usado          TINYINT(1)      NOT NULL DEFAULT 0,
+  INDEX idx_utilizador (utilizador_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

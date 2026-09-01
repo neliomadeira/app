@@ -1257,3 +1257,26 @@ ul { list-style: none; }
 }
 .tpl-menu button:last-child { border-bottom: none; }
 .tpl-menu button:hover { background: #f0f7ff; color: #003B8E; }
+
+/* ---- Login: estados de instalação e recuperação ---- */
+.login-hint {
+  font-size: 0.82rem;
+  color: #6b7280;
+  text-align: center;
+  margin: 12px 0 0;
+  line-height: 1.5;
+}
+.login-hint a { color: var(--blue, #003B8E); font-weight: 600; text-decoration: none; }
+.login-hint a:hover { text-decoration: underline; }
+.field label small { font-weight: 400; color: #9ca3af; }
+/* O erro só ocupa espaço quando tem mesmo alguma coisa para dizer */
+.login-error:empty { display: none !important; }
+
+/* Quem está com sessão iniciada, na barra lateral */
+.sidebar-sessao {
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.55);
+  padding: 0 18px 10px;
+  letter-spacing: 0.3px;
+}
+.sidebar-sessao strong { color: rgba(255,255,255,0.85); font-weight: 600; }

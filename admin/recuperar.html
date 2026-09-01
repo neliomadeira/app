@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Definir nova palavra-passe – JS Campinense</title>
+  <link rel="icon" type="image/png" href="../images/logo.png" />
+  <link rel="stylesheet" href="css/admin.css" />
+</head>
+<body class="login-page">
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="login-logo">
+        <img src="../images/logo.png" alt="JS Campinense" class="emblem-logo" />
+        <div>
+          <span class="login-club">JS Campinense</span>
+          <span class="login-sub">Nova palavra-passe</span>
+        </div>
+      </div>
+
+      <div class="login-error" id="msg"></div>
+
+      <form class="login-form" id="form" style="display:none">
+        <p class="login-hint">Olá <strong id="quem"></strong>, escolha a nova palavra-passe.</p>
+        <div class="field">
+          <label>Nova palavra-passe <small>(mínimo 10 caracteres)</small></label>
+          <input type="password" id="p1" autocomplete="new-password" />
+        </div>
+        <div class="field">
+          <label>Confirmar</label>
+          <input type="password" id="p2" autocomplete="new-password" />
+        </div>
+        <button type="submit" class="btn-login">Guardar</button>
+      </form>
+
+      <p class="login-hint" id="voltar" style="display:none"><a href="index.html">Ir para o painel</a></p>
+    </div>
+  </div>
+
+<script>
+(function () {
+  var token = new URLSearchParams(location.search).get('token') || '';
+  var msg = document.getElementById('msg');
+  var form = document.getElementById('form');
+
+  function diz(t) { msg.textContent = t; msg.style.display = 'block'; }
+
+  function pedir(payload) {
+    return fetch('/api/recuperacao.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(payload),
+    }).then(function (r) { return r.json(); }).catch(function () { return {}; });
+  }
+
+  if (!token) { diz('Link inválido — falta o código de recuperação.'); return; }
+
+  // Validar antes de mostrar o formulário, para não pedir uma palavra-passe
+  // nova a quem tem um link já expirado.
+  pedir({ acao: 'validar', token: token }).then(function (r) {
+    if (!r.ok) { diz(r.error || 'Este link já não é válido.'); return; }
+    document.getElementById('quem').textContent = r.utilizador;
+    form.style.display = '';
+  });
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var p1 = document.getElementById('p1').value;
+    var p2 = document.getElementById('p2').value;
+    if (p1 !== p2) { diz('As palavras-passe não coincidem.'); return; }
+    pedir({ acao: 'redefinir', token: token, nova: p1 }).then(function (r) {
+      if (!r.ok) { diz(r.error || 'Não foi possível guardar.'); return; }
+      form.style.display = 'none';
+      diz('Palavra-passe alterada. Já pode entrar no painel.');
+      document.getElementById('voltar').style.display = '';
+    });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 <?php
 header('Content-Type: application/json; charset=utf-8');
-require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/sessao.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -8,12 +8,9 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-$token = isset($_SERVER['HTTP_X_JSC_TOKEN']) ? $_SERVER['HTTP_X_JSC_TOKEN'] : '';
-if (!$token || $token !== JSC_TOKEN) {
-    http_response_code(401);
-    echo '{"error":"token invalido"}';
-    exit;
-}
+// Sessão do painel, ou o token para automatismos. Termina o pedido com
+// 401 se nenhum dos dois for válido.
+jsc_exigir_admin();
 
 $raw = file_get_contents('php://input');
 if (!$raw || json_decode($raw) === null) {

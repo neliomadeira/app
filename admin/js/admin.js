@@ -10,60 +10,86 @@ const adminLayout  = document.getElementById('adminLayout');
 const togglePw     = document.getElementById('togglePw');
 const loginPassEl  = document.getElementById('loginPass');
 
-const MAX_ATTEMPTS = 5;
-const LOCKOUT_MS   = 5 * 60 * 1000;   // 5 minutos
-const SESSION_MS   = 30 * 60 * 1000;  // 30 minutos de inactividade
+// A autenticação é decidida pelo servidor (api/auth.php). O painel não
+// guarda credenciais: o estado vive numa sessão PHP com cookie HttpOnly,
+// fora do alcance do JavaScript. O login antigo comparava um SHA-256
+// guardado no localStorage e limitava-se a mostrar uma div, com todo o
+// painel já carregado — quem abrisse as ferramentas de programação
+// entrava sem palavra-passe.
+const SESSION_MS = 25 * 60 * 1000;   // aviso local; o servidor corta aos 30
 let   sessionTimer = null;
+let   utilizadorAtual = null;
 
-// Hash SHA-256 via Web Crypto API
-async function sha256(str) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+// credentials para o cookie de sessão viajar em cada pedido.
+async function apiAuth(payload) {
+  const r = await fetch('/api/auth.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
+    body: JSON.stringify(payload),
+  });
+  let j = {};
+  try { j = await r.json(); } catch (_) {}
+  return { status: r.status, ...j };
 }
 
-// Retorna o hash SHA-256 da password padrão "1234"
-function getDefaultHash() { return sha256('1234').catch(() => '____'); }
-
-function getLockout() {
-  try { return JSON.parse(localStorage.getItem('admin_lockout') || 'null'); } catch { return null; }
-}
-function setLockout(data) { localStorage.setItem('admin_lockout', JSON.stringify(data)); }
-function clearLockout()   { localStorage.removeItem('admin_lockout'); }
-
-function checkLockout() {
-  const l = getLockout();
-  if (!l) return null;
-  const remaining = l.until - Date.now();
-  if (remaining <= 0) { clearLockout(); return null; }
-  return remaining;
+// A acção vai no query string: em GET não há corpo onde a pôr.
+async function apiSessao() {
+  const r = await fetch('/api/auth.php?acao=sessao', { credentials: 'same-origin' });
+  let j = {};
+  try { j = await r.json(); } catch (_) {}
+  return { status: r.status, ...j };
 }
 
 function showLoginError(msg) {
   loginError.textContent = msg;
   loginError.style.display = 'block';
-  setTimeout(() => { loginError.style.display = 'none'; }, 4000);
+  clearTimeout(showLoginError._t);
+  showLoginError._t = setTimeout(() => { loginError.style.display = 'none'; }, 6000);
 }
 
 function startSessionTimer() {
   clearTimeout(sessionTimer);
   sessionTimer = setTimeout(() => {
-    doLogout();
-    showLoginError('Sessão expirada por inactividade (30 min). Faça login novamente.');
+    doLogout('Sessão expirada por inactividade. Entre novamente.');
   }, SESSION_MS);
 }
+function resetSessionTimer() { if (utilizadorAtual) startSessionTimer(); }
 
-function resetSessionTimer() {
-  if (adminLayout?.style.display !== 'none' && adminLayout?.style.display !== '') {
-    startSessionTimer();
+function mostrarPainel(u) {
+  utilizadorAtual = u;
+  loginWrap.style.display = 'none';
+  document.body.classList.remove('login-page');
+  adminLayout.style.display = 'flex';
+  const alvo = document.getElementById('sessaoUtilizador');
+  if (alvo) alvo.textContent = u && u.utilizador ? u.utilizador : '';
+  startSessionTimer();
+  initAdmin();
+}
+
+function mostrarEcra(qual) {
+  ['loginForm', 'setupForm', 'recuperarForm'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = (id === qual) ? '' : 'none';
+  });
+  const t = document.getElementById('loginSubtitulo');
+  if (t) {
+    t.textContent = qual === 'setupForm'      ? 'Criar o primeiro administrador'
+                  : qual === 'recuperarForm'  ? 'Recuperar palavra-passe'
+                  : 'Painel Administrativo';
   }
 }
 
-function doLogout() {
+async function doLogout(msg) {
   clearTimeout(sessionTimer);
+  utilizadorAtual = null;
+  try { await apiAuth({ acao: 'logout' }); } catch (_) {}
   adminLayout.style.display = 'none';
   document.body.classList.add('login-page');
   loginWrap.style.display = '';
-  loginForm.reset();
+  mostrarEcra('loginForm');
+  loginForm?.reset();
+  if (msg) showLoginError(msg);
 }
 
 ['click','keydown','mousemove','scroll'].forEach(evt =>
@@ -74,77 +100,64 @@ togglePw?.addEventListener('click', () => {
   loginPassEl.type = loginPassEl.type === 'password' ? 'text' : 'password';
 });
 
-loginForm?.addEventListener('submit', async (e) => {
-  e.preventDefault();
-
-  const remaining = checkLockout();
-  if (remaining) {
-    const mins = Math.ceil(remaining / 60000);
-    showLoginError(`Conta bloqueada. Tente novamente em ${mins} minuto${mins > 1 ? 's' : ''}.`);
+// Ao abrir: perguntar ao servidor se já há sessão, e se o painel já foi
+// instalado. Evita pedir credenciais a quem já entrou.
+(async function arranque() {
+  const r = await apiSessao().catch(() => ({}));
+  if (r.status === 503) {
+    mostrarEcra('loginForm');
+    showLoginError(r.detalhe || 'Base de dados não configurada no servidor.');
     return;
   }
+  if (r.autenticado && r.utilizador) { mostrarPainel(r.utilizador); return; }
+  mostrarEcra(r.instalado === false ? 'setupForm' : 'loginForm');
+})();
 
-  const u = document.getElementById('loginUser').value.trim();
-  const p = loginPassEl.value;
-  if (!p) { showLoginError('Introduza a palavra-passe.'); return; }
+loginForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const utilizador    = document.getElementById('loginUser').value.trim();
+  const palavra_passe = loginPassEl.value;
+  if (!palavra_passe) { showLoginError('Introduza a palavra-passe.'); return; }
 
-  // Carregar credenciais guardadas (suporte a hash e texto simples legado)
-  let stored = null;
-  try { stored = JSON.parse(localStorage.getItem('admin_creds') || 'null'); } catch(_) {}
-
-  let inputHash;
-  try { inputHash = await sha256(p); } catch(_) { inputHash = p; }
-
-  let match = false;
-  if (stored) {
-    if (stored.hashed) {
-      match = u === stored.user && inputHash === stored.pass;
-    } else {
-      // Legado: comparar texto simples e migrar para hash
-      match = u === stored.user && p === stored.pass;
-      if (match) {
-        localStorage.setItem('admin_creds', JSON.stringify({ user: stored.user, pass: inputHash, hashed: true }));
-      }
-    }
-  } else {
-    // Credenciais padrão nunca alteradas
-    const defaultHash = await sha256('1234').catch(() => '1234');
-    match = u === 'admin' && (p === '1234' || inputHash === defaultHash);
-    if (match) {
-      localStorage.setItem('admin_creds', JSON.stringify({ user: 'admin', pass: defaultHash, hashed: true }));
-    }
-  }
-
-  // Utilizadores adicionais (Configurações → Segurança → Utilizadores)
-  if (!match) {
-    try {
-      const extras = JSON.parse(localStorage.getItem('admin_users') || '[]');
-      match = extras.some(a => a.user === u && a.pass === inputHash);
-    } catch(_) {}
-  }
-
-  if (match) {
-    clearLockout();
-    loginWrap.style.display = 'none';
-    document.body.classList.remove('login-page');
-    adminLayout.style.display = 'flex';
-    startSessionTimer();
-    initAdmin();
-  } else {
-    const l = getLockout() || { count: 0, until: 0 };
-    l.count += 1;
-    const left = MAX_ATTEMPTS - l.count;
-    if (l.count >= MAX_ATTEMPTS) {
-      l.until = Date.now() + LOCKOUT_MS;
-      setLockout(l);
-      showLoginError('Demasiadas tentativas. Conta bloqueada por 5 minutos.');
-    } else {
-      setLockout(l);
-      showLoginError(`Credenciais inválidas. ${left} tentativa${left !== 1 ? 's' : ''} restante${left !== 1 ? 's' : ''}.`);
-    }
-    loginPassEl.value = '';
-  }
+  const r = await apiAuth({ acao: 'login', utilizador, palavra_passe });
+  loginPassEl.value = '';
+  if (r.ok && r.utilizador) { mostrarPainel(r.utilizador); return; }
+  if (r.status === 429) { showLoginError(r.error); return; }
+  const extra = (typeof r.restantes === 'number' && r.restantes > 0)
+    ? ` ${r.restantes} tentativa${r.restantes !== 1 ? 's' : ''} restante${r.restantes !== 1 ? 's' : ''}.` : '';
+  showLoginError((r.error || 'Não foi possível entrar.') + extra);
 });
+
+// Primeira instalação — só aceite enquanto não existir administrador
+document.getElementById('setupForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const utilizador    = document.getElementById('setupUser').value.trim();
+  const email         = document.getElementById('setupEmail').value.trim();
+  const palavra_passe = document.getElementById('setupPass').value;
+  const conf          = document.getElementById('setupPass2').value;
+  if (palavra_passe !== conf) { showLoginError('As palavras-passe não coincidem.'); return; }
+
+  const r = await apiAuth({ acao: 'setup', utilizador, email, palavra_passe });
+  if (r.ok && r.utilizador) mostrarPainel(r.utilizador);
+  else showLoginError(r.error || 'Não foi possível criar a conta.');
+});
+
+// Pedido de recuperação
+document.getElementById('recuperarForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('recuperarEmail').value.trim();
+  const r = await fetch('/api/recuperacao.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
+    body: JSON.stringify({ acao: 'pedir', email }),
+  }).then(x => x.json()).catch(() => ({}));
+  showLoginError(r.mensagem || r.error || 'Não foi possível processar o pedido.');
+  if (r.ok) setTimeout(() => mostrarEcra('loginForm'), 3000);
+});
+
+document.getElementById('linkRecuperar')?.addEventListener('click', (e) => { e.preventDefault(); mostrarEcra('recuperarForm'); });
+document.getElementById('linkVoltarLogin')?.addEventListener('click', (e) => { e.preventDefault(); mostrarEcra('loginForm'); });
 
 document.getElementById('logoutBtn')?.addEventListener('click', doLogout);
 
@@ -351,14 +364,10 @@ function initAdmin() {
   // Inicializar noticias se ainda não existem
   if (!localStorage.getItem(NEWS_KEY)) saveNoticias([]);
 
-  // Verificar se ainda usa password padrão → mostrar alerta
-  (async function checkDefaultPassword() {
-    const stored = JSON.parse(localStorage.getItem('admin_creds') || 'null');
-    const defaultHash = await sha256('1234').catch(() => '');
-    const isDefault = !stored || (stored.pass === defaultHash) || (!stored.hashed && stored.pass === '1234');
-    const alerta = document.getElementById('secAlerta');
-    if (alerta) alerta.style.display = isDefault ? 'flex' : 'none';
-  })();
+  // Já não existe password por omissão: a primeira conta é criada no
+  // arranque com uma palavra-passe escolhida por quem instala.
+  const alerta = document.getElementById('secAlerta');
+  if (alerta) alerta.style.display = 'none';
 
   renderDashboard();
   renderInscricoes();
@@ -4699,9 +4708,7 @@ function initConfiguracoes() {
   const ultimaPubEl = document.getElementById('ultimaPublicacao');
   if (ultimaPubEl && ultimaPub) ultimaPubEl.textContent = 'Última publicação: ' + ultimaPub;
 
-  // Carregar credenciais guardadas
-  const creds = JSON.parse(localStorage.getItem('admin_creds') || '{}');
-  if (creds.user) document.getElementById('cfgAdminUser').value = creds.user;
+  // Lista de administradores — vem do servidor
   renderAdminUsers();
 
   // Carregar cores guardadas + grelha de templates
@@ -4782,90 +4789,110 @@ window.resetarLegal = function() {
   showToast('Texto padrão reposto.', 'green');
 };
 
+// Segurança e utilizadores — agora tudo no servidor (api/utilizadores.php).
+// As contas deixaram de viver no localStorage com um SHA-256 sem sal: o
+// servidor guarda password_hash() (bcrypt) e é ele que valida.
+
+async function apiUtilizadores(payload, metodo) {
+  const r = await fetch('/api/utilizadores.php', {
+    method: metodo || 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
+    body: metodo === 'GET' ? undefined : JSON.stringify(payload),
+  });
+  let j = {};
+  try { j = await r.json(); } catch (_) {}
+  return { status: r.status, ...j };
+}
+
+// Mudar a minha própria palavra-passe. Exige a atual, para que um ecrã
+// deixado aberto não sirva para tomar a conta.
 async function guardarSeguranca() {
-  const user = document.getElementById('cfgAdminUser').value.trim();
-  const pw   = document.getElementById('cfgAdminPw').value;
-  const conf = document.getElementById('cfgAdminPwConf').value;
-  if (!user) { showToast('Introduza o nome de utilizador', 'red'); return; }
-  if (pw && pw.length < 6) { showToast('A palavra-passe deve ter pelo menos 6 caracteres', 'red'); return; }
-  if (pw && pw !== conf)   { showToast('As palavras-passe não coincidem', 'red'); return; }
+  const atual = document.getElementById('cfgAdminPwAtual')?.value || '';
+  const nova  = document.getElementById('cfgAdminPw').value;
+  const conf  = document.getElementById('cfgAdminPwConf').value;
+  if (!atual) { showToast('Introduza a palavra-passe atual', 'red'); return; }
+  if (nova.length < 10) { showToast('A nova palavra-passe precisa de pelo menos 10 caracteres', 'red'); return; }
+  if (nova !== conf) { showToast('As palavras-passe não coincidem', 'red'); return; }
 
-  const existing = JSON.parse(localStorage.getItem('admin_creds') || 'null');
-  let passHash = existing?.pass || null;
-
-  if (pw) {
-    try { passHash = await sha256(pw); } catch(_) { passHash = pw; }
-  }
-  if (!passHash) {
-    showToast('Introduza uma palavra-passe', 'red'); return;
-  }
-
-  localStorage.setItem('admin_creds', JSON.stringify({ user, pass: passHash, hashed: true }));
-  document.getElementById('cfgAdminPw').value = '';
-  document.getElementById('cfgAdminPwConf').value = '';
-
-  // Esconder aviso de password padrão se existir
+  const r = await apiUtilizadores({ acao: 'alterar-password', atual, nova });
+  if (!r.ok) { showToast('❌ ' + (r.error || 'não foi possível alterar'), 'red'); return; }
+  ['cfgAdminPwAtual','cfgAdminPw','cfgAdminPwConf'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
   const alerta = document.getElementById('secAlerta');
   if (alerta) alerta.style.display = 'none';
-
-  showToast('✓ Credenciais guardadas com segurança (SHA-256)', 'green');
+  showToast('✓ Palavra-passe alterada', 'green');
 }
 
-// ---- UTILIZADORES ADICIONAIS ----
-function _loadAdminUsers() {
-  try { return JSON.parse(localStorage.getItem('admin_users') || '[]'); } catch(_) { return []; }
-}
-
-function renderAdminUsers() {
+// ---- ADMINISTRADORES ----
+async function renderAdminUsers() {
   const el = document.getElementById('adminUsersList');
   if (!el) return;
-  const users = _loadAdminUsers();
-  if (!users.length) {
-    el.innerHTML = '<p style="font-size:0.78rem;color:#aaa;margin:0">Nenhum utilizador adicional.</p>';
+  const r = await apiUtilizadores(null, 'GET');
+  if (!r.ok) {
+    el.innerHTML = '<p style="font-size:0.78rem;color:#c00;margin:0">' +
+      (r.status === 503 ? 'Base de dados não configurada.' : (r.error || 'Não foi possível carregar.')) + '</p>';
     return;
   }
-  el.innerHTML = users.map((a, i) => `
+  const souDono = (r.eu && r.eu.papel === 'dono') || (r.eu && r.eu.id === 0);
+  el.innerHTML = (r.utilizadores || []).map(u => {
+    const eu = r.eu && u.id === r.eu.id;
+    const acesso = u.ultimo_acesso ? new Date(u.ultimo_acesso.replace(' ', 'T')).toLocaleString('pt-PT') : 'nunca entrou';
+    return `
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:#f5f7fa;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px">
-      <span style="font-size:0.85rem;font-weight:600">&#128100; ${a.user}</span>
-      <button class="btn-sm" style="color:#c00" title="Remover utilizador" onclick="removerAdminUser(${i})">&#x2715;</button>
-    </div>`).join('');
+      <div style="min-width:0">
+        <div style="font-size:0.85rem;font-weight:600">
+          &#128100; ${u.utilizador}
+          ${u.papel === 'dono' ? '<span style="font-size:0.7rem;color:#003B8E"> · principal</span>' : ''}
+          ${eu ? '<span style="font-size:0.7rem;color:#888"> · você</span>' : ''}
+        </div>
+        <div style="font-size:0.72rem;color:#888">${u.email} · ${acesso}</div>
+      </div>
+      ${souDono && !eu ? `<div style="display:flex;gap:4px;flex-shrink:0">
+        <button class="btn-sm" title="Definir nova palavra-passe" onclick="redefinirAdminUser(${u.id},'${u.utilizador}')">&#128273;</button>
+        <button class="btn-sm" style="color:#c00" title="Remover" onclick="removerAdminUser(${u.id},'${u.utilizador}')">&#x2715;</button>
+      </div>` : ''}
+    </div>`;
+  }).join('') || '<p style="font-size:0.78rem;color:#aaa;margin:0">Nenhum administrador.</p>';
 }
 
 window.adicionarAdminUser = async function () {
-  const nome = document.getElementById('novoUserNome')?.value.trim();
-  const pw   = document.getElementById('novoUserPw')?.value || '';
-  const conf = document.getElementById('novoUserPwConf')?.value || '';
-  if (!nome) { showToast('Introduza o nome de utilizador', 'red'); return; }
-  if (pw.length < 6) { showToast('A palavra-passe deve ter pelo menos 6 caracteres', 'red'); return; }
-  if (pw !== conf) { showToast('As palavras-passe não coincidem', 'red'); return; }
+  const utilizador = document.getElementById('novoUserNome')?.value.trim();
+  const email      = document.getElementById('novoUserEmail')?.value.trim();
+  const pw         = document.getElementById('novoUserPw')?.value || '';
+  const conf       = document.getElementById('novoUserPwConf')?.value || '';
+  if (!utilizador) { showToast('Introduza o nome de utilizador', 'red'); return; }
+  if (!email)      { showToast('Introduza o email (necessário para recuperar a palavra-passe)', 'red'); return; }
+  if (pw.length < 10) { showToast('A palavra-passe precisa de pelo menos 10 caracteres', 'red'); return; }
+  if (pw !== conf)    { showToast('As palavras-passe não coincidem', 'red'); return; }
 
-  const principal = JSON.parse(localStorage.getItem('admin_creds') || 'null');
-  const users = _loadAdminUsers();
-  if ((principal && principal.user === nome) || users.some(a => a.user === nome)) {
-    showToast('Já existe um utilizador com esse nome', 'red'); return;
-  }
-
-  let hash;
-  try { hash = await sha256(pw); } catch(_) { hash = pw; }
-  users.push({ user: nome, pass: hash, hashed: true, criado: new Date().toISOString().slice(0, 10) });
-  localStorage.setItem('admin_users', JSON.stringify(users));
-
-  document.getElementById('novoUserNome').value = '';
-  document.getElementById('novoUserPw').value = '';
-  document.getElementById('novoUserPwConf').value = '';
+  const r = await apiUtilizadores({ acao: 'criar', utilizador, email, palavra_passe: pw });
+  if (!r.ok) { showToast('❌ ' + (r.error || 'não foi possível criar'), 'red'); return; }
+  ['novoUserNome','novoUserEmail','novoUserPw','novoUserPwConf'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
   renderAdminUsers();
-  showToast(`✓ Utilizador "${nome}" adicionado`, 'green');
+  showToast(`✓ Administrador "${utilizador}" criado`, 'green');
 };
 
-window.removerAdminUser = function (idx) {
-  const users = _loadAdminUsers();
-  const u = users[idx];
-  if (!u) return;
-  if (!confirm(`Remover o utilizador "${u.user}"? Deixará de conseguir entrar no painel.`)) return;
-  users.splice(idx, 1);
-  localStorage.setItem('admin_users', JSON.stringify(users));
+window.removerAdminUser = async function (id, nome) {
+  if (!confirm(`Remover "${nome}"? Deixará de conseguir entrar no painel.`)) return;
+  const r = await apiUtilizadores({ acao: 'remover', id });
+  if (!r.ok) { showToast('❌ ' + (r.error || 'não foi possível remover'), 'red'); return; }
   renderAdminUsers();
-  showToast(`Utilizador "${u.user}" removido`, 'green');
+  showToast(`Administrador "${nome}" removido`, 'green');
+};
+
+// Recuperação sem depender do email: o administrador principal define
+// directamente uma nova palavra-passe para um colega.
+window.redefinirAdminUser = async function (id, nome) {
+  const nova = prompt(`Nova palavra-passe para "${nome}" (mínimo 10 caracteres):`);
+  if (nova === null) return;
+  if (nova.length < 10) { showToast('A palavra-passe precisa de pelo menos 10 caracteres', 'red'); return; }
+  const r = await apiUtilizadores({ acao: 'redefinir', id, nova });
+  if (!r.ok) { showToast('❌ ' + (r.error || 'não foi possível redefinir'), 'red'); return; }
+  showToast(`✓ Palavra-passe de "${nome}" redefinida`, 'green');
 };
 
 // ---- TOKEN DE PUBLICAÇÃO ----
@@ -5205,8 +5232,6 @@ function exportarDados() {
     siteCores:      ls('site_cores'),
     emailConfig:    ls('email_config'),
     apiToken:       ls('jsc_api_token'),
-    adminCreds:     ls('admin_creds'),
-    adminUsers:     ls('admin_users'),
   };
   const blob = new Blob([JSON.stringify(dados, null, 2)], { type: 'application/json' });
   const a    = document.createElement('a');
@@ -5267,8 +5292,6 @@ function processarImportBackup(e) {
       lsSet('site_cores',       d.siteCores);
       lsSet('email_config',     d.emailConfig);
       lsSet('jsc_api_token',    d.apiToken);
-      if (d.adminCreds) lsSet('admin_creds', d.adminCreds);
-      if (d.adminUsers) lsSet('admin_users', d.adminUsers);
       showToast('✓ Backup importado com sucesso! A recarregar...', 'green');
       setTimeout(() => location.reload(), 1500);
     } catch {

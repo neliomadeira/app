@@ -3,7 +3,7 @@
 // caminho. Substitui o base64 que era guardado dentro do conteúdo e
 // enchia o localStorage.
 header('Content-Type: application/json; charset=utf-8');
-require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/sessao.php';
 
 function fail($msg, $code = 400) {
     http_response_code($code);
@@ -13,9 +13,8 @@ function fail($msg, $code = 400) {
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') fail('method not allowed', 405);
 
-// Só o admin carrega imagens.
-$token = isset($_SERVER['HTTP_X_JSC_TOKEN']) ? $_SERVER['HTTP_X_JSC_TOKEN'] : '';
-if (!$token || $token !== JSC_TOKEN) fail('token invalido', 401);
+// Só o admin carrega imagens: sessão do painel ou token.
+jsc_exigir_admin();
 
 // $_FILES vem vazio quando o corpo excede post_max_size, e nesse caso o
 // PHP não assinala erro nenhum — daí a verificação explícita.
