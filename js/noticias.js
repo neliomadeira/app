@@ -384,6 +384,19 @@
     renderFeatured();
   }
 
+  // As notícias passaram a vir do servidor (api/noticias.php). O sync.js
+  // escreve-as e avisa com jsc:synced — sem isto a página ficava a mostrar
+  // a cópia antiga guardada no browser.
+  document.addEventListener('jsc:synced', () => {
+    _all = loadAll();
+    const article = document.getElementById('notArticle');
+    if (!article || article.style.display === 'none') {
+      renderFilters();
+      renderGrid();
+      renderFeatured();
+    }
+  });
+
   window.addEventListener('storage', e => {
     if (e.key === NEWS_KEY) {
       _all = loadAll();

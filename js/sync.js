@@ -1,4 +1,27 @@
 // sync.js — sincroniza dados do servidor com o localStorage
+
+// As notícias vivem em MySQL e são pedidas em cada visita, fora do bloco
+// abaixo: aquele só corre uma vez por sessão, e uma notícia publicada há
+// cinco minutos não pode ficar à espera que o visitante feche o browser.
+(function () {
+  fetch('/api/noticias.php', { cache: 'no-store' })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (j) {
+      if (!j || !j.ok || !Array.isArray(j.noticias)) return;
+      try {
+        var json = JSON.stringify(j.noticias);
+        if (localStorage.getItem('jsc_noticias') !== json) {
+          localStorage.setItem('jsc_noticias', json);
+        }
+      } catch (_) {}
+      // Avisa quem já desenhou com os dados antigos. Os ecrãs voltam a
+      // desenhar sozinhos, sem o recarregamento da página que o bloco
+      // seguinte faz.
+      document.dispatchEvent(new CustomEvent('jsc:synced'));
+    })
+    .catch(function () {});   // sem servidor, fica o que estiver em cache
+})();
+
 (function () {
   if (sessionStorage.getItem('jsc_sync_done')) return;
 
@@ -18,7 +41,7 @@
           } catch (_) {}
         }
       }
-      if (data.noticias)       ls('jsc_noticias',       data.noticias);
+      // As notícias já vêm da base de dados, no bloco acima.
       if (data.agenda)         ls('db_agenda',           data.agenda);
       if (data.galeria)        ls('db_galeria',          data.galeria);
       if (data.videos)         ls('db_videos',           data.videos);

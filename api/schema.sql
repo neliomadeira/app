@@ -65,3 +65,26 @@ CREATE TABLE IF NOT EXISTS jsc_recuperacao (
   usado          TINYINT(1)      NOT NULL DEFAULT 0,
   INDEX idx_utilizador (utilizador_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- =====================================================
+-- NOTÍCIAS
+-- =====================================================
+CREATE TABLE IF NOT EXISTS jsc_noticias (
+  id             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  titulo         VARCHAR(255)    NOT NULL,
+  categoria      VARCHAR(50)     NOT NULL DEFAULT 'Clube',
+  data           DATE            NOT NULL,
+  resumo         LONGTEXT        NULL,          -- corpo em HTML
+  imagem         VARCHAR(500)    NULL,          -- caminho em /uploads/ ou URL
+  imagem_pos     VARCHAR(20)     NOT NULL DEFAULT 'top',
+  imagem_size    VARCHAR(20)     NOT NULL DEFAULT 'cover',
+  focal_pos      VARCHAR(20)     NOT NULL DEFAULT 'center',
+  publicada      TINYINT(1)      NOT NULL DEFAULT 0,
+  agendada_para  DATETIME        NULL,          -- publica-se sozinha nesta hora
+  destaque       TINYINT(1)      NOT NULL DEFAULT 0,
+  criado_em      DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_visivel (publicada, data),
+  INDEX idx_categoria (categoria),
+  INDEX idx_destaque (destaque)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -359,15 +359,15 @@ function fmtDate(str) {
 // ==================================================
 // INIT
 // ==================================================
-function initAdmin() {
-  // Persistir dados padrão se ainda não existem no localStorage
-  // Inicializar noticias se ainda não existem
-  if (!localStorage.getItem(NEWS_KEY)) saveNoticias([]);
-
+async function initAdmin() {
   // Já não existe password por omissão: a primeira conta é criada no
   // arranque com uma palavra-passe escolhida por quem instala.
   const alerta = document.getElementById('secAlerta');
   if (alerta) alerta.style.display = 'none';
+
+  // As notícias vêm do servidor antes de se desenhar seja o que for,
+  // senão os ecrãs apanhavam a cache ainda vazia.
+  await carregarNoticias();
 
   renderDashboard();
   renderInscricoes();
@@ -1568,24 +1568,96 @@ function setupImageUpload(fileInputId, urlInputId, previewId) {
 // ==================================================
 const NEWS_KEY = 'jsc_noticias';
 
-function loadNoticias() {
-  try { return JSON.parse(localStorage.getItem(NEWS_KEY) || '[]'); } catch(e) { return []; }
+// As notícias vivem em MySQL (api/noticias.php). Aqui ficam em memória
+// para os ecrãs poderem continuar a lê-las de forma síncrona, como antes;
+// cada alteração vai ao servidor e o servidor é que manda.
+let _noticias = [];
+
+async function apiNoticias(payload) {
+  const r = await fetch('/api/noticias.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
+    body: JSON.stringify(payload),
+  });
+  let j = {};
+  try { j = await r.json(); } catch (_) {}
+  return { status: r.status, ...j };
 }
 
-function saveNoticias(arr) {
+async function carregarNoticias() {
   try {
-    localStorage.setItem(NEWS_KEY, JSON.stringify(arr));
-    return true;
-  } catch(e) {
-    showToast('ERRO: armazenamento cheio. Apague notícias antigas.', 'red');
-    return false;
+    const r = await fetch('/api/noticias.php?todas=1', { credentials: 'same-origin' });
+    const j = await r.json();
+    if (j.ok) { _noticias = j.noticias || []; return true; }
+    if (r.status === 503) showToast('Notícias: base de dados não configurada no servidor.', 'red');
+    else showToast('Não foi possível carregar as notícias: ' + (j.error || r.status), 'red');
+  } catch (e) {
+    showToast('Sem ligação ao servidor para carregar notícias.', 'red');
   }
+  return false;
 }
+
+function loadNoticias() { return _noticias; }
+
+// Só continua a servir a importação em bloco (restauro de backup).
+async function saveNoticias(arr) {
+  const r = await apiNoticias({ acao: 'importar', noticias: arr || [] });
+  if (r.ok) await carregarNoticias();
+  return !!r.ok;
+}
+
+// As notícias que ficaram no browser antes de a base de dados existir.
+// São oferecidas para importação em vez de importadas em silêncio: quem
+// decide o que é conteúdo bom é quem gere o site, não este código.
+function _noticiasPorImportar() {
+  try {
+    const antigas = JSON.parse(localStorage.getItem('jsc_noticias') || '[]');
+    if (!Array.isArray(antigas) || !antigas.length) return [];
+    const idsNoServidor = new Set(_noticias.map(n => String(n.id)));
+    return antigas.filter(n => n && n.titulo && !idsNoServidor.has(String(n.id)));
+  } catch (_) { return []; }
+}
+
+window.importarNoticiasAntigas = async function () {
+  const antigas = _noticiasPorImportar();
+  if (!antigas.length) return;
+  if (!confirm(`Importar ${antigas.length} notícia(s) guardada(s) neste browser para a base de dados?`)) return;
+  const r = await apiNoticias({ acao: 'importar', noticias: antigas });
+  if (!r.ok) { showToast('❌ ' + (r.error || 'não foi possível importar'), 'red'); return; }
+  await carregarNoticias();
+  renderNoticias();
+  updateBadges();
+  showToast(`✓ ${r.importadas} notícia(s) importada(s).`, 'green');
+};
+
+window.dispensarImportacao = function () {
+  if (!confirm('Descartar as notícias guardadas neste browser? Esta cópia local é apagada.')) return;
+  try { localStorage.removeItem('jsc_noticias'); } catch (_) {}
+  renderNoticias();
+};
 
 function renderNoticias() {
   const grid = document.getElementById('newsAdminGrid');
   if (!grid) return;
   const lista = loadNoticias();
+
+  const porImportar = _noticiasPorImportar();
+  const aviso = document.getElementById('avisoImportNoticias');
+  if (aviso) {
+    aviso.innerHTML = porImportar.length ? `
+      <div style="background:#fff3cd;border:1px solid #ffc107;border-left:4px solid #f59e0b;
+                  border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;
+                  align-items:center;gap:12px;flex-wrap:wrap">
+        <span style="flex:1;min-width:240px;font-size:0.86rem">
+          <strong>${porImportar.length} notícia(s)</strong> ainda só existem neste browser.
+          As notícias passaram a viver na base de dados — importe-as para ficarem visíveis
+          em qualquer dispositivo.
+        </span>
+        <button class="btn-sm" onclick="importarNoticiasAntigas()">Importar</button>
+        <button class="btn-sm" onclick="dispensarImportacao()" style="color:#c00">Descartar</button>
+      </div>` : '';
+  }
   grid.innerHTML = [
     `<div class="news-admin-card" style="display:flex;align-items:center;justify-content:center;
       min-height:240px;border:2px dashed #e2e8f0;background:#f4f6fb;cursor:pointer"
@@ -1617,6 +1689,11 @@ function renderNoticias() {
           <div class="news-admin-date">${fmtDate(n.data)} &middot; ${statusHtml}</div>
         </div>
         <div class="news-admin-footer">
+          <button class="btn-icon" onclick="alternarNoticia(${n.id},'publicada',${!n.publicada})"
+                  title="${n.publicada ? 'Retirar do site' : 'Publicar no site'}">${n.publicada ? '&#128065;' : '&#128584;'}</button>
+          <button class="btn-icon" onclick="alternarNoticia(${n.id},'destaque',${!n.destaque})"
+                  title="${n.destaque ? 'Tirar de destaque' : 'Destacar na página inicial'}"
+                  style="${n.destaque ? 'color:#f59e0b' : ''}">&#11088;</button>
           <button class="btn-icon" onclick="editNoticia(${n.id})" title="Editar">&#9998;</button>
           <button class="btn-icon btn-icon--red" onclick="removeNoticia(${n.id})" title="Eliminar">&#128465;</button>
         </div>
@@ -2068,36 +2145,47 @@ window.saveNoticia = function(id) {
     destaque:   document.getElementById('mDestaque')?.checked    || false,
   };
 
-  const lista = loadNoticias();
+  guardarNoticiaNoServidor(id, dados);
+};
 
-  if (id === null) {
-    lista.unshift({ id: Date.now(), ...dados });
-  } else {
-    const idx = lista.findIndex(n => n.id == id);
-    if (idx > -1) lista[idx] = { ...lista[idx], ...dados };
-  }
-
-  if (!saveNoticias(lista)) return;
+async function guardarNoticiaNoServidor(id, dados) {
+  const r = await apiNoticias({ acao: 'guardar', noticia: id === null ? dados : { id, ...dados } });
+  if (!r.ok) { showToast('❌ ' + (r.error || 'não foi possível guardar'), 'red'); return; }
 
   try { localStorage.removeItem('news_autosave'); } catch (e) {}
-  const now = new Date().toISOString();
-  const pub = lista.filter(n => n.publicada || (n.scheduledAt && n.scheduledAt <= now)).length;
-  showToast(`${id === null ? 'Notícia criada' : 'Notícia actualizada'}! ${pub} visível(is) no site.`, 'green');
+  await carregarNoticias();
+  const visiveis = _noticias.filter(n => n.publicada).length;
+  showToast(`${id === null ? 'Notícia criada' : 'Notícia actualizada'}! ${visiveis} visível(is) no site.`, 'green');
   renderNoticias();
+  updateBadges();
   closeModal();
-};
+}
 
 window.editNoticia = function(id) {
   const n = loadNoticias().find(n => n.id === id);
   if (n) abrirModalNoticia(n);
 };
 
-window.removeNoticia = function(id) {
+window.removeNoticia = async function(id) {
   if (!confirm('Eliminar esta notícia?')) return;
-  const lista = loadNoticias().filter(n => n.id !== id);
-  saveNoticias(lista);
+  const r = await apiNoticias({ acao: 'apagar', id });
+  if (!r.ok) { showToast('❌ ' + (r.error || 'não foi possível eliminar'), 'red'); return; }
+  await carregarNoticias();
   renderNoticias();
+  updateBadges();
   showToast('Notícia eliminada.', 'red');
+};
+
+// Interruptores directos na lista, sem abrir a notícia
+window.alternarNoticia = async function(id, campo, valor) {
+  const r = await apiNoticias({ acao: 'alternar', id, campo, valor });
+  if (!r.ok) { showToast('❌ ' + (r.error || 'não foi possível alterar'), 'red'); return; }
+  await carregarNoticias();
+  renderNoticias();
+  updateBadges();
+  showToast(campo === 'publicada'
+    ? (valor ? '✓ Notícia publicada' : 'Notícia retirada do site')
+    : (valor ? '✓ Em destaque na página inicial' : 'Destaque removido'), 'green');
 };
 
 window.toggleAgendamento = function() {
@@ -4918,7 +5006,8 @@ async function publicarNoServidor() {
   }
   const dados = {
     publicadoEm:    new Date().toISOString(),
-    noticias:       loadNoticias(),
+    // noticias: já vivem em MySQL, servidas por api/noticias.php
+    
     agenda:         DB.agenda,
     galeria:        DB.galeria,
     videos:         DB.videos,
