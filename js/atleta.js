@@ -18,12 +18,14 @@
   ];
 
   const DEFAULT_ESCALOES = [
-    { id: 1, nome: 'Sub-9',  designacao: 'Petizes'   },
-    { id: 2, nome: 'Sub-11', designacao: 'Traquinas' },
-    { id: 3, nome: 'Sub-13', designacao: 'Benjamins' },
-    { id: 4, nome: 'Sub-15', designacao: 'Infantis'  },
-    { id: 5, nome: 'Sub-17', designacao: 'Iniciados' },
-    { id: 6, nome: 'Sub-19', designacao: 'Juvenis'   },
+    { id: 7, nome: 'Sub-5',  designacao: 'Pré-Petizes' },
+    { id: 8, nome: 'Sub-7',  designacao: 'Petizes'     },
+    { id: 1, nome: 'Sub-9',  designacao: 'Traquinas'   },
+    { id: 2, nome: 'Sub-11', designacao: 'Benjamins' },
+    { id: 3, nome: 'Sub-13', designacao: 'Infantis' },
+    { id: 4, nome: 'Sub-15', designacao: 'Iniciados'  },
+    { id: 5, nome: 'Sub-17', designacao: 'Juvenis' },
+    { id: 6, nome: 'Sub-19', designacao: 'Juniores'   },
   ];
 
   const MESES_PT = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];

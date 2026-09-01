@@ -7072,7 +7072,7 @@ window.deleteHistoria = function(id) {
 
 window.abrirModalPalmares = function(t) {
   const isNew = !t;
-  const escaloes = ['Sub-7','Sub-9','Sub-11','Sub-13','Sub-15','Sub-17','Sub-19','Sub-21','Sénior','Futsal','Kickboxing','Judo','Geral'];
+  const escaloes = ['Sub-5','Sub-7','Sub-9','Sub-11','Sub-13','Sub-15','Sub-17','Sub-19','Sub-21','Sénior','Futsal','Kickboxing','Judo','Geral'];
   openModal(isNew ? 'Novo Título / Conquista' : 'Editar Título', `
     <div class="modal-field">
       <label>Competição / Torneio *</label>

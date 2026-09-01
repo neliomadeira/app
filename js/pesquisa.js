@@ -30,12 +30,14 @@
   ];
 
   var DEFAULT_ESCALOES = [
-    { id: 1, nome: 'Sub-9',  designacao: 'Petizes',   faixa: '7 a 9 anos',   treinador: 'Ricardo Matos'  },
-    { id: 2, nome: 'Sub-11', designacao: 'Traquinas', faixa: '10 a 11 anos', treinador: 'Jorge Pinto'    },
-    { id: 3, nome: 'Sub-13', designacao: 'Benjamins', faixa: '12 a 13 anos', treinador: 'Nuno Carvalho'  },
-    { id: 4, nome: 'Sub-15', designacao: 'Infantis',  faixa: '14 a 15 anos', treinador: 'Filipe Gomes'   },
-    { id: 5, nome: 'Sub-17', designacao: 'Iniciados', faixa: '16 a 17 anos', treinador: 'André Monteiro' },
-    { id: 6, nome: 'Sub-19', designacao: 'Juvenis',   faixa: '18 a 19 anos', treinador: 'Sérgio Fonseca' },
+    { id: 7, nome: 'Sub-5',  designacao: 'Pré-Petizes', faixa: 'Até 5 anos',   treinador: '' },
+    { id: 8, nome: 'Sub-7',  designacao: 'Petizes',     faixa: '6 a 7 anos',   treinador: '' },
+    { id: 1, nome: 'Sub-9',  designacao: 'Traquinas',   faixa: '8 a 9 anos',   treinador: 'Ricardo Matos'  },
+    { id: 2, nome: 'Sub-11', designacao: 'Benjamins', faixa: '10 a 11 anos', treinador: 'Jorge Pinto'    },
+    { id: 3, nome: 'Sub-13', designacao: 'Infantis', faixa: '12 a 13 anos', treinador: 'Nuno Carvalho'  },
+    { id: 4, nome: 'Sub-15', designacao: 'Iniciados',  faixa: '14 a 15 anos', treinador: 'Filipe Gomes'   },
+    { id: 5, nome: 'Sub-17', designacao: 'Juvenis', faixa: '16 a 17 anos', treinador: 'André Monteiro' },
+    { id: 6, nome: 'Sub-19', designacao: 'Juniores',   faixa: '18 a 19 anos', treinador: 'Sérgio Fonseca' },
   ];
 
   var DEFAULT_AGENDA = [
