@@ -20,6 +20,22 @@
       document.dispatchEvent(new CustomEvent('jsc:synced'));
     })
     .catch(function () {});   // sem servidor, fica o que estiver em cache
+
+  // Patrocinadores: já vêm ordenados pelo servidor (categoria, depois a
+  // coluna ordem), portanto o site só tem de os desenhar por esta ordem.
+  fetch('/api/patrocinadores.php', { cache: 'no-store' })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (j) {
+      if (!j || !j.ok || !Array.isArray(j.patrocinadores)) return;
+      try {
+        var json = JSON.stringify(j.patrocinadores);
+        if (localStorage.getItem('db_patrocinadores') !== json) {
+          localStorage.setItem('db_patrocinadores', json);
+        }
+      } catch (_) {}
+      document.dispatchEvent(new CustomEvent('jsc:patrocinadores'));
+    })
+    .catch(function () {});
 })();
 
 (function () {
@@ -48,7 +64,7 @@
       if (data.atletas)        ls('db_atletas',          data.atletas);
       if (data.escaloes)       ls('db_escaloes',         data.escaloes);
       if (data.treinadores)    ls('db_treinadores',      data.treinadores);
-      if (data.patrocinadores) ls('db_patrocinadores',   data.patrocinadores);
+      // Patrocinadores já vêm da base de dados, no bloco acima.
       if (data.modalidades)    ls('db_modalidades',      data.modalidades);
       if (data.modPosts)       ls('db_mod_posts',        data.modPosts);
       if (data.jogos)          ls('db_jogos',            data.jogos);

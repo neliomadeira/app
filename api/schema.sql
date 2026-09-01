@@ -88,3 +88,21 @@ CREATE TABLE IF NOT EXISTS jsc_noticias (
   INDEX idx_categoria (categoria),
   INDEX idx_destaque (destaque)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- =====================================================
+-- PATROCINADORES
+-- =====================================================
+CREATE TABLE IF NOT EXISTS jsc_patrocinadores (
+  id             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  nome           VARCHAR(150)    NOT NULL,
+  sector         VARCHAR(100)    NULL,
+  tier           VARCHAR(20)     NOT NULL DEFAULT 'Bronze',   -- Ouro / Prata / Bronze
+  website        VARCHAR(500)    NULL,
+  logo           VARCHAR(500)    NULL,                        -- caminho em /uploads/
+  ordem          INT             NOT NULL DEFAULT 0,          -- menor aparece primeiro
+  ativo          TINYINT(1)      NOT NULL DEFAULT 1,
+  desde          VARCHAR(10)     NULL,
+  criado_em      DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_visivel (ativo, tier, ordem)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

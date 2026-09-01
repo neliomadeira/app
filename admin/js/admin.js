@@ -368,6 +368,7 @@ async function initAdmin() {
   // As notícias vêm do servidor antes de se desenhar seja o que for,
   // senão os ecrãs apanhavam a cache ainda vazia.
   await carregarNoticias();
+  await carregarPatrocinadores();
 
   renderDashboard();
   renderInscricoes();
@@ -417,7 +418,7 @@ function updateBadges() {
   document.getElementById('msgNovos').textContent       = naoLidas;
   document.getElementById('totalJogos').textContent     = jogosmes;
   document.getElementById('totalNoticias').textContent  = loadNoticias().filter(n => n.publicada).length;
-  document.getElementById('totalPatrocinadores').textContent = (DB.patrocinadores || []).filter(p => p.ativo).length;
+  document.getElementById('totalPatrocinadores').textContent = _patrocinadores.filter(p => p.ativo).length;
 }
 
 // ==================================================
@@ -2641,11 +2642,96 @@ window.removeJogo = function (id) {
 // ==================================================
 // PATROCINADORES
 // ==================================================
+// ==================================================
+// PATROCINADORES — em MySQL (api/patrocinadores.php)
+// ==================================================
+// Ganharam logótipo e ordem de apresentação, que antes não existiam de
+// todo: o site já sabia desenhar sp.logo, mas o painel nunca o dava.
+let _patrocinadores = [];
+
+async function apiPatrocinadores(payload) {
+  const r = await fetch('/api/patrocinadores.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
+    body: JSON.stringify(payload),
+  });
+  let j = {};
+  try { j = await r.json(); } catch (_) {}
+  return { status: r.status, ...j };
+}
+
+async function carregarPatrocinadores() {
+  try {
+    const r = await fetch('/api/patrocinadores.php?todos=1', { credentials: 'same-origin' });
+    const j = await r.json();
+    if (j.ok) { _patrocinadores = j.patrocinadores || []; return true; }
+    if (r.status === 503) showToast('Patrocinadores: base de dados não configurada.', 'red');
+  } catch (_) {
+    showToast('Sem ligação ao servidor para carregar patrocinadores.', 'red');
+  }
+  return false;
+}
+
+// Os que ficaram no browser, de antes de existir base de dados
+function _patrocinadoresPorImportar() {
+  try {
+    const antigos = (DB.patrocinadores || []);
+    if (!antigos.length) return [];
+    const ids = new Set(_patrocinadores.map(p => String(p.id)));
+    return antigos.filter(p => p && p.nome && !ids.has(String(p.id)));
+  } catch (_) { return []; }
+}
+
+window.importarPatrocinadoresAntigos = async function () {
+  const antigos = _patrocinadoresPorImportar();
+  if (!antigos.length) return;
+  if (!confirm(`Importar ${antigos.length} patrocinador(es) deste browser para a base de dados?`)) return;
+  const r = await apiPatrocinadores({ acao: 'importar', patrocinadores: antigos });
+  if (!r.ok) { showToast('❌ ' + (r.error || 'não foi possível importar'), 'red'); return; }
+  await carregarPatrocinadores();
+  renderPatrocinadores();
+  showToast(`✓ ${r.importados} patrocinador(es) importado(s).`, 'green');
+};
+
+window.dispensarImportPatrocinadores = function () {
+  if (!confirm('Descartar os patrocinadores guardados neste browser?')) return;
+  DB.patrocinadores = [];
+  saveDB();
+  renderPatrocinadores();
+};
+
+function _logoAdminHtml(p) {
+  if (p.logo) {
+    return `<img src="${p.logo}" alt="${p.nome}" style="max-width:100%;max-height:52px;object-fit:contain"
+             onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'sem logo',style:'font-size:.7rem;color:#c00'}))" />`;
+  }
+  return '<span style="font-size:0.72rem;color:#9ca3af">sem logótipo</span>';
+}
+
 function renderPatrocinadores() {
   const wrap = document.getElementById('sponsorsAdminTiers');
+  if (!wrap) return;
+
+  const porImportar = _patrocinadoresPorImportar();
+  const aviso = document.getElementById('avisoImportPatrocinadores');
+  if (aviso) {
+    aviso.innerHTML = porImportar.length ? `
+      <div style="background:#fff3cd;border:1px solid #ffc107;border-left:4px solid #f59e0b;
+                  border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;
+                  align-items:center;gap:12px;flex-wrap:wrap">
+        <span style="flex:1;min-width:240px;font-size:0.86rem">
+          <strong>${porImportar.length} patrocinador(es)</strong> ainda só existem neste browser.
+          Importe-os para ficarem na base de dados.
+        </span>
+        <button class="btn-sm" onclick="importarPatrocinadoresAntigos()">Importar</button>
+        <button class="btn-sm" onclick="dispensarImportPatrocinadores()" style="color:#c00">Descartar</button>
+      </div>` : '';
+  }
+
   const tiers = ['Ouro', 'Prata', 'Bronze'];
   wrap.innerHTML = tiers.map(tier => {
-    const lista = DB.patrocinadores.filter(p => p.tier === tier);
+    const lista = _patrocinadores.filter(p => p.tier === tier);
     return `
       <div class="sponsors-admin-tier">
         <div class="sponsors-admin-tier__header">
@@ -2653,122 +2739,142 @@ function renderPatrocinadores() {
           <span style="font-size:0.8rem;color:var(--gray-text)">${lista.filter(p=>p.ativo).length} activos · ${lista.filter(p=>!p.ativo).length} inactivos</span>
         </div>
         <div class="sponsors-admin-grid">
-          ${lista.map(p => `
+          ${lista.map((p, i) => `
             <div class="sponsor-admin-card ${p.ativo ? '' : 'sponsor-admin-card--inactive'}">
               <span class="sponsor-admin-card__tier-dot dot--${p.tier.toLowerCase()}"></span>
-              <div class="sponsor-admin-logo">${p.nome}</div>
+              <div class="sponsor-admin-logo">${_logoAdminHtml(p)}</div>
               <div class="sponsor-admin-name">${p.nome}</div>
-              <div class="sponsor-admin-sector">${p.sector} · Desde ${p.desde}</div>
+              <div class="sponsor-admin-sector">${p.sector || '—'}${p.desde ? ' · Desde ' + p.desde : ''}</div>
               <div class="sponsor-admin-actions">
+                <button class="btn-icon" onclick="moverPatrocinador(${p.id},'cima')"
+                        title="Subir" ${i === 0 ? 'disabled style="opacity:.3"' : ''}>&#9650;</button>
+                <button class="btn-icon" onclick="moverPatrocinador(${p.id},'baixo')"
+                        title="Descer" ${i === lista.length - 1 ? 'disabled style="opacity:.3"' : ''}>&#9660;</button>
                 <button class="btn-icon" onclick="editPatrocinador(${p.id})" title="Editar">&#9998;</button>
                 <button class="btn-icon ${p.ativo ? 'btn-icon--red' : 'btn-icon--green'}"
-                  onclick="togglePatrocinador(${p.id})"
+                  onclick="togglePatrocinador(${p.id}, ${!p.ativo})"
                   title="${p.ativo ? 'Desactivar' : 'Activar'}">${p.ativo ? '&#9940;' : '&#9989;'}</button>
                 <button class="btn-icon btn-icon--red" onclick="removePatrocinador(${p.id})" title="Eliminar">&#128465;</button>
               </div>
-            </div>`).join('')}
+            </div>`).join('') || '<p style="font-size:0.8rem;color:#9ca3af;margin:0">Nenhum patrocinador neste nível.</p>'}
         </div>
       </div>`;
   }).join('');
 }
 
-document.getElementById('btnNovoPatrocinador')?.addEventListener('click', () => {
-  openModal('Novo Patrocinador', `
+// Um único formulário para criar e editar
+function _formPatrocinador(p) {
+  p = p || {};
+  const tiers = ['Ouro', 'Prata', 'Bronze'];
+  return `
     <div class="modal-row">
       <div class="modal-field"><label>Nome da empresa *</label>
-        <input type="text" id="mPNome" placeholder="Nome da empresa" /></div>
+        <input type="text" id="mPNome" value="${(p.nome || '').replace(/"/g, '&quot;')}" placeholder="Nome da empresa" /></div>
       <div class="modal-field"><label>Sector</label>
-        <input type="text" id="mPSector" placeholder="Ex: Construção, Saúde..." /></div>
+        <input type="text" id="mPSector" value="${(p.sector || '').replace(/"/g, '&quot;')}" placeholder="Ex: Construção, Saúde..." /></div>
     </div>
     <div class="modal-row">
-      <div class="modal-field"><label>Nível de patrocínio</label>
-        <select id="mPTier">
-          <option>Ouro</option><option>Prata</option><option>Bronze</option>
-        </select>
+      <div class="modal-field"><label>Categoria</label>
+        <select id="mPTier">${tiers.map(t => `<option ${t === p.tier ? 'selected' : ''}>${t}</option>`).join('')}</select>
       </div>
-      <div class="modal-field"><label>Ano de início</label>
-        <input type="number" id="mPDesde" value="2026" min="2000" max="2099" /></div>
+      <div class="modal-field"><label>Ordem <small style="color:#9ca3af">(menor aparece primeiro)</small></label>
+        <input type="number" id="mPOrdem" value="${p.ordem != null ? p.ordem : ''}" placeholder="fim da lista" /></div>
     </div>
-    <div class="modal-field"><label>Website (opcional)</label>
-      <input type="url" id="mPWebsite" placeholder="https://empresa.pt" /></div>`,
+    <div class="modal-row">
+      <div class="modal-field"><label>Website / link</label>
+        <input type="url" id="mPWebsite" value="${(p.website || '').replace(/"/g, '&quot;')}" placeholder="https://empresa.pt" /></div>
+      <div class="modal-field"><label>Ano de início</label>
+        <input type="number" id="mPDesde" value="${p.desde || new Date().getFullYear()}" min="1900" max="2099" /></div>
+    </div>
+    <div class="modal-field">
+      <label>Logótipo</label>
+      <div class="img-upload-box">
+        <input type="file" id="mPLogoFicheiro" accept="image/*" style="display:none" />
+        <label class="img-upload-btn" for="mPLogoFicheiro">&#128193; Escolher ficheiro</label>
+        <input class="form-input" type="text" id="mPLogo" value="${(p.logo || '').replace(/"/g, '&quot;')}" placeholder="ou cole o endereço da imagem..." />
+      </div>
+      <div id="mPLogoPreview" style="margin-top:8px;${p.logo ? '' : 'display:none'}">
+        <img src="${p.logo || ''}" alt="" style="max-height:70px;max-width:100%;object-fit:contain;background:#f5f7fa;padding:6px;border-radius:6px" />
+      </div>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:0.86rem;margin-top:4px">
+      <input type="checkbox" id="mPAtivo" ${p.id === undefined || p.ativo ? 'checked' : ''} /> Mostrar no site
+    </label>`;
+}
+
+function _ligarUploadLogo() {
+  // Reutiliza o upload de imagens: comprime e envia para /uploads/,
+  // guardando só o caminho.
+  setupImageUpload('mPLogoFicheiro', 'mPLogo', 'mPLogoPreview');
+}
+
+document.getElementById('btnNovoPatrocinador')?.addEventListener('click', () => {
+  openModal('Novo Patrocinador', _formPatrocinador(null),
     `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
-     <button class="btn-save" onclick="saveNovoPatrocinador()">Guardar</button>`
+     <button class="btn-save" onclick="guardarPatrocinador(null)">Guardar</button>`
   );
+  _ligarUploadLogo();
 });
 
-window.saveNovoPatrocinador = function () {
+window.editPatrocinador = function (id) {
+  const p = _patrocinadores.find(x => x.id === id);
+  if (!p) return;
+  openModal(`Editar — ${p.nome}`, _formPatrocinador(p),
+    `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+     <button class="btn-save" onclick="guardarPatrocinador(${id})">Guardar</button>`
+  );
+  _ligarUploadLogo();
+};
+
+window.guardarPatrocinador = async function (id) {
   const nome = document.getElementById('mPNome').value.trim();
   if (!nome) { showToast('Introduza o nome.', 'red'); return; }
-  DB.patrocinadores.push({
-    id: Date.now(), nome,
-    sector:  document.getElementById('mPSector').value || '—',
+  const ordemRaw = document.getElementById('mPOrdem').value;
+
+  const dados = {
+    nome,
+    sector:  document.getElementById('mPSector').value.trim(),
     tier:    document.getElementById('mPTier').value,
-    desde:   String(document.getElementById('mPDesde').value),
-    website: document.getElementById('mPWebsite').value,
-    ativo:   true,
-  });
-  saveDB();
+    website: document.getElementById('mPWebsite').value.trim(),
+    logo:    document.getElementById('mPLogo').value.trim(),
+    desde:   String(document.getElementById('mPDesde').value || ''),
+    ativo:   document.getElementById('mPAtivo').checked,
+  };
+  if (ordemRaw !== '') dados.ordem = parseInt(ordemRaw, 10);
+  if (id !== null) dados.id = id;
+
+  const r = await apiPatrocinadores({ acao: 'guardar', patrocinador: dados });
+  if (!r.ok) { showToast('❌ ' + (r.error || 'não foi possível guardar'), 'red'); return; }
+  await carregarPatrocinadores();
   renderPatrocinadores();
+  updateBadges();
   closeModal();
-  showToast('Patrocinador adicionado!', 'green');
+  showToast(id === null ? 'Patrocinador adicionado!' : 'Patrocinador actualizado!', 'green');
 };
 
-window.editPatrocinador = function (id) {
-  const p = DB.patrocinadores.find(x => x.id === id);
-  if (!p) return;
-  openModal(`Editar — ${p.nome}`, `
-    <div class="modal-row">
-      <div class="modal-field"><label>Nome</label>
-        <input type="text" id="mPNome" value="${p.nome}" /></div>
-      <div class="modal-field"><label>Sector</label>
-        <input type="text" id="mPSector" value="${p.sector}" /></div>
-    </div>
-    <div class="modal-row">
-      <div class="modal-field"><label>Nível</label>
-        <select id="mPTier">
-          ${['Ouro','Prata','Bronze'].map(t =>
-            `<option ${t===p.tier?'selected':''}>${t}</option>`).join('')}
-        </select>
-      </div>
-      <div class="modal-field"><label>Desde</label>
-        <input type="number" id="mPDesde" value="${p.desde}" /></div>
-    </div>
-    <div class="modal-field"><label>Website</label>
-      <input type="url" id="mPWebsite" value="${p.website}" /></div>`,
-    `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
-     <button class="btn-save" onclick="saveEditPatrocinador(${id})">Guardar</button>`
-  );
-};
-
-window.saveEditPatrocinador = function (id) {
-  const p = DB.patrocinadores.find(x => x.id === id);
-  if (!p) return;
-  p.nome    = document.getElementById('mPNome').value.trim() || p.nome;
-  p.sector  = document.getElementById('mPSector').value;
-  p.tier    = document.getElementById('mPTier').value;
-  p.desde   = String(document.getElementById('mPDesde').value);
-  p.website = document.getElementById('mPWebsite').value;
-  saveDB();
+window.togglePatrocinador = async function (id, valor) {
+  const r = await apiPatrocinadores({ acao: 'alternar', id, valor });
+  if (!r.ok) { showToast('❌ ' + (r.error || 'não foi possível alterar'), 'red'); return; }
+  await carregarPatrocinadores();
   renderPatrocinadores();
-  closeModal();
-  showToast('Patrocinador actualizado!', 'green');
+  updateBadges();
+  showToast(valor ? 'Patrocinador activado.' : 'Patrocinador desactivado.', valor ? 'green' : '');
 };
 
-window.togglePatrocinador = function (id) {
-  const p = DB.patrocinadores.find(x => x.id === id);
-  if (!p) return;
-  p.ativo = !p.ativo;
-  saveDB();
+window.moverPatrocinador = async function (id, sentido) {
+  const r = await apiPatrocinadores({ acao: 'mover', id, sentido });
+  if (!r.ok) { showToast('❌ ' + (r.error || 'não foi possível mover'), 'red'); return; }
+  await carregarPatrocinadores();
   renderPatrocinadores();
-  showToast(p.ativo ? 'Patrocinador activado.' : 'Patrocinador desactivado.', p.ativo ? 'green' : '');
 };
 
-window.removePatrocinador = function (id) {
+window.removePatrocinador = async function (id) {
   if (!confirm('Eliminar este patrocinador?')) return;
-  const idx = DB.patrocinadores.findIndex(x => x.id === id);
-  if (idx > -1) DB.patrocinadores.splice(idx, 1);
-  saveDB();
+  const r = await apiPatrocinadores({ acao: 'apagar', id });
+  if (!r.ok) { showToast('❌ ' + (r.error || 'não foi possível eliminar'), 'red'); return; }
+  await carregarPatrocinadores();
   renderPatrocinadores();
+  updateBadges();
   showToast('Patrocinador eliminado.', 'red');
 };
 
@@ -5014,7 +5120,7 @@ async function publicarNoServidor() {
     atletas:        DB.atletas,
     escaloes:       DB.escaloes,
     treinadores:    DB.treinadores,
-    patrocinadores: DB.patrocinadores,
+    // patrocinadores: já vivem em MySQL (api/patrocinadores.php)
     modalidades:    DB.modalidades,
     modPosts:       ls('db_mod_posts'),
     jogos:          DB.jogos,

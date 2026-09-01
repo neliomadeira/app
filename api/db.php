@@ -53,6 +53,20 @@ function jsc_db() {
             INDEX idx_utilizador (utilizador, quando),
             INDEX idx_ip (ip, quando)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS jsc_patrocinadores (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            nome VARCHAR(150) NOT NULL,
+            sector VARCHAR(100) NULL,
+            tier VARCHAR(20) NOT NULL DEFAULT 'Bronze',
+            website VARCHAR(500) NULL,
+            logo VARCHAR(500) NULL,
+            ordem INT NOT NULL DEFAULT 0,
+            ativo TINYINT(1) NOT NULL DEFAULT 1,
+            desde VARCHAR(10) NULL,
+            criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            atualizado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_visivel (ativo, tier, ordem)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         $pdo->exec("CREATE TABLE IF NOT EXISTS jsc_noticias (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
             titulo VARCHAR(255) NOT NULL,
