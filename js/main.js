@@ -579,38 +579,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   } catch(e) {}
 
-  // Patrocinadores dinâmicos — vêm de MySQL via sync.js, que avisa com
-  // jsc:patrocinadores. Sem voltar a desenhar, a página inicial ficava a
-  // mostrar a cópia antiga guardada no browser.
-  function renderPatrocinadoresHome() {
-    try {
-      const raw = localStorage.getItem('db_patrocinadores');
-      if (raw) {
-        const lista = JSON.parse(raw).filter(p => p.ativo);
-        if (lista.length) {
-          const tiers = ['Ouro','Prata','Bronze'];
-          tiers.forEach(tier => {
-            const grupo = lista.filter(p => p.tier === tier);
-            const row = document.getElementById(`sponsorsRow${tier}`);
-            if (row && grupo.length) {
-              row.innerHTML = grupo.map(p => {
-                const logo = p.logo
-                  ? `<div class="sponsor-card__logo" style="background-image:url('${p.logo}');background-size:contain;background-repeat:no-repeat;background-position:center"></div>`
-                  : `<div class="sponsor-card__logo">${p.nome}</div>`;
-                const link = p.website ? `href="${p.website}" target="_blank" rel="noopener"` : '';
-                return `<a class="sponsor-card sponsor-card--${tier.toLowerCase()}" ${link} style="${link?'cursor:pointer':''}">
-                  ${logo}
-                  <span class="sponsor-card__name">${p.sector || ''}</span>
-                </a>`;
-              }).join('');
-            }
-          });
-        }
+  // Patrocinadores dinâmicos
+  try {
+    const raw = localStorage.getItem('db_patrocinadores');
+    if (raw) {
+      const lista = JSON.parse(raw).filter(p => p.ativo);
+      if (lista.length) {
+        const tiers = ['Ouro','Prata','Bronze'];
+        tiers.forEach(tier => {
+          const grupo = lista.filter(p => p.tier === tier);
+          const row = document.getElementById(`sponsorsRow${tier}`);
+          if (row && grupo.length) {
+            row.innerHTML = grupo.map(p => {
+              const logo = p.logo
+                ? `<div class="sponsor-card__logo" style="background-image:url('${p.logo}');background-size:contain;background-repeat:no-repeat;background-position:center"></div>`
+                : `<div class="sponsor-card__logo">${p.nome}</div>`;
+              const link = p.website ? `href="${p.website}" target="_blank" rel="noopener"` : '';
+              return `<a class="sponsor-card sponsor-card--${tier.toLowerCase()}" ${link} style="${link?'cursor:pointer':''}">
+                ${logo}
+                <span class="sponsor-card__name">${p.sector || ''}</span>
+              </a>`;
+            }).join('');
+          }
+        });
       }
-    } catch(e) {}
-  }
-  renderPatrocinadoresHome();
-  document.addEventListener('jsc:patrocinadores', renderPatrocinadoresHome);
+    }
+  } catch(e) {}
 
   // Modalidades
   try {

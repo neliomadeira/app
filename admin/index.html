@@ -21,17 +21,13 @@
         <img src="../images/logo.png" alt="JS Campinense" class="emblem-logo" />
         <div>
           <span class="login-club">JS Campinense</span>
-          <span class="login-sub" id="loginSubtitulo">Painel Administrativo</span>
+          <span class="login-sub">Painel Administrativo</span>
         </div>
       </div>
-
-      <div class="login-error" id="loginError"></div>
-
-      <!-- Entrar -->
-      <form class="login-form" id="loginForm" style="display:none">
+      <form class="login-form" id="loginForm">
         <div class="field">
           <label>Utilizador</label>
-          <input type="text" id="loginUser" autocomplete="username" />
+          <input type="text" id="loginUser" placeholder="admin" autocomplete="username" />
         </div>
         <div class="field">
           <label>Palavra-passe</label>
@@ -40,41 +36,8 @@
             <button type="button" class="toggle-pw" id="togglePw">&#128065;</button>
           </div>
         </div>
+        <div class="login-error" id="loginError">Credenciais inválidas. Tente novamente.</div>
         <button type="submit" class="btn-login">Entrar</button>
-        <p class="login-hint"><a href="#" id="linkRecuperar">Esqueci-me da palavra-passe</a></p>
-      </form>
-
-      <!-- Primeira instalação: só aparece enquanto não houver administrador -->
-      <form class="login-form" id="setupForm" style="display:none">
-        <p class="login-hint">Ainda não existe nenhum administrador. Crie o primeiro para começar.</p>
-        <div class="field">
-          <label>Utilizador</label>
-          <input type="text" id="setupUser" autocomplete="username" />
-        </div>
-        <div class="field">
-          <label>Email <small>(para recuperar a palavra-passe)</small></label>
-          <input type="email" id="setupEmail" autocomplete="email" />
-        </div>
-        <div class="field">
-          <label>Palavra-passe <small>(mínimo 10 caracteres)</small></label>
-          <input type="password" id="setupPass" autocomplete="new-password" />
-        </div>
-        <div class="field">
-          <label>Confirmar palavra-passe</label>
-          <input type="password" id="setupPass2" autocomplete="new-password" />
-        </div>
-        <button type="submit" class="btn-login">Criar administrador</button>
-      </form>
-
-      <!-- Recuperação -->
-      <form class="login-form" id="recuperarForm" style="display:none">
-        <p class="login-hint">Indique o email da sua conta. Enviamos um link para definir uma nova palavra-passe.</p>
-        <div class="field">
-          <label>Email</label>
-          <input type="email" id="recuperarEmail" autocomplete="email" />
-        </div>
-        <button type="submit" class="btn-login">Enviar link</button>
-        <p class="login-hint"><a href="#" id="linkVoltarLogin">Voltar</a></p>
       </form>
     </div>
   </div>
@@ -156,7 +119,6 @@
         <a href="../index.html" class="nav-item" target="_blank">
           <span class="nav-icon">&#127758;</span> Ver site
         </a>
-        <div class="sidebar-sessao">Sessão: <strong id="sessaoUtilizador">—</strong></div>
         <button class="nav-item nav-logout" id="logoutBtn">
           <span class="nav-icon">&#8594;</span> Sair
         </button>
@@ -403,8 +365,7 @@
             <h1>Notícias</h1>
             <button class="btn-primary" id="btnNovaNoticia">+ Nova Notícia</button>
           </div>
-          <div id="avisoImportNoticias"></div>
-              <div class="news-admin-grid" id="newsAdminGrid"></div>
+          <div class="news-admin-grid" id="newsAdminGrid"></div>
         </section>
 
         <!-- ===== MENSAGENS ===== -->
@@ -602,8 +563,7 @@
             <h1>Patrocinadores</h1>
             <button class="btn-primary" id="btnNovoPatrocinador">+ Novo Patrocinador</button>
           </div>
-          <div id="avisoImportPatrocinadores"></div>
-            <div class="sponsors-admin-tiers" id="sponsorsAdminTiers"></div>
+          <div class="sponsors-admin-tiers" id="sponsorsAdminTiers"></div>
         </section>
 
         <!-- ===== HISTÓRIA ===== -->
@@ -1418,34 +1378,32 @@
           <div class="card" style="margin-bottom:20px;max-width:520px">
             <div class="card-header"><h3>&#128274; Segurança</h3></div>
             <div style="padding:16px;display:grid;gap:12px">
-              <p style="font-size:0.76rem;color:#888;margin:0">Alterar a <strong>sua</strong> palavra-passe. É guardada no servidor com <code>password_hash</code>, nunca em texto.</p>
               <div class="modal-field">
-                <label class="form-label">Palavra-passe atual</label>
-                <input class="form-input" type="password" id="cfgAdminPwAtual" autocomplete="current-password" />
+                <label class="form-label">Utilizador admin</label>
+                <input class="form-input" type="text" id="cfgAdminUser" value="admin" />
               </div>
               <div class="modal-field">
-                <label class="form-label">Nova palavra-passe <small style="color:#9ca3af;font-weight:400">(mínimo 10 caracteres)</small></label>
-                <input class="form-input" type="password" id="cfgAdminPw" autocomplete="new-password" />
+                <label class="form-label">Nova palavra-passe</label>
+                <input class="form-input" type="password" id="cfgAdminPw" placeholder="Deixe em branco para manter" />
               </div>
               <div class="modal-field">
                 <label class="form-label">Confirmar palavra-passe</label>
-                <input class="form-input" type="password" id="cfgAdminPwConf" autocomplete="new-password" />
+                <input class="form-input" type="password" id="cfgAdminPwConf" placeholder="Repetir nova senha" />
               </div>
-              <button class="btn-save" onclick="guardarSeguranca()">Alterar palavra-passe</button>
+              <button class="btn-save" onclick="guardarSeguranca()">Guardar credenciais</button>
               <hr style="border:none;border-top:1px solid #e2e8f0;margin:4px 0">
-              <!-- Administradores -->
+              <!-- Utilizadores adicionais -->
               <div>
-                <label class="form-label">&#128101; Administradores</label>
-                <p style="font-size:0.76rem;color:#888;margin:2px 0 8px">Contas com acesso ao painel. Só o administrador principal pode criar, remover ou redefinir palavras-passe.</p>
+                <label class="form-label">&#128101; Utilizadores adicionais</label>
+                <p style="font-size:0.76rem;color:#888;margin:2px 0 8px">Contas extra com acesso total ao painel (ex: outro dirigente ou treinador).</p>
                 <div id="adminUsersList" style="display:grid;gap:6px;margin-bottom:10px"></div>
                 <div style="display:grid;gap:8px">
                   <input class="form-input" type="text" id="novoUserNome" placeholder="Nome de utilizador" autocomplete="off" />
-                  <input class="form-input" type="email" id="novoUserEmail" placeholder="Email (para recuperar a palavra-passe)" autocomplete="off" />
                   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                    <input class="form-input" type="password" id="novoUserPw" placeholder="Palavra-passe (mín. 10)" autocomplete="new-password" />
+                    <input class="form-input" type="password" id="novoUserPw" placeholder="Palavra-passe (mín. 6)" autocomplete="new-password" />
                     <input class="form-input" type="password" id="novoUserPwConf" placeholder="Confirmar" autocomplete="new-password" />
                   </div>
-                  <button class="btn-sm" onclick="adicionarAdminUser()" style="justify-self:start">+ Adicionar administrador</button>
+                  <button class="btn-sm" onclick="adicionarAdminUser()" style="justify-self:start">+ Adicionar utilizador</button>
                 </div>
               </div>
               <hr style="border:none;border-top:1px solid #e2e8f0;margin:4px 0">

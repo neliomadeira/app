@@ -10,96 +10,60 @@ const adminLayout  = document.getElementById('adminLayout');
 const togglePw     = document.getElementById('togglePw');
 const loginPassEl  = document.getElementById('loginPass');
 
-// A autenticação é decidida pelo servidor (api/auth.php). O painel não
-// guarda credenciais: o estado vive numa sessão PHP com cookie HttpOnly,
-// fora do alcance do JavaScript. O login antigo comparava um SHA-256
-// guardado no localStorage e limitava-se a mostrar uma div, com todo o
-// painel já carregado — quem abrisse as ferramentas de programação
-// entrava sem palavra-passe.
-const SESSION_MS = 25 * 60 * 1000;   // aviso local; o servidor corta aos 30
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_MS   = 5 * 60 * 1000;   // 5 minutos
+const SESSION_MS   = 30 * 60 * 1000;  // 30 minutos de inactividade
 let   sessionTimer = null;
-let   utilizadorAtual = null;
 
-// credentials para o cookie de sessão viajar em cada pedido.
-async function apiAuth(payload) {
-  const r = await fetch('/api/auth.php', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'same-origin',
-    body: JSON.stringify(payload),
-  });
-  let j = {};
-  try { j = await r.json(); } catch (_) {}
-  return { status: r.status, ...j };
+// Hash SHA-256 via Web Crypto API
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
 }
 
-// A acção vai no query string: em GET não há corpo onde a pôr.
-async function apiSessao() {
-  const r = await fetch('/api/auth.php?acao=sessao', { credentials: 'same-origin' });
-  let j = null;
-  try { j = await r.json(); } catch (_) {}
-  // Sem JSON de volta, o servidor não está a executar PHP — é o caso de
-  // quem serve a pasta com um servidor só de ficheiros, como o Live
-  // Server do VS Code, que devolve o código do .php em vez do resultado.
-  if (!j) return { status: r.status, semPhp: true };
-  return { status: r.status, ...j };
+// Retorna o hash SHA-256 da password padrão "1234"
+function getDefaultHash() { return sha256('1234').catch(() => '____'); }
+
+function getLockout() {
+  try { return JSON.parse(localStorage.getItem('admin_lockout') || 'null'); } catch { return null; }
+}
+function setLockout(data) { localStorage.setItem('admin_lockout', JSON.stringify(data)); }
+function clearLockout()   { localStorage.removeItem('admin_lockout'); }
+
+function checkLockout() {
+  const l = getLockout();
+  if (!l) return null;
+  const remaining = l.until - Date.now();
+  if (remaining <= 0) { clearLockout(); return null; }
+  return remaining;
 }
 
-// persistente=true para erros que impedem mesmo de entrar (servidor sem
-// PHP, base de dados por configurar). Esses não podem desaparecer sozinhos:
-// quem abre o painel e olha para o lado perdia a única explicação do que
-// se passa.
-function showLoginError(msg, persistente) {
+function showLoginError(msg) {
   loginError.textContent = msg;
   loginError.style.display = 'block';
-  clearTimeout(showLoginError._t);
-  if (!persistente) {
-    showLoginError._t = setTimeout(() => { loginError.style.display = 'none'; }, 6000);
-  }
+  setTimeout(() => { loginError.style.display = 'none'; }, 4000);
 }
 
 function startSessionTimer() {
   clearTimeout(sessionTimer);
   sessionTimer = setTimeout(() => {
-    doLogout('Sessão expirada por inactividade. Entre novamente.');
+    doLogout();
+    showLoginError('Sessão expirada por inactividade (30 min). Faça login novamente.');
   }, SESSION_MS);
 }
-function resetSessionTimer() { if (utilizadorAtual) startSessionTimer(); }
 
-function mostrarPainel(u) {
-  utilizadorAtual = u;
-  loginWrap.style.display = 'none';
-  document.body.classList.remove('login-page');
-  adminLayout.style.display = 'flex';
-  const alvo = document.getElementById('sessaoUtilizador');
-  if (alvo) alvo.textContent = u && u.utilizador ? u.utilizador : '';
-  startSessionTimer();
-  initAdmin();
-}
-
-function mostrarEcra(qual) {
-  ['loginForm', 'setupForm', 'recuperarForm'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = (id === qual) ? '' : 'none';
-  });
-  const t = document.getElementById('loginSubtitulo');
-  if (t) {
-    t.textContent = qual === 'setupForm'      ? 'Criar o primeiro administrador'
-                  : qual === 'recuperarForm'  ? 'Recuperar palavra-passe'
-                  : 'Painel Administrativo';
+function resetSessionTimer() {
+  if (adminLayout?.style.display !== 'none' && adminLayout?.style.display !== '') {
+    startSessionTimer();
   }
 }
 
-async function doLogout(msg) {
+function doLogout() {
   clearTimeout(sessionTimer);
-  utilizadorAtual = null;
-  try { await apiAuth({ acao: 'logout' }); } catch (_) {}
   adminLayout.style.display = 'none';
   document.body.classList.add('login-page');
   loginWrap.style.display = '';
-  mostrarEcra('loginForm');
-  loginForm?.reset();
-  if (msg) showLoginError(msg);
+  loginForm.reset();
 }
 
 ['click','keydown','mousemove','scroll'].forEach(evt =>
@@ -110,75 +74,77 @@ togglePw?.addEventListener('click', () => {
   loginPassEl.type = loginPassEl.type === 'password' ? 'text' : 'password';
 });
 
-// Ao abrir: perguntar ao servidor se já há sessão, e se o painel já foi
-// instalado. Evita pedir credenciais a quem já entrou.
-(async function arranque() {
-  const r = await apiSessao().catch(() => ({ semServidor: true }));
-  if (r.semServidor) {
-    mostrarEcra('loginForm');
-    showLoginError('Sem ligação ao servidor. O painel precisa de PHP a correr.', true);
-    return;
-  }
-  if (r.semPhp) {
-    mostrarEcra('loginForm');
-    showLoginError('O servidor não está a executar PHP. Um servidor só de ficheiros '
-      + '(como o Live Server do VS Code) não serve para o painel — use XAMPP ou "php -S".', true);
-    return;
-  }
-  if (r.status === 503) {
-    mostrarEcra('loginForm');
-    showLoginError(r.detalhe || 'Base de dados não configurada no servidor.', true);
-    return;
-  }
-  if (r.autenticado && r.utilizador) { mostrarPainel(r.utilizador); return; }
-  mostrarEcra(r.instalado === false ? 'setupForm' : 'loginForm');
-})();
-
 loginForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
-  const utilizador    = document.getElementById('loginUser').value.trim();
-  const palavra_passe = loginPassEl.value;
-  if (!palavra_passe) { showLoginError('Introduza a palavra-passe.'); return; }
 
-  const r = await apiAuth({ acao: 'login', utilizador, palavra_passe });
-  loginPassEl.value = '';
-  if (r.ok && r.utilizador) { mostrarPainel(r.utilizador); return; }
-  if (r.status === 429) { showLoginError(r.error); return; }
-  const extra = (typeof r.restantes === 'number' && r.restantes > 0)
-    ? ` ${r.restantes} tentativa${r.restantes !== 1 ? 's' : ''} restante${r.restantes !== 1 ? 's' : ''}.` : '';
-  showLoginError((r.error || 'Não foi possível entrar.') + extra);
+  const remaining = checkLockout();
+  if (remaining) {
+    const mins = Math.ceil(remaining / 60000);
+    showLoginError(`Conta bloqueada. Tente novamente em ${mins} minuto${mins > 1 ? 's' : ''}.`);
+    return;
+  }
+
+  const u = document.getElementById('loginUser').value.trim();
+  const p = loginPassEl.value;
+  if (!p) { showLoginError('Introduza a palavra-passe.'); return; }
+
+  // Carregar credenciais guardadas (suporte a hash e texto simples legado)
+  let stored = null;
+  try { stored = JSON.parse(localStorage.getItem('admin_creds') || 'null'); } catch(_) {}
+
+  let inputHash;
+  try { inputHash = await sha256(p); } catch(_) { inputHash = p; }
+
+  let match = false;
+  if (stored) {
+    if (stored.hashed) {
+      match = u === stored.user && inputHash === stored.pass;
+    } else {
+      // Legado: comparar texto simples e migrar para hash
+      match = u === stored.user && p === stored.pass;
+      if (match) {
+        localStorage.setItem('admin_creds', JSON.stringify({ user: stored.user, pass: inputHash, hashed: true }));
+      }
+    }
+  } else {
+    // Credenciais padrão nunca alteradas
+    const defaultHash = await sha256('1234').catch(() => '1234');
+    match = u === 'admin' && (p === '1234' || inputHash === defaultHash);
+    if (match) {
+      localStorage.setItem('admin_creds', JSON.stringify({ user: 'admin', pass: defaultHash, hashed: true }));
+    }
+  }
+
+  // Utilizadores adicionais (Configurações → Segurança → Utilizadores)
+  if (!match) {
+    try {
+      const extras = JSON.parse(localStorage.getItem('admin_users') || '[]');
+      match = extras.some(a => a.user === u && a.pass === inputHash);
+    } catch(_) {}
+  }
+
+  if (match) {
+    clearLockout();
+    loginWrap.style.display = 'none';
+    document.body.classList.remove('login-page');
+    adminLayout.style.display = 'flex';
+    startSessionTimer();
+    initAdmin();
+  } else {
+    const l = getLockout() || { count: 0, until: 0 };
+    l.count += 1;
+    const left = MAX_ATTEMPTS - l.count;
+    if (l.count >= MAX_ATTEMPTS) {
+      l.until = Date.now() + LOCKOUT_MS;
+      setLockout(l);
+      showLoginError('Demasiadas tentativas. Conta bloqueada por 5 minutos.');
+    } else {
+      setLockout(l);
+      showLoginError(`Credenciais inválidas. ${left} tentativa${left !== 1 ? 's' : ''} restante${left !== 1 ? 's' : ''}.`);
+    }
+    loginPassEl.value = '';
+  }
 });
-
-// Primeira instalação — só aceite enquanto não existir administrador
-document.getElementById('setupForm')?.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const utilizador    = document.getElementById('setupUser').value.trim();
-  const email         = document.getElementById('setupEmail').value.trim();
-  const palavra_passe = document.getElementById('setupPass').value;
-  const conf          = document.getElementById('setupPass2').value;
-  if (palavra_passe !== conf) { showLoginError('As palavras-passe não coincidem.'); return; }
-
-  const r = await apiAuth({ acao: 'setup', utilizador, email, palavra_passe });
-  if (r.ok && r.utilizador) mostrarPainel(r.utilizador);
-  else showLoginError(r.error || 'Não foi possível criar a conta.');
-});
-
-// Pedido de recuperação
-document.getElementById('recuperarForm')?.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const email = document.getElementById('recuperarEmail').value.trim();
-  const r = await fetch('/api/recuperacao.php', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'same-origin',
-    body: JSON.stringify({ acao: 'pedir', email }),
-  }).then(x => x.json()).catch(() => ({}));
-  showLoginError(r.mensagem || r.error || 'Não foi possível processar o pedido.');
-  if (r.ok) setTimeout(() => mostrarEcra('loginForm'), 3000);
-});
-
-document.getElementById('linkRecuperar')?.addEventListener('click', (e) => { e.preventDefault(); mostrarEcra('recuperarForm'); });
-document.getElementById('linkVoltarLogin')?.addEventListener('click', (e) => { e.preventDefault(); mostrarEcra('loginForm'); });
 
 document.getElementById('logoutBtn')?.addEventListener('click', doLogout);
 
@@ -380,16 +346,19 @@ function fmtDate(str) {
 // ==================================================
 // INIT
 // ==================================================
-async function initAdmin() {
-  // Já não existe password por omissão: a primeira conta é criada no
-  // arranque com uma palavra-passe escolhida por quem instala.
-  const alerta = document.getElementById('secAlerta');
-  if (alerta) alerta.style.display = 'none';
+function initAdmin() {
+  // Persistir dados padrão se ainda não existem no localStorage
+  // Inicializar noticias se ainda não existem
+  if (!localStorage.getItem(NEWS_KEY)) saveNoticias([]);
 
-  // As notícias vêm do servidor antes de se desenhar seja o que for,
-  // senão os ecrãs apanhavam a cache ainda vazia.
-  await carregarNoticias();
-  await carregarPatrocinadores();
+  // Verificar se ainda usa password padrão → mostrar alerta
+  (async function checkDefaultPassword() {
+    const stored = JSON.parse(localStorage.getItem('admin_creds') || 'null');
+    const defaultHash = await sha256('1234').catch(() => '');
+    const isDefault = !stored || (stored.pass === defaultHash) || (!stored.hashed && stored.pass === '1234');
+    const alerta = document.getElementById('secAlerta');
+    if (alerta) alerta.style.display = isDefault ? 'flex' : 'none';
+  })();
 
   renderDashboard();
   renderInscricoes();
@@ -439,7 +408,7 @@ function updateBadges() {
   document.getElementById('msgNovos').textContent       = naoLidas;
   document.getElementById('totalJogos').textContent     = jogosmes;
   document.getElementById('totalNoticias').textContent  = loadNoticias().filter(n => n.publicada).length;
-  document.getElementById('totalPatrocinadores').textContent = _patrocinadores.filter(p => p.ativo).length;
+  document.getElementById('totalPatrocinadores').textContent = (DB.patrocinadores || []).filter(p => p.ativo).length;
 }
 
 // ==================================================
@@ -1485,75 +1454,28 @@ window.guardarPlantel = function () {
 // UTILITÁRIO: UPLOAD DE IMAGEM
 // ==================================================
 
-// Reduz a imagem para máx. 800px e devolve-a como Blob.
-// PNG preserva transparência; JPEG usa qualidade 0.75.
-function _comprimirParaBlob(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('não foi possível ler o ficheiro'));
-    reader.onload = ev => {
-      const img = new Image();
-      img.onerror = () => reject(new Error('o ficheiro não é uma imagem válida'));
-      img.onload = () => {
-        const MAX = 800;
-        let w = img.width, h = img.height;
-        if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
-        const canvas = document.createElement('canvas');
-        canvas.width = w; canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        const isPng = file.type === 'image/png';
-        if (isPng) {
-          ctx.clearRect(0, 0, w, h); // preserve transparency
-        }
-        ctx.drawImage(img, 0, 0, w, h);
-        const tipo = isPng ? 'image/png' : 'image/jpeg';
-        canvas.toBlob(
-          blob => blob ? resolve(blob) : reject(new Error('não foi possível comprimir a imagem')),
-          tipo,
-          isPng ? undefined : 0.75
-        );
-      };
-      img.src = ev.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-// Comprime e envia a imagem para o servidor, devolvendo ao callback o
-// caminho do ficheiro (ex: "/uploads/20260901-a1b2.jpg").
-//
-// Antes isto devolvia a imagem em base64, que ia inteira para dentro do
-// conteúdo e enchia o localStorage — era o que fazia aparecer o aviso de
-// "armazenamento cheio". Agora o conteúdo guarda só o caminho.
-//
-// Não há recurso a base64 se o envio falhar: seria voltar a encher o
-// armazenamento sem se dar por isso. Falha de forma visível, porque as
-// causas (token errado, permissões da pasta, limites do PHP) são todas
-// coisas que precisam de ser corrigidas no servidor.
+// Comprime uma imagem para máx. 800px. PNG preserva transparência; JPEG usa qualidade 0.75.
 function compressImage(file, callback) {
-  _comprimirParaBlob(file)
-    .then(blob => {
-      const fd = new FormData();
-      const ext = blob.type === 'image/png' ? 'png' : 'jpg';
-      fd.append('ficheiro', blob, 'imagem.' + ext);
-      return fetch('/api/upload.php', {
-        method: 'POST',
-        headers: { 'X-JSC-Token': localStorage.getItem('jsc_api_token') || '' },
-        body: fd,
-      }).then(r => r.json().then(j => ({ ok: r.ok, status: r.status, j })));
-    })
-    .then(({ ok, status, j }) => {
-      if (!ok || !j.ok) {
-        const motivo = (j && j.error) ? j.error : ('HTTP ' + status);
-        throw new Error(status === 401
-          ? 'token inválido — verifique Configurações > Segurança'
-          : motivo);
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 800;
+      let w = img.width, h = img.height;
+      if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      const isPng = file.type === 'image/png';
+      if (isPng) {
+        ctx.clearRect(0, 0, w, h); // preserve transparency
       }
-      callback(j.url, Math.round((j.bytes || 0) / 1024));
-    })
-    .catch(err => {
-      showToast('❌ Falha ao carregar imagem: ' + err.message, 'red');
-    });
+      ctx.drawImage(img, 0, 0, w, h);
+      callback(canvas.toDataURL(isPng ? 'image/png' : 'image/jpeg', isPng ? undefined : 0.75));
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
 }
 
 function setupImageUpload(fileInputId, urlInputId, previewId) {
@@ -1590,96 +1512,24 @@ function setupImageUpload(fileInputId, urlInputId, previewId) {
 // ==================================================
 const NEWS_KEY = 'jsc_noticias';
 
-// As notícias vivem em MySQL (api/noticias.php). Aqui ficam em memória
-// para os ecrãs poderem continuar a lê-las de forma síncrona, como antes;
-// cada alteração vai ao servidor e o servidor é que manda.
-let _noticias = [];
-
-async function apiNoticias(payload) {
-  const r = await fetch('/api/noticias.php', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'same-origin',
-    body: JSON.stringify(payload),
-  });
-  let j = {};
-  try { j = await r.json(); } catch (_) {}
-  return { status: r.status, ...j };
+function loadNoticias() {
+  try { return JSON.parse(localStorage.getItem(NEWS_KEY) || '[]'); } catch(e) { return []; }
 }
 
-async function carregarNoticias() {
+function saveNoticias(arr) {
   try {
-    const r = await fetch('/api/noticias.php?todas=1', { credentials: 'same-origin' });
-    const j = await r.json();
-    if (j.ok) { _noticias = j.noticias || []; return true; }
-    if (r.status === 503) showToast('Notícias: base de dados não configurada no servidor.', 'red');
-    else showToast('Não foi possível carregar as notícias: ' + (j.error || r.status), 'red');
-  } catch (e) {
-    showToast('Sem ligação ao servidor para carregar notícias.', 'red');
+    localStorage.setItem(NEWS_KEY, JSON.stringify(arr));
+    return true;
+  } catch(e) {
+    showToast('ERRO: armazenamento cheio. Apague notícias antigas.', 'red');
+    return false;
   }
-  return false;
 }
-
-function loadNoticias() { return _noticias; }
-
-// Só continua a servir a importação em bloco (restauro de backup).
-async function saveNoticias(arr) {
-  const r = await apiNoticias({ acao: 'importar', noticias: arr || [] });
-  if (r.ok) await carregarNoticias();
-  return !!r.ok;
-}
-
-// As notícias que ficaram no browser antes de a base de dados existir.
-// São oferecidas para importação em vez de importadas em silêncio: quem
-// decide o que é conteúdo bom é quem gere o site, não este código.
-function _noticiasPorImportar() {
-  try {
-    const antigas = JSON.parse(localStorage.getItem('jsc_noticias') || '[]');
-    if (!Array.isArray(antigas) || !antigas.length) return [];
-    const idsNoServidor = new Set(_noticias.map(n => String(n.id)));
-    return antigas.filter(n => n && n.titulo && !idsNoServidor.has(String(n.id)));
-  } catch (_) { return []; }
-}
-
-window.importarNoticiasAntigas = async function () {
-  const antigas = _noticiasPorImportar();
-  if (!antigas.length) return;
-  if (!confirm(`Importar ${antigas.length} notícia(s) guardada(s) neste browser para a base de dados?`)) return;
-  const r = await apiNoticias({ acao: 'importar', noticias: antigas });
-  if (!r.ok) { showToast('❌ ' + (r.error || 'não foi possível importar'), 'red'); return; }
-  await carregarNoticias();
-  renderNoticias();
-  updateBadges();
-  showToast(`✓ ${r.importadas} notícia(s) importada(s).`, 'green');
-};
-
-window.dispensarImportacao = function () {
-  if (!confirm('Descartar as notícias guardadas neste browser? Esta cópia local é apagada.')) return;
-  try { localStorage.removeItem('jsc_noticias'); } catch (_) {}
-  renderNoticias();
-};
 
 function renderNoticias() {
   const grid = document.getElementById('newsAdminGrid');
   if (!grid) return;
   const lista = loadNoticias();
-
-  const porImportar = _noticiasPorImportar();
-  const aviso = document.getElementById('avisoImportNoticias');
-  if (aviso) {
-    aviso.innerHTML = porImportar.length ? `
-      <div style="background:#fff3cd;border:1px solid #ffc107;border-left:4px solid #f59e0b;
-                  border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;
-                  align-items:center;gap:12px;flex-wrap:wrap">
-        <span style="flex:1;min-width:240px;font-size:0.86rem">
-          <strong>${porImportar.length} notícia(s)</strong> ainda só existem neste browser.
-          As notícias passaram a viver na base de dados — importe-as para ficarem visíveis
-          em qualquer dispositivo.
-        </span>
-        <button class="btn-sm" onclick="importarNoticiasAntigas()">Importar</button>
-        <button class="btn-sm" onclick="dispensarImportacao()" style="color:#c00">Descartar</button>
-      </div>` : '';
-  }
   grid.innerHTML = [
     `<div class="news-admin-card" style="display:flex;align-items:center;justify-content:center;
       min-height:240px;border:2px dashed #e2e8f0;background:#f4f6fb;cursor:pointer"
@@ -1711,11 +1561,6 @@ function renderNoticias() {
           <div class="news-admin-date">${fmtDate(n.data)} &middot; ${statusHtml}</div>
         </div>
         <div class="news-admin-footer">
-          <button class="btn-icon" onclick="alternarNoticia(${n.id},'publicada',${!n.publicada})"
-                  title="${n.publicada ? 'Retirar do site' : 'Publicar no site'}">${n.publicada ? '&#128065;' : '&#128584;'}</button>
-          <button class="btn-icon" onclick="alternarNoticia(${n.id},'destaque',${!n.destaque})"
-                  title="${n.destaque ? 'Tirar de destaque' : 'Destacar na página inicial'}"
-                  style="${n.destaque ? 'color:#f59e0b' : ''}">&#11088;</button>
           <button class="btn-icon" onclick="editNoticia(${n.id})" title="Editar">&#9998;</button>
           <button class="btn-icon btn-icon--red" onclick="removeNoticia(${n.id})" title="Eliminar">&#128465;</button>
         </div>
@@ -2167,47 +2012,36 @@ window.saveNoticia = function(id) {
     destaque:   document.getElementById('mDestaque')?.checked    || false,
   };
 
-  guardarNoticiaNoServidor(id, dados);
-};
+  const lista = loadNoticias();
 
-async function guardarNoticiaNoServidor(id, dados) {
-  const r = await apiNoticias({ acao: 'guardar', noticia: id === null ? dados : { id, ...dados } });
-  if (!r.ok) { showToast('❌ ' + (r.error || 'não foi possível guardar'), 'red'); return; }
+  if (id === null) {
+    lista.unshift({ id: Date.now(), ...dados });
+  } else {
+    const idx = lista.findIndex(n => n.id == id);
+    if (idx > -1) lista[idx] = { ...lista[idx], ...dados };
+  }
+
+  if (!saveNoticias(lista)) return;
 
   try { localStorage.removeItem('news_autosave'); } catch (e) {}
-  await carregarNoticias();
-  const visiveis = _noticias.filter(n => n.publicada).length;
-  showToast(`${id === null ? 'Notícia criada' : 'Notícia actualizada'}! ${visiveis} visível(is) no site.`, 'green');
+  const now = new Date().toISOString();
+  const pub = lista.filter(n => n.publicada || (n.scheduledAt && n.scheduledAt <= now)).length;
+  showToast(`${id === null ? 'Notícia criada' : 'Notícia actualizada'}! ${pub} visível(is) no site.`, 'green');
   renderNoticias();
-  updateBadges();
   closeModal();
-}
+};
 
 window.editNoticia = function(id) {
   const n = loadNoticias().find(n => n.id === id);
   if (n) abrirModalNoticia(n);
 };
 
-window.removeNoticia = async function(id) {
+window.removeNoticia = function(id) {
   if (!confirm('Eliminar esta notícia?')) return;
-  const r = await apiNoticias({ acao: 'apagar', id });
-  if (!r.ok) { showToast('❌ ' + (r.error || 'não foi possível eliminar'), 'red'); return; }
-  await carregarNoticias();
+  const lista = loadNoticias().filter(n => n.id !== id);
+  saveNoticias(lista);
   renderNoticias();
-  updateBadges();
   showToast('Notícia eliminada.', 'red');
-};
-
-// Interruptores directos na lista, sem abrir a notícia
-window.alternarNoticia = async function(id, campo, valor) {
-  const r = await apiNoticias({ acao: 'alternar', id, campo, valor });
-  if (!r.ok) { showToast('❌ ' + (r.error || 'não foi possível alterar'), 'red'); return; }
-  await carregarNoticias();
-  renderNoticias();
-  updateBadges();
-  showToast(campo === 'publicada'
-    ? (valor ? '✓ Notícia publicada' : 'Notícia retirada do site')
-    : (valor ? '✓ Em destaque na página inicial' : 'Destaque removido'), 'green');
 };
 
 window.toggleAgendamento = function() {
@@ -2663,96 +2497,11 @@ window.removeJogo = function (id) {
 // ==================================================
 // PATROCINADORES
 // ==================================================
-// ==================================================
-// PATROCINADORES — em MySQL (api/patrocinadores.php)
-// ==================================================
-// Ganharam logótipo e ordem de apresentação, que antes não existiam de
-// todo: o site já sabia desenhar sp.logo, mas o painel nunca o dava.
-let _patrocinadores = [];
-
-async function apiPatrocinadores(payload) {
-  const r = await fetch('/api/patrocinadores.php', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'same-origin',
-    body: JSON.stringify(payload),
-  });
-  let j = {};
-  try { j = await r.json(); } catch (_) {}
-  return { status: r.status, ...j };
-}
-
-async function carregarPatrocinadores() {
-  try {
-    const r = await fetch('/api/patrocinadores.php?todos=1', { credentials: 'same-origin' });
-    const j = await r.json();
-    if (j.ok) { _patrocinadores = j.patrocinadores || []; return true; }
-    if (r.status === 503) showToast('Patrocinadores: base de dados não configurada.', 'red');
-  } catch (_) {
-    showToast('Sem ligação ao servidor para carregar patrocinadores.', 'red');
-  }
-  return false;
-}
-
-// Os que ficaram no browser, de antes de existir base de dados
-function _patrocinadoresPorImportar() {
-  try {
-    const antigos = (DB.patrocinadores || []);
-    if (!antigos.length) return [];
-    const ids = new Set(_patrocinadores.map(p => String(p.id)));
-    return antigos.filter(p => p && p.nome && !ids.has(String(p.id)));
-  } catch (_) { return []; }
-}
-
-window.importarPatrocinadoresAntigos = async function () {
-  const antigos = _patrocinadoresPorImportar();
-  if (!antigos.length) return;
-  if (!confirm(`Importar ${antigos.length} patrocinador(es) deste browser para a base de dados?`)) return;
-  const r = await apiPatrocinadores({ acao: 'importar', patrocinadores: antigos });
-  if (!r.ok) { showToast('❌ ' + (r.error || 'não foi possível importar'), 'red'); return; }
-  await carregarPatrocinadores();
-  renderPatrocinadores();
-  showToast(`✓ ${r.importados} patrocinador(es) importado(s).`, 'green');
-};
-
-window.dispensarImportPatrocinadores = function () {
-  if (!confirm('Descartar os patrocinadores guardados neste browser?')) return;
-  DB.patrocinadores = [];
-  saveDB();
-  renderPatrocinadores();
-};
-
-function _logoAdminHtml(p) {
-  if (p.logo) {
-    return `<img src="${p.logo}" alt="${p.nome}" style="max-width:100%;max-height:52px;object-fit:contain"
-             onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'sem logo',style:'font-size:.7rem;color:#c00'}))" />`;
-  }
-  return '<span style="font-size:0.72rem;color:#9ca3af">sem logótipo</span>';
-}
-
 function renderPatrocinadores() {
   const wrap = document.getElementById('sponsorsAdminTiers');
-  if (!wrap) return;
-
-  const porImportar = _patrocinadoresPorImportar();
-  const aviso = document.getElementById('avisoImportPatrocinadores');
-  if (aviso) {
-    aviso.innerHTML = porImportar.length ? `
-      <div style="background:#fff3cd;border:1px solid #ffc107;border-left:4px solid #f59e0b;
-                  border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;
-                  align-items:center;gap:12px;flex-wrap:wrap">
-        <span style="flex:1;min-width:240px;font-size:0.86rem">
-          <strong>${porImportar.length} patrocinador(es)</strong> ainda só existem neste browser.
-          Importe-os para ficarem na base de dados.
-        </span>
-        <button class="btn-sm" onclick="importarPatrocinadoresAntigos()">Importar</button>
-        <button class="btn-sm" onclick="dispensarImportPatrocinadores()" style="color:#c00">Descartar</button>
-      </div>` : '';
-  }
-
   const tiers = ['Ouro', 'Prata', 'Bronze'];
   wrap.innerHTML = tiers.map(tier => {
-    const lista = _patrocinadores.filter(p => p.tier === tier);
+    const lista = DB.patrocinadores.filter(p => p.tier === tier);
     return `
       <div class="sponsors-admin-tier">
         <div class="sponsors-admin-tier__header">
@@ -2760,142 +2509,122 @@ function renderPatrocinadores() {
           <span style="font-size:0.8rem;color:var(--gray-text)">${lista.filter(p=>p.ativo).length} activos · ${lista.filter(p=>!p.ativo).length} inactivos</span>
         </div>
         <div class="sponsors-admin-grid">
-          ${lista.map((p, i) => `
+          ${lista.map(p => `
             <div class="sponsor-admin-card ${p.ativo ? '' : 'sponsor-admin-card--inactive'}">
               <span class="sponsor-admin-card__tier-dot dot--${p.tier.toLowerCase()}"></span>
-              <div class="sponsor-admin-logo">${_logoAdminHtml(p)}</div>
+              <div class="sponsor-admin-logo">${p.nome}</div>
               <div class="sponsor-admin-name">${p.nome}</div>
-              <div class="sponsor-admin-sector">${p.sector || '—'}${p.desde ? ' · Desde ' + p.desde : ''}</div>
+              <div class="sponsor-admin-sector">${p.sector} · Desde ${p.desde}</div>
               <div class="sponsor-admin-actions">
-                <button class="btn-icon" onclick="moverPatrocinador(${p.id},'cima')"
-                        title="Subir" ${i === 0 ? 'disabled style="opacity:.3"' : ''}>&#9650;</button>
-                <button class="btn-icon" onclick="moverPatrocinador(${p.id},'baixo')"
-                        title="Descer" ${i === lista.length - 1 ? 'disabled style="opacity:.3"' : ''}>&#9660;</button>
                 <button class="btn-icon" onclick="editPatrocinador(${p.id})" title="Editar">&#9998;</button>
                 <button class="btn-icon ${p.ativo ? 'btn-icon--red' : 'btn-icon--green'}"
-                  onclick="togglePatrocinador(${p.id}, ${!p.ativo})"
+                  onclick="togglePatrocinador(${p.id})"
                   title="${p.ativo ? 'Desactivar' : 'Activar'}">${p.ativo ? '&#9940;' : '&#9989;'}</button>
                 <button class="btn-icon btn-icon--red" onclick="removePatrocinador(${p.id})" title="Eliminar">&#128465;</button>
               </div>
-            </div>`).join('') || '<p style="font-size:0.8rem;color:#9ca3af;margin:0">Nenhum patrocinador neste nível.</p>'}
+            </div>`).join('')}
         </div>
       </div>`;
   }).join('');
 }
 
-// Um único formulário para criar e editar
-function _formPatrocinador(p) {
-  p = p || {};
-  const tiers = ['Ouro', 'Prata', 'Bronze'];
-  return `
+document.getElementById('btnNovoPatrocinador')?.addEventListener('click', () => {
+  openModal('Novo Patrocinador', `
     <div class="modal-row">
       <div class="modal-field"><label>Nome da empresa *</label>
-        <input type="text" id="mPNome" value="${(p.nome || '').replace(/"/g, '&quot;')}" placeholder="Nome da empresa" /></div>
+        <input type="text" id="mPNome" placeholder="Nome da empresa" /></div>
       <div class="modal-field"><label>Sector</label>
-        <input type="text" id="mPSector" value="${(p.sector || '').replace(/"/g, '&quot;')}" placeholder="Ex: Construção, Saúde..." /></div>
+        <input type="text" id="mPSector" placeholder="Ex: Construção, Saúde..." /></div>
     </div>
     <div class="modal-row">
-      <div class="modal-field"><label>Categoria</label>
-        <select id="mPTier">${tiers.map(t => `<option ${t === p.tier ? 'selected' : ''}>${t}</option>`).join('')}</select>
+      <div class="modal-field"><label>Nível de patrocínio</label>
+        <select id="mPTier">
+          <option>Ouro</option><option>Prata</option><option>Bronze</option>
+        </select>
       </div>
-      <div class="modal-field"><label>Ordem <small style="color:#9ca3af">(menor aparece primeiro)</small></label>
-        <input type="number" id="mPOrdem" value="${p.ordem != null ? p.ordem : ''}" placeholder="fim da lista" /></div>
-    </div>
-    <div class="modal-row">
-      <div class="modal-field"><label>Website / link</label>
-        <input type="url" id="mPWebsite" value="${(p.website || '').replace(/"/g, '&quot;')}" placeholder="https://empresa.pt" /></div>
       <div class="modal-field"><label>Ano de início</label>
-        <input type="number" id="mPDesde" value="${p.desde || new Date().getFullYear()}" min="1900" max="2099" /></div>
+        <input type="number" id="mPDesde" value="2026" min="2000" max="2099" /></div>
     </div>
-    <div class="modal-field">
-      <label>Logótipo</label>
-      <div class="img-upload-box">
-        <input type="file" id="mPLogoFicheiro" accept="image/*" style="display:none" />
-        <label class="img-upload-btn" for="mPLogoFicheiro">&#128193; Escolher ficheiro</label>
-        <input class="form-input" type="text" id="mPLogo" value="${(p.logo || '').replace(/"/g, '&quot;')}" placeholder="ou cole o endereço da imagem..." />
-      </div>
-      <div id="mPLogoPreview" style="margin-top:8px;${p.logo ? '' : 'display:none'}">
-        <img src="${p.logo || ''}" alt="" style="max-height:70px;max-width:100%;object-fit:contain;background:#f5f7fa;padding:6px;border-radius:6px" />
-      </div>
-    </div>
-    <label style="display:flex;align-items:center;gap:8px;font-size:0.86rem;margin-top:4px">
-      <input type="checkbox" id="mPAtivo" ${p.id === undefined || p.ativo ? 'checked' : ''} /> Mostrar no site
-    </label>`;
-}
-
-function _ligarUploadLogo() {
-  // Reutiliza o upload de imagens: comprime e envia para /uploads/,
-  // guardando só o caminho.
-  setupImageUpload('mPLogoFicheiro', 'mPLogo', 'mPLogoPreview');
-}
-
-document.getElementById('btnNovoPatrocinador')?.addEventListener('click', () => {
-  openModal('Novo Patrocinador', _formPatrocinador(null),
+    <div class="modal-field"><label>Website (opcional)</label>
+      <input type="url" id="mPWebsite" placeholder="https://empresa.pt" /></div>`,
     `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
-     <button class="btn-save" onclick="guardarPatrocinador(null)">Guardar</button>`
+     <button class="btn-save" onclick="saveNovoPatrocinador()">Guardar</button>`
   );
-  _ligarUploadLogo();
 });
 
-window.editPatrocinador = function (id) {
-  const p = _patrocinadores.find(x => x.id === id);
-  if (!p) return;
-  openModal(`Editar — ${p.nome}`, _formPatrocinador(p),
-    `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
-     <button class="btn-save" onclick="guardarPatrocinador(${id})">Guardar</button>`
-  );
-  _ligarUploadLogo();
-};
-
-window.guardarPatrocinador = async function (id) {
+window.saveNovoPatrocinador = function () {
   const nome = document.getElementById('mPNome').value.trim();
   if (!nome) { showToast('Introduza o nome.', 'red'); return; }
-  const ordemRaw = document.getElementById('mPOrdem').value;
-
-  const dados = {
-    nome,
-    sector:  document.getElementById('mPSector').value.trim(),
+  DB.patrocinadores.push({
+    id: Date.now(), nome,
+    sector:  document.getElementById('mPSector').value || '—',
     tier:    document.getElementById('mPTier').value,
-    website: document.getElementById('mPWebsite').value.trim(),
-    logo:    document.getElementById('mPLogo').value.trim(),
-    desde:   String(document.getElementById('mPDesde').value || ''),
-    ativo:   document.getElementById('mPAtivo').checked,
-  };
-  if (ordemRaw !== '') dados.ordem = parseInt(ordemRaw, 10);
-  if (id !== null) dados.id = id;
-
-  const r = await apiPatrocinadores({ acao: 'guardar', patrocinador: dados });
-  if (!r.ok) { showToast('❌ ' + (r.error || 'não foi possível guardar'), 'red'); return; }
-  await carregarPatrocinadores();
+    desde:   String(document.getElementById('mPDesde').value),
+    website: document.getElementById('mPWebsite').value,
+    ativo:   true,
+  });
+  saveDB();
   renderPatrocinadores();
-  updateBadges();
   closeModal();
-  showToast(id === null ? 'Patrocinador adicionado!' : 'Patrocinador actualizado!', 'green');
+  showToast('Patrocinador adicionado!', 'green');
 };
 
-window.togglePatrocinador = async function (id, valor) {
-  const r = await apiPatrocinadores({ acao: 'alternar', id, valor });
-  if (!r.ok) { showToast('❌ ' + (r.error || 'não foi possível alterar'), 'red'); return; }
-  await carregarPatrocinadores();
+window.editPatrocinador = function (id) {
+  const p = DB.patrocinadores.find(x => x.id === id);
+  if (!p) return;
+  openModal(`Editar — ${p.nome}`, `
+    <div class="modal-row">
+      <div class="modal-field"><label>Nome</label>
+        <input type="text" id="mPNome" value="${p.nome}" /></div>
+      <div class="modal-field"><label>Sector</label>
+        <input type="text" id="mPSector" value="${p.sector}" /></div>
+    </div>
+    <div class="modal-row">
+      <div class="modal-field"><label>Nível</label>
+        <select id="mPTier">
+          ${['Ouro','Prata','Bronze'].map(t =>
+            `<option ${t===p.tier?'selected':''}>${t}</option>`).join('')}
+        </select>
+      </div>
+      <div class="modal-field"><label>Desde</label>
+        <input type="number" id="mPDesde" value="${p.desde}" /></div>
+    </div>
+    <div class="modal-field"><label>Website</label>
+      <input type="url" id="mPWebsite" value="${p.website}" /></div>`,
+    `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+     <button class="btn-save" onclick="saveEditPatrocinador(${id})">Guardar</button>`
+  );
+};
+
+window.saveEditPatrocinador = function (id) {
+  const p = DB.patrocinadores.find(x => x.id === id);
+  if (!p) return;
+  p.nome    = document.getElementById('mPNome').value.trim() || p.nome;
+  p.sector  = document.getElementById('mPSector').value;
+  p.tier    = document.getElementById('mPTier').value;
+  p.desde   = String(document.getElementById('mPDesde').value);
+  p.website = document.getElementById('mPWebsite').value;
+  saveDB();
   renderPatrocinadores();
-  updateBadges();
-  showToast(valor ? 'Patrocinador activado.' : 'Patrocinador desactivado.', valor ? 'green' : '');
+  closeModal();
+  showToast('Patrocinador actualizado!', 'green');
 };
 
-window.moverPatrocinador = async function (id, sentido) {
-  const r = await apiPatrocinadores({ acao: 'mover', id, sentido });
-  if (!r.ok) { showToast('❌ ' + (r.error || 'não foi possível mover'), 'red'); return; }
-  await carregarPatrocinadores();
+window.togglePatrocinador = function (id) {
+  const p = DB.patrocinadores.find(x => x.id === id);
+  if (!p) return;
+  p.ativo = !p.ativo;
+  saveDB();
   renderPatrocinadores();
+  showToast(p.ativo ? 'Patrocinador activado.' : 'Patrocinador desactivado.', p.ativo ? 'green' : '');
 };
 
-window.removePatrocinador = async function (id) {
+window.removePatrocinador = function (id) {
   if (!confirm('Eliminar este patrocinador?')) return;
-  const r = await apiPatrocinadores({ acao: 'apagar', id });
-  if (!r.ok) { showToast('❌ ' + (r.error || 'não foi possível eliminar'), 'red'); return; }
-  await carregarPatrocinadores();
+  const idx = DB.patrocinadores.findIndex(x => x.id === id);
+  if (idx > -1) DB.patrocinadores.splice(idx, 1);
+  saveDB();
   renderPatrocinadores();
-  updateBadges();
   showToast('Patrocinador eliminado.', 'red');
 };
 
@@ -4923,7 +4652,9 @@ function initConfiguracoes() {
   const ultimaPubEl = document.getElementById('ultimaPublicacao');
   if (ultimaPubEl && ultimaPub) ultimaPubEl.textContent = 'Última publicação: ' + ultimaPub;
 
-  // Lista de administradores — vem do servidor
+  // Carregar credenciais guardadas
+  const creds = JSON.parse(localStorage.getItem('admin_creds') || '{}');
+  if (creds.user) document.getElementById('cfgAdminUser').value = creds.user;
   renderAdminUsers();
 
   // Carregar cores guardadas + grelha de templates
@@ -5004,110 +4735,90 @@ window.resetarLegal = function() {
   showToast('Texto padrão reposto.', 'green');
 };
 
-// Segurança e utilizadores — agora tudo no servidor (api/utilizadores.php).
-// As contas deixaram de viver no localStorage com um SHA-256 sem sal: o
-// servidor guarda password_hash() (bcrypt) e é ele que valida.
-
-async function apiUtilizadores(payload, metodo) {
-  const r = await fetch('/api/utilizadores.php', {
-    method: metodo || 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'same-origin',
-    body: metodo === 'GET' ? undefined : JSON.stringify(payload),
-  });
-  let j = {};
-  try { j = await r.json(); } catch (_) {}
-  return { status: r.status, ...j };
-}
-
-// Mudar a minha própria palavra-passe. Exige a atual, para que um ecrã
-// deixado aberto não sirva para tomar a conta.
 async function guardarSeguranca() {
-  const atual = document.getElementById('cfgAdminPwAtual')?.value || '';
-  const nova  = document.getElementById('cfgAdminPw').value;
-  const conf  = document.getElementById('cfgAdminPwConf').value;
-  if (!atual) { showToast('Introduza a palavra-passe atual', 'red'); return; }
-  if (nova.length < 10) { showToast('A nova palavra-passe precisa de pelo menos 10 caracteres', 'red'); return; }
-  if (nova !== conf) { showToast('As palavras-passe não coincidem', 'red'); return; }
+  const user = document.getElementById('cfgAdminUser').value.trim();
+  const pw   = document.getElementById('cfgAdminPw').value;
+  const conf = document.getElementById('cfgAdminPwConf').value;
+  if (!user) { showToast('Introduza o nome de utilizador', 'red'); return; }
+  if (pw && pw.length < 6) { showToast('A palavra-passe deve ter pelo menos 6 caracteres', 'red'); return; }
+  if (pw && pw !== conf)   { showToast('As palavras-passe não coincidem', 'red'); return; }
 
-  const r = await apiUtilizadores({ acao: 'alterar-password', atual, nova });
-  if (!r.ok) { showToast('❌ ' + (r.error || 'não foi possível alterar'), 'red'); return; }
-  ['cfgAdminPwAtual','cfgAdminPw','cfgAdminPwConf'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.value = '';
-  });
+  const existing = JSON.parse(localStorage.getItem('admin_creds') || 'null');
+  let passHash = existing?.pass || null;
+
+  if (pw) {
+    try { passHash = await sha256(pw); } catch(_) { passHash = pw; }
+  }
+  if (!passHash) {
+    showToast('Introduza uma palavra-passe', 'red'); return;
+  }
+
+  localStorage.setItem('admin_creds', JSON.stringify({ user, pass: passHash, hashed: true }));
+  document.getElementById('cfgAdminPw').value = '';
+  document.getElementById('cfgAdminPwConf').value = '';
+
+  // Esconder aviso de password padrão se existir
   const alerta = document.getElementById('secAlerta');
   if (alerta) alerta.style.display = 'none';
-  showToast('✓ Palavra-passe alterada', 'green');
+
+  showToast('✓ Credenciais guardadas com segurança (SHA-256)', 'green');
 }
 
-// ---- ADMINISTRADORES ----
-async function renderAdminUsers() {
+// ---- UTILIZADORES ADICIONAIS ----
+function _loadAdminUsers() {
+  try { return JSON.parse(localStorage.getItem('admin_users') || '[]'); } catch(_) { return []; }
+}
+
+function renderAdminUsers() {
   const el = document.getElementById('adminUsersList');
   if (!el) return;
-  const r = await apiUtilizadores(null, 'GET');
-  if (!r.ok) {
-    el.innerHTML = '<p style="font-size:0.78rem;color:#c00;margin:0">' +
-      (r.status === 503 ? 'Base de dados não configurada.' : (r.error || 'Não foi possível carregar.')) + '</p>';
+  const users = _loadAdminUsers();
+  if (!users.length) {
+    el.innerHTML = '<p style="font-size:0.78rem;color:#aaa;margin:0">Nenhum utilizador adicional.</p>';
     return;
   }
-  const souDono = (r.eu && r.eu.papel === 'dono') || (r.eu && r.eu.id === 0);
-  el.innerHTML = (r.utilizadores || []).map(u => {
-    const eu = r.eu && u.id === r.eu.id;
-    const acesso = u.ultimo_acesso ? new Date(u.ultimo_acesso.replace(' ', 'T')).toLocaleString('pt-PT') : 'nunca entrou';
-    return `
+  el.innerHTML = users.map((a, i) => `
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:#f5f7fa;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px">
-      <div style="min-width:0">
-        <div style="font-size:0.85rem;font-weight:600">
-          &#128100; ${u.utilizador}
-          ${u.papel === 'dono' ? '<span style="font-size:0.7rem;color:#003B8E"> · principal</span>' : ''}
-          ${eu ? '<span style="font-size:0.7rem;color:#888"> · você</span>' : ''}
-        </div>
-        <div style="font-size:0.72rem;color:#888">${u.email} · ${acesso}</div>
-      </div>
-      ${souDono && !eu ? `<div style="display:flex;gap:4px;flex-shrink:0">
-        <button class="btn-sm" title="Definir nova palavra-passe" onclick="redefinirAdminUser(${u.id},'${u.utilizador}')">&#128273;</button>
-        <button class="btn-sm" style="color:#c00" title="Remover" onclick="removerAdminUser(${u.id},'${u.utilizador}')">&#x2715;</button>
-      </div>` : ''}
-    </div>`;
-  }).join('') || '<p style="font-size:0.78rem;color:#aaa;margin:0">Nenhum administrador.</p>';
+      <span style="font-size:0.85rem;font-weight:600">&#128100; ${a.user}</span>
+      <button class="btn-sm" style="color:#c00" title="Remover utilizador" onclick="removerAdminUser(${i})">&#x2715;</button>
+    </div>`).join('');
 }
 
 window.adicionarAdminUser = async function () {
-  const utilizador = document.getElementById('novoUserNome')?.value.trim();
-  const email      = document.getElementById('novoUserEmail')?.value.trim();
-  const pw         = document.getElementById('novoUserPw')?.value || '';
-  const conf       = document.getElementById('novoUserPwConf')?.value || '';
-  if (!utilizador) { showToast('Introduza o nome de utilizador', 'red'); return; }
-  if (!email)      { showToast('Introduza o email (necessário para recuperar a palavra-passe)', 'red'); return; }
-  if (pw.length < 10) { showToast('A palavra-passe precisa de pelo menos 10 caracteres', 'red'); return; }
-  if (pw !== conf)    { showToast('As palavras-passe não coincidem', 'red'); return; }
+  const nome = document.getElementById('novoUserNome')?.value.trim();
+  const pw   = document.getElementById('novoUserPw')?.value || '';
+  const conf = document.getElementById('novoUserPwConf')?.value || '';
+  if (!nome) { showToast('Introduza o nome de utilizador', 'red'); return; }
+  if (pw.length < 6) { showToast('A palavra-passe deve ter pelo menos 6 caracteres', 'red'); return; }
+  if (pw !== conf) { showToast('As palavras-passe não coincidem', 'red'); return; }
 
-  const r = await apiUtilizadores({ acao: 'criar', utilizador, email, palavra_passe: pw });
-  if (!r.ok) { showToast('❌ ' + (r.error || 'não foi possível criar'), 'red'); return; }
-  ['novoUserNome','novoUserEmail','novoUserPw','novoUserPwConf'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.value = '';
-  });
+  const principal = JSON.parse(localStorage.getItem('admin_creds') || 'null');
+  const users = _loadAdminUsers();
+  if ((principal && principal.user === nome) || users.some(a => a.user === nome)) {
+    showToast('Já existe um utilizador com esse nome', 'red'); return;
+  }
+
+  let hash;
+  try { hash = await sha256(pw); } catch(_) { hash = pw; }
+  users.push({ user: nome, pass: hash, hashed: true, criado: new Date().toISOString().slice(0, 10) });
+  localStorage.setItem('admin_users', JSON.stringify(users));
+
+  document.getElementById('novoUserNome').value = '';
+  document.getElementById('novoUserPw').value = '';
+  document.getElementById('novoUserPwConf').value = '';
   renderAdminUsers();
-  showToast(`✓ Administrador "${utilizador}" criado`, 'green');
+  showToast(`✓ Utilizador "${nome}" adicionado`, 'green');
 };
 
-window.removerAdminUser = async function (id, nome) {
-  if (!confirm(`Remover "${nome}"? Deixará de conseguir entrar no painel.`)) return;
-  const r = await apiUtilizadores({ acao: 'remover', id });
-  if (!r.ok) { showToast('❌ ' + (r.error || 'não foi possível remover'), 'red'); return; }
+window.removerAdminUser = function (idx) {
+  const users = _loadAdminUsers();
+  const u = users[idx];
+  if (!u) return;
+  if (!confirm(`Remover o utilizador "${u.user}"? Deixará de conseguir entrar no painel.`)) return;
+  users.splice(idx, 1);
+  localStorage.setItem('admin_users', JSON.stringify(users));
   renderAdminUsers();
-  showToast(`Administrador "${nome}" removido`, 'green');
-};
-
-// Recuperação sem depender do email: o administrador principal define
-// directamente uma nova palavra-passe para um colega.
-window.redefinirAdminUser = async function (id, nome) {
-  const nova = prompt(`Nova palavra-passe para "${nome}" (mínimo 10 caracteres):`);
-  if (nova === null) return;
-  if (nova.length < 10) { showToast('A palavra-passe precisa de pelo menos 10 caracteres', 'red'); return; }
-  const r = await apiUtilizadores({ acao: 'redefinir', id, nova });
-  if (!r.ok) { showToast('❌ ' + (r.error || 'não foi possível redefinir'), 'red'); return; }
-  showToast(`✓ Palavra-passe de "${nome}" redefinida`, 'green');
+  showToast(`Utilizador "${u.user}" removido`, 'green');
 };
 
 // ---- TOKEN DE PUBLICAÇÃO ----
@@ -5133,15 +4844,14 @@ async function publicarNoServidor() {
   }
   const dados = {
     publicadoEm:    new Date().toISOString(),
-    // noticias: já vivem em MySQL, servidas por api/noticias.php
-    
+    noticias:       loadNoticias(),
     agenda:         DB.agenda,
     galeria:        DB.galeria,
     videos:         DB.videos,
     atletas:        DB.atletas,
     escaloes:       DB.escaloes,
     treinadores:    DB.treinadores,
-    // patrocinadores: já vivem em MySQL (api/patrocinadores.php)
+    patrocinadores: DB.patrocinadores,
     modalidades:    DB.modalidades,
     modPosts:       ls('db_mod_posts'),
     jogos:          DB.jogos,
@@ -5448,6 +5158,8 @@ function exportarDados() {
     siteCores:      ls('site_cores'),
     emailConfig:    ls('email_config'),
     apiToken:       ls('jsc_api_token'),
+    adminCreds:     ls('admin_creds'),
+    adminUsers:     ls('admin_users'),
   };
   const blob = new Blob([JSON.stringify(dados, null, 2)], { type: 'application/json' });
   const a    = document.createElement('a');
@@ -5508,6 +5220,8 @@ function processarImportBackup(e) {
       lsSet('site_cores',       d.siteCores);
       lsSet('email_config',     d.emailConfig);
       lsSet('jsc_api_token',    d.apiToken);
+      if (d.adminCreds) lsSet('admin_creds', d.adminCreds);
+      if (d.adminUsers) lsSet('admin_users', d.adminUsers);
       showToast('✓ Backup importado com sucesso! A recarregar...', 'green');
       setTimeout(() => location.reload(), 1500);
     } catch {

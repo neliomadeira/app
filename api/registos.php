@@ -3,9 +3,14 @@
 // base de dados. Protegido pelo mesmo token de publicação (JSC_TOKEN).
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
-require_once __DIR__ . '/sessao.php';
+require_once __DIR__ . '/db.php';
 
-jsc_exigir_admin();
+$token = isset($_SERVER['HTTP_X_JSC_TOKEN']) ? $_SERVER['HTTP_X_JSC_TOKEN'] : '';
+if (!$token || $token !== JSC_TOKEN) {
+    http_response_code(401);
+    echo '{"ok":false,"error":"token invalido"}';
+    exit;
+}
 
 $pdo = jsc_db();
 if (!$pdo) {

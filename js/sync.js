@@ -1,43 +1,4 @@
 // sync.js — sincroniza dados do servidor com o localStorage
-
-// As notícias vivem em MySQL e são pedidas em cada visita, fora do bloco
-// abaixo: aquele só corre uma vez por sessão, e uma notícia publicada há
-// cinco minutos não pode ficar à espera que o visitante feche o browser.
-(function () {
-  fetch('/api/noticias.php', { cache: 'no-store' })
-    .then(function (r) { return r.ok ? r.json() : null; })
-    .then(function (j) {
-      if (!j || !j.ok || !Array.isArray(j.noticias)) return;
-      try {
-        var json = JSON.stringify(j.noticias);
-        if (localStorage.getItem('jsc_noticias') !== json) {
-          localStorage.setItem('jsc_noticias', json);
-        }
-      } catch (_) {}
-      // Avisa quem já desenhou com os dados antigos. Os ecrãs voltam a
-      // desenhar sozinhos, sem o recarregamento da página que o bloco
-      // seguinte faz.
-      document.dispatchEvent(new CustomEvent('jsc:synced'));
-    })
-    .catch(function () {});   // sem servidor, fica o que estiver em cache
-
-  // Patrocinadores: já vêm ordenados pelo servidor (categoria, depois a
-  // coluna ordem), portanto o site só tem de os desenhar por esta ordem.
-  fetch('/api/patrocinadores.php', { cache: 'no-store' })
-    .then(function (r) { return r.ok ? r.json() : null; })
-    .then(function (j) {
-      if (!j || !j.ok || !Array.isArray(j.patrocinadores)) return;
-      try {
-        var json = JSON.stringify(j.patrocinadores);
-        if (localStorage.getItem('db_patrocinadores') !== json) {
-          localStorage.setItem('db_patrocinadores', json);
-        }
-      } catch (_) {}
-      document.dispatchEvent(new CustomEvent('jsc:patrocinadores'));
-    })
-    .catch(function () {});
-})();
-
 (function () {
   if (sessionStorage.getItem('jsc_sync_done')) return;
 
@@ -57,14 +18,14 @@
           } catch (_) {}
         }
       }
-      // As notícias já vêm da base de dados, no bloco acima.
+      if (data.noticias)       ls('jsc_noticias',       data.noticias);
       if (data.agenda)         ls('db_agenda',           data.agenda);
       if (data.galeria)        ls('db_galeria',          data.galeria);
       if (data.videos)         ls('db_videos',           data.videos);
       if (data.atletas)        ls('db_atletas',          data.atletas);
       if (data.escaloes)       ls('db_escaloes',         data.escaloes);
       if (data.treinadores)    ls('db_treinadores',      data.treinadores);
-      // Patrocinadores já vêm da base de dados, no bloco acima.
+      if (data.patrocinadores) ls('db_patrocinadores',   data.patrocinadores);
       if (data.modalidades)    ls('db_modalidades',      data.modalidades);
       if (data.modPosts)       ls('db_mod_posts',        data.modPosts);
       if (data.jogos)          ls('db_jogos',            data.jogos);

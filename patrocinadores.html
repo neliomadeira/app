@@ -383,9 +383,7 @@
   <script src="js/main.js" defer></script>
   <script src="/js/pwa.js" defer></script>
   <script>
-  // Redesenha sempre que o sync.js trouxer os patrocinadores do servidor.
-  // Antes corria uma vez só, com o que estivesse guardado no browser.
-  function desenharPatrocinadores() {
+  (function () {
     var sponsors = [];
     try {
       sponsors = JSON.parse(localStorage.getItem('db_patrocinadores') || '[]')
@@ -512,10 +510,7 @@
     }
 
     container.innerHTML = html + ctaHtml;
-  }
-
-  desenharPatrocinadores();
-  document.addEventListener('jsc:patrocinadores', desenharPatrocinadores);
+  })();
   </script>
   <script src="js/cookie-consent.js" defer></script>
   <script src="js/scroll-top.js" defer></script>
