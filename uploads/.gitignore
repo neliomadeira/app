@@ -1,0 +1,5 @@
+# As imagens enviadas são conteúdo de cada servidor, não do projeto.
+# Versiona-se só a proteção da pasta.
+*
+!.htaccess
+!.gitignore

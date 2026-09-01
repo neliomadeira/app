@@ -1454,28 +1454,75 @@ window.guardarPlantel = function () {
 // UTILITÁRIO: UPLOAD DE IMAGEM
 // ==================================================
 
-// Comprime uma imagem para máx. 800px. PNG preserva transparência; JPEG usa qualidade 0.75.
-function compressImage(file, callback) {
-  const reader = new FileReader();
-  reader.onload = ev => {
-    const img = new Image();
-    img.onload = () => {
-      const MAX = 800;
-      let w = img.width, h = img.height;
-      if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
-      const canvas = document.createElement('canvas');
-      canvas.width = w; canvas.height = h;
-      const ctx = canvas.getContext('2d');
-      const isPng = file.type === 'image/png';
-      if (isPng) {
-        ctx.clearRect(0, 0, w, h); // preserve transparency
-      }
-      ctx.drawImage(img, 0, 0, w, h);
-      callback(canvas.toDataURL(isPng ? 'image/png' : 'image/jpeg', isPng ? undefined : 0.75));
+// Reduz a imagem para máx. 800px e devolve-a como Blob.
+// PNG preserva transparência; JPEG usa qualidade 0.75.
+function _comprimirParaBlob(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('não foi possível ler o ficheiro'));
+    reader.onload = ev => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('o ficheiro não é uma imagem válida'));
+      img.onload = () => {
+        const MAX = 800;
+        let w = img.width, h = img.height;
+        if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        const isPng = file.type === 'image/png';
+        if (isPng) {
+          ctx.clearRect(0, 0, w, h); // preserve transparency
+        }
+        ctx.drawImage(img, 0, 0, w, h);
+        const tipo = isPng ? 'image/png' : 'image/jpeg';
+        canvas.toBlob(
+          blob => blob ? resolve(blob) : reject(new Error('não foi possível comprimir a imagem')),
+          tipo,
+          isPng ? undefined : 0.75
+        );
+      };
+      img.src = ev.target.result;
     };
-    img.src = ev.target.result;
-  };
-  reader.readAsDataURL(file);
+    reader.readAsDataURL(file);
+  });
+}
+
+// Comprime e envia a imagem para o servidor, devolvendo ao callback o
+// caminho do ficheiro (ex: "/uploads/20260901-a1b2.jpg").
+//
+// Antes isto devolvia a imagem em base64, que ia inteira para dentro do
+// conteúdo e enchia o localStorage — era o que fazia aparecer o aviso de
+// "armazenamento cheio". Agora o conteúdo guarda só o caminho.
+//
+// Não há recurso a base64 se o envio falhar: seria voltar a encher o
+// armazenamento sem se dar por isso. Falha de forma visível, porque as
+// causas (token errado, permissões da pasta, limites do PHP) são todas
+// coisas que precisam de ser corrigidas no servidor.
+function compressImage(file, callback) {
+  _comprimirParaBlob(file)
+    .then(blob => {
+      const fd = new FormData();
+      const ext = blob.type === 'image/png' ? 'png' : 'jpg';
+      fd.append('ficheiro', blob, 'imagem.' + ext);
+      return fetch('/api/upload.php', {
+        method: 'POST',
+        headers: { 'X-JSC-Token': localStorage.getItem('jsc_api_token') || '' },
+        body: fd,
+      }).then(r => r.json().then(j => ({ ok: r.ok, status: r.status, j })));
+    })
+    .then(({ ok, status, j }) => {
+      if (!ok || !j.ok) {
+        const motivo = (j && j.error) ? j.error : ('HTTP ' + status);
+        throw new Error(status === 401
+          ? 'token inválido — verifique Configurações > Segurança'
+          : motivo);
+      }
+      callback(j.url, Math.round((j.bytes || 0) / 1024));
+    })
+    .catch(err => {
+      showToast('❌ Falha ao carregar imagem: ' + err.message, 'red');
+    });
 }
 
 function setupImageUpload(fileInputId, urlInputId, previewId) {
