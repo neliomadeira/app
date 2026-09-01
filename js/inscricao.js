@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ---- MODALIDADE PICKER ---- //
   const isFutebol = () => {
     const sel = document.querySelector('input[name="modalidade"]:checked');
-    return !sel || sel.value === 'Futebol' || sel.value === 'Futsal';
+    return !sel || sel.value === 'Futebol';
   };
 
   function applyModalidade() {
@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const title = sidebarInfo.querySelector('.insc-info-card__title');
       const modVal = document.querySelector('input[name="modalidade"]:checked')?.value || 'Futebol';
       if (title) {
-        title.textContent = (modVal === 'Futebol' || modVal === 'Futsal')
+        title.textContent = modVal === 'Futebol'
           ? 'Escalões disponíveis'
           : `${modVal} — Níveis`;
       }
