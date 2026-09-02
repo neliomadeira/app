@@ -2239,13 +2239,16 @@ window.editEscalao = function(idx) {
     nome:'Sub-X', designacao:'', faixa:'', atletas:0,
     treinador:'', treinos:'', descricao:'', destaque:false
   };
-  const SUB_OPTIONS = ['Sub-7','Sub-9','Sub-11','Sub-13','Sub-15','Sub-17','Sub-19','Sub-21','Sub-23'];
+  // Sugestões, não uma lista fechada: o clube pode ter escalões fora da
+  // escada habitual (femininos, sub-23, equipas B) e não deve ficar preso.
+  const SUB_OPTIONS = ['Sub-5','Sub-7','Sub-9','Sub-11','Sub-13','Sub-15','Sub-17','Sub-19','Sub-21','Sub-23','Sénior'];
   openModal(idx >= 0 ? 'Editar Categoria' : 'Nova Categoria', `
     <div class="modal-row">
-      <div class="modal-field"><label>Sub-escalão</label>
-        <select class="form-input" id="eNome">
-          ${SUB_OPTIONS.map(s=>`<option${s===e.nome?' selected':''}>${s}</option>`).join('')}
-        </select></div>
+      <div class="modal-field"><label>Escalão</label>
+        <input class="form-input" id="eNome" list="eNomeSugestoes" value="${e.nome === 'Sub-X' ? '' : e.nome}" placeholder="Ex: Sub-13" autocomplete="off" />
+        <datalist id="eNomeSugestoes">
+          ${SUB_OPTIONS.map(s=>`<option value="${s}"></option>`).join('')}
+        </datalist></div>
       <div class="modal-field"><label>Designação (ex: Benjamins)</label>
         <input class="form-input" id="eDesig" value="${e.designacao}" /></div>
     </div>

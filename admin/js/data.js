@@ -42,14 +42,14 @@ const DB = {
   ],
 
   escaloes: [
-    { id: 7, nome: 'Sub-5',  designacao: 'Pré-Petizes', faixa: 'Até 5 anos',   atletas: 0, treinador: '', treinos: '', destaque: false },
-    { id: 8, nome: 'Sub-7',  designacao: 'Petizes',     faixa: '6 a 7 anos',   atletas: 0, treinador: '', treinos: '', destaque: false },
-    { id: 1, nome: 'Sub-9',  designacao: 'Traquinas',    faixa: '8 a 9 anos',   atletas: 18, treinador: 'Ricardo Matos',   treinos: '3ª, 5ª — 17h30', destaque: false },
-    { id: 2, nome: 'Sub-11', designacao: 'Benjamins',  faixa: '10 a 11 anos', atletas: 22, treinador: 'Jorge Pinto',     treinos: '3ª, 5ª, Sáb — 17h30', destaque: false },
-    { id: 3, nome: 'Sub-13', designacao: 'Infantis',  faixa: '12 a 13 anos', atletas: 26, treinador: 'Nuno Carvalho',   treinos: '2ª, 4ª, 6ª — 18h00', destaque: true  },
-    { id: 4, nome: 'Sub-15', designacao: 'Iniciados',   faixa: '14 a 15 anos', atletas: 24, treinador: 'Filipe Gomes',    treinos: '2ª, 4ª, 6ª — 18h30', destaque: false },
-    { id: 5, nome: 'Sub-17', designacao: 'Juvenis',  faixa: '16 a 17 anos', atletas: 20, treinador: 'André Monteiro',  treinos: '2ª a 6ª — 18h30', destaque: false },
-    { id: 6, nome: 'Sub-19', designacao: 'Juniores',    faixa: '18 a 19 anos', atletas: 18, treinador: 'Sérgio Fonseca',  treinos: '2ª a 6ª — 19h00', destaque: false },
+    { id: 7, nome: 'Sub-5',  designacao: 'Pré-Petizes', faixa: 'Até 5 anos',   atletas: 0, treinador: '', treinos: '', descricao: 'Para as crianças mais novas, focado no lúdico.', destaque: false },
+    { id: 8, nome: 'Sub-7',  designacao: 'Petizes',     faixa: '6 a 7 anos',   atletas: 0, treinador: '', treinos: '', descricao: 'Fase de sensibilização, sem cariz competitivo oficial.', destaque: false },
+    { id: 1, nome: 'Sub-9',  designacao: 'Traquinas',    faixa: '8 a 9 anos',   atletas: 18, treinador: 'Ricardo Matos',   treinos: '3ª, 5ª — 17h30', descricao: 'Actividades essencialmente recreativas e festas do futebol.', destaque: false },
+    { id: 2, nome: 'Sub-11', designacao: 'Benjamins',  faixa: '10 a 11 anos', atletas: 22, treinador: 'Jorge Pinto',     treinos: '3ª, 5ª, Sáb — 17h30', descricao: 'Início de uma organização competitiva mais regrada.', destaque: false },
+    { id: 3, nome: 'Sub-13', designacao: 'Infantis',  faixa: '12 a 13 anos', atletas: 26, treinador: 'Nuno Carvalho',   treinos: '2ª, 4ª, 6ª — 18h00', descricao: 'Passagem para modelos de jogo mais complexos.', destaque: true  },
+    { id: 4, nome: 'Sub-15', designacao: 'Iniciados',   faixa: '14 a 15 anos', atletas: 24, treinador: 'Filipe Gomes',    treinos: '2ª, 4ª, 6ª — 18h30', descricao: 'Escalão importante de transição e consolidação técnica e táctica.', destaque: false },
+    { id: 5, nome: 'Sub-17', designacao: 'Juvenis',  faixa: '16 a 17 anos', atletas: 20, treinador: 'André Monteiro',  treinos: '2ª a 6ª — 18h30', descricao: 'Fase altamente competitiva de alto rendimento jovem.', destaque: false },
+    { id: 6, nome: 'Sub-19', designacao: 'Juniores',    faixa: '18 a 19 anos', atletas: 18, treinador: 'Sérgio Fonseca',  treinos: '2ª a 6ª — 19h00', descricao: 'O último patamar da formação antes do salto para o futebol sénior ou sub-23.', destaque: false },
   ],
 
   jogos: [
