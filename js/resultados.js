@@ -596,7 +596,7 @@ function openShareModal(jogo) {
   const logo = new Image();
   logo.onload = () => drawShareCard(canvas, jogo, logo);
   logo.onerror = () => drawShareCard(canvas, jogo, null);
-  logo.src = 'images/logo.png';
+  logo.src = 'images/logo.svg';
 
   // WhatsApp
   document.getElementById('shareBtnWa').onclick = () => {

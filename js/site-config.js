@@ -65,12 +65,12 @@
   const clube = JSON.parse(localStorage.getItem('dados_clube') || '{}');
   if (clube.logo && clube.logo.length > 10) {
     document.querySelectorAll('.logo__img').forEach(function(el) {
-      el.onerror = function() { this.src = 'images/logo.png'; this.onerror = null; };
+      el.onerror = function() { this.src = 'images/logo.svg'; this.onerror = null; };
       el.src = clube.logo;
     });
     const emblem = document.querySelector('.about__emblem-large');
     if (emblem) {
-      emblem.onerror = function() { this.src = 'images/logo.png'; this.onerror = null; };
+      emblem.onerror = function() { this.src = 'images/logo.svg'; this.onerror = null; };
       emblem.src = clube.logo;
     }
   }
