@@ -144,6 +144,38 @@
 
   // Footer
   set('footerEmail', cfg.footerEmail);
+
+  // Contactos em todo o site.
+  //
+  // Antes isto só chegava a elementos com id, e o rodapé está copiado em 17
+  // páginas: mudar o telefone no painel actualizava 2 dos 19 sítios onde ele
+  // aparece, e o email 17 de 23. O que sobrava ficava com o valor antigo,
+  // sem nada a indicar porquê.
+  function aplicar(seletor, valor, prefixoHref) {
+    if (!valor) return;
+    document.querySelectorAll(seletor).forEach(function (el) {
+      el.textContent = valor;
+      if (prefixoHref && el.tagName === 'A') el.href = prefixoHref + valor.replace(/\s+/g, '');
+    });
+  }
+  aplicar('.js-email',    cfg.contactEmail);
+  aplicar('.js-telefone', cfg.contactPhone);
+  aplicar('.js-morada',   cfg.contactAddress);
+
+  // Os mailto:/tel: em texto corrido — a página de privacidade tem três —
+  // precisam do href actualizado, não só do texto.
+  if (cfg.contactEmail) {
+    document.querySelectorAll('a[href^="mailto:"]').forEach(function (a) {
+      if (/@/.test(a.textContent)) a.textContent = cfg.contactEmail;
+      a.href = 'mailto:' + cfg.contactEmail;
+    });
+  }
+  if (cfg.contactPhone) {
+    document.querySelectorAll('a[href^="tel:"]').forEach(function (a) {
+      if (/\d/.test(a.textContent)) a.textContent = cfg.contactPhone;
+      a.href = 'tel:' + cfg.contactPhone.replace(/\s+/g, '');
+    });
+  }
   if (cfg.footerTagline) {
     document.querySelectorAll('.footer__tagline').forEach(el => { el.textContent = cfg.footerTagline; });
   }
