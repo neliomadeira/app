@@ -29,7 +29,7 @@
                    navList.querySelector('.nav__search-btn').closest('li');
     var li = document.createElement('li');
     li.innerHTML = '<button id="darkModeToggle" aria-label="Activar modo escuro" title="Modo escuro" '
-      + 'style="background:none;border:none;cursor:pointer;font-size:1.15rem;padding:2px 6px;'
+      + 'style="background:none;border:none;cursor:pointer;font-size:1.15rem;padding:9px 11px;'
       + 'color:inherit;display:inline-flex;align-items:center;opacity:0.85;transition:opacity 0.2s">'
       + '&#9790;</button>';
     if (searchLi) {

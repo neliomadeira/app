@@ -1807,11 +1807,16 @@ html[data-theme="dark"] .form-group textarea.is-invalid {
   margin-bottom: 20px;
 }
 
-.footer__links ul { display: flex; flex-direction: column; gap: 10px; }
+.footer__links ul { display: flex; flex-direction: column; gap: 2px; }
 .footer__links a {
   color: rgba(255,255,255,0.5);
   font-size: 0.9rem;
   transition: color var(--transition);
+  /* Os links tinham 16px de altura, menos de metade dos 44px que se
+     recomendam para toque. O espaço vem do padding em vez do gap, para a
+     área crescer sem o rodapé mudar de aspecto. */
+  display: block;
+  padding: 10px 0;
 }
 .footer__links a:hover { color: var(--yellow); }
 
@@ -1827,6 +1832,19 @@ html[data-theme="dark"] .form-group textarea.is-invalid {
   padding: 20px;
   color: rgba(255,255,255,0.3);
   font-size: 0.8rem;
+}
+/* Links dentro de parágrafos herdam a altura da linha, o que dá alvos de
+   15px. O inline-block com padding resolve sem partir o texto à volta. */
+.footer__bottom a,
+#cookieBanner a,
+.checkbox-label a,
+.contact__map-link,
+.news-card__link,
+.esc-link,
+.modality-card__link {
+  display: inline-block;
+  padding: 8px 4px;
+  margin: -8px 0;
 }
 
 /* ---- FOOTER SOCIAL ---- */
