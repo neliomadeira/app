@@ -29,7 +29,7 @@
     const durMs = (ev.tipo === 'Jogo' || ev.tipo === 'Torneio') ? 2 * 3600000 : 1.5 * 3600000;
     const end = new Date(start.getTime() + durMs);
     const now = new Date();
-    const uid = 'jsc-' + start.getTime() + '-' + (ev.titulo || '').replace(/\W+/g, '').slice(0, 24) + '@jscampinense.pt';
+    const uid = 'jsc-' + start.getTime() + '-' + (ev.titulo || '').replace(/\W+/g, '').slice(0, 24) + '@campinense.pt';
     return [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',

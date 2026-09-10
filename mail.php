@@ -32,9 +32,9 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 // =====================================================
 $config = [
     'secret_token'  => getenv('MAIL_TOKEN')      ?: 'ALTERE_ESTE_TOKEN',
-    'to_email'      => getenv('MAIL_TO')          ?: 'clube@jscampinense.pt',
+    'to_email'      => getenv('MAIL_TO')          ?: 'geral@campinense.pt',
     'to_name'       => getenv('MAIL_TO_NAME')     ?: 'JS Campinense',
-    'from_email'    => getenv('MAIL_FROM')        ?: 'noreply@jscampinense.pt',
+    'from_email'    => getenv('MAIL_FROM')        ?: 'noreply@campinense.pt',
     'from_name'     => getenv('MAIL_FROM_NAME')   ?: 'Site JS Campinense',
     // SMTP — deixe smtp_host vazio para usar PHP mail() nativo
     'smtp_host'     => getenv('SMTP_HOST')        ?: '',
@@ -199,7 +199,7 @@ function smtpSocketSend(array $cfg, string $subject, string $body, string $rName
     }
     $wr("DATA"); $rd();
 
-    $mid = md5(uniqid()) . '@jscampinense.pt';
+    $mid = md5(uniqid()) . '@campinense.pt';
     $hdr = "From: {$cfg['from_name']} <{$from}>\r\n"
          . "To: {$cfg['to_name']} <{$to}>\r\n"
          . ($rEmail ? "Reply-To: {$rName} <{$rEmail}>\r\n" : '')
@@ -246,7 +246,7 @@ body{font-family:Arial,sans-serif;background:#f5f7fa;margin:0;padding:20px}
     <div class="lbl">Assunto</div><div class="val">{$assunto}</div>
     <div class="lbl">Mensagem</div><div class="msg">{$msgHtml}</div>
   </div>
-  <div class="ft">Enviado pelo site jscampinense.pt em {$data}</div>
+  <div class="ft">Enviado pelo site campinense.pt em {$data}</div>
 </div>
 </body></html>
 HTML;
@@ -285,7 +285,7 @@ body{font-family:Arial,sans-serif;background:#f5f7fa;margin:0;padding:20px}
     </div>
     <div class="lbl">Email Encarregado</div><div class="val">{$email}</div>
   </div>
-  <div class="ft">Enviado pelo site jscampinense.pt em {$data}</div>
+  <div class="ft">Enviado pelo site campinense.pt em {$data}</div>
 </div>
 </body></html>
 HTML;

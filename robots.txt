@@ -4,4 +4,4 @@ Allow: /
 Disallow: /admin/
 Disallow: /manutencao.html
 
-Sitemap: https://www.jscampinense.pt/sitemap.xml
+Sitemap: https://campinense.pt/sitemap.xml

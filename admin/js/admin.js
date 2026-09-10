@@ -5643,7 +5643,7 @@ async function testarEmail() {
         headers: { 'Content-Type': 'application/json', 'X-Secret-Token': cfg.serverToken || '' },
         body: JSON.stringify({
           _tipo: 'contacto', _token: cfg.serverToken || '',
-          nome: 'Teste Admin', email: cfg.dest || 'admin@jscampinense.pt',
+          nome: 'Teste Admin', email: cfg.dest || 'admin@campinense.pt',
           telefone: '+351 000 000 000', assunto: 'Teste', mensagem: 'Email de teste do painel JSC.',
         }),
       });

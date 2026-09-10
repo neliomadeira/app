@@ -491,7 +491,7 @@ function drawShareCard(canvas, jogo, logoImg) {
   ctx.textAlign = 'center';
   ctx.fillText('JUVENTUDE SPORT CAMPINENSE', W / 2, H - 42);
   ctx.font = '22px Arial, sans-serif';
-  ctx.fillText('jscampinense.pt', W / 2, H - 14);
+  ctx.fillText('campinense.pt', W / 2, H - 14);
 
   // Logo
   let logoY = 60;

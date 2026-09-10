@@ -90,14 +90,14 @@ const DB = {
   ],
 
   treinadores: [
-    { id:1, nome:'Carlos Mendes',    cargo:'Director Técnico',     escalao:'Todos',  telefone:'+351 912 000 001', email:'carlos@jscampinense.pt', desde:'2020', ativo:true  },
-    { id:2, nome:'João Silva',       cargo:'Treinador Principal',  escalao:'Sub-17', telefone:'+351 912 000 002', email:'joao@jscampinense.pt',   desde:'2021', ativo:true  },
-    { id:3, nome:'Pedro Alves',      cargo:'Treinador Principal',  escalao:'Sub-15', telefone:'+351 912 000 003', email:'pedro@jscampinense.pt',  desde:'2022', ativo:true  },
-    { id:4, nome:'Rui Costa',        cargo:'Treinador Adjunto',    escalao:'Sub-17', telefone:'+351 912 000 004', email:'rui@jscampinense.pt',    desde:'2023', ativo:true  },
-    { id:5, nome:'Ana Rodrigues',    cargo:'Preparadora Física',   escalao:'Todos',  telefone:'+351 912 000 005', email:'ana@jscampinense.pt',    desde:'2022', ativo:true  },
-    { id:6, nome:'Miguel Ferreira',  cargo:'Treinador de Guarda-redes', escalao:'Todos', telefone:'+351 912 000 006', email:'miguel@jscampinense.pt', desde:'2021', ativo:true },
-    { id:7, nome:'Sofia Lopes',      cargo:'Psicóloga',            escalao:'Todos',  telefone:'+351 912 000 007', email:'sofia@jscampinense.pt',  desde:'2023', ativo:true  },
-    { id:8, nome:'António Gomes',    cargo:'Team Manager',         escalao:'Sub-19', telefone:'+351 912 000 008', email:'antonio@jscampinense.pt',desde:'2020', ativo:false },
+    { id:1, nome:'Carlos Mendes',    cargo:'Director Técnico',     escalao:'Todos',  telefone:'+351 912 000 001', email:'carlos@campinense.pt', desde:'2020', ativo:true  },
+    { id:2, nome:'João Silva',       cargo:'Treinador Principal',  escalao:'Sub-17', telefone:'+351 912 000 002', email:'joao@campinense.pt',   desde:'2021', ativo:true  },
+    { id:3, nome:'Pedro Alves',      cargo:'Treinador Principal',  escalao:'Sub-15', telefone:'+351 912 000 003', email:'pedro@campinense.pt',  desde:'2022', ativo:true  },
+    { id:4, nome:'Rui Costa',        cargo:'Treinador Adjunto',    escalao:'Sub-17', telefone:'+351 912 000 004', email:'rui@campinense.pt',    desde:'2023', ativo:true  },
+    { id:5, nome:'Ana Rodrigues',    cargo:'Preparadora Física',   escalao:'Todos',  telefone:'+351 912 000 005', email:'ana@campinense.pt',    desde:'2022', ativo:true  },
+    { id:6, nome:'Miguel Ferreira',  cargo:'Treinador de Guarda-redes', escalao:'Todos', telefone:'+351 912 000 006', email:'miguel@campinense.pt', desde:'2021', ativo:true },
+    { id:7, nome:'Sofia Lopes',      cargo:'Psicóloga',            escalao:'Todos',  telefone:'+351 912 000 007', email:'sofia@campinense.pt',  desde:'2023', ativo:true  },
+    { id:8, nome:'António Gomes',    cargo:'Team Manager',         escalao:'Sub-19', telefone:'+351 912 000 008', email:'antonio@campinense.pt',desde:'2020', ativo:false },
   ],
 
   agenda: [

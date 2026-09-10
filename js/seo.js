@@ -12,11 +12,11 @@
     '@type': 'SportsOrganization',
     'name': 'Juventude Sport Campinense',
     'alternateName': 'JS Campinense',
-    'url': 'https://www.jscampinense.pt',
-    'logo': 'https://www.jscampinense.pt/images/logo.png',
+    'url': 'https://campinense.pt',
+    'logo': 'https://campinense.pt/images/logo.png',
     'foundingDate': '1947',
     'sport': 'Football',
-    'description': 'Clube desportivo de Loulé, Algarve, com escalões de formação de Sub-9 a Sub-19.',
+    'description': 'Clube desportivo de Loulé, Algarve, com escalões de formação de Sub-5 a Sub-19.',
     'address': {
       '@type': 'PostalAddress',
       'streetAddress': 'Rua Nuno A. de Mascarenhas, Lote 16',
@@ -36,12 +36,12 @@
     '@context': 'https://schema.org',
     '@type': 'WebSite',
     'name': 'Juventude Sport Campinense',
-    'url': 'https://www.jscampinense.pt',
+    'url': 'https://campinense.pt',
     'potentialAction': {
       '@type': 'SearchAction',
       'target': {
         '@type': 'EntryPoint',
-        'urlTemplate': 'https://www.jscampinense.pt/pesquisa.html?q={search_term_string}'
+        'urlTemplate': 'https://campinense.pt/pesquisa.html?q={search_term_string}'
       },
       'query-input': 'required name=search_term_string'
     }

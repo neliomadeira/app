@@ -155,11 +155,11 @@
       'headline': n.titulo,
       'description': plain,
       'datePublished': n.data ? n.data + 'T00:00:00+00:00' : '',
-      'url': 'https://www.jscampinense.pt/noticias.html?id=' + n.id,
+      'url': 'https://campinense.pt/noticias.html?id=' + n.id,
       'publisher': {
         '@type': 'Organization',
         'name': 'Juventude Sport Campinense',
-        'logo': { '@type': 'ImageObject', 'url': 'https://www.jscampinense.pt/images/logo.png' }
+        'logo': { '@type': 'ImageObject', 'url': 'https://campinense.pt/images/logo.png' }
       }
     };
     if (n.imagem && !n.imagem.startsWith('data:')) schema.image = n.imagem;
