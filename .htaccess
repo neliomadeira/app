@@ -75,6 +75,33 @@ Options -Indexes
   RewriteCond %{HTTPS} !=on
   RewriteCond %{HTTP:X-Forwarded-Proto} !=https
   RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+
+  # ---- Rede de segurança para os endereços do antigo site WordPress ----
+  # No dia em que o WordPress sair, os endereços que o Google já tem
+  # indexados deixam de existir. Sem isto passam todos a erro 404 e o
+  # site perde o posicionamento ao longo das semanas seguintes.
+  #
+  # Estas regras só actuam quando o ficheiro pedido NÃO existe, por isso
+  # nunca interferem com as páginas, imagens ou /api do site novo.
+  #
+  # Isto é uma rede, não um mapa: manda tudo o que era notícia para a
+  # página de notícias. Quando houver a lista dos endereços antigos,
+  # acrescentar aqui por cima os redirecionamentos página a página, que
+  # preservam muito melhor o posicionamento de cada artigo.
+
+  # Notícias, categorias, etiquetas e arquivo -> página de notícias
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^(noticias|noticia|category|categoria|tag|blog|arquivo|archives?)(/.*)?$ /noticias.html [R=301,L]
+
+  # Ligações antigas por número de artigo (?p=123)
+  RewriteCond %{QUERY_STRING} (^|&)p=[0-9]+
+  RewriteRule ^$ /noticias.html? [R=301,L]
+
+  # Restos do WordPress (backoffice, autores, feeds) -> página inicial
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^(wp-admin|wp-login\.php|author|feed|comments)(/.*)?$ / [R=301,L]
 </IfModule>
 # O favicon.ico existe na raiz, com 16, 32 e 48 px lá dentro.
 # Antes isto reencaminhava para o logo.png de 512x512.
