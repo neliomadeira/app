@@ -93,6 +93,23 @@ internet.
 Se o Apache não estiver disponível, o guião usa `php -S` e avisa que as
 regras do `.htaccess` não estão a ser aplicadas.
 
+## Impacto do filtro nas notícias já escritas
+
+O corpo das notícias passa por um filtro de HTML antes de ser gravado, mas
+só quando a notícia é criada ou editada. As que já estavam guardadas não
+são tocadas.
+
+Para ver o que mudaria nelas, sem alterar nada:
+
+```
+php tools/impacto-noticias.php data/db.json
+php tools/impacto-noticias.php backup-campinense-AAAA-MM-DD.json --detalhe
+```
+
+Diz quantas notícias seriam afetadas, que elementos e atributos seriam
+removidos, e quais delas perderiam texto visível. Sai com `1` se houver
+alterações a fazer e `0` se não houver. Não escreve nada.
+
 ## Diagnóstico
 
 `JSC_DEBUG=1` mantém a configuração gerada do Apache e o respetivo

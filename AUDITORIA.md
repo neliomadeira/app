@@ -518,3 +518,49 @@ Passo ainda mais pequeno, se preferido: o C1 isolado — uma função de
 escape e a sua aplicação, com o painel testado no browser a seguir.
 Verificável e reversível, e fecha o caminho que vai do formulário público
 até ao token de publicação.
+
+---
+
+## Estado depois da Fase A
+
+A Fase A está concluída. O que segue são as limitações que ficaram
+conhecidas e documentadas, para não serem confundidas com trabalho feito.
+
+### A separação entre Futebol e Futsal NÃO é segurança por modalidade
+
+Os perfis Futebol e Futsal existem e têm as suas capacidades verificadas no
+servidor. Mas **hoje os dois veem e alteram exatamente os mesmos registos**.
+
+A razão é o I5 desta auditoria: atletas, treinadores, escalões e jogos não
+têm campo de modalidade. Sem esse campo não há por onde separar, e recusar
+por omissão deixaria ambos os perfis sem nada que pudessem fazer.
+
+A verificação já está escrita em `api/save.php` e passa a atuar sozinha
+assim que os registos tiverem o campo: um registo com `modalidade` diferente
+da do perfil é recusado. Enquanto não tiverem, é aceite pelos dois.
+
+**Não apresentar isto como separação por modalidade.** Um utilizador do
+perfil Futsal pode, hoje, alterar os jogos do futebol. A separação completa
+faz parte da Fase D, com o novo modelo de equipas, atletas, treinadores,
+escalões, jogos, competições e épocas.
+
+### O perfil Matchday entra e não tem áreas
+
+É intencional. A área de dia de jogo é da Fase E. O painel mostra a
+indicação de que ainda não está disponível, em vez de um painel vazio sem
+explicação.
+
+### As notícias já escritas não foram filtradas
+
+O filtro de HTML das notícias aplica-se a notícias novas e editadas. As que
+já estavam guardadas mantêm-se exatamente como estavam, incluindo o que
+nelas possa haver de perigoso.
+
+Para ver o que mudaria, sem alterar nada:
+
+```
+php tools/impacto-noticias.php data/db.json
+```
+
+Tratar as antigas exige uma decisão à parte, com o impacto à vista.
+

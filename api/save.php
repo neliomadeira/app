@@ -103,6 +103,34 @@ if (isset($novos['siteLegal']) && is_array($novos['siteLegal'])) {
     }
 }
 
+// ---- Corpo das notícias: filtrar só o que mudou ---------------------
+// As notícias também vão para a página como HTML, pelo mesmo caminho.
+// Mas o painel envia sempre todas, e filtrar todas reescreveria em
+// silêncio o que já está escrito. Por isso só passam pelo filtro as
+// notícias novas e aquelas cujo texto foi alterado.
+//
+// As que ficaram por tocar mantêm-se exatamente como estavam. Para as
+// tratar é preciso uma migração à parte, com o impacto à vista primeiro:
+// ver tools/impacto-noticias.js.
+if (isset($novos['noticias']) && is_array($novos['noticias'])) {
+    $antesPorId = [];
+    if (isset($antigos['noticias']) && is_array($antigos['noticias'])) {
+        foreach ($antigos['noticias'] as $n) {
+            if (is_array($n) && isset($n['id'])) $antesPorId[(string)$n['id']] = $n;
+        }
+    }
+    foreach ($novos['noticias'] as $i => $n) {
+        if (!is_array($n) || !isset($n['resumo']) || !is_string($n['resumo'])) continue;
+        $id = isset($n['id']) ? (string)$n['id'] : null;
+        $antiga = ($id !== null && isset($antesPorId[$id])) ? $antesPorId[$id] : null;
+        $inalterada = $antiga !== null
+            && isset($antiga['resumo']) && is_string($antiga['resumo'])
+            && $antiga['resumo'] === $n['resumo'];
+        if ($inalterada) continue;
+        $novos['noticias'][$i]['resumo'] = jsc_sanitizar_noticia($n['resumo']);
+    }
+}
+
 // ---- Gravar --------------------------------------------------------
 // As áreas que não venham no pedido ficam como estavam. O painel envia
 // sempre tudo, mas assim um pedido parcial nunca apaga o que não menciona.
