@@ -16,3 +16,6 @@ tools/node_modules/
 # e o ficheiro de contas tem os hashes das palavras-passe.
 data/utilizadores.json
 data/tentativas.json
+
+# Ficheiros que não pertencem ao projeto e já estiveram versionados
+app.zip

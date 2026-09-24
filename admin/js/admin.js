@@ -4833,6 +4833,19 @@ function guardarApiToken() {
 
 // ---- PUBLICAR NO SERVIDOR ----
 async function publicarNoServidor() {
+  // Publicar torna tudo isto conteúdo oficial do site. Se ainda houver
+  // registos que vieram dos dados de exemplo, convém saber antes.
+  if (typeof contarRegistosDeExemplo === 'function') {
+    const demo = contarRegistosDeExemplo();
+    if (demo.length) {
+      const total = demo.reduce(function (n, d) { return n + d.n; }, 0);
+      const lista = demo.map(function (d) { return '  \u2022 ' + d.seccao + ': ' + d.n + ' (' + d.exemplos.join(', ') + ')'; }).join('\n');
+      if (!confirm(
+        'Encontrei ' + total + ' registo(s) que parecem ser dos dados de exemplo:\n\n' + lista +
+        '\n\nPublicar torna-os conteúdo oficial do site.\n\nPublicar mesmo assim?'
+      )) return;
+    }
+  }
   const token = localStorage.getItem('jsc_api_token') || '';
   const ls = (key) => { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; } };
   // Classificações e jogos por escalão/equipa (chaves dinâmicas fpf_class_* / fpf_jogos_*)

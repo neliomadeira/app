@@ -1,8 +1,20 @@
 // =============================================
-// MOCK DATA — Sport Campinense Juventude
+// DADOS DE EXEMPLO — Juventude Sport Campinense
+// =============================================
+// Isto é conteúdo inventado, para o painel não abrir vazio durante o
+// desenvolvimento. NÃO é conteúdo do clube.
+//
+// Até agora era carregado directamente para o DB, e bastava carregar em
+// Publicar para 54 registos fictícios — atletas, jogos, "Empresa Ouro 1",
+// treinadores com e-mails inventados — passarem a ser o conteúdo oficial
+// do site.
+//
+// Passa a ficar de lado. O DB arranca vazio e só é preenchido com o que
+// estiver guardado. Nada é apagado: o que já esteja no localStorage
+// continua lá, e quem publicar é avisado se reconhecer estes registos.
 // =============================================
 
-const DB = {
+const DEMO_DB = {
   inscricoes: [
     { id: 1, nome: 'Miguel Ferreira Santos',   escalao: 'Sub-13', idade: 12, telefone: '+351 912 345 678', email: 'miguel.pai@gmail.com',    data: '2026-04-01', estado: 'Pendente',  posicao: 'Médio',        pref: 'Direito',   altura: 152, peso: 45 },
     { id: 2, nome: 'Tomás Rodrigues Costa',    escalao: 'Sub-15', idade: 14, telefone: '+351 963 456 789', email: 'tomas.mae@outlook.pt',     data: '2026-04-02', estado: 'Pendente',  posicao: 'Avançado',     pref: 'Direito',   altura: 168, peso: 58 },
@@ -145,6 +157,52 @@ const DB = {
     { id:14, nome:'Gonçalo Ferreira', numero:19, posicao:'AVA', posicaoFull:'Avançado', foto:'', ativo:true },
     { id:15, nome:'Miguel Brito',     numero:17, posicao:'AVA', posicaoFull:'Ponta de Lança', foto:'', ativo:true },
   ],
+};
+// O que arranca preenchido e o que arranca vazio.
+//
+// Escalões, modalidades e a época dos seniores são configuração do clube,
+// verdadeira: sem elas a página de formação e os escalões ficam sem nada.
+// Tudo o resto — atletas, jogos, notícias, patrocinadores, treinadores,
+// inscrições, mensagens, galeria, agenda, plantel sénior — era inventado,
+// e passa a arrancar vazio. O painel mostra o que existir de verdade.
+const DB = {
+  escaloes:       DEMO_DB.escaloes,
+  modalidades:    DEMO_DB.modalidades,
+  senioresInfo:   DEMO_DB.senioresInfo,
+
+  inscricoes:     [],
+  atletas:        [],
+  noticias:       [],
+  mensagens:      [],
+  jogos:          [],
+  patrocinadores: [],
+  videos:         [],
+  galeria:        [],
+  treinadores:    [],
+  agenda:         [],
+  seniores:       [],
+};
+
+
+// Reconhece registos que vieram dos dados de exemplo, comparando com o
+// DEMO_DB. Serve para avisar antes de publicar: não se apaga nada, porque
+// não há forma de saber se alguém já editou um deles e passou a ser real.
+window.contarRegistosDeExemplo = function () {
+  const campos = { inscricoes:'nome', atletas:'nome', noticias:'titulo', mensagens:'nome',
+                   jogos:'casa', patrocinadores:'nome', treinadores:'nome', galeria:'titulo',
+                   agenda:'titulo', seniores:'nome', videos:'titulo' };
+  const achados = [];
+  Object.keys(campos).forEach(function (chave) {
+    const campo = campos[chave];
+    const exemplo = (DEMO_DB[chave] || []).map(function (r) { return r[campo]; }).filter(Boolean);
+    if (!exemplo.length) return;
+    const atuais = chave === 'noticias'
+      ? (typeof loadNoticias === 'function' ? loadNoticias() : [])
+      : (DB[chave] || []);
+    const iguais = atuais.filter(function (r) { return exemplo.indexOf(r[campo]) !== -1; });
+    if (iguais.length) achados.push({ seccao: chave, n: iguais.length, exemplos: iguais.slice(0, 3).map(function (r) { return r[campo]; }) });
+  });
+  return achados;
 };
 
 // Persistência no localStorage
