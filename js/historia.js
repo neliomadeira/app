@@ -119,20 +119,20 @@
       const cls   = item.destaque ? ' timeline-item--destaque' : '';
       const side  = i % 2 === 0 ? 'left' : 'right';
       const imgHtml = item.imagem
-        ? `<img src="${item.imagem}" alt="${item.titulo}" class="timeline-card__img" loading="lazy" />`
+        ? `<img src="${jscEscUrl(item.imagem)}" alt="${jscEsc(item.titulo)}" class="timeline-card__img" loading="lazy" />`
         : '';
       return `
-        <div class="timeline-item timeline-item--${side}${cls}">
+        <div class="timeline-item timeline-item--${jscEsc(side)}${jscEsc(cls)}">
           <div class="timeline-year-wrap">
-            <span class="timeline-year">${item.ano}</span>
+            <span class="timeline-year">${jscEsc(item.ano)}</span>
           </div>
           <div class="timeline-dot"></div>
           <div class="timeline-card-wrap">
             <div class="timeline-card">
-              <span class="timeline-card__year-mobile">${item.ano}</span>
+              <span class="timeline-card__year-mobile">${jscEsc(item.ano)}</span>
               ${imgHtml}
-              <h3 class="timeline-card__title">${item.titulo}</h3>
-              ${item.descricao ? `<p class="timeline-card__desc">${item.descricao}</p>` : ''}
+              <h3 class="timeline-card__title">${jscEsc(item.titulo)}</h3>
+              ${item.descricao ? `<p class="timeline-card__desc">${jscEsc(item.descricao)}</p>` : ''}
             </div>
           </div>
         </div>`;
@@ -151,9 +151,9 @@
       <div class="palmares-card">
         <div class="palmares-card__icon">&#127942;</div>
         <div class="palmares-card__body">
-          <div class="palmares-card__title">${t.competicao}</div>
-          <div class="palmares-card__meta">${t.ano}${t.observacao ? ' &middot; ' + t.observacao : ''}</div>
-          ${t.escalao ? `<span class="palmares-card__badge">${t.escalao}</span>` : ''}
+          <div class="palmares-card__title">${jscEsc(t.competicao)}</div>
+          <div class="palmares-card__meta">${jscEsc(t.ano)}${t.observacao ? ' &middot; ' + jscEsc(t.observacao) : ''}</div>
+          ${t.escalao ? `<span class="palmares-card__badge">${jscEsc(t.escalao)}</span>` : ''}
         </div>
       </div>`).join('');
   }

@@ -59,7 +59,7 @@ function renderFilters(videos) {
   const visible  = VID_CATS.filter(c => c === 'Todos' || usedCats.has(c));
 
   bar.innerHTML = visible.map(cat =>
-    `<button class="news-filter-btn${cat === 'Todos' ? ' news-filter-btn--active' : ''}"
+    `<button class="news-filter-btn${jscEsc(cat === 'Todos' ? ' news-filter-btn--active' : '')}"
       data-cat="${_escHtml(cat)}" type="button">${_escHtml(cat)}</button>`
   ).join('');
 
@@ -94,18 +94,18 @@ function renderGrid(videos) {
     const cat   = _escHtml(v.categoria || '');
 
     return `
-      <div class="video-card" data-idx="${idx}" tabindex="0" role="button" aria-label="Ver vídeo: ${title}">
+      <div class="video-card" data-idx="${idx}" tabindex="0" role="button" aria-label="Ver vídeo: ${jscEsc(title)}">
         <div class="video-card__thumb">
           ${thumb
-            ? `<img src="${thumb}" alt="${title}" class="video-card__img" loading="lazy" />`
+            ? `<img src="${jscEscUrl(thumb)}" alt="${jscEsc(title)}" class="video-card__img" loading="lazy" />`
             : `<div class="video-card__no-thumb">&#127909;</div>`
           }
           <div class="video-card__play" aria-hidden="true">&#9654;</div>
-          ${cat ? `<span class="video-card__cat">${cat}</span>` : ''}
+          ${cat ? `<span class="video-card__cat">${jscEsc(cat)}</span>` : ''}
         </div>
         <div class="video-card__body">
-          <p class="video-card__title">${title}</p>
-          <p class="video-card__date">${_formatDate(v.data)}</p>
+          <p class="video-card__title">${jscEsc(title)}</p>
+          <p class="video-card__date">${jscEsc(_formatDate(v.data))}</p>
         </div>
       </div>`;
   }).join('');

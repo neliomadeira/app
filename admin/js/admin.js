@@ -334,7 +334,7 @@ function statusBadge(st) {
     'Activo':     'status--aprovado',
     'Inactivo':   'status--rejeitado',
   };
-  return `<span class="status ${map[st] || ''}">${st}</span>`;
+  return `<span class="status ${jscEsc(map[st] || '')}">${jscEsc(st)}</span>`;
 }
 
 // ---- FORMAT DATE ---- //
@@ -419,9 +419,9 @@ function renderDashboard() {
   const tbody = document.querySelector('#dashInscTable tbody');
   tbody.innerHTML = DB.inscricoes.slice(0, 4).map(i => `
     <tr>
-      <td>${i.nome}</td>
-      <td>${i.escalao}</td>
-      <td>${fmtDate(i.data)}</td>
+      <td>${jscEsc(i.nome)}</td>
+      <td>${jscEsc(i.escalao)}</td>
+      <td>${jscEsc(fmtDate(i.data))}</td>
       <td>${statusBadge(i.estado)}</td>
     </tr>`).join('');
 
@@ -429,8 +429,8 @@ function renderDashboard() {
   const tbody2 = document.querySelector('#dashMsgTable tbody');
   tbody2.innerHTML = DB.mensagens.slice(0, 4).map(m => `
     <tr>
-      <td>${m.nome}</td>
-      <td>${m.assunto}</td>
+      <td>${jscEsc(m.nome)}</td>
+      <td>${jscEsc(m.assunto)}</td>
       <td>${statusBadge(m.estado)}</td>
     </tr>`).join('');
 
@@ -445,12 +445,12 @@ function renderDashboard() {
       const d = new Date(e.data);
       return `<div class="dash-agenda-item">
         <div class="dash-agenda-date">
-          <span>${d.getDate()}</span>
-          ${d.toLocaleDateString('pt-PT', { month: 'short' })}
+          <span>${jscEsc(d.getDate())}</span>
+          ${jscEsc(d.toLocaleDateString('pt-PT', { month: 'short' }))}
         </div>
         <div class="dash-agenda-info">
-          <strong>${e.titulo}</strong>
-          <small>${e.hora} · ${e.local}</small>
+          <strong>${jscEsc(e.titulo)}</strong>
+          <small>${jscEsc(e.hora)} · ${jscEsc(e.local)}</small>
         </div>
       </div>`;
     }).join('') : '<p style="padding:16px;color:#999;font-size:13px">Sem eventos próximos.</p>';
@@ -468,13 +468,13 @@ function renderChart() {
     const alt = i % 2 === 0;
     return `
       <div class="chart-row">
-        <span class="chart-label">${e.nome}</span>
+        <span class="chart-label">${jscEsc(e.nome)}</span>
         <div class="chart-bar-wrap">
-          <div class="chart-bar ${alt ? 'chart-bar--yellow' : ''}" style="width:${pct}%">
-            <span class="chart-val ${alt ? 'chart-val--dark' : ''}">${e.atletas}</span>
+          <div class="chart-bar ${jscEsc(alt ? 'chart-bar--yellow' : '')}" style="width:${jscEsc(pct)}%">
+            <span class="chart-val ${jscEsc(alt ? 'chart-val--dark' : '')}">${jscEsc(e.atletas)}</span>
           </div>
         </div>
-        <span class="chart-count">${e.atletas}</span>
+        <span class="chart-count">${jscEsc(e.atletas)}</span>
       </div>`;
   }).join('');
 }
@@ -490,11 +490,11 @@ function renderInscricoes(filterEscalao = '', filterEstado = '') {
 
   tbody.innerHTML = data.map(i => `
     <tr>
-      <td><strong>${i.nome}</strong></td>
-      <td>${i.escalao}</td>
-      <td>${i.idade} anos</td>
-      <td>${i.telefone}</td>
-      <td>${fmtDate(i.data)}</td>
+      <td><strong>${jscEsc(i.nome)}</strong></td>
+      <td>${jscEsc(i.escalao)}</td>
+      <td>${jscEsc(i.idade)} anos</td>
+      <td>${jscEsc(i.telefone)}</td>
+      <td>${jscEsc(fmtDate(i.data))}</td>
       <td>${statusBadge(i.estado)}</td>
       <td>
         <div class="btn-actions">
@@ -556,18 +556,18 @@ window.verInscricao = function (id) {
   if (!i) return;
   openModal(`Inscrição — ${i.nome}`, `
     <div class="detail-grid">
-      <div class="detail-item"><span class="detail-item__label">Nome</span><span class="detail-item__val">${i.nome}</span></div>
-      ${i.modalidade ? `<div class="detail-item"><span class="detail-item__label">Modalidade</span><span class="detail-item__val">${i.modalidade}</span></div>` : ''}
-      <div class="detail-item"><span class="detail-item__label">Escalão</span><span class="detail-item__val">${i.escalao}</span></div>
-      ${i.nivel && i.nivel !== '—' ? `<div class="detail-item"><span class="detail-item__label">Nível</span><span class="detail-item__val">${i.nivel}</span></div>` : ''}
-      <div class="detail-item"><span class="detail-item__label">Idade</span><span class="detail-item__val">${i.idade} anos</span></div>
-      <div class="detail-item"><span class="detail-item__label">Posição</span><span class="detail-item__val">${i.posicao || '—'}</span></div>
-      ${i.pref && i.pref !== '—' ? `<div class="detail-item"><span class="detail-item__label">Pé preferido</span><span class="detail-item__val">${i.pref}</span></div>` : ''}
-      ${i.altura && i.altura !== '—' ? `<div class="detail-item"><span class="detail-item__label">Altura / Peso</span><span class="detail-item__val">${i.altura} cm / ${i.peso || '—'} kg</span></div>` : ''}
-      ${i.nomeResp && i.nomeResp !== '—' ? `<div class="detail-item"><span class="detail-item__label">Encarregado</span><span class="detail-item__val">${i.nomeResp}</span></div>` : ''}
-      <div class="detail-item"><span class="detail-item__label">Contacto</span><span class="detail-item__val">${i.telefone}</span></div>
-      <div class="detail-item"><span class="detail-item__label">E-mail</span><span class="detail-item__val">${i.email}</span></div>
-      <div class="detail-item"><span class="detail-item__label">Data</span><span class="detail-item__val">${fmtDate(i.data)}</span></div>
+      <div class="detail-item"><span class="detail-item__label">Nome</span><span class="detail-item__val">${jscEsc(i.nome)}</span></div>
+      ${i.modalidade ? `<div class="detail-item"><span class="detail-item__label">Modalidade</span><span class="detail-item__val">${jscEsc(i.modalidade)}</span></div>` : ''}
+      <div class="detail-item"><span class="detail-item__label">Escalão</span><span class="detail-item__val">${jscEsc(i.escalao)}</span></div>
+      ${i.nivel && i.nivel !== '—' ? `<div class="detail-item"><span class="detail-item__label">Nível</span><span class="detail-item__val">${jscEsc(i.nivel)}</span></div>` : ''}
+      <div class="detail-item"><span class="detail-item__label">Idade</span><span class="detail-item__val">${jscEsc(i.idade)} anos</span></div>
+      <div class="detail-item"><span class="detail-item__label">Posição</span><span class="detail-item__val">${jscEsc(i.posicao || '—')}</span></div>
+      ${i.pref && i.pref !== '—' ? `<div class="detail-item"><span class="detail-item__label">Pé preferido</span><span class="detail-item__val">${jscEsc(i.pref)}</span></div>` : ''}
+      ${i.altura && i.altura !== '—' ? `<div class="detail-item"><span class="detail-item__label">Altura / Peso</span><span class="detail-item__val">${jscEsc(i.altura)} cm / ${jscEsc(i.peso || '—')} kg</span></div>` : ''}
+      ${i.nomeResp && i.nomeResp !== '—' ? `<div class="detail-item"><span class="detail-item__label">Encarregado</span><span class="detail-item__val">${jscEsc(i.nomeResp)}</span></div>` : ''}
+      <div class="detail-item"><span class="detail-item__label">Contacto</span><span class="detail-item__val">${jscEsc(i.telefone)}</span></div>
+      <div class="detail-item"><span class="detail-item__label">E-mail</span><span class="detail-item__val">${jscEsc(i.email)}</span></div>
+      <div class="detail-item"><span class="detail-item__label">Data</span><span class="detail-item__val">${jscEsc(fmtDate(i.data))}</span></div>
       <div class="detail-item"><span class="detail-item__label">Estado</span><span class="detail-item__val">${statusBadge(i.estado)}</span></div>
     </div>`,
     i.estado === 'Pendente' ? `
@@ -629,9 +629,9 @@ function fmtNasc(dataNascimento) {
 }
 
 function _atletaAvatar(a) {
-  if (a.foto) return `<img src="${a.foto}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid #e5e7eb" />`;
+  if (a.foto) return `<img src="${jscEscUrl(a.foto)}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid #e5e7eb" />`;
   const initials = a.nome.split(' ').filter(Boolean).slice(0,2).map(w => w[0]).join('').toUpperCase();
-  return `<div style="width:36px;height:36px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;flex-shrink:0">${initials}</div>`;
+  return `<div style="width:36px;height:36px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;flex-shrink:0">${jscEsc(initials)}</div>`;
 }
 
 let _atletaEscalaoFiltro = '';
@@ -649,11 +649,11 @@ function renderAtletas(query = '') {
     const isAniversario = nasc && nasc.getDate() === hoje.getDate() && nasc.getMonth() === hoje.getMonth();
     return `<tr${isAniversario ? ' style="background:#fffbeb"' : ''}>
       <td style="padding:6px 8px">${_atletaAvatar(a)}</td>
-      <td><strong>${a.nome}</strong>${isAniversario ? ' 🎂' : ''}</td>
-      <td>${a.escalao}</td>
-      <td>${a.posicao || '—'}</td>
-      <td>${fmtNasc(a.dataNascimento)}${idade !== null ? ` <small style="color:#888">(${idade} anos)</small>` : ''}</td>
-      <td>${a.encarregado}</td>
+      <td><strong>${jscEsc(a.nome)}</strong>${jscEsc(isAniversario ? ' 🎂' : '')}</td>
+      <td>${jscEsc(a.escalao)}</td>
+      <td>${jscEsc(a.posicao || '—')}</td>
+      <td>${jscEsc(fmtNasc(a.dataNascimento))}${idade !== null ? ` <small style="color:#888">(${jscEsc(idade)} anos)</small>` : ''}</td>
+      <td>${jscEsc(a.encarregado)}</td>
       <td>${statusBadge(a.estado)}</td>
       <td>
         <div class="btn-actions">
@@ -683,7 +683,7 @@ document.getElementById('btnNovoAtleta')?.addEventListener('click', () => {
     <div class="modal-row">
       <div class="modal-field"><label>Nome completo</label><input type="text" class="form-input" id="mNome" placeholder="Nome do atleta" /></div>
       <div class="modal-field"><label>Escalão</label>
-        <select class="form-input" id="mEscalao">${_escOpts('')}</select>
+        <select class="form-input" id="mEscalao">${jscEsc(_escOpts(''))}</select>
       </div>
     </div>
     <div class="modal-row">
@@ -715,15 +715,15 @@ document.getElementById('btnNovoAtleta')?.addEventListener('click', () => {
 function _fotoModalHTML(fotoAtual = '') {
   return `<div class="modal-field">
     <label>Foto</label>
-    <input type="hidden" id="mFoto" value="${fotoAtual}" />
+    <input type="hidden" id="mFoto" value="${jscEsc(fotoAtual)}" />
     <input type="file" id="mFotoFile" accept="image/*" style="display:none" onchange="handleAtletaFoto(this,'mFoto','mFotoPreview')" />
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
       <button type="button" class="btn-sm" onclick="document.getElementById('mFotoFile').click()">&#128190; Ficheiro</button>
       <button type="button" class="btn-sm" onclick="colarFotoClipboard()" title="Copiar imagem no FPF → colar aqui">&#128203; Colar (Ctrl+V)</button>
       <span style="font-size:0.78rem;color:#888">Clique direito na foto do FPF → Copiar imagem → Colar aqui</span>
     </div>
-    <div id="mFotoPreview" style="${fotoAtual ? 'display:flex;align-items:center' : 'display:none'};margin-top:4px;gap:10px">
-      <img src="${fotoAtual}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:3px solid var(--blue)" />
+    <div id="mFotoPreview" style="${jscEsc(fotoAtual ? 'display:flex;align-items:center' : 'display:none')};margin-top:4px;gap:10px">
+      <img src="${jscEscUrl(fotoAtual)}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:3px solid var(--blue)" />
       <button type="button" class="btn-sm btn-icon--red" onclick="clearAtletaFoto('mFoto','mFotoPreview')">&#10005; Remover</button>
     </div>
   </div>`;
@@ -817,37 +817,37 @@ window.editAtleta = function (id) {
   openModal(`Editar — ${a.nome}`, `
     <div class="modal-row">
       <div class="modal-field"><label>Nome completo</label>
-        <input type="text" class="form-input" id="mNome" value="${a.nome}" />
+        <input type="text" class="form-input" id="mNome" value="${jscEsc(a.nome)}" />
       </div>
       <div class="modal-field"><label>Escalão</label>
-        <select class="form-input" id="mEscalao">${_escOpts(a.escalao)}</select>
+        <select class="form-input" id="mEscalao">${jscEsc(_escOpts(a.escalao))}</select>
       </div>
     </div>
     <div class="modal-row">
       <div class="modal-field"><label>Posição</label>
         <select class="form-input" id="mPosicao">
           ${['—','Guarda-redes','Defesa Direito','Defesa Esquerdo','Central','Médio Defensivo','Médio','Extremo','Avançado'].map(p =>
-            `<option${(p===(a.posicao||'—'))?' selected':''}>${p}</option>`).join('')}
+            `<option${jscEsc((p===(a.posicao||'—'))?' selected':'')}>${jscEsc(p)}</option>`).join('')}
         </select>
       </div>
       <div class="modal-field"><label>Data de Nascimento</label>
-        <input type="date" class="form-input" id="mDataNasc" value="${a.dataNascimento || ''}" />
+        <input type="date" class="form-input" id="mDataNasc" value="${jscEsc(a.dataNascimento || '')}" />
       </div>
     </div>
     <div class="modal-row">
       <div class="modal-field"><label>Encarregado</label>
-        <input type="text" class="form-input" id="mEnc" value="${a.encarregado || ''}" />
+        <input type="text" class="form-input" id="mEnc" value="${jscEsc(a.encarregado || '')}" />
       </div>
       <div class="modal-field"><label>Estado</label>
         <select class="form-input" id="mEstado">
-          <option${a.estado==='Activo'?' selected':''}>Activo</option>
-          <option${a.estado==='Inactivo'?' selected':''}>Inactivo</option>
+          <option${jscEsc(a.estado==='Activo'?' selected':'')}>Activo</option>
+          <option${jscEsc(a.estado==='Inactivo'?' selected':'')}>Inactivo</option>
         </select>
       </div>
     </div>
     <div class="modal-row">
       <div class="modal-field"><label>Nº Camisola</label>
-        <input type="number" class="form-input" id="mNumero" min="1" max="99" value="${a.numero || ''}" placeholder="—" />
+        <input type="number" class="form-input" id="mNumero" min="1" max="99" value="${jscEsc(a.numero || '')}" placeholder="—" />
       </div>
     </div>
     ${_fotoModalHTML(a.foto)}`,
@@ -1347,11 +1347,11 @@ window.previewPlantel = function () {
   const withDate  = players.filter(p => p.dataNascimento).length;
   prev.innerHTML = `
     <div style="font-size:0.82rem;color:#555;margin-bottom:8px">
-      <strong>${players.length}</strong> jogadores reconhecidos
-      · <span style="color:#16a34a">${novos} novos</span>
-      ${dups ? `· <span style="color:#d97706">${dups} duplicados</span>` : ''}
-      ${withPhoto ? `· <span style="color:#2563eb">${withPhoto} com foto</span>` : ''}
-      ${withDate ? `· <span style="color:#7c3aed">${withDate} com data nasc.</span>` : ''}
+      <strong>${jscEsc(players.length)}</strong> jogadores reconhecidos
+      · <span style="color:#16a34a">${jscEsc(novos)} novos</span>
+      ${dups ? `· <span style="color:#d97706">${jscEsc(dups)} duplicados</span>` : ''}
+      ${withPhoto ? `· <span style="color:#2563eb">${jscEsc(withPhoto)} com foto</span>` : ''}
+      ${withDate ? `· <span style="color:#7c3aed">${jscEsc(withDate)} com data nasc.</span>` : ''}
     </div>
     ${!withDate ? `<p style="font-size:0.78rem;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:7px 10px;margin:0 0 8px">
       ⚠️ Datas de nascimento não encontradas.<br>
@@ -1368,12 +1368,12 @@ window.previewPlantel = function () {
       <tbody>${players.map(p => {
         const dup = existNames.includes(p.nome.toLowerCase());
         const avatar = p.foto
-          ? `<img src="${p.foto}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid #e5e7eb" onerror="this.style.display='none'" />`
+          ? `<img src="${jscEscUrl(p.foto)}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid #e5e7eb" onerror="this.style.display='none'" />`
           : `<div style="width:32px;height:32px;border-radius:50%;background:#ddd;display:flex;align-items:center;justify-content:center;font-size:0.65rem;color:#999">${p.nome.split(' ').slice(0,2).map(w=>w[0]).join('')}</div>`;
-        return `<tr style="border-bottom:1px solid #eee${dup ? ';opacity:0.55' : ''}">
+        return `<tr style="border-bottom:1px solid #eee${jscEsc(dup ? ';opacity:0.55' : '')}">
           <td style="padding:4px 8px">${avatar}</td>
-          <td style="padding:4px 10px;font-weight:600">${p.nome}</td>
-          <td style="padding:4px 10px;color:#888">${p.dataNascimento || '—'}</td>
+          <td style="padding:4px 10px;font-weight:600">${jscEsc(p.nome)}</td>
+          <td style="padding:4px 10px;color:#888">${jscEsc(p.dataNascimento || '—')}</td>
           <td style="padding:4px 10px">${dup
             ? '<span style="color:#d97706;font-size:0.75rem">duplicado</span>'
             : '<span style="color:#16a34a;font-size:0.75rem">novo</span>'}</td>
@@ -1392,7 +1392,7 @@ window.diagPlantel = function () {
   const modo    = hasCard ? 'FPF — Cartões' : hasZZ ? 'ZeroZero — Grupos por posição' : 'Tabela genérica';
   prev.innerHTML = `
     <div style="font-size:0.8rem;color:#555;margin-bottom:6px">
-      Modo: <strong>${modo}</strong> · ${text.split('\n').filter(l => l.trim()).length} linhas
+      Modo: <strong>${jscEsc(modo)}</strong> · ${jscEsc(text.split('\n').filter(l => l.trim()).length)} linhas
     </div>
     <div style="font-size:0.75rem;color:#888;margin-bottom:4px">
       <span style="color:#1a6;font-weight:700">■</span> grupo/FPF
@@ -1543,7 +1543,7 @@ function renderNoticias() {
       let statusHtml;
       if (n.scheduledAt && !n.publicada) {
         const dt = n.scheduledAt.replace('T', ' ').slice(0, 16);
-        statusHtml = `<span style="color:#7c3aed;font-weight:700">&#9200; ${dt}</span>`;
+        statusHtml = `<span style="color:#7c3aed;font-weight:700">&#9200; ${jscEsc(dt)}</span>`;
       } else if (n.publicada) {
         statusHtml = `<span style="color:#16a34a;font-weight:700">&#10003; Publicada</span>`;
       } else {
@@ -1552,13 +1552,13 @@ function renderNoticias() {
       const destaqueHtml = n.destaque ? `<span style="background:#f59e0b;color:#fff;font-size:0.7rem;padding:2px 7px;border-radius:20px;font-weight:700;margin-left:6px">&#11088;</span>` : '';
       return `
       <div class="news-admin-card">
-        <div class="news-admin-img news-admin-img--${(i % 3) + 1}"
-             style="${n.imagem ? `background-image:url('${n.imagem}');background-size:cover;background-position:center;background-repeat:no-repeat` : ''}">
-          <span class="news-cat-badge">${n.categoria || ''}</span>
+        <div class="news-admin-img news-admin-img--${jscEsc((i % 3) + 1)}"
+             style="${n.imagem ? `background-image:url('${jscEscUrl(n.imagem)}');background-size:cover;background-position:center;background-repeat:no-repeat` : ''}">
+          <span class="news-cat-badge">${jscEsc(n.categoria || '')}</span>
         </div>
         <div class="news-admin-body">
-          <div class="news-admin-title">${n.titulo}${destaqueHtml}</div>
-          <div class="news-admin-date">${fmtDate(n.data)} &middot; ${statusHtml}</div>
+          <div class="news-admin-title">${jscEsc(n.titulo)}${destaqueHtml}</div>
+          <div class="news-admin-date">${jscEsc(fmtDate(n.data))} &middot; ${statusHtml}</div>
         </div>
         <div class="news-admin-footer">
           <button class="btn-icon" onclick="editNoticia(${n.id})" title="Editar">&#9998;</button>
@@ -1593,16 +1593,16 @@ function abrirModalNoticia(n) {
     </div>` : ''}
     <div class="modal-field">
       <label>Título *</label>
-      <input type="text" class="form-input" id="mTitulo" value="${n?.titulo || ''}" placeholder="Título da notícia" />
+      <input type="text" class="form-input" id="mTitulo" value="${jscEsc(n?.titulo || '')}" placeholder="Título da notícia" />
     </div>
     <div class="modal-row">
       <div class="modal-field"><label>Categoria</label>
         <select class="form-input" id="mCat">
-          ${cats.map(c => `<option${c === (n?.categoria || 'Resultado') ? ' selected' : ''}>${c}</option>`).join('')}
+          ${cats.map(c => `<option${jscEsc(c === (n?.categoria || 'Resultado') ? ' selected' : '')}>${jscEsc(c)}</option>`).join('')}
         </select>
       </div>
       <div class="modal-field"><label>Data</label>
-        <input type="date" class="form-input" id="mData" value="${n?.data || new Date().toISOString().split('T')[0]}" />
+        <input type="date" class="form-input" id="mData" value="${jscEsc(n?.data || new Date().toISOString().split('T')[0])}" />
       </div>
     </div>
     <div class="modal-field">
@@ -1662,15 +1662,15 @@ function abrirModalNoticia(n) {
         </label>
         <input type="file" id="mFicheiro" accept="image/*" style="display:none" onchange="previewNoticiaImg(this)">
         <span style="color:#888;font-size:0.8rem">ou</span>
-        <input type="url" class="form-input" id="mImagem" value="${n?.imagem || ''}" placeholder="https://..." style="flex:1;min-width:160px" oninput="previewNoticiaUrl(this.value)" />
+        <input type="url" class="form-input" id="mImagem" value="${jscEsc(n?.imagem || '')}" placeholder="https://..." style="flex:1;min-width:160px" oninput="previewNoticiaUrl(this.value)" />
       </div>
-      <div id="mImagemPreview" style="${n?.imagem ? '' : 'display:none'}">
+      <div id="mImagemPreview" style="${jscEsc(n?.imagem ? '' : 'display:none')}">
         <div style="font-size:0.78rem;color:#888;margin-bottom:4px">Clique na imagem para definir o ponto focal do recorte</div>
         <div id="mNoticiaPreviewWrap" style="position:relative;border-radius:8px;overflow:hidden;background:#1a3a80;height:180px;cursor:crosshair">
-          <img id="mImagemPreviewImg" src="${n?.imagem || ''}"
-            style="width:100%;height:100%;object-fit:cover;object-position:${focalPos};pointer-events:none;display:block"
+          <img id="mImagemPreviewImg" src="${jscEscUrl(n?.imagem || '')}"
+            style="width:100%;height:100%;object-fit:cover;object-position:${jscEsc(focalPos)};pointer-events:none;display:block"
             onerror="this.parentElement.parentElement.style.display='none'" />
-          <div id="mNoticiaFocalPin" style="position:absolute;left:${focalPct[0]}%;top:${focalPct[1]}%;transform:translate(-50%,-50%);pointer-events:none;z-index:3;display:${n?.imagem?'block':'none'}">
+          <div id="mNoticiaFocalPin" style="position:absolute;left:${jscEsc(focalPct[0])}%;top:${jscEsc(focalPct[1])}%;transform:translate(-50%,-50%);pointer-events:none;z-index:3;display:${jscEsc(n?.imagem?'block':'none')}">
             <svg width="30" height="30" viewBox="0 0 30 30" style="filter:drop-shadow(0 1px 4px rgba(0,0,0,0.6))">
               <circle cx="15" cy="15" r="13" fill="white" fill-opacity="0.92"/>
               <circle cx="15" cy="15" r="5" fill="#0055cc"/>
@@ -1683,7 +1683,7 @@ function abrirModalNoticia(n) {
         </div>
         <div id="mImagemTamanho" style="font-size:11px;color:#888;margin-top:3px"></div>
       </div>
-      <input type="hidden" id="mFocalPos" value="${focalPos}" />
+      <input type="hidden" id="mFocalPos" value="${jscEsc(focalPos)}" />
     </div>
 
     <div class="modal-row" style="margin-top:4px">
@@ -1696,21 +1696,21 @@ function abrirModalNoticia(n) {
             ['left',   '◧ Esquerda', 'Texto flui à direita'],
             ['right',  '◨ Direita',  'Texto flui à esquerda'],
           ].map(([val, label, desc]) => `
-            <label style="display:flex;align-items:center;gap:6px;padding:8px 10px;border:2px solid ${val===pos?'var(--blue)':'#e2e8f0'};border-radius:8px;cursor:pointer;font-size:0.82rem;background:${val===pos?'#eff6ff':'#fff'}" onclick="selectImagePos('${val}')">
-              <input type="radio" name="mImagemPos" value="${val}" ${val===pos?'checked':''} style="display:none">
-              <span style="font-size:1rem">${label.split(' ')[0]}</span>
-              <span><strong>${label.split(' ').slice(1).join(' ')}</strong><br><small style="color:#888">${desc}</small></span>
+            <label style="display:flex;align-items:center;gap:6px;padding:8px 10px;border:2px solid ${jscEsc(val===pos?'var(--blue)':'#e2e8f0')};border-radius:8px;cursor:pointer;font-size:0.82rem;background:${jscEsc(val===pos?'#eff6ff':'#fff')}" onclick="selectImagePos('${val}')">
+              <input type="radio" name="mImagemPos" value="${jscEsc(val)}" ${jscEsc(val===pos?'checked':'')} style="display:none">
+              <span style="font-size:1rem">${jscEsc(label.split(' ')[0])}</span>
+              <span><strong>${label.split(' ').slice(1).join(' ')}</strong><br><small style="color:#888">${jscEsc(desc)}</small></span>
             </label>`).join('')}
         </div>
-        <input type="hidden" id="mImagemPos" value="${pos}">
+        <input type="hidden" id="mImagemPos" value="${jscEsc(pos)}">
       </div>
       <div class="modal-field">
         <label>Tamanho da imagem</label>
         <select class="form-input" id="mImagemSize" style="margin-top:4px">
-          <option value="cover"   ${sz==='cover'  ?'selected':''}>Preencher (corta bordas)</option>
-          <option value="contain" ${sz==='contain'?'selected':''}>Mostrar tudo</option>
-          <option value="110%"    ${sz==='110%'   ?'selected':''}>Zoom 110%</option>
-          <option value="140%"    ${sz==='140%'   ?'selected':''}>Zoom 140%</option>
+          <option value="cover"   ${jscEsc(sz==='cover'  ?'selected':'')}>Preencher (corta bordas)</option>
+          <option value="contain" ${jscEsc(sz==='contain'?'selected':'')}>Mostrar tudo</option>
+          <option value="110%"    ${jscEsc(sz==='110%'   ?'selected':'')}>Zoom 110%</option>
+          <option value="140%"    ${jscEsc(sz==='140%'   ?'selected':'')}>Zoom 140%</option>
         </select>
         <div style="margin-top:6px;font-size:0.78rem;color:#888">
           Máx. 5MB — comprimido automaticamente
@@ -1722,25 +1722,25 @@ function abrirModalNoticia(n) {
       <div class="modal-field">
         <label>Estado</label>
         <select class="form-input" id="mStatus" onchange="toggleAgendamento()">
-          <option value="publicada" ${(isNew || (n?.publicada && !n?.scheduledAt)) ? 'selected' : ''}>&#10003; Publicada</option>
-          <option value="rascunho"  ${(!isNew && !n?.publicada && !n?.scheduledAt) ? 'selected' : ''}>&#9646; Rascunho</option>
-          <option value="agendada"  ${n?.scheduledAt ? 'selected' : ''}>&#9200; Agendada</option>
+          <option value="publicada" ${jscEsc((isNew || (n?.publicada && !n?.scheduledAt)) ? 'selected' : '')}>&#10003; Publicada</option>
+          <option value="rascunho"  ${jscEsc((!isNew && !n?.publicada && !n?.scheduledAt) ? 'selected' : '')}>&#9646; Rascunho</option>
+          <option value="agendada"  ${jscEsc(n?.scheduledAt ? 'selected' : '')}>&#9200; Agendada</option>
         </select>
       </div>
-      <div class="modal-field" id="mAgendamentoWrap" style="${n?.scheduledAt ? '' : 'display:none'}">
+      <div class="modal-field" id="mAgendamentoWrap" style="${jscEsc(n?.scheduledAt ? '' : 'display:none')}">
         <label>Data e hora de publicação</label>
-        <input type="datetime-local" class="form-input" id="mScheduledAt" value="${n?.scheduledAt || ''}" />
+        <input type="datetime-local" class="form-input" id="mScheduledAt" value="${jscEsc(n?.scheduledAt || '')}" />
       </div>
     </div>
     <div class="modal-field" style="margin-top:8px">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-        <input type="checkbox" id="mDestaque" ${n?.destaque ? 'checked' : ''} />
+        <input type="checkbox" id="mDestaque" ${jscEsc(n?.destaque ? 'checked' : '')} />
         &#11088; Artigo em destaque (aparece no topo da página de notícias)
       </label>
     </div>`,
     `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
      <button class="btn-cancel" onclick="previewNoticiaForm()" style="background:#f0f4ff;color:#003B8E;border:1px solid #c7d8f8">&#128065; Pré-visualizar</button>
-     <button class="btn-save" onclick="saveNoticia(${isNew ? 'null' : n.id})">${isNew ? 'Criar Notícia' : 'Guardar'}</button>`
+     <button class="btn-save" onclick="saveNoticia(${isNew ? 'null' : n.id})">${jscEsc(isNew ? 'Criar Notícia' : 'Guardar')}</button>`
   );
   _initRTE(n ? n.id : null);
 
@@ -1755,7 +1755,7 @@ function abrirModalNoticia(n) {
       const ts = draft.savedAt ? new Date(draft.savedAt).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }) : '';
       const banner = document.createElement('div');
       banner.style.cssText = 'background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.83rem;display:flex;align-items:center;gap:10px;flex-wrap:wrap';
-      banner.innerHTML = `<span>&#128190; Rascunho automático encontrado (${ts}). Restaurar?</span>`
+      banner.innerHTML = `<span>&#128190; Rascunho automático encontrado (${jscEsc(ts)}). Restaurar?</span>`
         + `<button onclick="restoreNoticiaDraft()" style="background:#f59e0b;color:#fff;border:none;padding:4px 12px;border-radius:6px;cursor:pointer;font-weight:700;font-size:0.8rem">Restaurar</button>`
         + `<button onclick="discardNoticiaDraft()" style="background:transparent;color:#92400e;border:none;cursor:pointer;font-size:0.8rem;text-decoration:underline">Descartar</button>`;
       modalBody.prepend(banner);
@@ -1933,8 +1933,8 @@ window.doInsertImageRTE = function () {
   else if (align === 'right')  imgStyle = 'float:right;max-width:46%;height:auto;border-radius:6px;margin:4px 0 8px 16px;clear:right';
   else imgStyle = 'max-width:100%;height:auto;border-radius:6px;margin:4px 2px';
 
-  let html = `<img src="${url}" style="${imgStyle}" loading="lazy" alt="${caption || ''}">`;
-  if (caption) html += `<span style="display:block;text-align:center;font-size:0.82rem;color:#888;margin:4px 0 12px">${caption}</span>`;
+  let html = `<img src="${jscEscUrl(url)}" style="${imgStyle}" loading="lazy" alt="${jscEsc(caption || '')}">`;
+  if (caption) html += `<span style="display:block;text-align:center;font-size:0.82rem;color:#888;margin:4px 0 12px">${jscEsc(caption)}</span>`;
   html += align === 'block' ? '<br>' : '';
 
   const editor = document.getElementById('mResumoEditor');
@@ -2109,11 +2109,11 @@ function renderMensagens(filterEstado = '') {
   if (filterEstado) data = data.filter(m => m.estado === filterEstado);
 
   tbody.innerHTML = data.map(m => `
-    <tr style="${m.estado==='Não lida'?'font-weight:700':''}">
-      <td>${m.nome}</td>
-      <td>${m.email}</td>
-      <td>${m.assunto}</td>
-      <td>${fmtDate(m.data)}</td>
+    <tr style="${jscEsc(m.estado==='Não lida'?'font-weight:700':'')}">
+      <td>${jscEsc(m.nome)}</td>
+      <td>${jscEsc(m.email)}</td>
+      <td>${jscEsc(m.assunto)}</td>
+      <td>${jscEsc(fmtDate(m.data))}</td>
       <td>${statusBadge(m.estado)}</td>
       <td>
         <div class="btn-actions">
@@ -2135,13 +2135,13 @@ window.verMensagem = function (id) {
   if (m.estado === 'Não lida') { m.estado = 'Lida'; _regPush('contacto', m.id, 'Lida'); saveDB(); renderMensagens(); updateBadges(); }
   openModal(`Mensagem de ${m.nome}`, `
     <div class="detail-grid">
-      <div class="detail-item"><span class="detail-item__label">Nome</span><span class="detail-item__val">${m.nome}</span></div>
-      <div class="detail-item"><span class="detail-item__label">E-mail</span><span class="detail-item__val">${m.email}</span></div>
-      <div class="detail-item"><span class="detail-item__label">Telefone</span><span class="detail-item__val">${m.telefone}</span></div>
-      <div class="detail-item"><span class="detail-item__label">Assunto</span><span class="detail-item__val">${m.assunto}</span></div>
+      <div class="detail-item"><span class="detail-item__label">Nome</span><span class="detail-item__val">${jscEsc(m.nome)}</span></div>
+      <div class="detail-item"><span class="detail-item__label">E-mail</span><span class="detail-item__val">${jscEsc(m.email)}</span></div>
+      <div class="detail-item"><span class="detail-item__label">Telefone</span><span class="detail-item__val">${jscEsc(m.telefone)}</span></div>
+      <div class="detail-item"><span class="detail-item__label">Assunto</span><span class="detail-item__val">${jscEsc(m.assunto)}</span></div>
       <div class="detail-item" style="grid-column:span 2"><span class="detail-item__label">Mensagem</span>
-        <span class="detail-item__val" style="white-space:pre-wrap">${m.mensagem}</span></div>
-      <div class="detail-item"><span class="detail-item__label">Data</span><span class="detail-item__val">${fmtDate(m.data)}</span></div>
+        <span class="detail-item__val" style="white-space:pre-wrap">${jscEsc(m.mensagem)}</span></div>
+      <div class="detail-item"><span class="detail-item__label">Data</span><span class="detail-item__val">${jscEsc(fmtDate(m.data))}</span></div>
       <div class="detail-item"><span class="detail-item__label">Estado</span><span class="detail-item__val">${statusBadge(m.estado)}</span></div>
     </div>`,
     `<button class="btn-cancel" onclick="closeModal()">Fechar</button>
@@ -2182,7 +2182,7 @@ function _escOpts(current, includeAll) {
     .sort((a,b) => (parseInt(a.replace(/\D/g,''))||0) - (parseInt(b.replace(/\D/g,''))||0));
   if (!nomes.length) nomes = ['Sub-9','Sub-11','Sub-13','Sub-15','Sub-17','Sub-19'];
   if (includeAll) nomes = ['Todos', ...nomes];
-  return nomes.map(n => `<option${n===current?' selected':''}>${n}</option>`).join('');
+  return nomes.map(n => `<option${jscEsc(n===current?' selected':'')}>${n}</option>`).join('');
 }
 
 // Refreshes all static escalão selects/tabs (plantelEscalao, filterJogoEscalao, atletasEscalaoTabs)
@@ -2196,7 +2196,7 @@ function _refreshEscalaoSelects() {
   const jogoFilter = document.getElementById('filterJogoEscalao');
   if (jogoFilter) {
     const cur = jogoFilter.value;
-    jogoFilter.innerHTML = `<option value="">Todos os escalões</option>${_escOpts(cur)}`;
+    jogoFilter.innerHTML = `<option value="">Todos os escalões</option>${jscEsc(_escOpts(cur))}`;
     if (!jogoFilter.value) jogoFilter.value = '';
   }
   const atTabs = document.getElementById('atletasEscalaoTabs');
@@ -2204,29 +2204,29 @@ function _refreshEscalaoSelects() {
     const nomes = DB.escaloes.map(e => e.nome)
       .sort((a,b) => (parseInt(a.replace(/\D/g,''))||0) - (parseInt(b.replace(/\D/g,''))||0));
     const cur = _atletaEscalaoFiltro;
-    atTabs.innerHTML = `<button class="tab-filter${!cur?' active':''}" data-escalao="">Todos</button>`
-      + nomes.map(n => `<button class="tab-filter${n===cur?' active':''}" data-escalao="${n}">${n}</button>`).join('');
+    atTabs.innerHTML = `<button class="tab-filter${jscEsc(!cur?' active':'')}" data-escalao="">Todos</button>`
+      + nomes.map(n => `<button class="tab-filter${jscEsc(n===cur?' active':'')}" data-escalao="${n}">${n}</button>`).join('');
   }
 }
 
 function renderEscaloes() {
   const grid = document.getElementById('escaloesGrid');
   grid.innerHTML = DB.escaloes.map((e, i) => `
-    <div class="escalao-card ${e.destaque ? 'escalao-card--featured' : ''}">
+    <div class="escalao-card ${jscEsc(e.destaque ? 'escalao-card--featured' : '')}">
       ${e.destaque ? '<div class="escalao-destaque-badge">⭐ Destaque</div>' : ''}
-      <div class="escalao-name">${e.nome} – ${e.designacao}</div>
-      <div class="escalao-range">${e.faixa}</div>
+      <div class="escalao-name">${jscEsc(e.nome)} – ${jscEsc(e.designacao)}</div>
+      <div class="escalao-range">${jscEsc(e.faixa)}</div>
       <div class="escalao-stats">
         <div class="escalao-stat">
-          <span class="escalao-stat__num">${e.atletas}</span>
+          <span class="escalao-stat__num">${jscEsc(e.atletas)}</span>
           <span class="escalao-stat__label">Atletas</span>
         </div>
       </div>
       <div class="escalao-treinador">
-        <strong>Treinador:</strong> ${e.treinador}<br />
-        <strong>Treinos:</strong> ${e.treinos}
+        <strong>Treinador:</strong> ${jscEsc(e.treinador)}<br />
+        <strong>Treinos:</strong> ${jscEsc(e.treinos)}
       </div>
-      ${e.descricao ? `<div class="escalao-desc">${e.descricao}</div>` : ''}
+      ${e.descricao ? `<div class="escalao-desc">${jscEsc(e.descricao)}</div>` : ''}
       <div style="display:flex;gap:6px;margin-top:10px">
         <button class="btn btn-sm" onclick="editEscalao(${i})" style="flex:1">✏️ Editar</button>
         <button class="btn btn-sm btn-danger" onclick="deleteEscalao(${i})">🗑️</button>
@@ -2245,30 +2245,30 @@ window.editEscalao = function(idx) {
   openModal(idx >= 0 ? 'Editar Categoria' : 'Nova Categoria', `
     <div class="modal-row">
       <div class="modal-field"><label>Escalão</label>
-        <input class="form-input" id="eNome" list="eNomeSugestoes" value="${e.nome === 'Sub-X' ? '' : e.nome}" placeholder="Ex: Sub-13" autocomplete="off" />
+        <input class="form-input" id="eNome" list="eNomeSugestoes" value="${jscEsc(e.nome === 'Sub-X' ? '' : e.nome)}" placeholder="Ex: Sub-13" autocomplete="off" />
         <datalist id="eNomeSugestoes">
-          ${SUB_OPTIONS.map(s=>`<option value="${s}"></option>`).join('')}
+          ${SUB_OPTIONS.map(s=>`<option value="${jscEsc(s)}"></option>`).join('')}
         </datalist></div>
       <div class="modal-field"><label>Designação (ex: Benjamins)</label>
-        <input class="form-input" id="eDesig" value="${e.designacao}" /></div>
+        <input class="form-input" id="eDesig" value="${jscEsc(e.designacao)}" /></div>
     </div>
     <div class="modal-row">
       <div class="modal-field"><label>Faixa etária (ex: 12 a 13 anos)</label>
-        <input class="form-input" id="eFaixa" value="${e.faixa}" /></div>
+        <input class="form-input" id="eFaixa" value="${jscEsc(e.faixa)}" /></div>
       <div class="modal-field"><label>Nº de atletas</label>
-        <input class="form-input" type="number" id="eAtletas" value="${e.atletas}" /></div>
+        <input class="form-input" type="number" id="eAtletas" value="${jscEsc(e.atletas)}" /></div>
     </div>
     <div class="modal-row">
       <div class="modal-field"><label>Treinador responsável</label>
-        <input class="form-input" id="eTreinador" value="${e.treinador}" /></div>
+        <input class="form-input" id="eTreinador" value="${jscEsc(e.treinador)}" /></div>
       <div class="modal-field"><label>Horário de treinos</label>
-        <input class="form-input" id="eTreinos" value="${e.treinos}" placeholder="Ex: Seg, Qua e Sex 17h" /></div>
+        <input class="form-input" id="eTreinos" value="${jscEsc(e.treinos)}" placeholder="Ex: Seg, Qua e Sex 17h" /></div>
     </div>
     <div class="modal-field"><label>Descrição (aparece no site)</label>
-      <textarea class="form-input" id="eDesc" rows="3">${e.descricao || ''}</textarea></div>
+      <textarea class="form-input" id="eDesc" rows="3">${jscEsc(e.descricao || '')}</textarea></div>
     <div class="modal-field" style="margin-top:8px">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-        <input type="checkbox" id="eDestaque" ${e.destaque?'checked':''} />
+        <input type="checkbox" id="eDestaque" ${jscEsc(e.destaque?'checked':'')} />
         Marcar como destaque (aparece em evidência no site)
       </label>
     </div>`,
@@ -2327,14 +2327,14 @@ function renderJogos(filterEscalao = '') {
 
   const jogoRow = (j) => `
       <tr>
-        <td>${fmtDataJogo(j.data)}<br/><span style="font-size:0.75rem;color:var(--gray-text)">${j.hora}</span></td>
-        <td>${j.escalao}</td>
-        <td style="${scRe.test(j.casa)?'font-weight:700;color:var(--blue)':''}">${j.casa}</td>
-        <td style="${scRe.test(j.fora)?'font-weight:700;color:var(--blue)':''}">${j.fora}</td>
+        <td>${jscEsc(fmtDataJogo(j.data))}<br/><span style="font-size:0.75rem;color:var(--gray-text)">${jscEsc(j.hora)}</span></td>
+        <td>${jscEsc(j.escalao)}</td>
+        <td style="${jscEsc(scRe.test(j.casa)?'font-weight:700;color:var(--blue)':'')}">${jscEsc(j.casa)}</td>
+        <td style="${jscEsc(scRe.test(j.fora)?'font-weight:700;color:var(--blue)':'')}">${jscEsc(j.fora)}</td>
         <td style="text-align:center;font-size:1.1rem">${j.estado === 'Realizado'
-          ? `<strong>${j.gcasa} – ${j.gfora}</strong>`
+          ? `<strong>${jscEsc(j.gcasa)} – ${jscEsc(j.gfora)}</strong>`
           : `<span style="color:var(--gray-text)">—</span>`}</td>
-        <td style="font-size:0.8rem;color:var(--gray-text)">${j.local}</td>
+        <td style="font-size:0.8rem;color:var(--gray-text)">${jscEsc(j.local)}</td>
         <td>
           <div class="btn-actions">
             ${j.estado === 'Agendado' ? `<button class="btn-icon btn-icon--green" onclick="registarResultado(${j.id})" title="Registar resultado">&#9999;</button>` : ''}
@@ -2378,7 +2378,7 @@ document.getElementById('btnNovoJogo')?.addEventListener('click', () => {
   openModal('Novo Jogo', `
     <div class="modal-row">
       <div class="modal-field"><label>Escalão *</label>
-        <select id="mJEscalao">${_escOpts('')}</select>
+        <select id="mJEscalao">${jscEsc(_escOpts(''))}</select>
       </div>
       <div class="modal-field"><label>Data *</label><input type="date" id="mJData" /></div>
     </div>
@@ -2421,17 +2421,17 @@ window.registarResultado = function (id) {
   if (!j) return;
   openModal(`Registar Resultado`, `
     <p style="margin-bottom:16px;color:var(--gray-text);font-size:0.9rem">
-      ${j.escalao} · ${fmtDataJogo(j.data)} · ${j.hora}
+      ${jscEsc(j.escalao)} · ${jscEsc(fmtDataJogo(j.data))} · ${jscEsc(j.hora)}
     </p>
     <div style="display:flex;align-items:center;gap:16px;justify-content:center;margin-bottom:20px">
       <div style="text-align:center">
-        <div style="font-weight:700;margin-bottom:8px">${j.casa}</div>
+        <div style="font-weight:700;margin-bottom:8px">${jscEsc(j.casa)}</div>
         <input type="number" id="mGCasa" min="0" max="30" value="0"
           style="width:70px;padding:12px;font-size:1.5rem;text-align:center;border:2px solid var(--gray-border);border-radius:8px;font-family:var(--font-display)" />
       </div>
       <div style="font-family:var(--font-display);font-size:2rem;color:var(--gray-text)">–</div>
       <div style="text-align:center">
-        <div style="font-weight:700;margin-bottom:8px">${j.fora}</div>
+        <div style="font-weight:700;margin-bottom:8px">${jscEsc(j.fora)}</div>
         <input type="number" id="mGFora" min="0" max="30" value="0"
           style="width:70px;padding:12px;font-size:1.5rem;text-align:center;border:2px solid var(--gray-border);border-radius:8px;font-family:var(--font-display)" />
       </div>
@@ -2458,17 +2458,17 @@ window.editJogo = function (id) {
   openModal('Editar Jogo', `
     <div class="modal-row">
       <div class="modal-field"><label>Escalão</label>
-        <select id="mJEscalao">${_escOpts(j.escalao)}</select>
+        <select id="mJEscalao">${jscEsc(_escOpts(j.escalao))}</select>
       </div>
-      <div class="modal-field"><label>Data</label><input type="date" id="mJData" value="${j.data}" /></div>
+      <div class="modal-field"><label>Data</label><input type="date" id="mJData" value="${jscEsc(j.data)}" /></div>
     </div>
     <div class="modal-row">
-      <div class="modal-field"><label>Hora</label><input type="time" id="mJHora" value="${j.hora}" /></div>
-      <div class="modal-field"><label>Local</label><input type="text" id="mJLocal" value="${j.local}" /></div>
+      <div class="modal-field"><label>Hora</label><input type="time" id="mJHora" value="${jscEsc(j.hora)}" /></div>
+      <div class="modal-field"><label>Local</label><input type="text" id="mJLocal" value="${jscEsc(j.local)}" /></div>
     </div>
     <div class="modal-row">
-      <div class="modal-field"><label>Equipa Casa</label><input type="text" id="mJCasa" value="${j.casa}" /></div>
-      <div class="modal-field"><label>Equipa Fora</label><input type="text" id="mJFora" value="${j.fora}" /></div>
+      <div class="modal-field"><label>Equipa Casa</label><input type="text" id="mJCasa" value="${jscEsc(j.casa)}" /></div>
+      <div class="modal-field"><label>Equipa Fora</label><input type="text" id="mJFora" value="${jscEsc(j.fora)}" /></div>
     </div>`,
     `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
      <button class="btn-save" onclick="saveEditJogo(${id})">Guardar</button>`
@@ -2508,21 +2508,21 @@ function renderPatrocinadores() {
     return `
       <div class="sponsors-admin-tier">
         <div class="sponsors-admin-tier__header">
-          <span class="tier-label tier-label--${tier.toLowerCase()}">&#9733; ${tier}</span>
-          <span style="font-size:0.8rem;color:var(--gray-text)">${lista.filter(p=>p.ativo).length} activos · ${lista.filter(p=>!p.ativo).length} inactivos</span>
+          <span class="tier-label tier-label--${jscEsc(tier.toLowerCase())}">&#9733; ${jscEsc(tier)}</span>
+          <span style="font-size:0.8rem;color:var(--gray-text)">${jscEsc(lista.filter(p=>p.ativo).length)} activos · ${jscEsc(lista.filter(p=>!p.ativo).length)} inactivos</span>
         </div>
         <div class="sponsors-admin-grid">
           ${lista.map(p => `
-            <div class="sponsor-admin-card ${p.ativo ? '' : 'sponsor-admin-card--inactive'}">
-              <span class="sponsor-admin-card__tier-dot dot--${p.tier.toLowerCase()}"></span>
-              <div class="sponsor-admin-logo">${p.nome}</div>
-              <div class="sponsor-admin-name">${p.nome}</div>
-              <div class="sponsor-admin-sector">${p.sector} · Desde ${p.desde}</div>
+            <div class="sponsor-admin-card ${jscEsc(p.ativo ? '' : 'sponsor-admin-card--inactive')}">
+              <span class="sponsor-admin-card__tier-dot dot--${jscEsc(p.tier.toLowerCase())}"></span>
+              <div class="sponsor-admin-logo">${jscEsc(p.nome)}</div>
+              <div class="sponsor-admin-name">${jscEsc(p.nome)}</div>
+              <div class="sponsor-admin-sector">${jscEsc(p.sector)} · Desde ${jscEsc(p.desde)}</div>
               <div class="sponsor-admin-actions">
                 <button class="btn-icon" onclick="editPatrocinador(${p.id})" title="Editar">&#9998;</button>
                 <button class="btn-icon ${p.ativo ? 'btn-icon--red' : 'btn-icon--green'}"
                   onclick="togglePatrocinador(${p.id})"
-                  title="${p.ativo ? 'Desactivar' : 'Activar'}">${p.ativo ? '&#9940;' : '&#9989;'}</button>
+                  title="${jscEsc(p.ativo ? 'Desactivar' : 'Activar')}">${p.ativo ? '&#9940;' : '&#9989;'}</button>
                 <button class="btn-icon btn-icon--red" onclick="removePatrocinador(${p.id})" title="Eliminar">&#128465;</button>
               </div>
             </div>`).join('')}
@@ -2578,22 +2578,22 @@ window.editPatrocinador = function (id) {
   openModal(`Editar — ${p.nome}`, `
     <div class="modal-row">
       <div class="modal-field"><label>Nome</label>
-        <input type="text" id="mPNome" value="${p.nome}" /></div>
+        <input type="text" id="mPNome" value="${jscEsc(p.nome)}" /></div>
       <div class="modal-field"><label>Sector</label>
-        <input type="text" id="mPSector" value="${p.sector}" /></div>
+        <input type="text" id="mPSector" value="${jscEsc(p.sector)}" /></div>
     </div>
     <div class="modal-row">
       <div class="modal-field"><label>Nível</label>
         <select id="mPTier">
           ${['Ouro','Prata','Bronze'].map(t =>
-            `<option ${t===p.tier?'selected':''}>${t}</option>`).join('')}
+            `<option ${jscEsc(t===p.tier?'selected':'')}>${jscEsc(t)}</option>`).join('')}
         </select>
       </div>
       <div class="modal-field"><label>Desde</label>
-        <input type="number" id="mPDesde" value="${p.desde}" /></div>
+        <input type="number" id="mPDesde" value="${jscEsc(p.desde)}" /></div>
     </div>
     <div class="modal-field"><label>Website</label>
-      <input type="url" id="mPWebsite" value="${p.website}" /></div>`,
+      <input type="url" id="mPWebsite" value="${jscEsc(p.website)}" /></div>`,
     `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
      <button class="btn-save" onclick="saveEditPatrocinador(${id})">Guardar</button>`
   );
@@ -2662,11 +2662,11 @@ function renderClassSyncRows() {
     const teamKeys = Object.keys(teams);
 
     const escLast = escCfg.lastSync
-      ? `<span style="font-weight:400;font-size:0.7rem;opacity:0.8;margin-left:10px">últ. atualização: ${new Date(escCfg.lastSync).toLocaleDateString('pt-PT')}${escCfg.nTeams ? ' ('+escCfg.nTeams+' eq.)' : ''}</span>`
+      ? `<span style="font-weight:400;font-size:0.7rem;opacity:0.8;margin-left:10px">últ. atualização: ${jscEsc(new Date(escCfg.lastSync).toLocaleDateString('pt-PT'))}${jscEsc(escCfg.nTeams ? ' ('+escCfg.nTeams+' eq.)' : '')}</span>`
       : '';
     html += `<tr style="background:var(--blue);color:#fff">
       <td colspan="4" style="padding:8px 14px;font-weight:700;letter-spacing:0.5px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
-        <span>${escalao}${escLast}</span>
+        <span>${jscEsc(escalao)}${escLast}</span>
         <span style="display:flex;gap:6px;flex-wrap:wrap">
           <button class="btn-sm" style="background:var(--yellow);color:#001b4d;border:none;font-weight:700"
             onclick="abrirColar('${escalao}','class','')">&#128203; Colar classificação</button>
@@ -2691,14 +2691,14 @@ function renderClassSyncRows() {
         const lastClass = t.lastSync  ? new Date(t.lastSync).toLocaleDateString('pt-PT')  + (t.nTeams ? ` (${t.nTeams} eq.)` : '')  : '—';
         const lastJogos = t.lastJogos ? new Date(t.lastJogos).toLocaleDateString('pt-PT') + (t.nJogos ? ` (${t.nJogos} jg.)` : '')  : '—';
         html += `<tr style="border-bottom:1px solid #eee">
-          <td style="padding:8px 14px 8px 24px;font-weight:700">${t.nome || tk}
-            ${t.compLabel ? `<div style="font-size:0.72rem;color:#888;font-weight:400">${t.compLabel}</div>` : ''}
+          <td style="padding:8px 14px 8px 24px;font-weight:700">${jscEsc(t.nome || tk)}
+            ${t.compLabel ? `<div style="font-size:0.72rem;color:#888;font-weight:400">${jscEsc(t.compLabel)}</div>` : ''}
           </td>
           <td style="padding:8px 14px;font-size:0.8rem;color:#555">
-            <span style="color:#999;font-size:0.7rem">Classificação</span><br>${lastClass}
+            <span style="color:#999;font-size:0.7rem">Classificação</span><br>${jscEsc(lastClass)}
           </td>
           <td style="padding:8px 14px;font-size:0.8rem;color:#555">
-            <span style="color:#999;font-size:0.7rem">Jogos</span><br>${lastJogos}
+            <span style="color:#999;font-size:0.7rem">Jogos</span><br>${jscEsc(lastJogos)}
           </td>
           <td style="padding:8px 14px;text-align:right;white-space:nowrap;display:flex;gap:5px;justify-content:flex-end">
             <button class="btn-sm" onclick="abrirColar('${escalao}','class','${tk}')">&#128203; Classificação</button>
@@ -2747,14 +2747,14 @@ function _edClassRowHTML(t) {
   const num = (v) => v == null ? 0 : v;
   const esc = (s) => String(s || '').replace(/"/g, '&quot;');
   return `<tr>
-    <td><input class="form-input ed-equipa" value="${esc(t.equipa)}" placeholder="Nome da equipa" style="min-width:170px"></td>
-    <td><input class="form-input ed-j"  type="number" min="0" value="${num(t.j)}"  style="width:56px"></td>
-    <td><input class="form-input ed-v"  type="number" min="0" value="${num(t.v)}"  style="width:56px"></td>
-    <td><input class="form-input ed-e"  type="number" min="0" value="${num(t.e)}"  style="width:56px"></td>
-    <td><input class="form-input ed-d"  type="number" min="0" value="${num(t.d)}"  style="width:56px"></td>
-    <td><input class="form-input ed-gm" type="number" min="0" value="${num(t.gm)}" style="width:56px"></td>
-    <td><input class="form-input ed-gs" type="number" min="0" value="${num(t.gs)}" style="width:56px"></td>
-    <td><input class="form-input ed-forma" value="${esc(t.forma)}" placeholder="VVEDV" maxlength="5" style="width:76px;text-transform:uppercase"></td>
+    <td><input class="form-input ed-equipa" value="${jscEsc(esc(t.equipa))}" placeholder="Nome da equipa" style="min-width:170px"></td>
+    <td><input class="form-input ed-j"  type="number" min="0" value="${jscEsc(num(t.j))}"  style="width:56px"></td>
+    <td><input class="form-input ed-v"  type="number" min="0" value="${jscEsc(num(t.v))}"  style="width:56px"></td>
+    <td><input class="form-input ed-e"  type="number" min="0" value="${jscEsc(num(t.e))}"  style="width:56px"></td>
+    <td><input class="form-input ed-d"  type="number" min="0" value="${jscEsc(num(t.d))}"  style="width:56px"></td>
+    <td><input class="form-input ed-gm" type="number" min="0" value="${jscEsc(num(t.gm))}" style="width:56px"></td>
+    <td><input class="form-input ed-gs" type="number" min="0" value="${jscEsc(num(t.gs))}" style="width:56px"></td>
+    <td><input class="form-input ed-forma" value="${jscEsc(esc(t.forma))}" placeholder="VVEDV" maxlength="5" style="width:76px;text-transform:uppercase"></td>
     <td><button type="button" class="btn-sm" style="color:#c00" title="Remover linha"
       onclick="this.closest('tr').remove()">&#x2715;</button></td>
   </tr>`;
@@ -3369,7 +3369,7 @@ window.previewColarClass = function() {
       const nLines = ta.value.split('\n').filter(l => l.trim()).length;
       const nNums  = (ta.value.match(/\d+/g) || []).length;
       div.innerHTML = `<div style="color:#c00;font-size:0.85rem;line-height:1.6">
-        &#9888; <strong>Não foi possível reconhecer dados de classificação</strong> (${nLines} linhas, ${nNums} números detetados).<br>
+        &#9888; <strong>Não foi possível reconhecer dados de classificação</strong> (${jscEsc(nLines)} linhas, ${jscEsc(nNums)} números detetados).<br>
         Dicas:<br>
         &bull; Seleciona a tabela <strong>inteira</strong> no site — do "1º" até à última equipa, incluindo todas as colunas de números (J, V, E, D, golos, pontos)<br>
         &bull; Cola diretamente com <strong>Ctrl+V</strong> (não uses "colar sem formatação")<br>
@@ -3379,7 +3379,7 @@ window.previewColarClass = function() {
     }
     const marked = markSCRows(rows);
     const hasLogos = rows.some(r => r.logo);
-    div.innerHTML = `<p style="color:#22a75e;font-size:0.85rem;margin-bottom:8px">&#10003; ${rows.length} equipas reconhecidas${hasLogos?' · logos detectados':''}</p>
+    div.innerHTML = `<p style="color:#22a75e;font-size:0.85rem;margin-bottom:8px">&#10003; ${jscEsc(rows.length)} equipas reconhecidas${jscEsc(hasLogos?' · logos detectados':'')}</p>
     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:0.8rem">
       <thead><tr style="background:#001b4d;color:#fff">
         <th style="padding:5px 8px">#</th>
@@ -3389,24 +3389,24 @@ window.previewColarClass = function() {
         <th style="padding:5px 8px">GM</th><th style="padding:5px 8px">GS</th>
         <th style="padding:5px 8px" title="Pontos armazenados (inclui 1ª fase se copiado do ZeroZero)">Pts</th>
       </tr></thead>
-      <tbody>${marked.map((r,i)=>`<tr style="background:${r.sc?'rgba(255,209,0,0.12)':i%2===0?'#f9f9f9':'#fff'};${r.sc?'font-weight:700':''}">
+      <tbody>${marked.map((r,i)=>`<tr style="background:${jscEsc(r.sc?'rgba(255,209,0,0.12)':i%2===0?'#f9f9f9':'#fff')};${jscEsc(r.sc?'font-weight:700':'')}">
         <td style="padding:4px 8px;text-align:center">${i+1}</td>
-        ${hasLogos?`<td style="padding:4px 8px;text-align:center">${r.logo?`<img src="${r.logo}" style="width:22px;height:22px;object-fit:contain" onerror="this.style.opacity=0.2">`:'—'}</td>`:''}
-        <td style="padding:4px 8px">${r.equipa}${r.sc?' &#11088;':''}</td>
-        <td style="padding:4px 8px;text-align:center">${r.j}</td><td style="padding:4px 8px;text-align:center">${r.v}</td>
-        <td style="padding:4px 8px;text-align:center">${r.e}</td><td style="padding:4px 8px;text-align:center">${r.d}</td>
-        <td style="padding:4px 8px;text-align:center">${r.gm}</td><td style="padding:4px 8px;text-align:center">${r.gs}</td>
-        <td style="padding:4px 8px;text-align:center;font-weight:700;color:#001b4d">${r.pts}</td>
+        ${hasLogos?`<td style="padding:4px 8px;text-align:center">${r.logo?`<img src="${jscEscUrl(r.logo)}" style="width:22px;height:22px;object-fit:contain" onerror="this.style.opacity=0.2">`:'—'}</td>`:''}
+        <td style="padding:4px 8px">${jscEsc(r.equipa)}${r.sc ? ' &#11088;' : ''}</td>
+        <td style="padding:4px 8px;text-align:center">${jscEsc(r.j)}</td><td style="padding:4px 8px;text-align:center">${jscEsc(r.v)}</td>
+        <td style="padding:4px 8px;text-align:center">${jscEsc(r.e)}</td><td style="padding:4px 8px;text-align:center">${jscEsc(r.d)}</td>
+        <td style="padding:4px 8px;text-align:center">${jscEsc(r.gm)}</td><td style="padding:4px 8px;text-align:center">${jscEsc(r.gs)}</td>
+        <td style="padding:4px 8px;text-align:center;font-weight:700;color:#001b4d">${jscEsc(r.pts)}</td>
       </tr>`).join('')}</tbody></table></div>
     <div style="margin-top:14px;background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:12px">
       <div style="font-size:0.8rem;font-weight:700;margin-bottom:8px;color:#7a5700">&#43; Pontos da 1ª Fase (carregados para a 2ª fase)</div>
       <p style="font-size:0.75rem;color:#888;margin:0 0 10px">Se este for a 2ª fase de uma competição, insere os pontos carregados de cada equipa. Deixa em branco se não aplicável.</p>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px">
         ${marked.map((r,i)=>`<label style="display:flex;align-items:center;gap:6px;font-size:0.8rem">
-          <span style="flex:1;font-weight:${r.sc?700:400}">${r.equipa}</span>
+          <span style="flex:1;font-weight:${jscEsc(r.sc?700:400)}">${jscEsc(r.equipa)}</span>
           <input type="number" min="0" max="99" placeholder="0"
             style="width:52px;padding:3px 6px;border:1px solid #ddd;border-radius:4px;font-size:0.8rem;text-align:center"
-            data-pts1fase="${i}" value="${r.pts1fase||''}">
+            data-pts1fase="${i}" value="${jscEsc(r.pts1fase||'')}">
         </label>`).join('')}
       </div>
     </div>
@@ -3427,18 +3427,18 @@ window.previewColarClass = function() {
     const r=jogos.filter(j=>j.estado==='Realizado').length, a=jogos.filter(j=>j.estado==='Agendado').length;
     const scRe=/sport campinense|js campinense|campinense/i;
     const nSC=jogos.filter(j=>scRe.test(j.casa)||scRe.test(j.fora)).length;
-    const logoImg = (url) => url ? `<img src="${url}" style="width:18px;height:18px;object-fit:contain;vertical-align:middle;margin-right:5px" onerror="this.style.display='none'">` : '';
+    const logoImg = (url) => url ? `<img src="${jscEscUrl(url)}" style="width:18px;height:18px;object-fit:contain;vertical-align:middle;margin-right:5px" onerror="this.style.display='none'">` : '';
     const unresolvedHint = _lastJogosUnresolved > 0
       ? `<p style="background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:10px;font-size:0.78rem;color:#7a5700;margin:0 0 10px">
-          &#9888; ${_lastJogosUnresolved} equipas vinham só com logo (sem nome) e não foram reconhecidas.
+          &#9888; ${jscEsc(_lastJogosUnresolved)} equipas vinham só com logo (sem nome) e não foram reconhecidas.
           <strong>Importa primeiro a classificação deste escalão</strong> — assim fico a conhecer as equipas pelos logos e os nomes aparecem automaticamente.</p>`
       : '';
     div.innerHTML = `${unresolvedHint}
-    <p style="color:#22a75e;font-size:0.85rem;margin-bottom:8px">&#10003; ${jogos.length} jogos reconhecidos (${r} realizados · ${a} agendados)</p>
+    <p style="color:#22a75e;font-size:0.85rem;margin-bottom:8px">&#10003; ${jscEsc(jogos.length)} jogos reconhecidos (${jscEsc(r)} realizados · ${jscEsc(a)} agendados)</p>
     ${nSC > 0 && nSC < jogos.length ? `
       <label style="display:flex;align-items:center;gap:8px;background:#e8f4fd;border:1px solid #b3d9f7;border-radius:8px;padding:10px;font-size:0.82rem;margin-bottom:10px;cursor:pointer">
         <input type="checkbox" id="colarSoSC" checked style="width:16px;height:16px">
-        <span>Guardar apenas os <strong>${nSC} jogos do Campinense</strong> (ignorar os restantes ${jogos.length - nSC})</span>
+        <span>Guardar apenas os <strong>${jscEsc(nSC)} jogos do Campinense</strong> (ignorar os restantes ${jscEsc(jogos.length - nSC)})</span>
       </label>` : ''}
     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:0.8rem">
       <thead><tr style="background:#001b4d;color:#fff">
@@ -3449,14 +3449,14 @@ window.previewColarClass = function() {
       </tr></thead>
       <tbody>${jogos.map((j,i)=>{
         const sc=scRe.test(j.casa+' '+j.fora);
-        return `<tr style="background:${sc?'rgba(255,209,0,0.1)':i%2===0?'#f9f9f9':'#fff'}">
-          <td style="padding:4px 8px;white-space:nowrap">${j.data}</td>
-          <td style="padding:4px 8px">${logoImg(j.logoCasa)}${j.casa}</td>
-          <td style="padding:4px 8px;text-align:center;font-weight:700">${j.gcasa!=null?j.gcasa+'–'+j.gfora:'–'}</td>
-          <td style="padding:4px 8px">${logoImg(j.logoFora)}${j.fora}</td>
-          <td style="padding:4px 8px;text-align:center">${j.hora}</td>
-          <td style="padding:4px 8px;font-size:0.75rem">${j.local}</td>
-          <td style="padding:4px 8px;text-align:center;font-size:0.75rem;color:${j.estado==='Realizado'?'#22a75e':'#888'}">${j.estado}</td>
+        return `<tr style="background:${jscEsc(sc?'rgba(255,209,0,0.1)':i%2===0?'#f9f9f9':'#fff')}">
+          <td style="padding:4px 8px;white-space:nowrap">${jscEsc(j.data)}</td>
+          <td style="padding:4px 8px">${jscEsc(logoImg(j.logoCasa))}${jscEsc(j.casa)}</td>
+          <td style="padding:4px 8px;text-align:center;font-weight:700">${jscEsc(j.gcasa!=null?j.gcasa+'–'+j.gfora:'–')}</td>
+          <td style="padding:4px 8px">${jscEsc(logoImg(j.logoFora))}${jscEsc(j.fora)}</td>
+          <td style="padding:4px 8px;text-align:center">${jscEsc(j.hora)}</td>
+          <td style="padding:4px 8px;font-size:0.75rem">${jscEsc(j.local)}</td>
+          <td style="padding:4px 8px;text-align:center;font-size:0.75rem;color:${jscEsc(j.estado==='Realizado'?'#22a75e':'#888')}">${jscEsc(j.estado)}</td>
         </tr>`;}).join('')}</tbody></table></div>
     <p style="font-size:0.75rem;color:#888;margin-top:8px">Confira os dados antes de guardar.</p>`;
   }
@@ -3584,7 +3584,7 @@ function renderFbPosts() {
     const tipoIcon  = { foto:'📷', video:'▶️', link:'🔗', texto:'📝' }[p.tipo] || '📝';
     const tipoLabel = { foto:'Foto', video:'Vídeo', link:'Partilha', texto:'Publicação' }[p.tipo] || 'Publicação';
     const dataStr   = p.data ? new Date(p.data).toLocaleDateString('pt-PT', { day:'2-digit', month:'short', year:'numeric' }) : '—';
-    const imgStyle  = p.imagem ? `background-image:url('${p.imagem}')` : '';
+    const imgStyle  = p.imagem ? `background-image:url('${jscEscUrl(p.imagem)}')` : '';
     return `
     <div class="fb-posts-admin-card">
       <div class="fb-posts-admin-card__img" style="${imgStyle}">
@@ -3592,11 +3592,11 @@ function renderFbPosts() {
       </div>
       <div class="fb-posts-admin-card__body">
         <div class="fb-posts-admin-card__meta">
-          <span class="badge">${tipoLabel}</span>
-          <time>${dataStr}</time>
+          <span class="badge">${jscEsc(tipoLabel)}</span>
+          <time>${jscEsc(dataStr)}</time>
         </div>
-        <p class="fb-posts-admin-card__text">${(p.texto || '').slice(0, 120)}${(p.texto || '').length > 120 ? '…' : ''}</p>
-        ${p.url ? `<a href="${p.url}" target="_blank" rel="noopener" class="fb-posts-admin-card__link">Ver publicação →</a>` : ''}
+        <p class="fb-posts-admin-card__text">${jscEsc((p.texto || '').slice(0, 120))}${jscEsc((p.texto || '').length > 120 ? '…' : '')}</p>
+        ${p.url ? `<a href="${jscEscUrl(p.url)}" target="_blank" rel="noopener" class="fb-posts-admin-card__link">Ver publicação →</a>` : ''}
       </div>
       <div class="fb-posts-admin-card__actions">
         <button class="btn btn-sm" onclick="editFbPost(${i})">✏️</button>
@@ -3726,22 +3726,22 @@ function openFbPostModal(post, idx) {
   modal.innerHTML = `
     <div class="modal" style="max-width:520px">
       <div class="modal-header">
-        <h3>${idx >= 0 ? 'Editar' : 'Adicionar'} Publicação</h3>
+        <h3>${jscEsc(idx >= 0 ? 'Editar' : 'Adicionar')} Publicação</h3>
         <button class="modal-close" onclick="document.getElementById('fbPostModal').remove()">✕</button>
       </div>
       <div class="modal-body">
         <label class="form-label">Tipo</label>
         <select id="fbPostTipo" class="form-input" style="margin-bottom:12px">
-          ${tipos.map(t => `<option value="${t}" ${post.tipo===t?'selected':''}>${t.charAt(0).toUpperCase()+t.slice(1)}</option>`).join('')}
+          ${tipos.map(t => `<option value="${jscEsc(t)}" ${jscEsc(post.tipo===t?'selected':'')}>${jscEsc(t.charAt(0).toUpperCase()+t.slice(1))}</option>`).join('')}
         </select>
         <label class="form-label">Texto da publicação</label>
-        <textarea id="fbPostTexto" class="form-input" rows="4" style="margin-bottom:12px">${post.texto||''}</textarea>
+        <textarea id="fbPostTexto" class="form-input" rows="4" style="margin-bottom:12px">${jscEsc(post.texto||'')}</textarea>
         <label class="form-label">URL da imagem (opcional)</label>
-        <input id="fbPostImagem" class="form-input" type="url" placeholder="https://…" value="${post.imagem||''}" style="margin-bottom:12px">
+        <input id="fbPostImagem" class="form-input" type="url" placeholder="https://…" value="${jscEsc(post.imagem||'')}" style="margin-bottom:12px">
         <label class="form-label">URL da publicação</label>
-        <input id="fbPostUrl" class="form-input" type="url" placeholder="https://facebook.com/…" value="${post.url||''}" style="margin-bottom:12px">
+        <input id="fbPostUrl" class="form-input" type="url" placeholder="https://facebook.com/…" value="${jscEsc(post.url||'')}" style="margin-bottom:12px">
         <label class="form-label">Data</label>
-        <input id="fbPostData" class="form-input" type="date" value="${post.data ? post.data.slice(0,10) : ''}" style="margin-bottom:12px">
+        <input id="fbPostData" class="form-input" type="date" value="${jscEsc(post.data ? post.data.slice(0,10) : '')}" style="margin-bottom:12px">
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="document.getElementById('fbPostModal').remove()">Cancelar</button>
@@ -3934,7 +3934,7 @@ async function geocodificarMorada() {
       document.getElementById('cfgContactLat').value = lat;
       document.getElementById('cfgContactLon').value = lon;
       const label = result.display_name.split(',').slice(0, 3).join(',');
-      if (status) { status.innerHTML = `✓ Localizado: <strong>${lat}, ${lon}</strong><br><small>${label}</small>`; status.style.color = '#2e7d32'; }
+      if (status) { status.innerHTML = `✓ Localizado: <strong>${jscEsc(lat)}, ${jscEsc(lon)}</strong><br><small>${jscEsc(label)}</small>`; status.style.color = '#2e7d32'; }
     } else {
       if (status) { status.textContent = '⚠ Não encontrado. Tente incluir a cidade: "Rua X, Loulé".'; status.style.color = '#c00'; }
     }
@@ -4226,13 +4226,13 @@ function renderGaleria() {
   const catIcons = { Treino:'⚽', Jogo:'🏆', Evento:'🎉', Conquista:'🥇' };
   grid.innerHTML = items.length ? items.map((f, i) => `
     <div class="galeria-card">
-      <div class="galeria-card__img" ${f.url ? `style="background-image:url('${f.url}')"` : ''}>
-        ${!f.url ? `<span>${catIcons[f.categoria] || '📷'}</span>` : ''}
-        <span class="galeria-card__cat">${f.categoria}</span>
+      <div class="galeria-card__img" ${f.url ? `style="background-image:url('${jscEscUrl(f.url)}')"` : ''}>
+        ${!f.url ? `<span>${jscEsc(catIcons[f.categoria] || '📷')}</span>` : ''}
+        <span class="galeria-card__cat">${jscEsc(f.categoria)}</span>
       </div>
       <div class="galeria-card__body">
-        <p class="galeria-card__title">${f.titulo}</p>
-        <p class="galeria-card__date">${fmtDate(f.data)}</p>
+        <p class="galeria-card__title">${jscEsc(f.titulo)}</p>
+        <p class="galeria-card__date">${jscEsc(fmtDate(f.data))}</p>
       </div>
       <div class="galeria-card__actions">
         <button class="btn btn-sm" onclick="editFoto(${DB.galeria.indexOf(f)})">✏️ Editar</button>
@@ -4249,47 +4249,47 @@ function editFoto(idx) {
   openModal(idx >= 0 ? 'Editar Foto' : 'Adicionar Foto', `
     <div class="modal-row">
       <div class="modal-field"><label>Título</label>
-        <input class="form-input" id="mFotoTitulo" value="${f.titulo}" /></div>
+        <input class="form-input" id="mFotoTitulo" value="${jscEsc(f.titulo)}" /></div>
       <div class="modal-field"><label>Categoria</label>
         <select class="form-input" id="mFotoCat">
-          ${['Treino','Jogo','Evento','Conquista'].map(c => `<option ${f.categoria===c?'selected':''}>${c}</option>`).join('')}
+          ${['Treino','Jogo','Evento','Conquista'].map(c => `<option ${jscEsc(f.categoria===c?'selected':'')}>${jscEsc(c)}</option>`).join('')}
         </select></div>
     </div>
     <div class="modal-field"><label>Data</label>
-      <input class="form-input" type="date" id="mFotoData" value="${f.data}" /></div>
+      <input class="form-input" type="date" id="mFotoData" value="${jscEsc(f.data)}" /></div>
     <div class="modal-field">
       <label>Imagem</label>
       <div class="img-upload-box">
         <label class="img-upload-btn" for="mFotoFicheiro">📁 Escolher ficheiro</label>
         <input type="file" id="mFotoFicheiro" accept="image/*" style="display:none">
-        <input class="form-input" type="text" id="mFotoUrl" placeholder="ou cole URL da imagem..." value="${f.url}" />
+        <input class="form-input" type="text" id="mFotoUrl" placeholder="ou cole URL da imagem..." value="${jscEsc(f.url)}" />
       </div>
       <small style="color:#888;font-size:11px;margin-top:4px;display:block">JPG, PNG, WebP — máx. 3MB</small>
     </div>
-    <div id="mFotoPreview" style="margin-top:8px;${f.url?'':'display:none'}">
-      <img src="${f.url}" style="max-width:100%;max-height:160px;border-radius:8px;object-fit:cover" onerror="this.parentElement.style.display='none'" />
+    <div id="mFotoPreview" style="margin-top:8px;${jscEsc(f.url?'':'display:none')}">
+      <img src="${jscEscUrl(f.url)}" style="max-width:100%;max-height:160px;border-radius:8px;object-fit:cover" onerror="this.parentElement.style.display='none'" />
     </div>
     <div class="modal-row" style="margin-top:8px">
       <div class="modal-field"><label>Posição</label>
         <select class="form-input" id="mFotoPos">
-          <option value="center" ${pos==='center'?'selected':''}>Centro</option>
-          <option value="top" ${pos==='top'?'selected':''}>Topo</option>
-          <option value="bottom" ${pos==='bottom'?'selected':''}>Baixo</option>
-          <option value="left center" ${pos==='left center'?'selected':''}>Esquerda</option>
-          <option value="right center" ${pos==='right center'?'selected':''}>Direita</option>
+          <option value="center" ${jscEsc(pos==='center'?'selected':'')}>Centro</option>
+          <option value="top" ${jscEsc(pos==='top'?'selected':'')}>Topo</option>
+          <option value="bottom" ${jscEsc(pos==='bottom'?'selected':'')}>Baixo</option>
+          <option value="left center" ${jscEsc(pos==='left center'?'selected':'')}>Esquerda</option>
+          <option value="right center" ${jscEsc(pos==='right center'?'selected':'')}>Direita</option>
         </select>
       </div>
       <div class="modal-field"><label>Tamanho</label>
         <select class="form-input" id="mFotoSize">
-          <option value="cover"   ${sz==='cover'?'selected':''}>Preencher — recortar bordas</option>
-          <option value="contain" ${sz==='contain'?'selected':''}>Mostrar tudo — com margens</option>
-          <option value="110%"    ${sz==='110%'?'selected':''}>Zoom 110%</option>
-          <option value="140%"    ${sz==='140%'?'selected':''}>Zoom 140%</option>
+          <option value="cover"   ${jscEsc(sz==='cover'?'selected':'')}>Preencher — recortar bordas</option>
+          <option value="contain" ${jscEsc(sz==='contain'?'selected':'')}>Mostrar tudo — com margens</option>
+          <option value="110%"    ${jscEsc(sz==='110%'?'selected':'')}>Zoom 110%</option>
+          <option value="140%"    ${jscEsc(sz==='140%'?'selected':'')}>Zoom 140%</option>
         </select>
       </div>
     </div>
     <div class="modal-field"><label>Descrição</label>
-      <textarea class="form-input" id="mFotoDesc" rows="2">${f.descricao}</textarea></div>
+      <textarea class="form-input" id="mFotoDesc" rows="2">${jscEsc(f.descricao)}</textarea></div>
   `, `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="salvarFoto(${idx})">Guardar</button>`);
   setupImageUpload('mFotoFicheiro', 'mFotoUrl', 'mFotoPreview');
@@ -4352,16 +4352,16 @@ function renderVideos() {
 
   grid.innerHTML = items.length ? items.map((v, i) => {
     const id    = _ytIdAdmin(v.url);
-    const thumb = id ? `https://img.youtube.com/vi/${id}/mqdefault.jpg` : '';
+    const thumb = id ? `https://img.youtube.com/vi/${jscEsc(id)}/mqdefault.jpg` : '';
     return `
     <div class="galeria-card">
-      <div class="galeria-card__img" ${thumb ? `style="background-image:url('${thumb}')"` : 'style="background:#001f4d"'}>
+      <div class="galeria-card__img" ${thumb ? `style="background-image:url('${jscEscUrl(thumb)}')"` : 'style="background:#001f4d"'}>
         ${!thumb ? '<span style="font-size:2rem">🎬</span>' : ''}
-        <span class="galeria-card__cat">${v.categoria || 'Outro'}</span>
+        <span class="galeria-card__cat">${jscEsc(v.categoria || 'Outro')}</span>
       </div>
       <div class="galeria-card__body">
-        <p class="galeria-card__title">${v.titulo}</p>
-        <p class="galeria-card__date">${fmtDate(v.data)}</p>
+        <p class="galeria-card__title">${jscEsc(v.titulo)}</p>
+        <p class="galeria-card__date">${jscEsc(fmtDate(v.data))}</p>
       </div>
       <div class="galeria-card__actions">
         <button class="btn btn-sm" onclick="editVideo(${(DB.videos||[]).indexOf(v)})">✏️ Editar</button>
@@ -4378,22 +4378,22 @@ function editVideo(idx) {
   openModal(idx >= 0 ? 'Editar Vídeo' : 'Adicionar Vídeo', `
     <div class="modal-row">
       <div class="modal-field"><label>Título</label>
-        <input class="form-input" id="mVidTitulo" value="${v.titulo}" placeholder="Ex: Sub-17 — Golo de Pedro Costa vs Tavira" /></div>
+        <input class="form-input" id="mVidTitulo" value="${jscEsc(v.titulo)}" placeholder="Ex: Sub-17 — Golo de Pedro Costa vs Tavira" /></div>
       <div class="modal-field"><label>Categoria</label>
         <select class="form-input" id="mVidCat">
-          ${['Golos','Melhores Momentos','Entrevistas','Treino','Jogo','Outro'].map(c => `<option ${v.categoria===c?'selected':''}>${c}</option>`).join('')}
+          ${['Golos','Melhores Momentos','Entrevistas','Treino','Jogo','Outro'].map(c => `<option ${jscEsc(v.categoria===c?'selected':'')}>${jscEsc(c)}</option>`).join('')}
         </select></div>
     </div>
     <div class="modal-field"><label>Data</label>
-      <input class="form-input" type="date" id="mVidData" value="${v.data}" /></div>
+      <input class="form-input" type="date" id="mVidData" value="${jscEsc(v.data)}" /></div>
     <div class="modal-field">
       <label>URL do YouTube</label>
-      <input class="form-input" type="url" id="mVidUrl" value="${v.url}" placeholder="https://www.youtube.com/watch?v=..." />
+      <input class="form-input" type="url" id="mVidUrl" value="${jscEsc(v.url)}" placeholder="https://www.youtube.com/watch?v=..." />
       <small style="color:#888;font-size:11px;margin-top:4px;display:block">Cole o link de qualquer vídeo do YouTube (incluindo Shorts)</small>
     </div>
-    ${id ? `<div id="mVidPreview" style="margin-top:8px"><img src="https://img.youtube.com/vi/${id}/mqdefault.jpg" style="max-width:100%;border-radius:8px" /></div>` : ''}
+    ${id ? `<div id="mVidPreview" style="margin-top:8px"><img src="https://img.youtube.com/vi/${jscEscUrl(id)}/mqdefault.jpg" style="max-width:100%;border-radius:8px" /></div>` : ''}
     <div class="modal-field"><label>Descrição (opcional)</label>
-      <textarea class="form-input" id="mVidDesc" rows="2">${v.descricao}</textarea></div>
+      <textarea class="form-input" id="mVidDesc" rows="2">${jscEsc(v.descricao)}</textarea></div>
   `, `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="salvarVideo(${idx})">Guardar</button>`);
 }
@@ -4436,15 +4436,15 @@ function renderTreinadores() {
   grid.innerHTML = DB.treinadores.map((t, i) => {
     const iniciais = t.nome.split(' ').map(n => n[0]).slice(0,2).join('');
     const fotoStyle = t.foto
-      ? ` style="background-image:url('${t.foto}');background-size:cover;background-position:center;color:transparent"`
+      ? ` style="background-image:url('${jscEscUrl(t.foto)}');background-size:cover;background-position:center;color:transparent"`
       : '';
-    return `<div class="staff-card ${t.ativo ? '' : 'inactive'}">
-      <div class="staff-avatar"${fotoStyle}>${iniciais}</div>
+    return `<div class="staff-card ${jscEsc(t.ativo ? '' : 'inactive')}">
+      <div class="staff-avatar"${fotoStyle}>${jscEsc(iniciais)}</div>
       <div class="staff-info">
-        <p class="staff-name">${t.nome} ${t.ativo ? '' : '<span style="font-size:11px;color:#999">(inactivo)</span>'}</p>
-        <p class="staff-cargo">${t.cargo}</p>
-        <p class="staff-meta">📋 ${t.escalao} · Desde ${t.desde}</p>
-        <p class="staff-meta">📞 ${t.telefone}</p>
+        <p class="staff-name">${jscEsc(t.nome)} ${t.ativo ? '' : '<span style="font-size:11px;color:#999">(inactivo)</span>'}</p>
+        <p class="staff-cargo">${jscEsc(t.cargo)}</p>
+        <p class="staff-meta">📋 ${jscEsc(t.escalao)} · Desde ${jscEsc(t.desde)}</p>
+        <p class="staff-meta">📞 ${jscEsc(t.telefone)}</p>
         <div class="staff-actions">
           <button class="btn btn-sm" onclick="editTreinador(${i})">✏️</button>
           <button class="btn btn-sm btn-danger" onclick="deleteTreinador(${i})">🗑️</button>
@@ -4459,34 +4459,34 @@ function editTreinador(idx) {
   openModal(idx >= 0 ? 'Editar Membro' : 'Novo Membro', `
     <div class="modal-row">
       <div class="modal-field"><label>Nome completo</label>
-        <input class="form-input" id="mTNome" value="${t.nome}" /></div>
+        <input class="form-input" id="mTNome" value="${jscEsc(t.nome)}" /></div>
       <div class="modal-field"><label>Cargo</label>
-        <input class="form-input" id="mTCargo" value="${t.cargo}" /></div>
+        <input class="form-input" id="mTCargo" value="${jscEsc(t.cargo)}" /></div>
     </div>
     <div class="modal-row">
       <div class="modal-field"><label>Escalão</label>
-        <select class="form-input" id="mTEscalao">${_escOpts(t.escalao, true)}</select></div>
+        <select class="form-input" id="mTEscalao">${jscEsc(_escOpts(t.escalao, true))}</select></div>
       <div class="modal-field"><label>Desde (ano)</label>
-        <input class="form-input" id="mTDesde" value="${t.desde}" /></div>
+        <input class="form-input" id="mTDesde" value="${jscEsc(t.desde)}" /></div>
     </div>
     <div class="modal-row">
       <div class="modal-field"><label>Telefone</label>
-        <input class="form-input" id="mTTel" value="${t.telefone}" /></div>
+        <input class="form-input" id="mTTel" value="${jscEsc(t.telefone)}" /></div>
       <div class="modal-field"><label>E-mail</label>
-        <input class="form-input" id="mTEmail" value="${t.email}" /></div>
+        <input class="form-input" id="mTEmail" value="${jscEsc(t.email)}" /></div>
     </div>
     <div class="modal-field"><label>Foto (URL ou upload)</label>
-      <input class="form-input" type="text" id="mTFoto" value="${t.foto||''}" placeholder="https://... ou carregar ficheiro" />
+      <input class="form-input" type="text" id="mTFoto" value="${jscEsc(t.foto||'')}" placeholder="https://... ou carregar ficheiro" />
       <input type="file" id="mTFotoFile" accept="image/*" style="display:none" />
       <button type="button" class="btn-sm" style="margin-top:6px" onclick="document.getElementById('mTFotoFile').click()">&#128190; Carregar foto</button>
-      <div id="mTFotoPreview" style="${t.foto?'':'display:none'};margin-top:8px">
-        <img src="${t.foto||''}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:3px solid #003B8E" />
+      <div id="mTFotoPreview" style="${jscEsc(t.foto?'':'display:none')};margin-top:8px">
+        <img src="${jscEscUrl(t.foto||'')}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:3px solid #003B8E" />
       </div>
     </div>
     <div class="modal-field"><label>Estado</label>
       <select class="form-input" id="mTAtivo">
-        <option value="1" ${t.ativo?'selected':''}>Activo</option>
-        <option value="0" ${!t.ativo?'selected':''}>Inactivo</option>
+        <option value="1" ${jscEsc(t.ativo?'selected':'')}>Activo</option>
+        <option value="0" ${jscEsc(!t.ativo?'selected':'')}>Inactivo</option>
       </select></div>
   `, `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
       <button class="btn-save" onclick="salvarTreinador(${idx})">Guardar</button>`);
@@ -4543,17 +4543,17 @@ function renderAgenda() {
   list.innerHTML = items.length ? items.map((e, i) => {
     const d = new Date(e.data);
     const passado = d < new Date();
-    return `<div class="agenda-list-item" style="${passado ? 'opacity:0.6' : ''}">
+    return `<div class="agenda-list-item" style="${jscEsc(passado ? 'opacity:0.6' : '')}">
       <div class="agenda-date-box">
-        <span class="day">${d.getDate()}</span>
-        <span class="month">${d.toLocaleDateString('pt-PT',{month:'short'})}</span>
-        <span class="time">${e.hora}</span>
+        <span class="day">${jscEsc(d.getDate())}</span>
+        <span class="month">${jscEsc(d.toLocaleDateString('pt-PT',{month:'short'}))}</span>
+        <span class="time">${jscEsc(e.hora)}</span>
       </div>
       <div class="agenda-body">
-        <span class="agenda-tipo-badge ${e.tipo}">${e.tipo}</span>
-        <p class="agenda-title">${e.titulo}</p>
-        <p class="agenda-meta">📍 ${e.local} · 👥 ${e.escalao}</p>
-        ${e.descricao ? `<p class="agenda-meta">${e.descricao}</p>` : ''}
+        <span class="agenda-tipo-badge ${jscEsc(e.tipo)}">${jscEsc(e.tipo)}</span>
+        <p class="agenda-title">${jscEsc(e.titulo)}</p>
+        <p class="agenda-meta">📍 ${jscEsc(e.local)} · 👥 ${jscEsc(e.escalao)}</p>
+        ${e.descricao ? `<p class="agenda-meta">${jscEsc(e.descricao)}</p>` : ''}
         <div class="agenda-actions">
           <button class="btn btn-sm" onclick="editEvento(${DB.agenda.indexOf(e)})">✏️ Editar</button>
           <button class="btn btn-sm btn-danger" onclick="deleteEvento(${DB.agenda.indexOf(e)})">🗑️</button>
@@ -4581,25 +4581,25 @@ function editEvento(idx) {
       </div>
     </div>` : ''}
     <div class="modal-field"><label>Título</label>
-      <input class="form-input" id="mEvTitulo" value="${e.titulo}" /></div>
+      <input class="form-input" id="mEvTitulo" value="${jscEsc(e.titulo)}" /></div>
     <div class="modal-row">
       <div class="modal-field"><label>Tipo</label>
         <select class="form-input" id="mEvTipo">
-          ${['Jogo','Torneio','Treino','Reunião','Outro'].map(t => `<option ${e.tipo===t?'selected':''}>${t}</option>`).join('')}
+          ${['Jogo','Torneio','Treino','Reunião','Outro'].map(t => `<option ${jscEsc(e.tipo===t?'selected':'')}>${jscEsc(t)}</option>`).join('')}
         </select></div>
       <div class="modal-field"><label>Escalão</label>
-        <select class="form-input" id="mEvEscalao">${_escOpts(e.escalao, true)}</select></div>
+        <select class="form-input" id="mEvEscalao">${jscEsc(_escOpts(e.escalao, true))}</select></div>
     </div>
     <div class="modal-row">
       <div class="modal-field"><label>Data</label>
-        <input class="form-input" type="date" id="mEvData" value="${e.data}" /></div>
+        <input class="form-input" type="date" id="mEvData" value="${jscEsc(e.data)}" /></div>
       <div class="modal-field"><label>Hora</label>
-        <input class="form-input" type="time" id="mEvHora" value="${e.hora}" /></div>
+        <input class="form-input" type="time" id="mEvHora" value="${jscEsc(e.hora)}" /></div>
     </div>
     <div class="modal-field"><label>Local</label>
-      <input class="form-input" id="mEvLocal" value="${e.local}" /></div>
+      <input class="form-input" id="mEvLocal" value="${jscEsc(e.local)}" /></div>
     <div class="modal-field"><label>Descrição</label>
-      <textarea class="form-input" id="mEvDesc" rows="2">${e.descricao}</textarea></div>
+      <textarea class="form-input" id="mEvDesc" rows="2">${jscEsc(e.descricao)}</textarea></div>
   `, `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="salvarEvento(${idx})">Guardar</button>`);
 }
@@ -4782,7 +4782,7 @@ function renderAdminUsers() {
   }
   el.innerHTML = users.map((a, i) => `
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:#f5f7fa;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px">
-      <span style="font-size:0.85rem;font-weight:600">&#128100; ${a.user}</span>
+      <span style="font-size:0.85rem;font-weight:600">&#128100; ${jscEsc(a.user)}</span>
       <button class="btn-sm" style="color:#c00" title="Remover utilizador" onclick="removerAdminUser(${i})">&#x2715;</button>
     </div>`).join('');
 }
@@ -5075,13 +5075,13 @@ function renderTemaTemplates() {
     const ativoDefault = !atual.azul && t.nome === 'Clássico';
     return `
     <button type="button" onclick="aplicarTemplate(${i})"
-      style="display:flex;flex-direction:column;gap:0;border:2px solid ${ativo || ativoDefault ? t.azul : '#e0e0e0'};border-radius:10px;overflow:hidden;cursor:pointer;background:#fff;padding:0;${ativo || ativoDefault ? 'box-shadow:0 0 0 2px ' + t.azul + '33' : ''}">
+      style="display:flex;flex-direction:column;gap:0;border:2px solid ${jscEsc(ativo || ativoDefault ? t.azul : '#e0e0e0')};border-radius:10px;overflow:hidden;cursor:pointer;background:#fff;padding:0;${jscEsc(ativo || ativoDefault ? 'box-shadow:0 0 0 2px ' + t.azul + '33' : '')}">
       <span style="display:flex;height:34px">
-        <span style="flex:2;background:${t.azul}"></span>
-        <span style="flex:1;background:${t.amarelo}"></span>
+        <span style="flex:2;background:${jscEsc(t.azul)}"></span>
+        <span style="flex:1;background:${jscEsc(t.amarelo)}"></span>
       </span>
       <span style="padding:6px 8px;font-size:0.72rem;font-weight:700;color:#333;display:flex;align-items:center;justify-content:center;gap:4px">
-        ${t.nome}${ativo || ativoDefault ? ' &#10003;' : ''}
+        ${jscEsc(t.nome)}${ativo || ativoDefault ? ' &#10003;' : ''}
       </span>
     </button>`;
   }).join('');
@@ -5256,13 +5256,13 @@ function renderModalidades() {
     return `
     <tr>
       <td style="font-size:1.5rem;text-align:center">${m.icone || '🏅'}</td>
-      <td><strong>${m.nome}</strong></td>
-      <td style="font-size:0.85rem">${m.treinos || '—'}</td>
-      <td style="font-size:0.85rem">${m.local || '—'}</td>
-      <td style="font-size:0.85rem">${m.responsavel || '—'}</td>
+      <td><strong>${jscEsc(m.nome)}</strong></td>
+      <td style="font-size:0.85rem">${jscEsc(m.treinos || '—')}</td>
+      <td style="font-size:0.85rem">${jscEsc(m.local || '—')}</td>
+      <td style="font-size:0.85rem">${jscEsc(m.responsavel || '—')}</td>
       <td>${m.ativo !== false ? '<span class="status status--aprovado">Ativa</span>' : '<span class="status status--rejeitado">Inativa</span>'}</td>
       <td>
-        <button class="btn-sm" onclick="gerirPostsMod(${m.id}, '${m.nome.replace(/'/g,"\\'")}')">&#128196; Posts${nPosts ? ' ('+nPosts+')' : ''}</button>
+        <button class="btn-sm" onclick="gerirPostsMod(${m.id})">&#128196; Posts${jscEsc(nPosts ? ' ('+nPosts+')' : '')}</button>
         <button class="btn-sm" onclick="editModalidade(${i})">Editar</button>
         <button class="btn-sm btn-sm--danger" onclick="deleteModalidade(${i})">Remover</button>
       </td>
@@ -5277,7 +5277,7 @@ function editModalidade(idx) {
     `<div style="display:grid;gap:14px">
       <div class="modal-field">
         <label class="form-label">Nome da modalidade</label>
-        <input class="form-input" type="text" id="mNome" value="${m.nome}" placeholder="Ex: Kickboxing, Judo, Natação..." />
+        <input class="form-input" type="text" id="mNome" value="${jscEsc(m.nome)}" placeholder="Ex: Kickboxing, Judo, Natação..." />
       </div>
       <div class="modal-field">
         <label class="form-label">Ícone (emoji)</label>
@@ -5289,42 +5289,42 @@ function editModalidade(idx) {
       </div>
       <div class="modal-field">
         <label class="form-label">Descrição</label>
-        <textarea class="form-input" id="mDesc" rows="3" placeholder="Breve descrição da modalidade...">${m.descricao || ''}</textarea>
+        <textarea class="form-input" id="mDesc" rows="3" placeholder="Breve descrição da modalidade...">${jscEsc(m.descricao || '')}</textarea>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div class="modal-field">
           <label class="form-label">Horários de treino</label>
-          <input class="form-input" type="text" id="mTreinos" value="${m.treinos || ''}" placeholder="3ª e 5ª — 19h00" />
+          <input class="form-input" type="text" id="mTreinos" value="${jscEsc(m.treinos || '')}" placeholder="3ª e 5ª — 19h00" />
         </div>
         <div class="modal-field">
           <label class="form-label">Local</label>
-          <input class="form-input" type="text" id="mLocal" value="${m.local || ''}" placeholder="Pavilhão Municipal" />
+          <input class="form-input" type="text" id="mLocal" value="${jscEsc(m.local || '')}" placeholder="Pavilhão Municipal" />
         </div>
       </div>
       <div class="modal-field">
         <label class="form-label">Responsável / Treinador</label>
-        <input class="form-input" type="text" id="mResponsavel" value="${m.responsavel || ''}" placeholder="Nome do responsável" />
+        <input class="form-input" type="text" id="mResponsavel" value="${jscEsc(m.responsavel || '')}" placeholder="Nome do responsável" />
       </div>
       <div class="modal-field">
         <label class="form-label">Imagem de fundo (URL ou upload)</label>
-        <input class="form-input" type="text" id="mImagem" value="${m.imagem || ''}" placeholder="https://..." />
+        <input class="form-input" type="text" id="mImagem" value="${jscEsc(m.imagem || '')}" placeholder="https://..." />
         <input type="file" id="mFicheiro" accept="image/*" style="display:none" />
         <button type="button" class="btn-sm" style="margin-top:6px" onclick="document.getElementById('mFicheiro').click()">&#128190; Carregar imagem</button>
-        <div id="mPreview" style="${m.imagem ? '' : 'display:none'};margin-top:8px;position:relative;display:${m.imagem?'':'none'}">
-          <img src="${m.imagem || ''}" style="max-height:100px;border-radius:6px;object-fit:cover" />
+        <div id="mPreview" style="${jscEsc(m.imagem ? '' : 'display:none')};margin-top:8px;position:relative;display:${jscEsc(m.imagem?'':'none')}">
+          <img src="${jscEscUrl(m.imagem || '')}" style="max-height:100px;border-radius:6px;object-fit:cover" />
           <button type="button" class="btn-sm btn-sm--danger" style="margin-left:8px;vertical-align:top" onclick="document.getElementById('mImagem').value='';document.getElementById('mPreview').style.display='none'">Remover</button>
         </div>
       </div>
       <div class="modal-field">
         <label class="form-label">Posição da imagem</label>
         <select class="form-input" id="mImgPos">
-          <option value="center" ${(m.imagemPos||'center')==='center'?'selected':''}>Centro</option>
-          <option value="top" ${m.imagemPos==='top'?'selected':''}>Topo</option>
-          <option value="bottom" ${m.imagemPos==='bottom'?'selected':''}>Base</option>
+          <option value="center" ${jscEsc((m.imagemPos||'center')==='center'?'selected':'')}>Centro</option>
+          <option value="top" ${jscEsc(m.imagemPos==='top'?'selected':'')}>Topo</option>
+          <option value="bottom" ${jscEsc(m.imagemPos==='bottom'?'selected':'')}>Base</option>
         </select>
       </div>
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px">
-        <input type="checkbox" id="mAtivo" ${m.ativo !== false ? 'checked' : ''} style="width:16px;height:16px" />
+        <input type="checkbox" id="mAtivo" ${jscEsc(m.ativo !== false ? 'checked' : '')} style="width:16px;height:16px" />
         Modalidade ativa (visível no site)
       </label>
     </div>`,
@@ -5378,6 +5378,13 @@ function saveModPosts(arr) {
 }
 
 function gerirPostsMod(modId, modNome) {
+  // O nome é procurado a partir do id. Antes vinha interpolado dentro do
+  // atributo onclick, e um nome com uma plica escapava da string e passava
+  // a ser código executado ao carregar no botão.
+  if (modNome === undefined) {
+    const _m = (DB.modalidades || []).find(x => String(x.id) === String(modId));
+    modNome = _m ? _m.nome : '';
+  }
   function buildList() {
     const posts = loadModPosts().filter(p => p.modalidadeId == modId)
       .sort((a, b) => (b.data || '').localeCompare(a.data || ''));
@@ -5385,12 +5392,12 @@ function gerirPostsMod(modId, modNome) {
       ? posts.map(p => `
           <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #eee;gap:10px">
             <div style="flex:1;min-width:0">
-              <div style="font-weight:600;font-size:0.93rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.titulo}</div>
-              <div style="font-size:0.78rem;color:#888">${p.data || ''} · ${p.publicada ? '<span style="color:#22a75e">Publicado</span>' : '<span style="color:#e05">Rascunho</span>'}</div>
+              <div style="font-weight:600;font-size:0.93rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${jscEsc(p.titulo)}</div>
+              <div style="font-size:0.78rem;color:#888">${jscEsc(p.data || '')} · ${p.publicada ? '<span style="color:#22a75e">Publicado</span>' : '<span style="color:#e05">Rascunho</span>'}</div>
             </div>
             <div style="display:flex;gap:6px;flex-shrink:0">
-              <button class="btn-sm" onclick="abrirFormPostMod(${modId},'${modNome.replace(/'/g,"\\'")}',${p.id})">Editar</button>
-              <button class="btn-sm btn-sm--danger" onclick="deletePostMod(${modId},'${modNome.replace(/'/g,"\\'")}',${p.id})">&#128465;</button>
+              <button class="btn-sm" onclick="abrirFormPostMod(${modId},'${modNome.replace(/'/g,"\\'")}',${jscEsc(p.id)})">Editar</button>
+              <button class="btn-sm btn-sm--danger" onclick="deletePostMod(${modId},'${modNome.replace(/'/g,"\\'")}',${jscEsc(p.id)})">&#128465;</button>
             </div>
           </div>`).join('')
       : `<p style="color:#999;text-align:center;padding:24px 0">Sem publicações. Crie a primeira!</p>`;
@@ -5401,7 +5408,7 @@ function gerirPostsMod(modId, modNome) {
     `Publicações — ${modNome}`,
     buildList(),
     `<button class="btn-save" onclick="abrirFormPostMod(${modId},'${modNome.replace(/'/g,"\\'")}',null)">+ Nova publicação</button>
-     <a href="../modalidade.html?id=${modId}" target="_blank" class="btn-cancel" style="text-decoration:none">Ver página &#8599;</a>
+     <a href="../modalidade.html?id=${jscEscUrl(modId)}" target="_blank" class="btn-cancel" style="text-decoration:none">Ver página &#8599;</a>
      <button class="btn-cancel" onclick="closeModal()">Fechar</button>`
   );
 }
@@ -5429,48 +5436,48 @@ function abrirFormPostMod(modId, modNome, postId) {
     `<div style="display:grid;gap:14px">
       <div class="modal-field">
         <label class="form-label">Título *</label>
-        <input class="form-input" type="text" id="mpTitulo" value="${(p.titulo||'').replace(/"/g,'&quot;')}" placeholder="Título da publicação" />
+        <input class="form-input" type="text" id="mpTitulo" value="${jscEsc(p.titulo || '')}" placeholder="Título da publicação" />
       </div>
       <div class="modal-field">
         <label class="form-label">Texto / Conteúdo</label>
-        <textarea class="form-input" id="mpTexto" rows="5" placeholder="Conteúdo da publicação...">${p.texto || ''}</textarea>
+        <textarea class="form-input" id="mpTexto" rows="5" placeholder="Conteúdo da publicação...">${jscEsc(p.texto || '')}</textarea>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div class="modal-field">
           <label class="form-label">Data</label>
-          <input class="form-input" type="date" id="mpData" value="${p.data || new Date().toISOString().slice(0,10)}" />
+          <input class="form-input" type="date" id="mpData" value="${jscEsc(p.data || new Date().toISOString().slice(0,10))}" />
         </div>
         <div class="modal-field">
           <label class="form-label">Estado</label>
           <select class="form-input" id="mpPublicada">
-            <option value="1" ${p.publicada ? 'selected' : ''}>Publicado</option>
-            <option value="0" ${!p.publicada && postId ? 'selected' : ''}>Rascunho</option>
+            <option value="1" ${jscEsc(p.publicada ? 'selected' : '')}>Publicado</option>
+            <option value="0" ${jscEsc(!p.publicada && postId ? 'selected' : '')}>Rascunho</option>
           </select>
         </div>
       </div>
       <div class="modal-field">
         <label class="form-label">Imagem (URL ou upload)</label>
-        <input class="form-input" type="text" id="mpImagem" value="${p.imagem || ''}" placeholder="https://..." oninput="previewModPostImg(this.value)" />
+        <input class="form-input" type="text" id="mpImagem" value="${jscEsc(p.imagem || '')}" placeholder="https://..." oninput="previewModPostImg(this.value)" />
         <input type="file" id="mpFicheiro" accept="image/*" style="display:none" onchange="uploadModPostImg(this)" />
         <button type="button" class="btn-sm" style="margin-top:6px" onclick="document.getElementById('mpFicheiro').click()">&#128190; Carregar</button>
       </div>
       <div class="modal-field">
         <label class="form-label">Tamanho</label>
         <select class="form-input" id="mpImagemSize" onchange="updateModPostPreview()">
-          <option value="cover"   ${curSize==='cover'   ?'selected':''}>Preencher (recortar)</option>
-          <option value="contain" ${curSize==='contain' ?'selected':''}>Completa (sem recorte)</option>
+          <option value="cover"   ${jscEsc(curSize==='cover'   ?'selected':'')}>Preencher (recortar)</option>
+          <option value="contain" ${jscEsc(curSize==='contain' ?'selected':'')}>Completa (sem recorte)</option>
         </select>
       </div>
-      <input type="hidden" id="mpImagemPos" value="${curPos}" />
-      <div id="mpPreview" style="${p.imagem ? '' : 'display:none'}">
+      <input type="hidden" id="mpImagemPos" value="${jscEsc(curPos)}" />
+      <div id="mpPreview" style="${jscEsc(p.imagem ? '' : 'display:none')}">
         <label class="form-label" style="margin-bottom:4px;display:block">
           Pré-visualização
           <small style="color:#888;font-weight:400;margin-left:6px">— clique na imagem para definir o ponto focal</small>
         </label>
         <div id="mpPreviewWrap" style="position:relative;border-radius:8px;overflow:hidden;background:#1a3a80;height:220px;cursor:crosshair">
-          <img id="mpPreviewImg" src="${p.imagem || ''}"
-            style="width:100%;height:100%;object-fit:${curSize==='contain'?'contain':'cover'};object-position:${curPos};pointer-events:none;display:block" />
-          <div id="mpFocalPin" style="position:absolute;left:${pct[0]}%;top:${pct[1]}%;transform:translate(-50%,-50%);pointer-events:none;z-index:3;display:${p.imagem?'block':'none'}">
+          <img id="mpPreviewImg" src="${jscEscUrl(p.imagem || '')}"
+            style="width:100%;height:100%;object-fit:${jscEsc(curSize==='contain'?'contain':'cover')};object-position:${jscEsc(curPos)};pointer-events:none;display:block" />
+          <div id="mpFocalPin" style="position:absolute;left:${jscEsc(pct[0])}%;top:${jscEsc(pct[1])}%;transform:translate(-50%,-50%);pointer-events:none;z-index:3;display:${jscEsc(p.imagem?'block':'none')}">
             <svg width="30" height="30" viewBox="0 0 30 30" style="filter:drop-shadow(0 1px 4px rgba(0,0,0,0.6))">
               <circle cx="15" cy="15" r="13" fill="white" fill-opacity="0.92"/>
               <circle cx="15" cy="15" r="5" fill="#0055cc"/>
@@ -5483,7 +5490,7 @@ function abrirFormPostMod(modId, modNome, postId) {
         </div>
       </div>
     </div>`,
-    `<button class="btn-save" onclick="savePostMod(${modId},'${modNome.replace(/'/g,"\\'")}',${postId||null})">Guardar</button>
+    `<button class="btn-save" onclick="savePostMod(${modId},'${modNome.replace(/'/g,"\\'")}',${jscEsc(postId||null)})">Guardar</button>
      <button class="btn-cancel" onclick="gerirPostsMod(${modId},'${modNome.replace(/'/g,"\\'")}')">&#8592; Voltar</button>`
   );
   setTimeout(function () {
@@ -5759,11 +5766,11 @@ function renderSeniores() {
     return pd !== 0 ? pd : (a.numero || 99) - (b.numero || 99);
   });
   tbody.innerHTML = sorted.map(j => `
-    <tr data-id="${j.id}">
-      <td><strong>${j.numero || '—'}</strong></td>
-      <td>${j.nome}</td>
-      <td><span class="badge" style="${posBadgeStyle(j.posicao)}">${j.posicaoFull || j.posicao}</span></td>
-      <td>${j.foto ? `<img src="${j.foto}" style="width:36px;height:36px;border-radius:50%;object-fit:cover">` : '<span style="color:#aaa">—</span>'}</td>
+    <tr data-id="${jscEsc(j.id)}">
+      <td><strong>${jscEsc(j.numero || '—')}</strong></td>
+      <td>${jscEsc(j.nome)}</td>
+      <td><span class="badge" style="${posBadgeStyle(j.posicao)}">${jscEsc(j.posicaoFull || j.posicao)}</span></td>
+      <td>${j.foto ? `<img src="${jscEscUrl(j.foto)}" style="width:36px;height:36px;border-radius:50%;object-fit:cover">` : '<span style="color:#aaa">—</span>'}</td>
       <td>${j.ativo !== false ? '<span class="badge badge--success">Ativo</span>' : '<span class="badge badge--danger">Inativo</span>'}</td>
       <td>
         <button class="btn-icon" onclick="editJogador('${j.id}')">&#9998;</button>
@@ -5798,37 +5805,37 @@ function editJogador(id) {
     `<div class="form-grid" style="grid-template-columns:1fr 1fr;gap:16px">
         <div class="form-group">
           <label class="form-label">Nome *</label>
-          <input class="form-control" id="fldJNome" value="${j.nome}">
+          <input class="form-control" id="fldJNome" value="${jscEsc(j.nome)}">
         </div>
         <div class="form-group">
           <label class="form-label">Número</label>
-          <input class="form-control" id="fldJNumero" type="number" min="1" max="99" value="${j.numero}">
+          <input class="form-control" id="fldJNumero" type="number" min="1" max="99" value="${jscEsc(j.numero)}">
         </div>
         <div class="form-group">
           <label class="form-label">Posição</label>
           <select class="form-control" id="fldJPosicao">
-            ${posicoes.map(p => `<option value="${p.val}" ${j.posicao===p.val?'selected':''}>${p.label}</option>`).join('')}
+            ${posicoes.map(p => `<option value="${jscEsc(p.val)}" ${jscEsc(j.posicao===p.val?'selected':'')}>${jscEsc(p.label)}</option>`).join('')}
           </select>
         </div>
         <div class="form-group">
           <label class="form-label">Estado</label>
           <select class="form-control" id="fldJAtivo">
-            <option value="1" ${j.ativo!==false?'selected':''}>Ativo</option>
-            <option value="0" ${j.ativo===false?'selected':''}>Inativo</option>
+            <option value="1" ${jscEsc(j.ativo!==false?'selected':'')}>Ativo</option>
+            <option value="0" ${jscEsc(j.ativo===false?'selected':'')}>Inativo</option>
           </select>
         </div>
       </div>
       <div class="form-group" style="margin-top:12px">
         <label class="form-label">Foto (URL ou upload)</label>
         <div style="display:flex;gap:12px;align-items:center">
-          <input class="form-control" id="fldJFotoUrl" placeholder="https://..." value="${j.foto||''}" style="flex:1">
+          <input class="form-control" id="fldJFotoUrl" placeholder="https://..." value="${jscEsc(j.foto||'')}" style="flex:1">
           <label class="btn-icon" style="cursor:pointer;padding:8px 12px;background:#f0f0f0;border-radius:8px">
             &#128247;
             <input type="file" accept="image/*" id="fldJFotoFile" style="display:none">
           </label>
         </div>
-        <div id="fldJFotoPreview" style="margin-top:10px;${j.foto?'':'display:none'}">
-          <img id="fldJFotoImg" src="${j.foto||''}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:3px solid #e0e0e0">
+        <div id="fldJFotoPreview" style="margin-top:10px;${jscEsc(j.foto?'':'display:none')}">
+          <img id="fldJFotoImg" src="${jscEscUrl(j.foto||'')}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:3px solid #e0e0e0">
         </div>
       </div>`,
     `<button class="btn-save" onclick="saveJogador('${j.id}','${id||''}')">&#128190; Guardar</button>
@@ -6027,10 +6034,10 @@ window.previewSenioresImport = function() {
 
   prev.innerHTML = `
     <div style="font-size:0.82rem;color:#555;margin-bottom:8px">
-      <strong>${players.length}</strong> jogadores reconhecidos
-      · <span style="color:#16a34a">${novos} novos</span>
-      ${dups ? `· <span style="color:#d97706">${dups} duplicados</span>` : ''}
-      ${comFoto ? `· <span style="color:#2563eb">${comFoto} com foto</span>` : ''}
+      <strong>${jscEsc(players.length)}</strong> jogadores reconhecidos
+      · <span style="color:#16a34a">${jscEsc(novos)} novos</span>
+      ${dups ? `· <span style="color:#d97706">${jscEsc(dups)} duplicados</span>` : ''}
+      ${comFoto ? `· <span style="color:#2563eb">${jscEsc(comFoto)} com foto</span>` : ''}
     </div>
     <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
       <thead><tr style="background:#f0f4ff">
@@ -6043,13 +6050,13 @@ window.previewSenioresImport = function() {
       <tbody>${players.map(p => {
         const dup = existNames.includes(p.nome.toLowerCase());
         const avatar = p.foto
-          ? `<img src="${p.foto}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid #e5e7eb" onerror="this.style.display='none'">`
+          ? `<img src="${jscEscUrl(p.foto)}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid #e5e7eb" onerror="this.style.display='none'">`
           : `<div style="width:32px;height:32px;border-radius:50%;background:#003B8E;color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:700">${p.nome.split(' ').slice(0,2).map(w=>w[0]).join('')}</div>`;
-        return `<tr style="border-bottom:1px solid #eee${dup?';opacity:0.55':''}">
+        return `<tr style="border-bottom:1px solid #eee${jscEsc(dup?';opacity:0.55':'')}">
           <td style="padding:4px 8px">${avatar}</td>
-          <td style="padding:4px 10px;color:#888">${p.numero || '—'}</td>
-          <td style="padding:4px 10px;font-weight:600">${p.nome}</td>
-          <td style="padding:4px 10px"><span style="${posBadgeStyle(p.posicao)}">${p.posicaoFull}</span></td>
+          <td style="padding:4px 10px;color:#888">${jscEsc(p.numero || '—')}</td>
+          <td style="padding:4px 10px;font-weight:600">${jscEsc(p.nome)}</td>
+          <td style="padding:4px 10px"><span style="${posBadgeStyle(p.posicao)}">${jscEsc(p.posicaoFull)}</span></td>
           <td style="padding:4px 10px">${dup ? '<span style="color:#d97706;font-size:0.75rem">duplicado</span>' : '<span style="color:#16a34a;font-size:0.75rem">novo</span>'}</td>
         </tr>`;
       }).join('')}</tbody>
@@ -6064,8 +6071,8 @@ window.diagSenioresImport = function() {
   const hasZZ = lines.some(l => _zzGrupo(l) !== null);
   prev.innerHTML = `
     <div style="font-size:0.8rem;color:#555;margin-bottom:6px">
-      Modo: <strong>${hasZZ ? 'ZeroZero (grupos por posição detectados)' : 'Genérico'}</strong>
-      &nbsp;·&nbsp; ${text.split('\n').filter(l=>l.trim()).length} linhas
+      Modo: <strong>${jscEsc(hasZZ ? 'ZeroZero (grupos por posição detectados)' : 'Genérico')}</strong>
+      &nbsp;·&nbsp; ${jscEsc(text.split('\n').filter(l=>l.trim()).length)} linhas
     </div>
     <div style="background:#f5f5f5;border:1px solid #ddd;border-radius:6px;padding:10px;font-family:monospace;font-size:0.78rem;max-height:200px;overflow-y:auto">
       ${lines.map((l,i) => `<div style="padding:1px 0;color:${_zzGrupo(l)?'#1a6':'#333'}">${i+1}: ${l.replace(/</g,'&lt;')}</div>`).join('')}
@@ -6124,7 +6131,7 @@ function initFormacao() {
   if (tabsEl && !tabsEl.dataset.ready) {
     tabsEl.dataset.ready = '1';
     tabsEl.innerHTML = nomes.map(e =>
-      `<button class="tab-filter${e === _formacaoEscalao ? ' active' : ''}" data-ef="${e}">${e}</button>`
+      `<button class="tab-filter${jscEsc(e === _formacaoEscalao ? ' active' : '')}" data-ef="${jscEsc(e)}">${jscEsc(e)}</button>`
     ).join('');
     tabsEl.addEventListener('click', e => {
       const btn = e.target.closest('[data-ef]');
@@ -6230,9 +6237,9 @@ window.previewFormacaoImport = function() {
   const comFoto = players.filter(p => p.foto).length;
   prev.innerHTML = `
     <div style="font-size:0.82rem;color:#555;margin-bottom:8px">
-      <strong>${players.length}</strong> jogadores · <span style="color:#16a34a">${novos} novos</span>
-      ${dups ? `· <span style="color:#d97706">${dups} duplicados</span>` : ''}
-      ${comFoto ? `· <span style="color:#2563eb">${comFoto} com foto</span>` : ''}
+      <strong>${jscEsc(players.length)}</strong> jogadores · <span style="color:#16a34a">${jscEsc(novos)} novos</span>
+      ${dups ? `· <span style="color:#d97706">${jscEsc(dups)} duplicados</span>` : ''}
+      ${comFoto ? `· <span style="color:#2563eb">${jscEsc(comFoto)} com foto</span>` : ''}
     </div>
     <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
       <thead><tr style="background:#f0f4ff">
@@ -6246,14 +6253,14 @@ window.previewFormacaoImport = function() {
       <tbody>${players.map(p => {
         const dup = existNames.includes(p.nome.toLowerCase());
         const avatar = p.foto
-          ? `<img src="${p.foto}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid #e5e7eb" onerror="this.style.display='none'">`
+          ? `<img src="${jscEscUrl(p.foto)}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid #e5e7eb" onerror="this.style.display='none'">`
           : `<div style="width:32px;height:32px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:700">${p.nome.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()}</div>`;
-        return `<tr style="border-bottom:1px solid #eee${dup?';opacity:0.55':''}">
+        return `<tr style="border-bottom:1px solid #eee${jscEsc(dup?';opacity:0.55':'')}">
           <td style="padding:4px 8px">${avatar}</td>
-          <td style="padding:4px 10px;color:#888">${p.numero||'—'}</td>
-          <td style="padding:4px 10px;font-weight:600">${p.nome}</td>
-          <td style="padding:4px 10px">${p.posicao||'—'}</td>
-          <td style="padding:4px 10px;color:#888;font-size:0.8rem">${p.dataNascimento||'—'}</td>
+          <td style="padding:4px 10px;color:#888">${jscEsc(p.numero||'—')}</td>
+          <td style="padding:4px 10px;font-weight:600">${jscEsc(p.nome)}</td>
+          <td style="padding:4px 10px">${jscEsc(p.posicao||'—')}</td>
+          <td style="padding:4px 10px;color:#888;font-size:0.8rem">${jscEsc(p.dataNascimento||'—')}</td>
           <td style="padding:4px 10px">${dup?'<span style="color:#d97706;font-size:0.75rem">duplicado</span>':'<span style="color:#16a34a;font-size:0.75rem">novo</span>'}</td>
         </tr>`;
       }).join('')}</tbody>
@@ -6269,7 +6276,7 @@ window.diagFormacaoImport = function() {
   const hasZZ   = !hasCard && lines.some(l => _zzGrupo(l) !== null);
   const modo    = hasCard ? 'FPF — Cartões' : hasZZ ? 'ZeroZero — Grupos por posição' : 'Tabela genérica';
   prev.innerHTML = `
-    <div style="font-size:0.8rem;color:#555;margin-bottom:6px">Modo: <strong>${modo}</strong> · ${text.split('\n').filter(l=>l.trim()).length} linhas</div>
+    <div style="font-size:0.8rem;color:#555;margin-bottom:6px">Modo: <strong>${jscEsc(modo)}</strong> · ${jscEsc(text.split('\n').filter(l=>l.trim()).length)} linhas</div>
     <div style="font-size:0.75rem;color:#888;margin-bottom:4px">
       <span style="color:#1a6;font-weight:700">■</span> grupo/data
       <span style="color:#2563eb;font-weight:700;margin-left:8px">■</span> data detetada
@@ -6443,11 +6450,11 @@ window.previewCompletarDatas = function() {
 
   prev.innerHTML = `
     <div style="font-size:0.82rem;color:#555;margin-bottom:10px">
-      <span style="color:#16a34a;font-weight:600">${matched.length} datas novas</span>
-      ${updated.length ? `· <span style="color:#d97706;font-weight:600">${updated.length} a atualizar</span>` : ''}
-      ${already.length ? `· <span style="color:#888">${already.length} já tinham data</span>` : ''}
-      ${noMatch.length ? `· <span style="color:#c00">${noMatch.length} sem correspondência</span>` : ''}
-      · ${fpfList.length} jogadores na FPF
+      <span style="color:#16a34a;font-weight:600">${jscEsc(matched.length)} datas novas</span>
+      ${updated.length ? `· <span style="color:#d97706;font-weight:600">${jscEsc(updated.length)} a atualizar</span>` : ''}
+      ${already.length ? `· <span style="color:#888">${jscEsc(already.length)} já tinham data</span>` : ''}
+      ${noMatch.length ? `· <span style="color:#c00">${jscEsc(noMatch.length)} sem correspondência</span>` : ''}
+      · ${jscEsc(fpfList.length)} jogadores na FPF
     </div>
     <table style="width:100%;border-collapse:collapse;font-size:0.81rem">
       <thead><tr style="background:#f5f3ff">
@@ -6461,12 +6468,12 @@ window.previewCompletarDatas = function() {
         if (!m.atleta) { status = 'Sem correspondência'; statusColor = '#c00'; }
         else if (!m.atleta.dataNascimento) { status = '+ Nova data'; statusColor = '#16a34a'; }
         else if (m.atleta.dataNascimento === m.fpf.dataNascimento) { status = 'Igual'; statusColor = '#888'; }
-        else { status = `Atualizar (era ${m.atleta.dataNascimento})`; statusColor = '#d97706'; }
+        else { status = `Atualizar (era ${jscEsc(m.atleta.dataNascimento)})`; statusColor = '#d97706'; }
         return `<tr style="border-bottom:1px solid #eee">
-          <td style="padding:5px 10px">${m.fpf.nome}</td>
-          <td style="padding:5px 10px;color:#7c3aed;font-weight:600">${m.fpf.dataNascimento}</td>
-          <td style="padding:5px 10px;color:#555">${m.atleta ? m.atleta.nome : '—'}</td>
-          <td style="padding:5px 10px;color:${statusColor};font-size:0.78rem;font-weight:600">${status}</td>
+          <td style="padding:5px 10px">${jscEsc(m.fpf.nome)}</td>
+          <td style="padding:5px 10px;color:#7c3aed;font-weight:600">${jscEsc(m.fpf.dataNascimento)}</td>
+          <td style="padding:5px 10px;color:#555">${jscEsc(m.atleta ? m.atleta.nome : '—')}</td>
+          <td style="padding:5px 10px;color:${jscEsc(statusColor)};font-size:0.78rem;font-weight:600">${jscEsc(status)}</td>
         </tr>`;
       }).join('')}</tbody>
     </table>`;
@@ -6502,32 +6509,32 @@ function _renderFormacaoInfo() {
       <div class="form-grid" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px">
         <div class="form-group">
           <label class="form-label">Designação</label>
-          <input class="form-control" id="fmInfoDesig" value="${e.designacao || ''}">
+          <input class="form-control" id="fmInfoDesig" value="${jscEsc(e.designacao || '')}">
         </div>
         <div class="form-group">
           <label class="form-label">Faixa Etária</label>
-          <input class="form-control" id="fmInfoFaixa" value="${e.faixa || ''}">
+          <input class="form-control" id="fmInfoFaixa" value="${jscEsc(e.faixa || '')}">
         </div>
         <div class="form-group">
           <label class="form-label">Treinador Principal</label>
-          <input class="form-control" id="fmInfoTreinador" value="${e.treinador || ''}">
+          <input class="form-control" id="fmInfoTreinador" value="${jscEsc(e.treinador || '')}">
         </div>
         <div class="form-group">
           <label class="form-label">Horários de Treino</label>
-          <input class="form-control" id="fmInfoTreinos" value="${e.treinos || ''}">
+          <input class="form-control" id="fmInfoTreinos" value="${jscEsc(e.treinos || '')}">
         </div>
         <div class="form-group">
           <label class="form-label">Competição / Liga</label>
-          <input class="form-control" id="fmInfoComp" value="${e.competicao || ''}">
+          <input class="form-control" id="fmInfoComp" value="${jscEsc(e.competicao || '')}">
         </div>
         <div class="form-group">
           <label class="form-label">Local de Treino</label>
-          <input class="form-control" id="fmInfoLocal" value="${e.local || ''}">
+          <input class="form-control" id="fmInfoLocal" value="${jscEsc(e.local || '')}">
         </div>
       </div>
       <div class="form-group" style="margin-top:12px">
         <label class="form-label">Descrição</label>
-        <textarea class="form-control" id="fmInfoDesc" rows="2">${e.descricao || ''}</textarea>
+        <textarea class="form-control" id="fmInfoDesc" rows="2">${jscEsc(e.descricao || '')}</textarea>
       </div>
       <button class="btn-save" id="btnGuardarInfoFormacao" style="margin-top:12px">💾 Guardar Informações</button>
     </div>`;
@@ -6566,15 +6573,15 @@ function _renderFormacaoTable() {
     const nasc = a.dataNascimento ? new Date(a.dataNascimento + 'T00:00:00') : null;
     const isAniv = nasc && nasc.getDate() === hoje.getDate() && nasc.getMonth() === hoje.getMonth();
     const avatar = a.foto
-      ? `<img src="${a.foto}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid #e5e7eb" onerror="this.style.display='none'">`
+      ? `<img src="${jscEscUrl(a.foto)}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid #e5e7eb" onerror="this.style.display='none'">`
       : `<div style="width:36px;height:36px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700">${a.nome.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()}</div>`;
     const dateFmt = a.dataNascimento ? new Date(a.dataNascimento+'T00:00:00').toLocaleDateString('pt-PT',{day:'2-digit',month:'short',year:'numeric'}) : '—';
     return `<tr${isAniv?' style="background:#fffbeb"':''}>
       <td style="padding:6px 8px">${avatar}</td>
-      <td><strong>${a.numero || '—'}</strong></td>
-      <td>${a.nome}${isAniv?' 🎂':''}</td>
-      <td>${a.posicao || '—'}</td>
-      <td style="font-size:0.82rem;color:#666">${dateFmt}</td>
+      <td><strong>${jscEsc(a.numero || '—')}</strong></td>
+      <td>${jscEsc(a.nome)}${jscEsc(isAniv?' 🎂':'')}</td>
+      <td>${jscEsc(a.posicao || '—')}</td>
+      <td style="font-size:0.82rem;color:#666">${jscEsc(dateFmt)}</td>
       <td>${a.estado === 'Activo' ? '<span class="badge badge--success">Activo</span>' : '<span class="badge badge--danger">Inactivo</span>'}</td>
       <td>
         <div class="btn-actions">
@@ -6601,45 +6608,45 @@ window.editFormacaoAtleta = function(id) {
     <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:16px">
       <div class="form-group">
         <label class="form-label">Nome *</label>
-        <input class="form-control" id="fmANome" value="${a.nome}">
+        <input class="form-control" id="fmANome" value="${jscEsc(a.nome)}">
       </div>
       <div class="form-group">
         <label class="form-label">Nº Camisola</label>
-        <input class="form-control" id="fmANumero" type="number" min="1" max="99" value="${a.numero || ''}">
+        <input class="form-control" id="fmANumero" type="number" min="1" max="99" value="${jscEsc(a.numero || '')}">
       </div>
       <div class="form-group">
         <label class="form-label">Posição</label>
         <select class="form-control" id="fmAPosicao">
           <option value="">—</option>
-          ${posicoes.map(p => `<option${p===a.posicao?' selected':''}>${p}</option>`).join('')}
+          ${posicoes.map(p => `<option${jscEsc(p===a.posicao?' selected':'')}>${jscEsc(p)}</option>`).join('')}
         </select>
       </div>
       <div class="form-group">
         <label class="form-label">Data de Nascimento</label>
-        <input class="form-control" id="fmADataNasc" type="date" value="${a.dataNascimento || ''}">
+        <input class="form-control" id="fmADataNasc" type="date" value="${jscEsc(a.dataNascimento || '')}">
       </div>
       <div class="form-group">
         <label class="form-label">Encarregado</label>
-        <input class="form-control" id="fmAEnc" value="${a.encarregado || ''}">
+        <input class="form-control" id="fmAEnc" value="${jscEsc(a.encarregado || '')}">
       </div>
       <div class="form-group">
         <label class="form-label">Estado</label>
         <select class="form-control" id="fmAEstado">
-          <option${a.estado==='Activo'?' selected':''}>Activo</option>
-          <option${a.estado==='Inactivo'?' selected':''}>Inactivo</option>
+          <option${jscEsc(a.estado==='Activo'?' selected':'')}>Activo</option>
+          <option${jscEsc(a.estado==='Inactivo'?' selected':'')}>Inactivo</option>
         </select>
       </div>
     </div>
     <div class="form-group" style="margin-top:12px">
       <label class="form-label">Foto (URL ou upload)</label>
       <div style="display:flex;gap:12px;align-items:center">
-        <input class="form-control" id="fmAFotoUrl" placeholder="https://... ou colar da FPF" value="${a.foto||''}" style="flex:1">
+        <input class="form-control" id="fmAFotoUrl" placeholder="https://... ou colar da FPF" value="${jscEsc(a.foto||'')}" style="flex:1">
         <label class="btn-icon" style="cursor:pointer;padding:8px 12px;background:#f0f0f0;border-radius:8px" title="Carregar ficheiro">
           📷 <input type="file" accept="image/*" id="fmAFotoFile" style="display:none">
         </label>
       </div>
-      <div id="fmAFotoPreview" style="margin-top:10px;${a.foto?'':'display:none'}">
-        <img id="fmAFotoImg" src="${a.foto||''}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:3px solid #e0e0e0">
+      <div id="fmAFotoPreview" style="margin-top:10px;${jscEsc(a.foto?'':'display:none')}">
+        <img id="fmAFotoImg" src="${jscEscUrl(a.foto||'')}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:3px solid #e0e0e0">
       </div>
     </div>`,
     `<button class="btn-save" onclick="saveFormacaoAtleta('${a.id}','${id||''}')">💾 Guardar</button>
@@ -6739,7 +6746,7 @@ window.deleteFormacaoAtleta = function(id) {
         <input class="emoji-picker__search" id="emojiSearch" placeholder="🔍 Pesquisar emoji..." autocomplete="off" />
       </div>
       <div class="emoji-picker__tabs" id="emojiTabs">
-        ${CATS.map((c,i) => `<button class="emoji-picker__tab${i===0?' active':''}" data-cat="${i}">${c.label.split(' ')[0]}</button>`).join('')}
+        ${CATS.map((c,i) => `<button class="emoji-picker__tab${jscEsc(i===0?' active':'')}" data-cat="${i}">${jscEsc(c.label.split(' ')[0])}</button>`).join('')}
       </div>
       <div class="emoji-picker__grid" id="emojiGrid"></div>`;
     return el;
@@ -6749,7 +6756,7 @@ window.deleteFormacaoAtleta = function(id) {
     const grid = document.getElementById('emojiGrid');
     if (!grid) return;
     grid.innerHTML = emojis.map(e =>
-      `<button type="button" class="emoji-picker__emoji" title="${e}">${e}</button>`
+      `<button type="button" class="emoji-picker__emoji" title="${jscEsc(e)}">${jscEsc(e)}</button>`
     ).join('');
     grid.querySelectorAll('.emoji-picker__emoji').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -6963,9 +6970,9 @@ function renderHistoriaList() {
     <tbody>
       ${lista.map(h => `
         <tr style="border-bottom:1px solid #f1f5f9">
-          <td style="padding:12px;font-weight:700;color:var(--blue);font-size:1.05rem">${h.ano}</td>
-          <td style="padding:12px;font-size:0.9rem">${h.titulo}</td>
-          <td style="padding:12px;text-align:center">${h.destaque ? '⭐' : '—'}</td>
+          <td style="padding:12px;font-weight:700;color:var(--blue);font-size:1.05rem">${jscEsc(h.ano)}</td>
+          <td style="padding:12px;font-size:0.9rem">${jscEsc(h.titulo)}</td>
+          <td style="padding:12px;text-align:center">${jscEsc(h.destaque ? '⭐' : '—')}</td>
           <td style="padding:12px;text-align:right;white-space:nowrap">
             <button class="btn-icon" onclick="editHistoria(${h.id})" title="Editar">&#9998;</button>
             <button class="btn-icon btn-icon--red" onclick="deleteHistoria(${h.id})" title="Eliminar">&#128465;</button>
@@ -6992,9 +6999,9 @@ function renderPalmaresList() {
     <tbody>
       ${lista.map(t => `
         <tr style="border-bottom:1px solid #f1f5f9">
-          <td style="padding:12px;font-weight:700;color:var(--blue)">${t.ano}</td>
-          <td style="padding:12px;font-size:0.9rem">${t.competicao}${t.observacao ? ' <span style="color:#888;font-size:0.8rem">· ' + t.observacao + '</span>' : ''}</td>
-          <td style="padding:12px"><span style="background:var(--yellow);color:var(--blue-dark);font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:10px">${t.escalao || '—'}</span></td>
+          <td style="padding:12px;font-weight:700;color:var(--blue)">${jscEsc(t.ano)}</td>
+          <td style="padding:12px;font-size:0.9rem">${jscEsc(t.competicao)}${t.observacao ? ' <span style="color:#888;font-size:0.8rem">· ' + t.observacao + '</span>' : ''}</td>
+          <td style="padding:12px"><span style="background:var(--yellow);color:var(--blue-dark);font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:10px">${jscEsc(t.escalao || '—')}</span></td>
           <td style="padding:12px;text-align:right;white-space:nowrap">
             <button class="btn-icon" onclick="editPalmares(${t.id})" title="Editar">&#9998;</button>
             <button class="btn-icon btn-icon--red" onclick="deletePalmares(${t.id})" title="Eliminar">&#128465;</button>
@@ -7009,26 +7016,26 @@ window.abrirModalHistoria = function(h) {
     <div class="modal-row">
       <div class="modal-field">
         <label>Ano *</label>
-        <input type="number" class="form-input" id="hAno" value="${h?.ano || new Date().getFullYear()}" min="1900" max="2100" />
+        <input type="number" class="form-input" id="hAno" value="${jscEsc(h?.ano || new Date().getFullYear())}" min="1900" max="2100" />
       </div>
       <div class="modal-field">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding-top:26px">
-          <input type="checkbox" id="hDestaque" ${h?.destaque ? 'checked' : ''} />
+          <input type="checkbox" id="hDestaque" ${jscEsc(h?.destaque ? 'checked' : '')} />
           Destaque (evento marcante)
         </label>
       </div>
     </div>
     <div class="modal-field">
       <label>Título *</label>
-      <input type="text" class="form-input" id="hTitulo" value="${h?.titulo || ''}" placeholder="Ex: Fundação do Clube" />
+      <input type="text" class="form-input" id="hTitulo" value="${jscEsc(h?.titulo || '')}" placeholder="Ex: Fundação do Clube" />
     </div>
     <div class="modal-field">
       <label>Descrição</label>
-      <textarea class="form-input" id="hDescricao" rows="4" placeholder="Conte o que aconteceu neste marco histórico...">${h?.descricao || ''}</textarea>
+      <textarea class="form-input" id="hDescricao" rows="4" placeholder="Conte o que aconteceu neste marco histórico...">${jscEsc(h?.descricao || '')}</textarea>
     </div>
     <div class="modal-field">
       <label>Imagem (URL)</label>
-      <input type="url" class="form-input" id="hImagem" value="${h?.imagem || ''}" placeholder="https://..." />
+      <input type="url" class="form-input" id="hImagem" value="${jscEsc(h?.imagem || '')}" placeholder="https://..." />
     </div>`,
     `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
      <button class="btn-save" onclick="saveHistoriaEntry(${isNew ? 'null' : h.id})">Guardar</button>`
@@ -7079,24 +7086,24 @@ window.abrirModalPalmares = function(t) {
   openModal(isNew ? 'Novo Título / Conquista' : 'Editar Título', `
     <div class="modal-field">
       <label>Competição / Torneio *</label>
-      <input type="text" class="form-input" id="pComp" value="${t?.competicao || ''}" placeholder="Ex: Campeonato Distrital AF Algarve" />
+      <input type="text" class="form-input" id="pComp" value="${jscEsc(t?.competicao || '')}" placeholder="Ex: Campeonato Distrital AF Algarve" />
     </div>
     <div class="modal-row">
       <div class="modal-field">
         <label>Ano *</label>
-        <input type="number" class="form-input" id="pAno" value="${t?.ano || new Date().getFullYear()}" min="1900" max="2100" />
+        <input type="number" class="form-input" id="pAno" value="${jscEsc(t?.ano || new Date().getFullYear())}" min="1900" max="2100" />
       </div>
       <div class="modal-field">
         <label>Escalão</label>
         <select class="form-input" id="pEscalao">
           <option value="">— Geral —</option>
-          ${escaloes.map(e => `<option${e === (t?.escalao || '') ? ' selected' : ''}>${e}</option>`).join('')}
+          ${escaloes.map(e => `<option${jscEsc(e === (t?.escalao || '') ? ' selected' : '')}>${jscEsc(e)}</option>`).join('')}
         </select>
       </div>
     </div>
     <div class="modal-field">
       <label>Observação (opcional)</label>
-      <input type="text" class="form-input" id="pObs" value="${t?.observacao || ''}" placeholder="Ex: 1.º lugar, Campeão..." />
+      <input type="text" class="form-input" id="pObs" value="${jscEsc(t?.observacao || '')}" placeholder="Ex: 1.º lugar, Campeão..." />
     </div>`,
     `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
      <button class="btn-save" onclick="savePalmaresEntry(${isNew ? 'null' : t.id})">Guardar</button>`

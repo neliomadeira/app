@@ -192,20 +192,20 @@
         if (!jogadores.length) return;
 
         html += '<div class="esc-pos-group">';
-        html += '<p class="esc-pos-label">' + g.label + '</p>';
+        html += '<p class="esc-pos-label">' + jscEsc(g.label) + '</p>';
         html += '<div class="esc-player-list">';
 
         jogadores.forEach(function (a) {
           var age = calcAge(a.dataNascimento);
           var ageTxt = age !== null ? age + ' anos' : '';
           var avatarHtml = a.foto
-            ? '<img src="' + a.foto + '" alt="' + a.nome + '" style="width:38px;height:38px;border-radius:50%;object-fit:cover" />'
-            : initials(a.nome);
-          html += '<a class="esc-player" href="atleta.html?id=' + a.id + '" style="text-decoration:none">';
+            ? '<img src="' + jscEscUrl(a.foto) + '" alt="' + jscEsc(a.nome) + '" style="width:38px;height:38px;border-radius:50%;object-fit:cover" />'
+            : jscEsc(initials(a.nome));
+          html += '<a class="esc-player" href="atleta.html?id=' + jscEsc(a.id) + '" style="text-decoration:none">';
           html += '<div class="esc-player__avatar">' + avatarHtml + '</div>';
           html += '<div>';
-          html += '<div class="esc-player__name">' + a.nome + '</div>';
-          html += '<div class="esc-player__meta">' + (a.posicao || g.label) + (ageTxt ? ' · ' + ageTxt : '') + '</div>';
+          html += '<div class="esc-player__name">' + jscEsc(a.nome) + '</div>';
+          html += '<div class="esc-player__meta">' + jscEsc(a.posicao || g.label) + (ageTxt ? ' · ' + jscEsc(ageTxt) : '') + '</div>';
           html += '</div>';
           html += '<span class="esc-player__arrow">›</span>';
           html += '</a>';
@@ -237,13 +237,13 @@
     } else {
       staff.forEach(function (t) {
         var fotoStyle = t.foto
-          ? ' style="background-image:url(\'' + t.foto + '\');background-size:cover;background-position:center;color:transparent"'
+          ? ' style="background-image:url(\'' + jscEscUrl(t.foto) + '\');background-size:cover;background-position:center;color:transparent"'
           : '';
         html += '<div class="esc-staff-card">';
-        html += '<div class="esc-staff__avatar"' + fotoStyle + '>' + initials(t.nome) + '</div>';
+        html += '<div class="esc-staff__avatar"' + fotoStyle + '>' + jscEsc(initials(t.nome)) + '</div>';
         html += '<div>';
-        html += '<div class="esc-staff__name">' + t.nome + '</div>';
-        html += '<div class="esc-staff__cargo">' + t.cargo + '</div>';
+        html += '<div class="esc-staff__name">' + jscEsc(t.nome) + '</div>';
+        html += '<div class="esc-staff__cargo">' + jscEsc(t.cargo) + '</div>';
         html += '</div>';
         html += '</div>';
       });

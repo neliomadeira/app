@@ -32,15 +32,15 @@
       : '';
     const imgClass = n.imagem ? '' : ` news-card__img--${n.img || 1}`;
     return `
-      <article class="senior-post-card${i === 0 ? ' senior-post-card--featured' : ''}"
+      <article class="senior-post-card${jscEsc(i === 0 ? ' senior-post-card--featured' : '')}"
                onclick="openSeniorPost(${n.id})" style="cursor:pointer">
-        <div class="senior-post-card__img${imgClass}" ${imgStyle}>
+        <div class="senior-post-card__img${jscEsc(imgClass)}" ${imgStyle}>
           <span class="senior-post-card__tag">Seniores</span>
         </div>
         <div class="senior-post-card__body">
-          <time class="senior-post-card__date">${ptDate(n.data)}</time>
-          <h3 class="senior-post-card__title">${n.titulo}</h3>
-          ${n.resumo ? `<p class="senior-post-card__excerpt">${n.resumo}</p>` : ''}
+          <time class="senior-post-card__date">${jscEsc(ptDate(n.data))}</time>
+          <h3 class="senior-post-card__title">${jscEsc(n.titulo)}</h3>
+          ${n.resumo ? `<p class="senior-post-card__excerpt">${jscEsc(n.resumo.replace(/<[^>]+>/g, ''))}</p>` : ''}
           <span class="senior-post-card__more">Ler mais &rarr;</span>
         </div>
       </article>`;
@@ -70,8 +70,8 @@
     if (!data) return '<div class="news-archive__date-box"></div>';
     const d = new Date(data + 'T00:00:00');
     return `<div class="news-archive__date-box">
-      <span class="news-archive__day">${d.getDate()}</span>
-      <span class="news-archive__month">${MESES_CURTOS[d.getMonth()]}</span>
+      <span class="news-archive__day">${jscEsc(d.getDate())}</span>
+      <span class="news-archive__month">${jscEsc(MESES_CURTOS[d.getMonth()])}</span>
     </div>`;
   }
 
@@ -84,12 +84,12 @@
       posts.map(n => `
         <div class="news-archive__item" onclick="openSeniorPost(${n.id})">
           ${archiveDateBox(n.data)}
-          <div class="news-archive__img news-card__img--${n.img || 1}"
-               ${n.imagem ? `style="background-image:url('${n.imagem}');background-size:cover;background-position:${n.imagemPos || 'center'}"` : ''}></div>
+          <div class="news-archive__img news-card__img--${jscEsc(n.img || 1)}"
+               ${n.imagem ? `style="background-image:url('${jscEscUrl(n.imagem)}');background-size:cover;background-position:${jscEsc(n.imagemPos || 'center')}"` : ''}></div>
           <div class="news-archive__info">
             <span class="news-archive__cat">Seniores</span>
-            <div class="news-archive__heading">${n.titulo}</div>
-            ${n.resumo ? `<p class="news-archive__excerpt">${n.resumo}</p>` : ''}
+            <div class="news-archive__heading">${jscEsc(n.titulo)}</div>
+            ${n.resumo ? `<p class="news-archive__excerpt">${jscEsc(n.resumo.replace(/<[^>]+>/g, ''))}</p>` : ''}
           </div>
         </div>`).join('')
     }</div>`;
@@ -116,11 +116,11 @@
       <button class="news-archive__back" onclick="showPostList()">&#8592; Voltar</button>
       <div class="news-article">
         ${n.imagem ? `<div class="news-article__img"
-            style="background-image:url('${n.imagem}');background-size:${n.imagemSize || 'cover'};background-position:${n.imagemPos || 'center'}"></div>` : ''}
-        <h2 class="news-article__title">${n.titulo}</h2>
+            style="background-image:url('${jscEscUrl(n.imagem)}');background-size:${jscEsc(n.imagemSize || 'cover')};background-position:${jscEsc(n.imagemPos || 'center')}"></div>` : ''}
+        <h2 class="news-article__title">${jscEsc(n.titulo)}</h2>
         <div class="news-article__meta">
           <span class="news-article__cat-badge">Seniores</span>
-          <time>${ptDate(n.data)}</time>
+          <time>${jscEsc(ptDate(n.data))}</time>
         </div>
         <div class="news-article__body">${n.resumo || '<em style="color:#aaa">Sem texto disponível.</em>'}</div>
       </div>`;

@@ -43,7 +43,7 @@
     if (!cats.length) { bar.style.display = 'none'; return; }
     bar.style.display = '';
     bar.innerHTML = ['Todas', ...cats].map(c =>
-      `<button class="news-filter-btn${(c === 'Todas' ? '' : c) === _cat ? ' active' : ''}" data-cat="${c === 'Todas' ? '' : c}">${c}</button>`
+      `<button class="news-filter-btn${jscEsc((c === 'Todas' ? '' : c) === _cat ? ' active' : '')}" data-cat="${jscEsc(c === 'Todas' ? '' : c)}">${jscEsc(c)}</button>`
     ).join('');
   }
 
@@ -58,15 +58,15 @@
       ? `background-image:url('${destaque.imagem}');background-size:cover;background-position:${destaque.focalPos || 'center'};background-repeat:no-repeat`
       : '';
     wrap.innerHTML = `
-      <article class="news-hero-card" data-id="${destaque.id}" style="cursor:pointer">
+      <article class="news-hero-card" data-id="${jscEsc(destaque.id)}" style="cursor:pointer">
         <div class="news-hero-card__img" ${imgStyle ? `style="${imgStyle}"` : ''}>
           <span class="news-hero-card__tag">&#11088; Destaque</span>
         </div>
         <div class="news-hero-card__body">
-          <span class="news-card__cat">${destaque.categoria || ''}</span>
-          <time class="news-card__date">${ptDate(destaque.data)}</time>
-          <h2 class="news-hero-card__title">${destaque.titulo}</h2>
-          ${excerpt ? `<p class="news-hero-card__excerpt">${excerpt}</p>` : ''}
+          <span class="news-card__cat">${jscEsc(destaque.categoria || '')}</span>
+          <time class="news-card__date">${jscEsc(ptDate(destaque.data))}</time>
+          <h2 class="news-hero-card__title">${jscEsc(destaque.titulo)}</h2>
+          ${excerpt ? `<p class="news-hero-card__excerpt">${jscEsc(excerpt)}</p>` : ''}
           <span class="news-card__link">Ler mais &rarr;</span>
         </div>
       </article>`;
@@ -81,9 +81,9 @@
     const waUrl    = 'https://wa.me/?text=' + titleEnc + '%20' + pageUrl;
     const fbUrl    = 'https://www.facebook.com/sharer/sharer.php?u=' + pageUrl;
     return `<div class="news-share" style="display:flex;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid #eee;flex-wrap:wrap">` +
-      `<a href="${waUrl}" target="_blank" rel="noopener" class="news-share-btn" style="${SHARE_BTN_STYLE}">&#128241; WhatsApp</a>` +
-      `<a href="${fbUrl}" target="_blank" rel="noopener" class="news-share-btn" style="${SHARE_BTN_STYLE}">&#128216; Facebook</a>` +
-      `<button onclick="(function(b){var u=window.location.origin+'/noticias.html?id=${id}';navigator.clipboard.writeText(u).then(function(){var t=b.textContent;b.textContent='✓ Copiado!';setTimeout(function(){b.textContent=t},2000)}).catch(function(){var t=b.textContent;b.textContent='✓ Copiado!';setTimeout(function(){b.textContent=t},2000)})})(this)" class="news-share-btn" style="${SHARE_BTN_STYLE}">&#128279; Copiar link</button>` +
+      `<a href="${jscEscUrl(waUrl)}" target="_blank" rel="noopener" class="news-share-btn" style="${jscEsc(SHARE_BTN_STYLE)}">&#128241; WhatsApp</a>` +
+      `<a href="${jscEscUrl(fbUrl)}" target="_blank" rel="noopener" class="news-share-btn" style="${jscEsc(SHARE_BTN_STYLE)}">&#128216; Facebook</a>` +
+      `<button onclick="(function(b){var u=window.location.origin+'/noticias.html?id=${id}';navigator.clipboard.writeText(u).then(function(){var t=b.textContent;b.textContent='✓ Copiado!';setTimeout(function(){b.textContent=t},2000)}).catch(function(){var t=b.textContent;b.textContent='✓ Copiado!';setTimeout(function(){b.textContent=t},2000)})})(this)" class="news-share-btn" style="${jscEsc(SHARE_BTN_STYLE)}">&#128279; Copiar link</button>` +
       `</div>`;
   }
 
@@ -107,22 +107,22 @@
 
     grid.innerHTML = show.map((n, i) => {
       const imgStyle = n.imagem
-        ? `background-image:url('${n.imagem}');background-size:${n.imagemSize || 'cover'};background-position:${n.focalPos || 'center'};background-repeat:no-repeat`
+        ? `background-image:url('${jscEscUrl(n.imagem)}');background-size:${jscEsc(n.imagemSize || 'cover')};background-position:${jscEsc(n.focalPos || 'center')};background-repeat:no-repeat`
         : '';
       const plainText = (n.resumo || '').replace(/<[^>]+>/g, '');
       const excerpt = plainText.length > 130 ? plainText.slice(0, 130) + '…' : plainText;
       return `
-        <article class="news-card news-page__card" style="cursor:pointer" data-id="${n.id}">
-          <div class="news-card__img${n.imagem ? '' : ` news-card__img--${(i % 3) + 1}`}"${imgStyle ? ` style="${imgStyle}"` : ''}>
-            <span class="news-card__cat">${n.categoria || ''}</span>
+        <article class="news-card news-page__card" style="cursor:pointer" data-id="${jscEsc(n.id)}">
+          <div class="news-card__img${n.imagem ? '' : ` news-card__img--${jscEsc((i % 3) + 1)}`}"${imgStyle ? ` style="${imgStyle}"` : ''}>
+            <span class="news-card__cat">${jscEsc(n.categoria || '')}</span>
           </div>
           <div class="news-card__body">
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-              <time class="news-card__date">${ptDate(n.data)}</time>
-              <span class="news-card__date" style="opacity:0.6">&#128336; ${readingTime(n.resumo)} de leitura</span>
+              <time class="news-card__date">${jscEsc(ptDate(n.data))}</time>
+              <span class="news-card__date" style="opacity:0.6">&#128336; ${jscEsc(readingTime(n.resumo))} de leitura</span>
             </div>
-            <h2 class="news-card__title" style="font-size:1.05rem">${n.titulo}</h2>
-            ${excerpt ? `<p class="news-card__excerpt">${excerpt}</p>` : ''}
+            <h2 class="news-card__title" style="font-size:1.05rem">${jscEsc(n.titulo)}</h2>
+            ${excerpt ? `<p class="news-card__excerpt">${jscEsc(excerpt)}</p>` : ''}
             <span class="news-card__link">Ler mais &rarr;</span>
             ${shareRowHtml(n.id, n.titulo)}
           </div>
@@ -232,7 +232,7 @@
       ? `background-image:url('${n.imagem}');background-size:${imgSize};background-position:${n.focalPos || 'center'};background-repeat:no-repeat`
       : '';
     const imgHtml = n.imagem
-      ? `<div class="news-article__img news-article__img--${imgPos}" style="${imgStyle}"></div>`
+      ? `<div class="news-article__img news-article__img--${jscEsc(imgPos)}" style="${imgStyle}"></div>`
       : '';
     const topImg  = imgPos === 'top'    ? imgHtml : '';
     const midImg  = imgPos === 'center' ? imgHtml : '';
@@ -243,17 +243,17 @@
 
     const relacionadosHtml = relacionados.length ? `
       <div class="not-related">
-        <h3 class="not-related__title">Mais em ${n.categoria}</h3>
+        <h3 class="not-related__title">Mais em ${jscEsc(n.categoria)}</h3>
         <div class="not-related__grid">
           ${relacionados.map((r, i) => {
             const imgStyle = r.imagem
-              ? `background-image:url('${r.imagem}');background-size:cover;background-position:${r.focalPos || 'center'}`
+              ? `background-image:url('${jscEscUrl(r.imagem)}');background-size:cover;background-position:${jscEsc(r.focalPos || 'center')}`
               : '';
-            return `<article class="not-related__card" data-rel-id="${r.id}" style="cursor:pointer">
-              <div class="not-related__img not-related__img--${(i % 3) + 1}"${imgStyle ? ` style="${imgStyle}"` : ''}></div>
+            return `<article class="not-related__card" data-rel-id="${jscEsc(r.id)}" style="cursor:pointer">
+              <div class="not-related__img not-related__img--${jscEsc((i % 3) + 1)}"${imgStyle ? ` style="${imgStyle}"` : ''}></div>
               <div class="not-related__body">
-                <time class="news-card__date">${ptDate(r.data)}</time>
-                <p class="not-related__heading">${r.titulo}</p>
+                <time class="news-card__date">${jscEsc(ptDate(r.data))}</time>
+                <p class="not-related__heading">${jscEsc(r.titulo)}</p>
               </div>
             </article>`;
           }).join('')}
@@ -267,14 +267,14 @@
           <button class="news-archive__back" id="notBack">&#8592; Voltar às notícias</button>
         </div>
         <div class="news-article" style="padding:0 0 32px">
-          ${topImg}
-          <h1 class="news-article__title">${n.titulo}</h1>
+          ${jscEsc(topImg)}
+          <h1 class="news-article__title">${jscEsc(n.titulo)}</h1>
           <div class="news-article__meta">
-            <span class="news-article__cat-badge">${n.categoria || ''}</span>
-            <time>${ptDate(n.data)}</time>
-            <span style="color:#999;font-size:0.82rem">&#128336; ${readingTime(n.resumo)} de leitura</span>
+            <span class="news-article__cat-badge">${jscEsc(n.categoria || '')}</span>
+            <time>${jscEsc(ptDate(n.data))}</time>
+            <span style="color:#999;font-size:0.82rem">&#128336; ${jscEsc(readingTime(n.resumo))} de leitura</span>
           </div>
-          ${midImg}
+          ${jscEsc(midImg)}
           <div class="news-article__body">
             ${bodyImg}${n.resumo || '<em style="color:#aaa">Sem texto disponível.</em>'}
           </div>

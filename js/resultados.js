@@ -109,7 +109,7 @@ function calcPts(v, e) { return v * 3 + e; }
 function formaHTML(forma) {
   return forma.split('').map(f => {
     const cls = f==='V'?'v':f==='E'?'e':'d';
-    return `<span class="forma-dot forma-dot--${cls}">${f}</span>`;
+    return `<span class="forma-dot forma-dot--${jscEsc(cls)}">${jscEsc(f)}</span>`;
   }).join('');
 }
 
@@ -127,16 +127,16 @@ function jogoEquipasHtml(j) {
     const advLogo    = emCasa ? j.logoFora : j.logoCasa;
     return `
       <div class="jogo-equipas">
-        <span class="jogo-equipa">${jogoLogo(advLogo, adversario)}${adversario}</span>
-        <span class="jogo-lado jogo-lado--${emCasa ? 'casa' : 'fora'}">${emCasa ? 'Casa' : 'Fora'}</span>
+        <span class="jogo-equipa">${jogoLogo(advLogo, adversario)}${jscEsc(adversario)}</span>
+        <span class="jogo-lado jogo-lado--${jscEsc(emCasa ? 'casa' : 'fora')}">${jscEsc(emCasa ? 'Casa' : 'Fora')}</span>
       </div>`;
   }
   return `
       <div class="jogo-equipas">
-        <span class="jogo-equipa">${jogoLogo(j.logoCasa, j.casa)}${j.casa}</span>
+        <span class="jogo-equipa">${jscEsc(jogoLogo(j.logoCasa, j.casa))}${jscEsc(j.casa)}</span>
         <div class="jogo-equipa-row">
           <span class="vs">vs</span>
-          <span class="jogo-equipa">${jogoLogo(j.logoFora, j.fora)}${j.fora}</span>
+          <span class="jogo-equipa">${jscEsc(jogoLogo(j.logoFora, j.fora))}${jscEsc(j.fora)}</span>
         </div>
       </div>`;
 }
@@ -151,7 +151,7 @@ function jogoLogo(url, nome) {
     } catch(e) {}
   }
   return resolved
-    ? `<img src="${resolved}" alt="" class="jogo-team-logo" loading="lazy" onerror="this.style.display='none'">`
+    ? `<img src="${jscEscUrl(resolved)}" alt="" class="jogo-team-logo" loading="lazy" onerror="this.style.display='none'">`
     : '';
 }
 
@@ -255,31 +255,31 @@ function renderClass(escalao) {
   tbody.innerHTML = sorted.map((t, i) => {
     const pos = i + 1;
     const posBadge = pos <= 3
-      ? `<span class="pos-badge pos-badge--${pos}">${pos}</span>`
-      : `<span>${pos}</span>`;
+      ? `<span class="pos-badge pos-badge--${jscEsc(pos)}">${jscEsc(pos)}</span>`
+      : `<span>${jscEsc(pos)}</span>`;
     const badgeClass = t.sc ? 'team-badge--sc' : 'team-badge--other';
     const logoEl = t.logo
-      ? `<img src="${t.logo}" alt="${t.abrev}" class="team-logo" loading="lazy"
+      ? `<img src="${jscEscUrl(t.logo)}" alt="${jscEsc(t.abrev)}" class="team-logo" loading="lazy"
              onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex'">`
-        + `<span class="team-badge ${badgeClass}" style="display:none">${t.abrev}</span>`
-      : `<span class="team-badge ${badgeClass}">${t.abrev}</span>`;
+        + `<span class="team-badge ${badgeClass}" style="display:none">${jscEsc(t.abrev)}</span>`
+      : `<span class="team-badge ${badgeClass}">${jscEsc(t.abrev)}</span>`;
     return `
-      <tr class="${t.sc ? 'sc-row' : ''}">
+      <tr class="${jscEsc(t.sc ? 'sc-row' : '')}">
         <td class="pos-cell">${posBadge}</td>
         <td>
           <div class="team-cell">
             ${logoEl}
-            <span>${t.equipa}${t.sc ? ' ★' : ''}</span>
+            <span>${jscEsc(t.equipa)}${jscEsc(t.sc ? ' ★' : '')}</span>
           </div>
         </td>
-        <td>${t.j}</td>
-        <td>${t.v}</td>
-        <td>${t.e}</td>
-        <td>${t.d}</td>
-        <td>${t.gm}</td>
-        <td>${t.gs}</td>
-        <td>${t.dg > 0 ? '+' : ''}${t.dg}</td>
-        <td class="pts-cell">${t.pts}</td>
+        <td>${jscEsc(t.j)}</td>
+        <td>${jscEsc(t.v)}</td>
+        <td>${jscEsc(t.e)}</td>
+        <td>${jscEsc(t.d)}</td>
+        <td>${jscEsc(t.gm)}</td>
+        <td>${jscEsc(t.gs)}</td>
+        <td>${jscEsc(t.dg > 0 ? '+' : '')}${jscEsc(t.dg)}</td>
+        <td class="pts-cell">${jscEsc(t.pts)}</td>
         <td><div class="forma">${formaHTML(t.forma)}</div></td>
       </tr>`;
   }).join('');
@@ -308,19 +308,19 @@ function renderJogos(escalao) {
       return `
         <div class="jogo-item">
           <div class="jogo-data">
-            <div class="jogo-data__day">${d.day}</div>
-            <div class="jogo-data__mes">${d.mes}</div>
+            <div class="jogo-data__day">${jscEsc(d.day)}</div>
+            <div class="jogo-data__mes">${jscEsc(d.mes)}</div>
           </div>
           <div class="jogo-divider"></div>
           <div class="jogo-info">
             ${jogoEquipasHtml(j)}
-            ${j.local && j.local.length > 2 && !/^[A-Z]{2,4}$/.test(j.local) ? `<div class="jogo-meta">${j.local}</div>` : ''}
+            ${j.local && j.local.length > 2 && !/^[A-Z]{2,4}$/.test(j.local) ? `<div class="jogo-meta">${jscEsc(j.local)}</div>` : ''}
           </div>
           <div class="jogo-resultado">
-            <div class="resultado-placar">${j.gcasa}–${j.gfora}</div>
-            ${res ? `<div class="resultado-badge resultado-badge--${res}">${resLabel}</div>` : ''}
+            <div class="resultado-placar">${jscEsc(j.gcasa)}–${jscEsc(j.gfora)}</div>
+            ${res ? `<div class="resultado-badge resultado-badge--${jscEsc(res)}">${jscEsc(resLabel)}</div>` : ''}
           </div>
-          <button class="jogo-share-btn" data-jogo="${jData}" title="Partilhar resultado">&#8679;</button>
+          <button class="jogo-share-btn" data-jogo="${jscEsc(jData)}" title="Partilhar resultado">&#8679;</button>
         </div>`;
     }).join('');
 
@@ -341,16 +341,16 @@ function renderJogos(escalao) {
       return `
         <div class="jogo-item">
           <div class="jogo-data">
-            <div class="jogo-data__day">${d.day}</div>
-            <div class="jogo-data__mes">${d.mes}</div>
+            <div class="jogo-data__day">${jscEsc(d.day)}</div>
+            <div class="jogo-data__mes">${jscEsc(d.mes)}</div>
           </div>
           <div class="jogo-divider"></div>
           <div class="jogo-info">
             ${jogoEquipasHtml(j)}
-            ${j.local && j.local.length > 2 && !/^[A-Z]{2,4}$/.test(j.local) ? `<div class="jogo-meta">${j.local}</div>` : ''}
+            ${j.local && j.local.length > 2 && !/^[A-Z]{2,4}$/.test(j.local) ? `<div class="jogo-meta">${jscEsc(j.local)}</div>` : ''}
           </div>
           <div class="jogo-agendado">
-            <div class="jogo-hora">${j.hora}</div>
+            <div class="jogo-hora">${jscEsc(j.hora)}</div>
             <div class="jogo-badge-prox">Agendado</div>
           </div>
         </div>`;
@@ -378,7 +378,7 @@ function renderTeamSelector(escalao) {
 
   bar.style.display = 'block';
   inner.innerHTML = teams.map(t =>
-    `<button class="team-tab${t.key === teamActivo ? ' active' : ''}" data-team="${t.key}">${t.nome}</button>`
+    `<button class="team-tab${jscEsc(t.key === teamActivo ? ' active' : '')}" data-team="${jscEsc(t.key)}">${jscEsc(t.nome)}</button>`
   ).join('');
 
   inner.querySelectorAll('.team-tab').forEach(btn => {

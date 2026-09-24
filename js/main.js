@@ -192,14 +192,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const cfg = JSON.parse(localStorage.getItem('site_config') || '{}');
       const newsCount = parseInt(cfg.homepageNewsCount) || 3;
       grid.innerHTML = lista.slice(0, newsCount).map((n, i) => `
-        <article class="news-card${i === 0 ? ' news-card--featured' : ''}" style="cursor:pointer" onclick="window.location='noticias.html?id=${n.id}'">
-          <div class="news-card__img${n.imagem ? '' : ` news-card__img--${(i % 3) + 1}`}" ${newsCardImg(n)}>
-            <span class="news-card__cat">${n.categoria || ''}</span>
+        <article class="news-card${jscEsc(i === 0 ? ' news-card--featured' : '')}" style="cursor:pointer" onclick="window.location='noticias.html?id=${n.id}'">
+          <div class="news-card__img${n.imagem ? '' : ` news-card__img--${jscEsc((i % 3) + 1)}`}" ${jscEsc(newsCardImg(n))}>
+            <span class="news-card__cat">${jscEsc(n.categoria || '')}</span>
           </div>
           <div class="news-card__body">
-            <time class="news-card__date">${ptDate(n.data)}</time>
-            <h3 class="news-card__title">${n.titulo}</h3>
-            ${n.resumo ? `<p class="news-card__excerpt">${n.resumo.replace(/<[^>]+>/g,'').slice(0,160)}</p>` : ''}
+            <time class="news-card__date">${jscEsc(ptDate(n.data))}</time>
+            <h3 class="news-card__title">${jscEsc(n.titulo)}</h3>
+            ${n.resumo ? `<p class="news-card__excerpt">${jscEsc(n.resumo.replace(/<[^>]+>/g,'').slice(0,160))}</p>` : ''}
             <span class="news-card__link">Ler mais &rarr;</span>
           </div>
         </article>`).join('');
@@ -224,8 +224,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!data) return '<div class="news-archive__date-box"></div>';
     const d = new Date(data + 'T00:00:00');
     return `<div class="news-archive__date-box">
-      <span class="news-archive__day">${d.getDate()}</span>
-      <span class="news-archive__month">${MESES_CURTOS[d.getMonth()]}</span>
+      <span class="news-archive__day">${jscEsc(d.getDate())}</span>
+      <span class="news-archive__month">${jscEsc(MESES_CURTOS[d.getMonth()])}</span>
     </div>`;
   }
 
@@ -237,12 +237,12 @@ document.addEventListener('DOMContentLoaded', () => {
       lista.map((n, i) => `
         <div class="news-archive__item" onclick="openNewsArticle(${n.id})">
           ${archiveDateBox(n.data)}
-          <div class="news-archive__img${n.imagem ? '' : ` news-card__img--${(i % 3) + 1}`}"
-               ${n.imagem ? `style="background-image:url('${n.imagem}');background-size:cover;background-position:center;background-repeat:no-repeat"` : ''}></div>
+          <div class="news-archive__img${n.imagem ? '' : ` news-card__img--${jscEsc((i % 3) + 1)}`}"
+               ${n.imagem ? `style="background-image:url('${jscEscUrl(n.imagem)}');background-size:cover;background-position:center;background-repeat:no-repeat"` : ''}></div>
           <div class="news-archive__info">
-            <span class="news-archive__cat">${n.categoria || ''}</span>
-            <div class="news-archive__heading">${n.titulo}</div>
-            ${n.resumo ? `<p class="news-archive__excerpt">${n.resumo}</p>` : ''}
+            <span class="news-archive__cat">${jscEsc(n.categoria || '')}</span>
+            <div class="news-archive__heading">${jscEsc(n.titulo)}</div>
+            ${n.resumo ? `<p class="news-archive__excerpt">${jscEsc(n.resumo.replace(/<[^>]+>/g, ''))}</p>` : ''}
           </div>
         </div>`).join('')
     }</div>`;
@@ -271,7 +271,7 @@ document.addEventListener('DOMContentLoaded', () => {
       ? `background-image:url('${n.imagem}');background-size:${imgSize};background-position:center;background-repeat:no-repeat`
       : '';
     const imgHtml = n.imagem
-      ? `<div class="news-article__img news-article__img--${imgPos}" style="${imgStyle}"></div>`
+      ? `<div class="news-article__img news-article__img--${jscEsc(imgPos)}" style="${imgStyle}"></div>`
       : '';
     const topImg  = imgHtml && (imgPos === 'top'  )  ? imgHtml : '';
     const midImg  = imgHtml && (imgPos === 'center') ? imgHtml : '';
@@ -283,10 +283,10 @@ document.addEventListener('DOMContentLoaded', () => {
       </button>
       <div class="news-article">
         ${topImg}
-        <h2 class="news-article__title">${n.titulo}</h2>
+        <h2 class="news-article__title">${jscEsc(n.titulo)}</h2>
         <div class="news-article__meta">
-          <span class="news-article__cat-badge">${n.categoria || ''}</span>
-          <time>${ptDate(n.data)}</time>
+          <span class="news-article__cat-badge">${jscEsc(n.categoria || '')}</span>
+          <time>${jscEsc(ptDate(n.data))}</time>
         </div>
         ${midImg}
         <div class="news-article__body">
@@ -365,18 +365,18 @@ document.addEventListener('DOMContentLoaded', () => {
       section.style.display = '';
       document.getElementById('aniversariosLista').innerHTML = lista.map(a => {
         const detalhe = a._hoje
-          ? `faz ${a._idade} anos <strong>hoje</strong> 🎉`
-          : `dia ${a._dia} &middot; faz ${a._idade} anos`;
+          ? `faz ${jscEsc(a._idade)} anos <strong>hoje</strong> 🎉`
+          : `dia ${jscEsc(a._dia)} &middot; faz ${jscEsc(a._idade)} anos`;
         const avatar = a.foto
-          ? `<img src="${a.foto}" alt="" class="birthday__foto" loading="lazy"
+          ? `<img src="${jscEscUrl(a.foto)}" alt="" class="birthday__foto" loading="lazy"
                onerror="this.outerHTML='<div class=&quot;birthday__icon&quot;>🎂</div>'">`
           : `<div class="birthday__icon">🎂</div>`;
         return `
-          <div class="birthday__card${a._hoje ? ' birthday__card--today' : ''}">
+          <div class="birthday__card${jscEsc(a._hoje ? ' birthday__card--today' : '')}">
             ${avatar}
             <div class="birthday__info">
-              <strong class="birthday__nome">${a.nome}</strong>
-              ${a.escalao ? `<span class="birthday__escalao">${a.escalao}</span>` : ''}
+              <strong class="birthday__nome">${jscEsc(a.nome)}</strong>
+              ${a.escalao ? `<span class="birthday__escalao">${jscEsc(a.escalao)}</span>` : ''}
               <span class="birthday__detalhe">${detalhe}</span>
             </div>
           </div>`;
@@ -393,18 +393,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const grid = document.getElementById('categoriesGrid');
         if (grid) {
           grid.innerHTML = lista.map(e => `
-            <div class="category-card${e.destaque ? ' category-card--featured' : ''}">
+            <div class="category-card${jscEsc(e.destaque ? ' category-card--featured' : '')}">
               ${e.destaque ? '<div class="category-card__badge">Destaque</div>' : ''}
-              <div class="category-card__age">${e.nome}</div>
-              <h3 class="category-card__name">${e.designacao || ''}</h3>
-              <p class="category-card__age-range">${e.faixa || ''}</p>
-              ${e.descricao ? `<p class="category-card__desc">${e.descricao}</p>` : ''}
+              <div class="category-card__age">${jscEsc(e.nome)}</div>
+              <h3 class="category-card__name">${jscEsc(e.designacao || '')}</h3>
+              <p class="category-card__age-range">${jscEsc(e.faixa || '')}</p>
+              ${e.descricao ? `<p class="category-card__desc">${jscEsc(e.descricao)}</p>` : ''}
               <ul class="category-card__list">
-                ${e.treinos ? `<li>${e.treinos}</li>` : ''}
-                ${e.treinador ? `<li>Treinador: ${e.treinador}</li>` : ''}
-                ${e.atletas ? `<li>${e.atletas} atletas inscritos</li>` : ''}
+                ${e.treinos ? `<li>${jscEsc(e.treinos)}</li>` : ''}
+                ${e.treinador ? `<li>Treinador: ${jscEsc(e.treinador)}</li>` : ''}
+                ${e.atletas ? `<li>${jscEsc(e.atletas)} atletas inscritos</li>` : ''}
               </ul>
-              <a href="escalao.html?escalao=${e.nome}" class="esc-link">Ver plantel →</a>
+              <a href="escalao.html?escalao=${jscEscUrl(e.nome)}" class="esc-link">Ver plantel →</a>
             </div>`).join('');
         }
       }
@@ -429,14 +429,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const cls = TIPO_CLS[e.tipo] || 'outro';
             return `<div class="agenda-card">
               <div class="agenda-card__date-box">
-                <span class="agenda-card__day">${d.getDate()}</span>
-                <span class="agenda-card__month">${MESES_CURTOS[d.getMonth()]}</span>
+                <span class="agenda-card__day">${jscEsc(d.getDate())}</span>
+                <span class="agenda-card__month">${jscEsc(MESES_CURTOS[d.getMonth()])}</span>
               </div>
               <div class="agenda-card__body">
-                <span class="agenda-card__tipo agenda-card__tipo--${cls}">${e.tipo}</span>
-                <h4 class="agenda-card__title">${e.titulo}</h4>
-                <p class="agenda-card__meta">&#128337; ${e.hora} &nbsp;·&nbsp; &#128205; ${e.local}</p>
-                ${e.escalao && e.escalao !== 'Todos' ? `<p class="agenda-card__meta">&#127942; ${e.escalao}</p>` : ''}
+                <span class="agenda-card__tipo agenda-card__tipo--${jscEsc(cls)}">${jscEsc(e.tipo)}</span>
+                <h4 class="agenda-card__title">${jscEsc(e.titulo)}</h4>
+                <p class="agenda-card__meta">&#128337; ${jscEsc(e.hora)} &nbsp;·&nbsp; &#128205; ${jscEsc(e.local)}</p>
+                ${e.escalao && e.escalao !== 'Todos' ? `<p class="agenda-card__meta">&#127942; ${jscEsc(e.escalao)}</p>` : ''}
               </div>
             </div>`;
           }).join('');
@@ -465,21 +465,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const alvo = new Date(jogo.data + 'T' + (jogo.hora || '00:00'));
         const cdBox = (id, label) => `
           <div style="display:flex;flex-direction:column;align-items:center;min-width:52px;background:rgba(255,255,255,0.06);border-radius:8px;padding:8px 6px">
-            <span id="${id}" style="font-size:1.7rem;font-weight:900;color:#FFD700;font-family:'Bebas Neue',sans-serif;line-height:1">--</span>
-            <span style="color:rgba(255,255,255,0.5);font-size:0.62rem;letter-spacing:1px;text-transform:uppercase">${label}</span>
+            <span id="${jscEsc(id)}" style="font-size:1.7rem;font-weight:900;color:#FFD700;font-family:'Bebas Neue',sans-serif;line-height:1">--</span>
+            <span style="color:rgba(255,255,255,0.5);font-size:0.62rem;letter-spacing:1px;text-transform:uppercase">${jscEsc(label)}</span>
           </div>`;
         widget.innerHTML = `
           <div style="color:rgba(255,255,255,0.55);font-size:0.78rem;letter-spacing:1px;text-transform:uppercase;font-weight:700">Próximo Jogo</div>
           <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;justify-content:center">
-            <div style="color:#fff;font-size:1.1rem;font-weight:700;max-width:220px">${jogo.titulo}</div>
+            <div style="color:#fff;font-size:1.1rem;font-weight:700;max-width:220px">${jscEsc(jogo.titulo)}</div>
             <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
-              <span style="font-size:2rem;font-weight:900;color:#FFD700;font-family:'Bebas Neue',sans-serif;letter-spacing:1px">${d.getDate()} ${MESES_PT[d.getMonth()]}</span>
-              <span style="color:rgba(255,255,255,0.6);font-size:0.82rem">${jogo.hora || ''} &nbsp;·&nbsp; ${jogo.local || ''}</span>
+              <span style="font-size:2rem;font-weight:900;color:#FFD700;font-family:'Bebas Neue',sans-serif;letter-spacing:1px">${jscEsc(d.getDate())} ${jscEsc(MESES_PT[d.getMonth()])}</span>
+              <span style="color:rgba(255,255,255,0.6);font-size:0.82rem">${jscEsc(jogo.hora || '')} &nbsp;·&nbsp; ${jscEsc(jogo.local || '')}</span>
             </div>
             <div style="display:flex;gap:8px" aria-label="Contagem decrescente para o jogo">
-              ${cdBox('jdDias','Dias')}${cdBox('jdHoras','Horas')}${cdBox('jdMin','Min')}${cdBox('jdSeg','Seg')}
+              ${jscEsc(cdBox('jdDias','Dias'))}${jscEsc(cdBox('jdHoras','Horas'))}${jscEsc(cdBox('jdMin','Min'))}${jscEsc(cdBox('jdSeg','Seg'))}
             </div>
-            ${jogo.escalao && jogo.escalao !== 'Todos' ? `<span style="background:rgba(255,215,0,0.15);color:#FFD700;padding:4px 12px;border-radius:20px;font-size:0.78rem;font-weight:700">${jogo.escalao}</span>` : ''}
+            ${jogo.escalao && jogo.escalao !== 'Todos' ? `<span style="background:rgba(255,215,0,0.15);color:#FFD700;padding:4px 12px;border-radius:20px;font-size:0.78rem;font-weight:700">${jscEsc(jogo.escalao)}</span>` : ''}
             <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
               <button id="jdIcsBtn" style="background:transparent;color:#FFD700;border:1px solid rgba(255,215,0,0.5);padding:8px 14px;border-radius:6px;font-size:0.82rem;font-weight:700;cursor:pointer">&#128197; Calendário</button>
               <a href="agenda.html" style="background:#FFD700;color:#001f4d;padding:8px 18px;border-radius:6px;font-size:0.82rem;font-weight:700;text-decoration:none">Ver agenda →</a>
@@ -544,10 +544,10 @@ document.addEventListener('DOMContentLoaded', () => {
             : '';
           container.innerHTML = jogadores.map(j => `
             <div class="player-card">
-              <span class="player-card__num">${j.numero || '—'}</span>
-              <div class="player-card__avatar" ${avatarStyle(j)}>${j.foto ? '' : initStr(j)}</div>
-              <span class="player-card__name">${j.nome}</span>
-              <span class="player-card__pos player-card__pos--${j.posicao}">${j.posicaoFull || j.posicao}</span>
+              <span class="player-card__num">${jscEsc(j.numero || '—')}</span>
+              <div class="player-card__avatar" ${avatarStyle(j)}>${jscEsc(j.foto ? '' : initStr(j))}</div>
+              <span class="player-card__name">${jscEsc(j.nome)}</span>
+              <span class="player-card__pos player-card__pos--${jscEsc(j.posicao)}">${jscEsc(j.posicaoFull || j.posicao)}</span>
             </div>`).join('');
         });
       }
@@ -564,13 +564,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (grid) {
           grid.innerHTML = lista.map(t => {
             const initials = t.nome.split(' ').slice(0,2).map(p => p[0]).join('').toUpperCase();
-            const bgStyle = t.foto ? `style="background-image:url('${t.foto}');background-size:cover;background-position:center;font-size:0"` : '';
+            const bgStyle = t.foto ? `style="background-image:url('${jscEscUrl(t.foto)}');background-size:cover;background-position:center;font-size:0"` : '';
             return `<div class="staff-card">
-              <div class="staff-card__avatar" ${bgStyle}>${t.foto ? '' : initials}</div>
+              <div class="staff-card__avatar" ${bgStyle}>${jscEsc(t.foto ? '' : initials)}</div>
               <div class="staff-card__body">
-                <h3 class="staff-card__name">${t.nome}</h3>
-                <span class="staff-card__role">${t.cargo}</span>
-                <span class="staff-card__team">${t.escalao}</span>
+                <h3 class="staff-card__name">${jscEsc(t.nome)}</h3>
+                <span class="staff-card__role">${jscEsc(t.cargo)}</span>
+                <span class="staff-card__team">${jscEsc(t.escalao)}</span>
               </div>
             </div>`;
           }).join('');
@@ -592,12 +592,12 @@ document.addEventListener('DOMContentLoaded', () => {
           if (row && grupo.length) {
             row.innerHTML = grupo.map(p => {
               const logo = p.logo
-                ? `<div class="sponsor-card__logo" style="background-image:url('${p.logo}');background-size:contain;background-repeat:no-repeat;background-position:center"></div>`
-                : `<div class="sponsor-card__logo">${p.nome}</div>`;
-              const link = p.website ? `href="${p.website}" target="_blank" rel="noopener"` : '';
-              return `<a class="sponsor-card sponsor-card--${tier.toLowerCase()}" ${link} style="${link?'cursor:pointer':''}">
+                ? `<div class="sponsor-card__logo" style="background-image:url('${jscEscUrl(p.logo)}');background-size:contain;background-repeat:no-repeat;background-position:center"></div>`
+                : `<div class="sponsor-card__logo">${jscEsc(p.nome)}</div>`;
+              const link = p.website ? `href="${jscEscUrl(p.website)}" target="_blank" rel="noopener"` : '';
+              return `<a class="sponsor-card sponsor-card--${jscEsc(tier.toLowerCase())}" ${link} style="${jscEsc(link?'cursor:pointer':'')}">
                 ${logo}
-                <span class="sponsor-card__name">${p.sector || ''}</span>
+                <span class="sponsor-card__name">${jscEsc(p.sector || '')}</span>
               </a>`;
             }).join('');
           }
@@ -616,21 +616,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if (grid) {
           grid.innerHTML = lista.map(m => {
             const bgStyle = m.imagem
-              ? `style="background-image:url('${m.imagem}');background-size:cover;background-position:${m.imagemPos||'center'}"` : '';
+              ? `style="background-image:url('${jscEscUrl(m.imagem)}');background-size:cover;background-position:${jscEsc(m.imagemPos||'center')}"` : '';
             return `
               <div class="modality-card">
                 <div class="modality-card__icon-wrap" ${bgStyle}>
                   <span class="modality-card__icon">${m.icone || '🏅'}</span>
                 </div>
                 <div class="modality-card__body">
-                  <h3 class="modality-card__name">${m.nome}</h3>
-                  ${m.descricao ? `<p class="modality-card__desc">${m.descricao}</p>` : ''}
+                  <h3 class="modality-card__name">${jscEsc(m.nome)}</h3>
+                  ${m.descricao ? `<p class="modality-card__desc">${jscEsc(m.descricao)}</p>` : ''}
                   <div class="modality-card__info">
-                    ${m.treinos   ? `<span class="modality-card__info-item">&#128337; ${m.treinos}</span>` : ''}
-                    ${m.local     ? `<span class="modality-card__info-item">&#128205; ${m.local}</span>` : ''}
-                    ${m.responsavel ? `<span class="modality-card__info-item">&#128100; ${m.responsavel}</span>` : ''}
+                    ${m.treinos   ? `<span class="modality-card__info-item">&#128337; ${jscEsc(m.treinos)}</span>` : ''}
+                    ${m.local     ? `<span class="modality-card__info-item">&#128205; ${jscEsc(m.local)}</span>` : ''}
+                    ${m.responsavel ? `<span class="modality-card__info-item">&#128100; ${jscEsc(m.responsavel)}</span>` : ''}
                   </div>
-                  <a href="modalidade.html?id=${m.id}" class="modality-card__link">Ver mais &rarr;</a>
+                  <a href="modalidade.html?id=${jscEscUrl(m.id)}" class="modality-card__link">Ver mais &rarr;</a>
                 </div>
               </div>`;
           }).join('');
@@ -670,7 +670,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const cats = [...new Set(lista.map(f => f.categoria).filter(Boolean))];
     if (cats.length > 1 && filters) {
       const extra = cats.map(c =>
-        `<button class="gallery__filter-btn" data-cat="${c}">${c}</button>`
+        `<button class="gallery__filter-btn" data-cat="${jscEsc(c)}">${jscEsc(c)}</button>`
       ).join('');
       filters.innerHTML = `<button class="gallery__filter-btn active" data-cat="">Todas</button>${extra}`;
       filters.style.display = 'flex';
@@ -702,10 +702,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const tall = i === 0 ? ' gallery__item--tall' : '';
         const wide = !_expanded && i === shown.length - 1 && shown.length >= 4
           ? ' gallery__item--wide' : '';
-        return `<div class="gallery__item--img${tall}${wide}" data-idx="${i}"
-                     style="background-image:url('${f.url}');background-size:${f.imgSize||'cover'};background-position:${f.imgPos||'center'}"
-                     tabindex="0" role="button" aria-label="Abrir foto: ${f.titulo}">
-                  <span class="gallery__caption">${f.titulo}</span>
+        return `<div class="gallery__item--img${jscEsc(tall)}${jscEsc(wide)}" data-idx="${i}"
+                     style="background-image:url('${jscEscUrl(f.url)}');background-size:${jscEsc(f.imgSize||'cover')};background-position:${jscEsc(f.imgPos||'center')}"
+                     tabindex="0" role="button" aria-label="Abrir foto: ${jscEsc(f.titulo)}">
+                  <span class="gallery__caption">${jscEsc(f.titulo)}</span>
                 </div>`;
       }).join('');
 

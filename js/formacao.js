@@ -23,9 +23,9 @@
 
   function avatarEl(a) {
     if (a.foto) {
-      return `<div class="player-card__avatar" style="background-image:url('${a.foto}');background-size:cover;background-position:center;font-size:0"></div>`;
+      return `<div class="player-card__avatar" style="background-image:url('${jscEscUrl(a.foto)}');background-size:cover;background-position:center;font-size:0"></div>`;
     }
-    return `<div class="player-card__avatar">${initStr(a.nome)}</div>`;
+    return `<div class="player-card__avatar">${jscEsc(initStr(a.nome))}</div>`;
   }
 
   function renderInfoBar(info, escalao) {
@@ -43,8 +43,8 @@
       <div class="senior-info__item">
         <span class="senior-info__icon">${it.icon}</span>
         <div>
-          <span class="senior-info__label">${it.label}</span>
-          <span class="senior-info__val">${it.val}</span>
+          <span class="senior-info__label">${jscEsc(it.label)}</span>
+          <span class="senior-info__val">${jscEsc(it.val)}</span>
         </div>
       </div>`).join('');
   }
@@ -75,15 +75,15 @@
       return `
         <div class="squad-group">
           <h3 class="squad-group__title">
-            <span class="squad-pos-badge squad-pos-badge--${code}">${pos}</span>${label}
+            <span class="squad-pos-badge squad-pos-badge--${jscEsc(code)}">${jscEsc(pos)}</span>${jscEsc(label)}
           </h3>
           <div class="squad-grid">
             ${jogadores.map(a => `
               <div class="player-card">
-                ${a.numero ? `<span class="player-card__num">${a.numero}</span>` : ''}
+                ${a.numero ? `<span class="player-card__num">${jscEsc(a.numero)}</span>` : ''}
                 ${avatarEl(a)}
-                <span class="player-card__name">${a.nome}</span>
-                <span class="player-card__pos player-card__pos--${pos}">${a.posicao || label}</span>
+                <span class="player-card__name">${jscEsc(a.nome)}</span>
+                <span class="player-card__pos player-card__pos--${jscEsc(pos)}">${jscEsc(a.posicao || label)}</span>
               </div>`).join('')}
           </div>
         </div>`;
@@ -119,7 +119,7 @@
     const tabBar = document.getElementById('formacaoTabs');
     if (!tabBar) return;
     tabBar.innerHTML = ESCALOES.map(e => `
-      <button class="formacao-tab${e === _esc ? ' formacao-tab--active' : ''}" data-esc="${e}">${e}</button>
+      <button class="formacao-tab${jscEsc(e === _esc ? ' formacao-tab--active' : '')}" data-esc="${jscEsc(e)}">${jscEsc(e)}</button>
     `).join('');
     tabBar.querySelectorAll('.formacao-tab').forEach(btn => {
       btn.addEventListener('click', () => renderEscalao(btn.dataset.esc));

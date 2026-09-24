@@ -378,6 +378,7 @@
     </div>
   </footer>
 
+  <script src="js/html.js"></script>
   <script src="js/security.js" defer></script>
   <script src="js/sync.js" defer></script>
   <script src="js/nav.js?v=20260701" defer></script>
@@ -418,7 +419,11 @@
 
     function logoHtml(sp, tierKey) {
       if (sp.logo) {
-        return '<img src="' + esc(sp.logo) + '" alt="' + esc(sp.nome) + '" class="sp-card__logo-img" loading="lazy" />';
+        // jscEscUrl (js/html.js) recusa esquemas perigosos como javascript:;
+        // o esc() local só escapa HTML e deixava passar um src executável.
+        var src = jscEscUrl(sp.logo);
+        if (!src) return '<div class="sp-card__initials">' + esc(initials(sp.nome)) + '</div>';
+        return '<img src="' + src + '" alt="' + esc(sp.nome) + '" class="sp-card__logo-img" loading="lazy" />';
       }
       return '<div class="sp-card__initials">' + esc(initials(sp.nome)) + '</div>';
     }
@@ -430,7 +435,7 @@
       var websiteBtn = '';
       if (sp.website) {
         var href = /^https?:\/\//i.test(sp.website) ? sp.website : 'https://' + sp.website;
-        websiteBtn = '<a href="' + esc(href) + '" target="_blank" rel="noopener noreferrer" class="sp-card__website">Visitar site &#8599;</a>';
+        websiteBtn = '<a href="' + jscEscUrl(href) + '" target="_blank" rel="noopener noreferrer" class="sp-card__website">Visitar site &#8599;</a>';
       }
 
       return [

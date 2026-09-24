@@ -78,7 +78,7 @@ function renderFilters(photos) {
   bar.innerHTML = buttons.map(cat => {
     const isActive = cat === 'Todos';
     return `<button
-      class="news-filter-btn${isActive ? ' news-filter-btn--active' : ''}"
+      class="news-filter-btn${jscEsc(isActive ? ' news-filter-btn--active' : '')}"
       data-cat="${_escHtml(cat)}"
       type="button"
     >${_escHtml(cat)}</button>`;
@@ -123,19 +123,19 @@ function renderGrid(photos) {
       bgContent = `<div class="galeria-item__bg" style="background-image:url('${_escHtml(photo.url)}')"></div>`;
     } else {
       bgContent = `
-        <div class="galeria-item__bg galeria-placeholder galeria-placeholder--${slug}">
+        <div class="galeria-item__bg galeria-placeholder galeria-placeholder--${jscEsc(slug)}">
           <span class="galeria-placeholder__icon" aria-hidden="true">${icon}</span>
-          <span class="galeria-placeholder__title">${title}</span>
+          <span class="galeria-placeholder__title">${jscEsc(title)}</span>
         </div>`;
     }
 
     return `
       <div class="galeria-item" data-idx="${idx}" tabindex="0" role="button"
-           aria-label="Ver foto: ${title}">
-        ${bgContent}
+           aria-label="Ver foto: ${jscEsc(title)}">
+        ${jscEsc(bgContent)}
         <div class="galeria-item__overlay" aria-hidden="true">
-          <p class="galeria-item__overlay-title">${title}</p>
-          ${desc ? `<p class="galeria-item__overlay-desc">${desc}</p>` : ''}
+          <p class="galeria-item__overlay-title">${jscEsc(title)}</p>
+          ${desc ? `<p class="galeria-item__overlay-desc">${jscEsc(desc)}</p>` : ''}
         </div>
       </div>`;
   }).join('');
@@ -172,7 +172,7 @@ function _renderLightboxContent(photo) {
     const slug = CATEGORIA_SLUG[photo.categoria] || 'outro';
     const icon = CATEGORIA_ICONS[photo.categoria] || '📷';
     media.innerHTML = `
-      <div class="lightbox__placeholder galeria-placeholder galeria-placeholder--${slug}">
+      <div class="lightbox__placeholder galeria-placeholder galeria-placeholder--${jscEsc(slug)}">
         <span class="lightbox__placeholder-icon" aria-hidden="true">${icon}</span>
         <span class="lightbox__placeholder-label">${_escHtml(photo.titulo || 'Sem título')}</span>
       </div>`;

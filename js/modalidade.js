@@ -66,7 +66,7 @@
       infoBar.innerHTML = infos.map(i =>
         `<div class="mod-info-item">
           <span class="mod-info-item__icon">${i.icon}</span>
-          <div><strong>${i.label}</strong><br><span>${i.val}</span></div>
+          <div><strong>${jscEsc(i.label)}</strong><br><span>${jscEsc(i.val)}</span></div>
         </div>`
       ).join('');
     } else {
@@ -88,15 +88,15 @@
     } else {
       grid.innerHTML = posts.map((p, i) => `
         <div class="mod-post-card" onclick="openPost(${p.id})">
-          <div class="mod-post-card__img-wrap mod-post-card__img--${(i % 3) + 1}">
-            ${p.imagem ? `<img src="${p.imagem}" class="mod-post-card__img-el"
-              style="object-fit:${p.imagemSize === 'contain' ? 'contain' : 'cover'};object-position:${p.imagemPos || 'center'}"
-              alt="${p.titulo}" loading="lazy" onerror="this.style.display='none'">` : ''}
+          <div class="mod-post-card__img-wrap mod-post-card__img--${jscEsc((i % 3) + 1)}">
+            ${p.imagem ? `<img src="${jscEscUrl(p.imagem)}" class="mod-post-card__img-el"
+              style="object-fit:${jscEsc(p.imagemSize === 'contain' ? 'contain' : 'cover')};object-position:${jscEsc(p.imagemPos || 'center')}"
+              alt="${jscEsc(p.titulo)}" loading="lazy" onerror="this.style.display='none'">` : ''}
           </div>
           <div class="mod-post-card__body">
-            <div class="mod-post-card__date">${ptDate(p.data)}</div>
-            <h3 class="mod-post-card__title">${p.titulo}</h3>
-            ${p.texto ? `<p class="mod-post-card__excerpt">${p.texto}</p>` : ''}
+            <div class="mod-post-card__date">${jscEsc(ptDate(p.data))}</div>
+            <h3 class="mod-post-card__title">${jscEsc(p.titulo)}</h3>
+            ${p.texto ? `<p class="mod-post-card__excerpt">${jscEsc(p.texto)}</p>` : ''}
             <span class="mod-post-card__link">Ler mais &rarr;</span>
           </div>
         </div>`).join('');
@@ -118,12 +118,12 @@
     ov.innerHTML = `
       <div class="post-overlay__panel">
         <div class="post-overlay__header">
-          <span class="post-overlay__date">${ptDate(p.data)}</span>
+          <span class="post-overlay__date">${jscEsc(ptDate(p.data))}</span>
           <button class="post-overlay__close" onclick="document.getElementById('postOverlay').remove()">&#10005;</button>
         </div>
-        ${p.imagem ? `<img src="${p.imagem}" class="post-overlay__img" onerror="this.style.display='none'">` : ''}
-        <h2 class="post-overlay__title">${p.titulo}</h2>
-        <div class="post-overlay__body">${p.texto || ''}</div>
+        ${p.imagem ? `<img src="${jscEscUrl(p.imagem)}" class="post-overlay__img" onerror="this.style.display='none'">` : ''}
+        <h2 class="post-overlay__title">${jscEsc(p.titulo)}</h2>
+        <div class="post-overlay__body">${jscEsc(p.texto || '')}</div>
       </div>`;
     ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
     document.body.appendChild(ov);

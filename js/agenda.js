@@ -77,7 +77,7 @@
     const tipos = ['Todos', 'Jogo', 'Torneio', 'Treino', 'Reunião', 'Outro'];
     container.innerHTML = tipos.map(t => {
       const active = (t === 'Todos' && tipoFiltro === '') || t === tipoFiltro;
-      return `<button class="news-filter-btn${active ? ' active' : ''}" data-tipo="${t === 'Todos' ? '' : t}">${t}</button>`;
+      return `<button class="news-filter-btn${jscEsc(active ? ' active' : '')}" data-tipo="${jscEsc(t === 'Todos' ? '' : t)}">${jscEsc(t)}</button>`;
     }).join('');
 
     container.querySelectorAll('.news-filter-btn').forEach(btn => {
@@ -110,16 +110,16 @@
 
     let html = `
       <div class="cal-nav">
-        <button class="cal-nav__btn" id="calPrev">&#8592; ${prevTitle}</button>
-        <span class="cal-nav__title">${MESES[currentMonth].toUpperCase()} ${currentYear}</span>
-        <button class="cal-nav__btn" id="calNext">${nextTitle} &#8594;</button>
+        <button class="cal-nav__btn" id="calPrev">&#8592; ${jscEsc(prevTitle)}</button>
+        <span class="cal-nav__title">${jscEsc(MESES[currentMonth].toUpperCase())} ${jscEsc(currentYear)}</span>
+        <button class="cal-nav__btn" id="calNext">${jscEsc(nextTitle)} &#8594;</button>
       </div>
       <div class="cal-grid">
     `;
 
     // Day headers
     DIAS_SEMANA.forEach(d => {
-      html += `<div class="cal-header-cell">${d}</div>`;
+      html += `<div class="cal-header-cell">${jscEsc(d)}</div>`;
     });
 
     // Empty cells before first day
@@ -142,12 +142,12 @@
 
       const dots = dayEvents.map(e => {
         const color = TIPO_COR[e.tipo] || TIPO_COR['Outro'];
-        return `<span class="cal-dot" style="background:${color}"></span>`;
+        return `<span class="cal-dot" style="background:${jscEsc(color)}"></span>`;
       }).join('');
 
       html += `
-        <div class="${cls}" data-date="${dateStr}">
-          <span class="cal-day__num">${day}</span>
+        <div class="${jscEsc(cls)}" data-date="${jscEsc(dateStr)}">
+          <span class="cal-day__num">${jscEsc(day)}</span>
           ${dots ? `<div class="cal-day__dots">${dots}</div>` : ''}
         </div>
       `;
@@ -222,27 +222,27 @@
       const pastCls = past ? ' agenda-pub-item--past' : '';
 
       const escalaoMeta = (e.escalao && e.escalao !== 'Todos')
-        ? `<span>&#127942; ${e.escalao}</span>`
+        ? `<span>&#127942; ${jscEsc(e.escalao)}</span>`
         : '';
 
       const icsBtn = !past && window.JSC_ICS
-        ? `<button class="agenda-ics-btn" data-ics="${encodeURIComponent(JSON.stringify({
+        ? `<button class="agenda-ics-btn" data-ics="${jscEsc(encodeURIComponent(JSON.stringify({
              titulo: e.titulo, data: e.data, hora: e.hora, local: e.local, descricao: e.descricao, tipo: e.tipo,
-           }))}" title="Adicionar ao calendário">&#128197; Adicionar ao calendário</button>`
+           })))}" title="Adicionar ao calendário">&#128197; Adicionar ao calendário</button>`
         : '';
 
       return `
-        <div class="agenda-pub-item${pastCls}" style="border-left-color:${cor}">
+        <div class="agenda-pub-item${jscEsc(pastCls)}" style="border-left-color:${jscEsc(cor)}">
           <div class="agenda-pub-date">
-            <span class="agenda-pub-date__day">${d}</span>
-            <span class="agenda-pub-date__month">${MESES_CURTOS[m]}</span>
+            <span class="agenda-pub-date__day">${jscEsc(d)}</span>
+            <span class="agenda-pub-date__month">${jscEsc(MESES_CURTOS[m])}</span>
           </div>
           <div class="agenda-pub-body">
-            <span class="agenda-tipo-badge" style="background:${cor}">${e.tipo}</span>
-            <p class="agenda-pub-title">${e.titulo}</p>
+            <span class="agenda-tipo-badge" style="background:${jscEsc(cor)}">${jscEsc(e.tipo)}</span>
+            <p class="agenda-pub-title">${jscEsc(e.titulo)}</p>
             <p class="agenda-pub-meta">
-              <span>&#128337; ${e.hora}</span>
-              <span>&#128205; ${e.local}</span>
+              <span>&#128337; ${jscEsc(e.hora)}</span>
+              <span>&#128205; ${jscEsc(e.local)}</span>
               ${escalaoMeta}
             </p>
             ${icsBtn}

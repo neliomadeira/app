@@ -95,24 +95,24 @@
       <div class="atleta-hero">
         <div class="container">
           <div class="atleta-hero__back">
-            <a href="escalao.html?escalao=${encodeURIComponent(atleta.escalao)}">← ${atleta.escalao}</a>
+            <a href="escalao.html?escalao=${jscEscUrl(encodeURIComponent(atleta.escalao))}">← ${jscEsc(atleta.escalao)}</a>
           </div>
           <div class="atleta-hero__card">
-            <div class="atleta-hero__avatar${inativo ? ' atleta-hero__avatar--inativo' : ''}">
+            <div class="atleta-hero__avatar${jscEsc(inativo ? ' atleta-hero__avatar--inativo' : '')}">
               ${atleta.foto
-                ? `<img src="${atleta.foto}" alt="${atleta.nome}" class="atleta-hero__photo" />`
-                : `<span class="atleta-hero__initials">${iniStr}</span>`}
+                ? `<img src="${jscEscUrl(atleta.foto)}" alt="${jscEsc(atleta.nome)}" class="atleta-hero__photo" />`
+                : `<span class="atleta-hero__initials">${jscEsc(iniStr)}</span>`}
             </div>
             <div class="atleta-hero__info">
               <div class="atleta-hero__badges">
-                <span class="atleta-hero__esc-badge">${atleta.escalao}</span>
-                ${esc.designacao ? `<span class="atleta-hero__desig">${esc.designacao}</span>` : ''}
+                <span class="atleta-hero__esc-badge">${jscEsc(atleta.escalao)}</span>
+                ${esc.designacao ? `<span class="atleta-hero__desig">${jscEsc(esc.designacao)}</span>` : ''}
                 ${inativo ? '<span class="atleta-hero__inativo-tag">Inactivo</span>' : ''}
               </div>
-              <h1 class="atleta-hero__name">${atleta.nome}</h1>
-              <p class="atleta-hero__pos">${atleta.posicao || 'Campo'}</p>
+              <h1 class="atleta-hero__name">${jscEsc(atleta.nome)}</h1>
+              <p class="atleta-hero__pos">${jscEsc(atleta.posicao || 'Campo')}</p>
             </div>
-            ${atleta.numero ? `<div class="atleta-hero__numero">${atleta.numero}</div>` : ''}
+            ${atleta.numero ? `<div class="atleta-hero__numero">${jscEsc(atleta.numero)}</div>` : ''}
           </div>
         </div>
       </div>
@@ -128,29 +128,29 @@
             <ul class="atleta-info-list">
               <li>
                 <span class="atleta-info-list__label">Data de nascimento</span>
-                <span class="atleta-info-list__val">${formatDate(atleta.dataNascimento)}</span>
+                <span class="atleta-info-list__val">${jscEsc(formatDate(atleta.dataNascimento))}</span>
               </li>
               <li>
                 <span class="atleta-info-list__label">Idade</span>
-                <span class="atleta-info-list__val">${age !== null ? age + ' anos' : '—'}</span>
+                <span class="atleta-info-list__val">${jscEsc(age !== null ? age + ' anos' : '—')}</span>
               </li>
               <li>
                 <span class="atleta-info-list__label">Posição</span>
-                <span class="atleta-info-list__val">${atleta.posicao || '—'}</span>
+                <span class="atleta-info-list__val">${jscEsc(atleta.posicao || '—')}</span>
               </li>
               <li>
                 <span class="atleta-info-list__label">Grupo de posição</span>
-                <span class="atleta-info-list__val">${posGroup(atleta.posicao)}</span>
+                <span class="atleta-info-list__val">${jscEsc(posGroup(atleta.posicao))}</span>
               </li>
               <li>
                 <span class="atleta-info-list__label">Escalão</span>
                 <span class="atleta-info-list__val">
-                  <a href="escalao.html?escalao=${encodeURIComponent(atleta.escalao)}" class="atleta-esc-link">${atleta.escalao}${esc.designacao ? ' · ' + esc.designacao : ''} →</a>
+                  <a href="escalao.html?escalao=${jscEscUrl(encodeURIComponent(atleta.escalao))}" class="atleta-esc-link">${jscEsc(atleta.escalao)}${jscEsc(esc.designacao ? ' · ' + esc.designacao : '')} →</a>
                 </span>
               </li>
               ${atleta.numero ? `<li>
                 <span class="atleta-info-list__label">Camisola</span>
-                <span class="atleta-info-list__val">#${atleta.numero}</span>
+                <span class="atleta-info-list__val">#${jscEsc(atleta.numero)}</span>
               </li>` : ''}
             </ul>
           </div>
@@ -172,10 +172,10 @@
 
           <div class="atleta-card">
             <h2 class="atleta-card__title">Escalão</h2>
-            <a href="escalao.html?escalao=${encodeURIComponent(atleta.escalao)}" class="atleta-esc-card">
-              <div class="atleta-esc-card__badge">${atleta.escalao}</div>
+            <a href="escalao.html?escalao=${jscEscUrl(encodeURIComponent(atleta.escalao))}" class="atleta-esc-card">
+              <div class="atleta-esc-card__badge">${jscEsc(atleta.escalao)}</div>
               <div>
-                <div class="atleta-esc-card__name">${esc.designacao || atleta.escalao}</div>
+                <div class="atleta-esc-card__name">${jscEsc(esc.designacao || atleta.escalao)}</div>
                 <div class="atleta-esc-card__hint">Ver plantel completo →</div>
               </div>
             </a>
@@ -189,7 +189,7 @@
   function renderError(msg) {
     const main = document.getElementById('atletaMain');
     if (main) main.innerHTML = `<div class="container" style="padding:60px 20px;text-align:center">
-      <p style="font-size:1.1rem;color:#666;margin-bottom:20px">${msg}</p>
+      <p style="font-size:1.1rem;color:#666;margin-bottom:20px">${jscEsc(msg)}</p>
       <a href="formacao.html" class="btn" style="background:var(--blue);color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none">← Voltar à Formação</a>
     </div>`;
   }

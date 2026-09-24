@@ -219,9 +219,9 @@
     const el = document.createElement('div');
     el.className = `site-banner site-banner--${tipo}`;
     el.setAttribute('role', 'alert');
-    el.innerHTML = `<p class="site-banner__text">${banner.texto}${
+    el.innerHTML = `<p class="site-banner__text">${jscEsc(banner.texto)}${
       banner.link && banner.linkTexto
-        ? ` <a class="site-banner__link" href="${banner.link}">${banner.linkTexto}</a>`
+        ? ` <a class="site-banner__link" href="${jscEscUrl(banner.link)}">${jscEsc(banner.linkTexto)}</a>`
         : ''
     }</p><button class="site-banner__close" aria-label="Fechar" onclick="
       this.closest('.site-banner').classList.remove('site-banner--visible');

@@ -37,7 +37,7 @@ function renderFbFeed(posts) {
     feed.innerHTML = `
       <div class="fb-empty">
         <p>Ainda sem publicações. Configure a ligação ao Facebook no painel admin.</p>
-        <a href="${FB_CONFIG.pageUrl}" target="_blank" rel="noopener" class="btn btn--fb" style="display:inline-flex;gap:8px;margin-top:16px">
+        <a href="${jscEscUrl(FB_CONFIG.pageUrl)}" target="_blank" rel="noopener" class="btn btn--fb" style="display:inline-flex;gap:8px;margin-top:16px">
           Visitar página
         </a>
       </div>`;
@@ -53,21 +53,21 @@ function renderPost(post) {
   const tipoIcon = { foto: '📷', video: '▶️', link: '🔗', texto: '📝' }[tipo] || '📝';
   const tipoLabel = { foto: 'Foto', video: 'Vídeo', link: 'Partilha', texto: 'Publicação' }[tipo] || 'Publicação';
   const imgHtml = post.imagem
-    ? `<div class="fb-card__img" style="background-image:url('${post.imagem}')"></div>`
+    ? `<div class="fb-card__img" style="background-image:url('${jscEscUrl(post.imagem)}')"></div>`
     : `<div class="fb-card__img fb-card__img--placeholder"><span>${tipoIcon}</span></div>`;
 
   return `
-    <a class="fb-card" href="${post.url || FB_CONFIG.pageUrl}" target="_blank" rel="noopener">
+    <a class="fb-card" href="${jscEscUrl(post.url || FB_CONFIG.pageUrl)}" target="_blank" rel="noopener">
       ${imgHtml}
       <div class="fb-card__body">
         <div class="fb-card__meta">
-          <span class="fb-card__tipo">${tipoLabel}</span>
-          ${data ? `<time class="fb-card__data">${data}</time>` : ''}
+          <span class="fb-card__tipo">${jscEsc(tipoLabel)}</span>
+          ${data ? `<time class="fb-card__data">${jscEsc(data)}</time>` : ''}
         </div>
-        <p class="fb-card__texto">${truncar(post.texto || '', 160)}</p>
+        <p class="fb-card__texto">${jscEsc(truncar(post.texto || '', 160))}</p>
         <span class="fb-card__link">Ver publicação →</span>
       </div>
-      ${post.likes ? `<div class="fb-card__reactions">❤️ ${post.likes}</div>` : ''}
+      ${post.likes ? `<div class="fb-card__reactions">❤️ ${jscEsc(post.likes)}</div>` : ''}
     </a>`;
 }
 
