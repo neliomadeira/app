@@ -1380,28 +1380,33 @@
             <div class="card-header"><h3>&#128274; Segurança</h3></div>
             <div style="padding:16px;display:grid;gap:12px">
               <div class="modal-field">
-                <label class="form-label">Utilizador admin</label>
-                <input class="form-input" type="text" id="cfgAdminUser" value="admin" />
+                <label class="form-label">A sua conta</label>
+                <input class="form-input" type="text" id="cfgAdminUser" readonly disabled />
+              </div>
+              <div class="modal-field">
+                <label class="form-label">Palavra-passe atual</label>
+                <input class="form-input" type="password" id="cfgAdminPwAtual" placeholder="a que usa agora" autocomplete="current-password" />
               </div>
               <div class="modal-field">
                 <label class="form-label">Nova palavra-passe</label>
-                <input class="form-input" type="password" id="cfgAdminPw" placeholder="Deixe em branco para manter" />
+                <input class="form-input" type="password" id="cfgAdminPw" placeholder="mínimo 10 caracteres, com algarismo" autocomplete="new-password" />
               </div>
               <div class="modal-field">
                 <label class="form-label">Confirmar palavra-passe</label>
-                <input class="form-input" type="password" id="cfgAdminPwConf" placeholder="Repetir nova senha" />
+                <input class="form-input" type="password" id="cfgAdminPwConf" placeholder="repetir a nova" autocomplete="new-password" />
               </div>
-              <button class="btn-save" onclick="guardarSeguranca()">Guardar credenciais</button>
+              <button class="btn-save" onclick="guardarSeguranca()">Alterar palavra-passe</button>
               <hr style="border:none;border-top:1px solid #e2e8f0;margin:4px 0">
               <!-- Utilizadores adicionais -->
               <div>
                 <label class="form-label">&#128101; Utilizadores adicionais</label>
-                <p style="font-size:0.76rem;color:#888;margin:2px 0 8px">Contas extra com acesso total ao painel (ex: outro dirigente ou treinador).</p>
+                <p style="font-size:0.76rem;color:#888;margin:2px 0 8px">Contas do painel, guardadas no servidor. Só o Super Admin pode criar e remover.</p>
                 <div id="adminUsersList" style="display:grid;gap:6px;margin-bottom:10px"></div>
                 <div style="display:grid;gap:8px">
                   <input class="form-input" type="text" id="novoUserNome" placeholder="Nome de utilizador" autocomplete="off" />
+                  <select class="form-input" id="novoUserPerfil"></select>
                   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                    <input class="form-input" type="password" id="novoUserPw" placeholder="Palavra-passe (mín. 6)" autocomplete="new-password" />
+                    <input class="form-input" type="password" id="novoUserPw" placeholder="Palavra-passe (mín. 10)" autocomplete="new-password" />
                     <input class="form-input" type="password" id="novoUserPwConf" placeholder="Confirmar" autocomplete="new-password" />
                   </div>
                   <button class="btn-sm" onclick="adicionarAdminUser()" style="justify-self:start">+ Adicionar utilizador</button>

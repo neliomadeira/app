@@ -11,3 +11,8 @@ data/db.json
 
 # Ferramentas de validação (browser descarregado pelo Playwright)
 tools/node_modules/
+
+# Contas do painel e contagem de tentativas: são de cada servidor,
+# e o ficheiro de contas tem os hashes das palavras-passe.
+data/utilizadores.json
+data/tentativas.json

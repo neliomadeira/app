@@ -4,11 +4,16 @@
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/sessao.php';
 
+// Inscrições e mensagens são dados pessoais, de menores incluídos: exigem
+// sessão. O token continua aceite enquanto não houver contas criadas.
 $token = isset($_SERVER['HTTP_X_JSC_TOKEN']) ? $_SERVER['HTTP_X_JSC_TOKEN'] : '';
-if (!$token || $token !== JSC_TOKEN) {
-    http_response_code(401);
-    echo '{"ok":false,"error":"token invalido"}';
+$comToken  = $token && hash_equals(JSC_TOKEN, $token) && JSC_TOKEN !== '';
+$comSessao = jsc_pode('tudo');
+if (!$comSessao && !$comToken) {
+    http_response_code(jsc_tem_sessao() ? 403 : 401);
+    echo json_encode(['ok' => false, 'error' => jsc_tem_sessao() ? 'sem permissao' : 'sem sessao nem token']);
     exit;
 }
 
