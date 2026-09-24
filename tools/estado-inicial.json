@@ -1,0 +1,34 @@
+{
+  "commit": "14c0da1",
+  "data": "2026-09-24T17:01:35.478Z",
+  "modo": "apache",
+  "paginas": 24,
+  "larguras": [
+    320,
+    375,
+    390,
+    430,
+    768,
+    1024,
+    1440
+  ],
+  "combinacoes": 168,
+  "total": 2,
+  "porTipo": {
+    "overflow": 2
+  },
+  "problemas": [
+    {
+      "tipo": "overflow",
+      "pagina": "historia.html",
+      "largura": 1024,
+      "detalhe": "+6px — div.timeline-item.timeline-item--right (+6px) | div.timeline-card-wrap (+6px) | div.timeline-card (+6px)"
+    },
+    {
+      "tipo": "overflow",
+      "pagina": "patrocinadores.html",
+      "largura": 320,
+      "detalhe": "+24px"
+    }
+  ]
+}

@@ -8,3 +8,6 @@ api/config.local.php
 # Conteúdo publicado pelo admin — estado de cada servidor, não do projeto.
 # Versioná-lo faria uma publicação de teste sobrepor-se à de produção.
 data/db.json
+
+# Ferramentas de validação (browser descarregado pelo Playwright)
+tools/node_modules/

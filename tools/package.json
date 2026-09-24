@@ -1,0 +1,12 @@
+{
+  "name": "jsc-ferramentas",
+  "private": true,
+  "description": "Ferramentas de validação do site do Juventude Sport Campinense",
+  "scripts": {
+    "validar": "node validar.js",
+    "postinstall": "playwright install chromium"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.0"
+  }
+}
