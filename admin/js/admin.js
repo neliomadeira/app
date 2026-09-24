@@ -65,14 +65,68 @@ function mostrarLogin() {
   if (loginForm) loginForm.reset();
 }
 
+// Que capacidade é precisa para ver cada secção do menu. O servidor
+// recusa à mesma quem tente lá chegar por outro caminho: isto é conforto,
+// não é a proteção.
+const AREA_DA_PAGINA = {
+  dashboard:       null,            // aberto a quem tenha sessão
+  inscricoes:     'inscricoes',
+  mensagens:      'inscricoes',
+  atletas:        'atletas',
+  treinadores:    'treinadores',
+  escaloes:       'equipas',
+  formacao:       'equipas',
+  seniores:       'equipas',
+  jogos:          'jogos',
+  agenda:         'agenda',
+  noticias:       'noticias',
+  galeria:        'galeria',
+  videos:         'videos',
+  patrocinadores: 'patrocinadores',
+  modalidades:    'modalidades',
+  historia:       'institucional',
+  'pagina-inicial':'homepage',
+  facebook:       'redes',
+  configuracoes:  'configuracoes',
+};
+
+function aplicarPermissoesNaInterface(sessao) {
+  const podem = (sessao && sessao.permissoes) || [];
+  let visiveis = 0;
+  document.querySelectorAll('.nav-item[data-page]').forEach(function (item) {
+    const pagina = item.getAttribute('data-page');
+    const area = AREA_DA_PAGINA[pagina];
+    const pode = area === null || area === undefined || podem.indexOf(area) !== -1;
+    item.hidden = !pode;
+    if (pode && pagina !== 'dashboard') visiveis++;
+  });
+
+  // Quem só tem Matchday fica sem nenhuma secção: a área do dia de jogo
+  // ainda não está construída. Mais vale dizê-lo do que mostrar um painel
+  // vazio sem explicação.
+  const aviso = document.getElementById('avisoPerfil');
+  if (aviso) {
+    if (!visiveis) {
+      aviso.textContent = 'O perfil ' + (sessao.perfilNome || sessao.perfil) +
+        ' ainda não tem nenhuma área disponível neste painel. A área de dia de jogo está prevista para uma fase seguinte.';
+      aviso.hidden = false;
+    } else {
+      aviso.hidden = true;
+    }
+  }
+}
+
 function entrarNoPainel(sessao) {
   SESSAO = sessao;
+  aplicarPermissoesNaInterface(sessao);
   loginWrap.style.display = 'none';
   document.body.classList.remove('login-page');
   adminLayout.style.display = 'flex';
   startSessionTimer();
-  const nome = document.querySelector('.topbar-user__name, #adminUserName');
-  if (nome && sessao) nome.textContent = sessao.nome || sessao.utilizador;
+  const nome = document.getElementById('adminUserName');
+  if (nome && sessao) nome.textContent = (sessao.nome || sessao.utilizador) + ' \u00b7 ' + (sessao.perfilNome || sessao.perfil);
+  const avatar = document.getElementById('adminUserAvatar');
+  if (avatar && sessao) avatar.textContent = (sessao.nome || sessao.utilizador).trim().charAt(0).toUpperCase();
   initAdmin();
 }
 
@@ -4647,9 +4701,6 @@ function initConfiguracoes() {
   if (msgEl && manu.mensagem) msgEl.value = manu.mensagem;
 
   // Carregar token de publicação
-  const apiToken = localStorage.getItem('jsc_api_token');
-  const apiTokenEl = document.getElementById('cfgApiToken');
-  if (apiTokenEl && apiToken) apiTokenEl.value = apiToken;
 
   // Última publicação
   const ultimaPub = localStorage.getItem('jsc_ultima_publicacao');
@@ -4823,14 +4874,6 @@ window.removerAdminUser = async function (utilizador) {
 };
 
 
-// ---- TOKEN DE PUBLICAÇÃO ----
-function guardarApiToken() {
-  const token = document.getElementById('cfgApiToken')?.value.trim();
-  if (!token) { showToast('Introduza o token', 'red'); return; }
-  localStorage.setItem('jsc_api_token', token);
-  showToast('✓ Token guardado', 'green');
-}
-
 // ---- PUBLICAR NO SERVIDOR ----
 async function publicarNoServidor() {
   // Publicar torna tudo isto conteúdo oficial do site. Se ainda houver
@@ -4846,7 +4889,6 @@ async function publicarNoServidor() {
       )) return;
     }
   }
-  const token = localStorage.getItem('jsc_api_token') || '';
   const ls = (key) => { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; } };
   // Classificações e jogos por escalão/equipa (chaves dinâmicas fpf_class_* / fpf_jogos_*)
   const classData = {};
@@ -4892,7 +4934,8 @@ async function publicarNoServidor() {
     if (btn) { btn.disabled = true; btn.textContent = '⏳ A publicar...'; }
     const resp = await fetch('/api/save.php', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-JSC-Token': token },
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
       body: JSON.stringify(dados),
     });
     const json = await resp.json();
@@ -4915,7 +4958,6 @@ async function publicarNoServidor() {
   }
 }
 window.publicarNoServidor = publicarNoServidor;
-window.guardarApiToken    = guardarApiToken;
 
 // ---- REGISTOS DO SERVIDOR (base de dados MySQL) ----
 // Inscrições e mensagens submetidas pelos visitantes chegam à BD via
@@ -4923,12 +4965,12 @@ window.guardarApiToken    = guardarApiToken;
 // de estado. Silencioso quando a BD não está configurada.
 // Sem token configurado devolve vazio: o servidor responde 401, em vez de
 // enviarmos um valor por omissão que qualquer pessoa conheceria.
-function _regToken() { return localStorage.getItem('jsc_api_token') || ''; }
 
 function _regPush(tipo, id, estado) {
   fetch('/api/registos.php?tipo=' + tipo, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-JSC-Token': _regToken() },
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
     body: JSON.stringify({ acao: 'estado', id, estado }),
   }).catch(() => {});
 }
@@ -4936,7 +4978,8 @@ function _regPush(tipo, id, estado) {
 function _regDelete(tipo, id) {
   fetch('/api/registos.php?tipo=' + tipo, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-JSC-Token': _regToken() },
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
     body: JSON.stringify({ acao: 'apagar', id }),
   }).catch(() => {});
 }
@@ -4971,7 +5014,7 @@ function _mapInscricaoServidor(item) {
 }
 
 async function sincronizarRegistosServidor() {
-  const headers = { 'X-JSC-Token': _regToken() };
+  const headers = {};
   const puxar = async (tipo) => {
     const r = await fetch('/api/registos.php?tipo=' + tipo, { headers });
     if (!r.ok) return null;
@@ -5172,7 +5215,6 @@ function exportarDados() {
     siteAviso:      ls('site_aviso'),
     siteCores:      ls('site_cores'),
     emailConfig:    ls('email_config'),
-    apiToken:       ls('jsc_api_token'),
   };
   const blob = new Blob([JSON.stringify(dados, null, 2)], { type: 'application/json' });
   const a    = document.createElement('a');
@@ -5232,7 +5274,6 @@ function processarImportBackup(e) {
       lsSet('site_aviso',       d.siteAviso);
       lsSet('site_cores',       d.siteCores);
       lsSet('email_config',     d.emailConfig);
-      lsSet('jsc_api_token',    d.apiToken);
       showToast('✓ Backup importado com sucesso! A recarregar...', 'green');
       setTimeout(() => location.reload(), 1500);
     } catch {

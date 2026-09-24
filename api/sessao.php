@@ -15,23 +15,102 @@ require_once __DIR__ . '/config.php';
 
 define('JSC_UTILIZADORES', __DIR__ . '/../data/utilizadores.json');
 
-// ---- Perfis --------------------------------------------------------
-// Os nomes vêm do ponto 31 do manual do projeto. O que cada perfil PODE
-// fazer ainda não está definido, por isso só os dois primeiros têm
-// permissões atribuídas. Os restantes existem, entram no painel, mas
-// ainda não recebem autorização nenhuma — preencher em conjunto com a
-// direção, em vez de adivinhar aqui.
+// ---- Perfis e permissões ------------------------------------------
+// Princípio de menor privilégio: cada perfil recebe só o que precisa.
+// A verificação acontece aqui, no servidor, a cada pedido. O painel
+// também esconde o que não é permitido, mas isso é conforto — quem
+// contornar a interface esbarra à mesma nestas funções.
 //
-// Permissões: 'tudo' dá acesso a todas as operações.
-function jsc_perfis() {
+// As capacidades correspondem às áreas que o Publicar pode alterar, mais
+// as operações que têm endpoint próprio.
+
+// Capacidade -> que chaves do conteúdo publicado ela autoriza a mudar.
+function jsc_areas() {
     return [
-        'super-admin'   => ['nome' => 'Super Admin',    'permissoes' => ['tudo'], 'gere_utilizadores' => true],
-        'administrador' => ['nome' => 'Administrador',  'permissoes' => ['tudo'], 'gere_utilizadores' => false],
-        'comunicacao'   => ['nome' => 'Comunicação',    'permissoes' => [],       'gere_utilizadores' => false],
-        'futebol'       => ['nome' => 'Futebol',        'permissoes' => [],       'gere_utilizadores' => false],
-        'futsal'        => ['nome' => 'Futsal',         'permissoes' => [],       'gere_utilizadores' => false],
-        'matchday'      => ['nome' => 'Matchday',       'permissoes' => [],       'gere_utilizadores' => false],
+        'noticias'      => ['noticias'],
+        'galeria'       => ['galeria'],
+        'videos'        => ['videos'],
+        'patrocinadores'=> ['patrocinadores'],
+        'homepage'      => ['siteBanner', 'sitePopup', 'siteAviso'],
+        'institucional' => ['historia', 'palmares', 'siteLegal', 'dadosClube'],
+        'redes'         => ['fbPosts'],
+        'atletas'       => ['atletas'],
+        'treinadores'   => ['treinadores'],
+        'equipas'       => ['escaloes', 'seniores', 'senioresInfo'],
+        'jogos'         => ['jogos', 'classData', 'classConfig'],
+        'agenda'        => ['agenda'],
+        'modalidades'   => ['modalidades', 'modPosts'],
+        'configuracoes' => ['siteConfig', 'siteCores', 'emailConfig', 'logos', 'siteManutencao'],
     ];
+}
+
+// Capacidades sem área publicável: têm endpoint próprio.
+//   inscricoes   — ler e gerir inscrições e mensagens (dados pessoais)
+//   utilizadores — criar, listar e apagar contas do painel
+//   importar     — usar o proxy para importar plantéis e calendários
+//   matchday     — operar o jogo ao vivo
+//   seguranca    — mexer na segurança de contas de Super Admin
+
+function jsc_perfis() {
+    $conteudo = ['noticias', 'galeria', 'videos', 'patrocinadores', 'homepage', 'institucional', 'redes'];
+    $desporto = ['atletas', 'treinadores', 'equipas', 'jogos', 'agenda', 'importar'];
+
+    return [
+        'super-admin' => [
+            'nome'       => 'Super Admin',
+            'permissoes' => array_merge($conteudo, $desporto,
+                            ['modalidades', 'configuracoes', 'inscricoes', 'utilizadores', 'matchday', 'seguranca']),
+            'modalidade' => null,
+        ],
+        'administrador' => [
+            'nome'       => 'Administrador',
+            'permissoes' => array_merge($conteudo, $desporto,
+                            ['modalidades', 'configuracoes', 'inscricoes', 'matchday']),
+            // Sem 'utilizadores' nem 'seguranca': não mexe em contas nem na
+            // segurança do Super Admin.
+            'modalidade' => null,
+        ],
+        'comunicacao' => [
+            'nome'       => 'Comunicação',
+            'permissoes' => $conteudo,
+            // Sem inscrições: são dados pessoais de menores.
+            'modalidade' => null,
+        ],
+        'futebol' => [
+            'nome'       => 'Futebol',
+            'permissoes' => $desporto,
+            'modalidade' => 'futebol',
+        ],
+        'futsal' => [
+            'nome'       => 'Futsal',
+            'permissoes' => $desporto,
+            'modalidade' => 'futsal',
+        ],
+        'matchday' => [
+            'nome'       => 'Matchday',
+            'permissoes' => ['matchday'],
+            'modalidade' => null,
+        ],
+    ];
+}
+
+function jsc_perfil_do_utilizador() {
+    $u = jsc_utilizador();
+    if (!$u) return null;
+    $perfis = jsc_perfis();
+    return isset($perfis[$u['perfil']]) ? $perfis[$u['perfil']] : null;
+}
+
+// Que áreas do conteúdo publicado este perfil pode alterar.
+function jsc_areas_permitidas() {
+    $p = jsc_perfil_do_utilizador();
+    if (!$p) return [];
+    $areas = jsc_areas();
+    $chaves = [];
+    foreach ($p['permissoes'] as $cap) {
+        if (isset($areas[$cap])) $chaves = array_merge($chaves, $areas[$cap]);
+    }
+    return array_values(array_unique($chaves));
 }
 
 // ---- Arranque da sessão --------------------------------------------
@@ -92,14 +171,11 @@ function jsc_tem_sessao() {
     return jsc_utilizador() !== null;
 }
 
-// Verifica uma permissão. 'tudo' abre todas.
+// Verifica uma capacidade. Não há atalho: cada perfil tem a sua lista.
 function jsc_pode($permissao) {
-    $u = jsc_utilizador();
-    if (!$u) return false;
-    $perfis = jsc_perfis();
-    $p = isset($perfis[$u['perfil']]) ? $perfis[$u['perfil']] : null;
+    $p = jsc_perfil_do_utilizador();
     if (!$p) return false;
-    return in_array('tudo', $p['permissoes'], true) || in_array($permissao, $p['permissoes'], true);
+    return in_array($permissao, $p['permissoes'], true);
 }
 
 // Interrompe o pedido se não houver sessão com a permissão pedida.

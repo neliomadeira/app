@@ -1,19 +1,20 @@
 <?php
 // Endpoint do admin: listar e gerir inscrições/mensagens guardadas na
-// base de dados. Protegido pelo mesmo token de publicação (JSC_TOKEN).
+// base de dados. Exige sessão com a capacidade 'inscricoes'.
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/sessao.php';
 
-// Inscrições e mensagens são dados pessoais, de menores incluídos: exigem
-// sessão. O token continua aceite enquanto não houver contas criadas.
-$token = isset($_SERVER['HTTP_X_JSC_TOKEN']) ? $_SERVER['HTTP_X_JSC_TOKEN'] : '';
-$comToken  = $token && hash_equals(JSC_TOKEN, $token) && JSC_TOKEN !== '';
-$comSessao = jsc_pode('tudo');
-if (!$comSessao && !$comToken) {
+// Inscrições e mensagens são dados pessoais, de menores incluídos. Só
+// com sessão e só com a capacidade 'inscricoes' — o perfil de Comunicação
+// tem acesso a conteúdos mas não a estes dados.
+//
+// O token deixou de ser aceite: era um segredo partilhado, igual para
+// toda a gente, sem forma de saber quem o usou nem de o revogar a um só.
+if (!jsc_pode('inscricoes')) {
     http_response_code(jsc_tem_sessao() ? 403 : 401);
-    echo json_encode(['ok' => false, 'error' => jsc_tem_sessao() ? 'sem permissao' : 'sem sessao nem token']);
+    echo json_encode(['ok' => false, 'error' => jsc_tem_sessao() ? 'sem permissao' : 'sem sessao']);
     exit;
 }
 

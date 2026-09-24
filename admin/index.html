@@ -44,6 +44,7 @@
 
   <!-- ADMIN LAYOUT -->
   <div class="admin-layout" id="adminLayout" style="display:none">
+    <p id="avisoPerfil" hidden style="margin:0;padding:14px 18px;background:#fff8e1;border-bottom:1px solid #ffe082;color:#7a5700;font-size:0.88rem"></p>
 
     <!-- SIDEBAR -->
     <aside class="sidebar" id="sidebar">
@@ -134,8 +135,8 @@
         <div class="topbar-title" id="topbarTitle">Dashboard</div>
         <div class="topbar-right">
           <span class="topbar-user">
-            <span class="avatar">A</span>
-            <span>Administrador</span>
+            <span class="avatar" id="adminUserAvatar">&#128100;</span>
+            <span id="adminUserName">&mdash;</span>
           </span>
         </div>
       </header>
@@ -1413,12 +1414,11 @@
                 </div>
               </div>
               <hr style="border:none;border-top:1px solid #e2e8f0;margin:4px 0">
-              <div class="modal-field">
-                <label class="form-label">🔑 Token de publicação no servidor</label>
-                <input class="form-input" type="password" id="cfgApiToken" placeholder="Cole aqui o token do servidor" autocomplete="off" />
-                <small style="color:#888;font-size:11px;margin-top:4px;display:block">Deve ser igual ao <code>JSC_TOKEN</code> definido em <code>api/config.local.php</code> no servidor.</small>
-              </div>
-              <button class="btn-save" onclick="guardarApiToken()">Guardar token</button>
+              <p style="font-size:0.76rem;color:#888;margin:0">
+                O token de publicação deixou de existir. Publicar e consultar
+                inscrições passou a depender da sua conta e do seu perfil, e
+                o servidor passa a saber quem fez cada alteração.
+              </p>
             </div>
           </div>
 

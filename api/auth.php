@@ -61,7 +61,14 @@ if ($acao === 'estado' && $metodo === 'GET') {
     jsc_responder([
         'ok'              => true,
         'primeiroArranque'=> jsc_primeiro_arranque(),
-        'sessao'          => $u ? ['utilizador' => $u['utilizador'], 'nome' => $u['nome'], 'perfil' => $u['perfil']] : null,
+        'sessao'          => $u ? [
+            'utilizador' => $u['utilizador'],
+            'nome'       => $u['nome'],
+            'perfil'     => $u['perfil'],
+            'perfilNome' => jsc_perfis()[$u['perfil']]['nome'] ?? $u['perfil'],
+            'permissoes' => jsc_perfil_do_utilizador()['permissoes'],
+            'modalidade' => jsc_perfil_do_utilizador()['modalidade'],
+        ] : null,
         'perfis'          => $perfis,
     ]);
 }
@@ -100,7 +107,11 @@ if ($acao === 'criar-primeiro') {
     jsc_sessao_iniciar();
     session_regenerate_id(true);
     $_SESSION['jsc_user'] = $user;
-    jsc_responder(['ok' => true, 'sessao' => ['utilizador' => $user, 'nome' => $dados['utilizadores'][0]['nome'], 'perfil' => 'super-admin']]);
+    $p = jsc_perfis()['super-admin'];
+    jsc_responder(['ok' => true, 'sessao' => [
+        'utilizador' => $user, 'nome' => $dados['utilizadores'][0]['nome'], 'perfil' => 'super-admin',
+        'perfilNome' => $p['nome'], 'permissoes' => $p['permissoes'], 'modalidade' => $p['modalidade'],
+    ]]);
 }
 
 // ---------------------------------------------------------------
@@ -146,8 +157,10 @@ if ($acao === 'entrar') {
     jsc_sessao_iniciar();
     session_regenerate_id(true);
     $_SESSION['jsc_user'] = $encontrado['utilizador'];
+    $p = jsc_perfis()[$encontrado['perfil']] ?? ['nome' => $encontrado['perfil'], 'permissoes' => [], 'modalidade' => null];
     jsc_responder(['ok' => true, 'sessao' => [
         'utilizador' => $encontrado['utilizador'], 'nome' => $encontrado['nome'], 'perfil' => $encontrado['perfil'],
+        'perfilNome' => $p['nome'], 'permissoes' => $p['permissoes'], 'modalidade' => $p['modalidade'],
     ]]);
 }
 
@@ -199,8 +212,7 @@ if ($acao === 'mudar-password') {
 function jsc_exigir_gestor() {
     $eu = jsc_utilizador();
     if (!$eu) jsc_responder(['ok' => false, 'error' => 'sem sessao'], 401);
-    $perfis = jsc_perfis();
-    if (empty($perfis[$eu['perfil']]['gere_utilizadores'])) {
+    if (!jsc_pode('utilizadores')) {
         jsc_responder(['ok' => false, 'error' => 'sem permissao para gerir utilizadores'], 403);
     }
     return $eu;
@@ -258,7 +270,10 @@ if ($acao === 'apagar-utilizador') {
     if (count($d['utilizadores']) === $antes) jsc_responder(['ok' => false, 'error' => 'Utilizador não encontrado.'], 404);
     // Nunca deixar o painel sem quem possa gerir utilizadores.
     $gestores = 0;
-    foreach ($d['utilizadores'] as $u) if (!empty(jsc_perfis()[$u['perfil']]['gere_utilizadores'])) $gestores++;
+    foreach ($d['utilizadores'] as $u) {
+        $perfil = jsc_perfis()[$u['perfil']] ?? null;
+        if ($perfil && in_array('utilizadores', $perfil['permissoes'], true)) $gestores++;
+    }
     if ($gestores === 0) jsc_responder(['ok' => false, 'error' => 'Tem de ficar pelo menos um Super Admin.'], 400);
     if (!jsc_gravar_utilizadores($d)) jsc_responder(['ok' => false, 'error' => 'Não foi possível gravar.'], 500);
     jsc_responder(['ok' => true]);

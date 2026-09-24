@@ -9,16 +9,6 @@
 // Preencha-o apenas no servidor.
 // =====================================================
 
-// ---- Token de publicação ----
-// Protege api/save.php (publicar o site) e api/registos.php
-// (listar inscrições e mensagens). Tem de ser exatamente igual
-// ao valor gravado no painel admin, em Configurações > Segurança
-// > "Token de publicação no servidor".
-//
-// Para gerar um token novo:
-//     php -r 'echo bin2hex(random_bytes(24)), "\n";'
-define('JSC_TOKEN', 'PREENCHER-COM-O-SEU-TOKEN');
-
 // ---- Base de dados MySQL (opcional) ----
 // Recebe as inscrições e mensagens submetidas pelos visitantes.
 // Deixe DB_NAME vazio para funcionar sem base de dados.

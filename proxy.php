@@ -18,10 +18,10 @@ require_once __DIR__ . '/api/sessao.php';
 // Só o painel usa isto, e chama-o da mesma origem. Sem esta verificação
 // qualquer pessoa na internet podia usar o servidor do clube para ir
 // buscar páginas a outros sites em nome dele.
-if (!jsc_tem_sessao()) {
-    http_response_code(401);
+if (!jsc_pode('importar')) {
+    http_response_code(jsc_tem_sessao() ? 403 : 401);
     header('Content-Type: text/plain; charset=utf-8');
-    echo 'Precisa de sessao no painel';
+    echo jsc_tem_sessao() ? 'O seu perfil nao pode importar dados' : 'Precisa de sessao no painel';
     exit;
 }
 
