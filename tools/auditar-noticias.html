@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Auditar notícias — J.S. Campinense</title>
+<style>
+  :root {
+    --azul: #003B8E; --amarelo: #FFD100; --tinta: #0e1c35; --suave: #40506e;
+    --papel: #f4f6fa; --branco: #fff; --linha: #d7deea;
+    --mau: #a8200f; --mau-fundo: #fdf0ee; --bom: #0a6b45; --bom-fundo: #edf7f2;
+    --aviso: #96560a; --aviso-fundo: #fdf5e9;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px 20px 64px; background: var(--papel); color: var(--tinta);
+    font: 16px/1.6 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  .caixa { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 26px; margin: 0 0 6px; }
+  .sub { color: var(--suave); margin: 0 0 24px; }
+  .cartao { background: var(--branco); border: 1px solid var(--linha); border-radius: 10px; padding: 18px 20px; margin-bottom: 16px; }
+  .cartao h2 { font-size: 17px; margin: 0 0 12px; }
+  .leitura { background: var(--bom-fundo); border-left: 4px solid var(--bom); padding: 12px 16px; border-radius: 6px; margin-bottom: 20px; font-size: 15px; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid #eef1f6; vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--suave); }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  code { background: var(--papel); padding: 1px 5px; border-radius: 3px; font-size: 13.5px; word-break: break-word; }
+  .etiqueta { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 3px; margin: 0 4px 4px 0; }
+  .et-mau { background: var(--mau-fundo); color: var(--mau); font-weight: 600; }
+  .et-aviso { background: var(--aviso-fundo); color: var(--aviso); }
+  .et-ok { background: var(--bom-fundo); color: var(--bom); }
+  button {
+    background: var(--azul); color: #fff; border: 0; border-radius: 8px;
+    padding: 11px 20px; font-size: 15px; font-weight: 700; cursor: pointer;
+  }
+  button.secundario { background: var(--branco); color: var(--azul); border: 1px solid var(--azul); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .botoes { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  textarea { width: 100%; min-height: 160px; font: 13px/1.5 ui-monospace, Menlo, monospace; border: 1px solid var(--linha); border-radius: 8px; padding: 10px; }
+  .vazio { background: var(--aviso-fundo); border-left: 4px solid var(--aviso); padding: 14px 16px; border-radius: 6px; }
+  ol { padding-left: 22px; } li { margin-bottom: 6px; }
+  .resumo { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; }
+  .resumo div { background: var(--papel); border-radius: 8px; padding: 12px 14px; }
+  .resumo b { display: block; font-size: 26px; line-height: 1.1; }
+  .resumo span { font-size: 13px; color: var(--suave); }
+</style>
+</head>
+<body>
+<div class="caixa">
+
+  <h1>Auditar as notícias existentes</h1>
+  <p class="sub">Verifica que HTML existe nas notícias já escritas, antes de se decidir o que fazer.</p>
+
+  <div class="leitura">
+    <strong>Esta página só lê.</strong> Não altera, não apaga e não publica nada.
+    Não escreve uma única letra no armazenamento do painel. Pode fechá-la a
+    qualquer momento sem consequências.
+  </div>
+
+  <div class="cartao">
+    <h2>Como usar</h2>
+    <ol>
+      <li>Abra esta página <strong>no mesmo endereço onde abre o painel</strong>.
+        Se o painel está em <code>http://127.0.0.1:5500/admin/</code>, então esta
+        página é <code>http://127.0.0.1:5500/tools/auditar-noticias.html</code>.</li>
+      <li>Carregue em <strong>Analisar</strong>.</li>
+      <li>Leia o resultado. Se quiser que eu faça a análise exata, use
+        <strong>Descarregar só as notícias</strong> e envie-me esse ficheiro —
+        leva apenas as notícias, sem inscrições nem mensagens.</li>
+    </ol>
+    <p style="margin:0;color:var(--suave);font-size:14.5px">
+      O endereço tem de ser o mesmo porque o browser guarda os dados de cada
+      endereço em separado. Aberta como ficheiro solto (<code>file://</code>),
+      esta página não encontra nada.
+    </p>
+    <div class="botoes">
+      <button id="btAnalisar">Analisar</button>
+    </div>
+  </div>
+
+  <div id="saida"></div>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var CHAVES = ['jsc_noticias', 'db_noticias'];
+
+  // Etiquetas e atributos que a sanitização do servidor aceita nas notícias.
+  // Tem de acompanhar api/sanitizar.php.
+  var PERMITIDAS = ['p','br','div','span','b','i','u','strong','em','s','strike','sub','sup',
+    'small','mark','ul','ol','li','h2','h3','h4','h5','h6','blockquote','hr','pre','code',
+    'a','img','font','table','thead','tbody','tfoot','tr','td','th','caption'];
+  var FORA_COM_CONTEUDO = ['script','style','iframe','object','embed','applet','form','input',
+    'button','select','option','textarea','link','meta','base','svg','math','template','noscript'];
+  var ATRIB_PERMITIDOS = {
+    a: ['href','title','target','rel','style'],
+    img: ['src','alt','title','loading','width','height','style'],
+    font: ['face','size','color'],
+    td: ['colspan','rowspan','style'],
+    th: ['colspan','rowspan','style'],
+    '*': ['style']
+  };
+  var CSS_PERMITIDO = ['color','background-color','background','text-align','text-decoration','text-transform',
+    'font-family','font-size','font-style','font-weight','line-height','letter-spacing',
+    'white-space','vertical-align','margin','margin-top','margin-right','margin-bottom',
+    'margin-left','padding','padding-top','padding-right','padding-bottom','padding-left',
+    'border','border-radius','border-top','border-right','border-bottom','border-left',
+    'border-color','border-style','border-width','border-collapse','width','height','max-width',
+    'max-height','min-width','float','clear','display','list-style','list-style-type'];
+
+  function esc(t) {
+    return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
+      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+    });
+  }
+
+  function lerNoticias() {
+    for (var i = 0; i < CHAVES.length; i++) {
+      try {
+        var cru = localStorage.getItem(CHAVES[i]);
+        if (!cru) continue;
+        var d = JSON.parse(cru);
+        if (Array.isArray(d) && d.length) return { chave: CHAVES[i], lista: d };
+      } catch (_) { /* segue */ }
+    }
+    return { chave: null, lista: [] };
+  }
+
+  function analisarCorpo(html) {
+    var doc = new DOMParser().parseFromString('<div id="r">' + html + '</div>', 'text/html');
+    var raiz = doc.getElementById('r');
+    var r = {
+      tagsFora: {}, atribsFora: {}, cssFora: {},
+      eventos: [], protocolos: [], perigosos: []
+    };
+    var todos = raiz.querySelectorAll('*');
+    for (var i = 0; i < todos.length; i++) {
+      var el = todos[i], nome = el.tagName.toLowerCase();
+
+      if (FORA_COM_CONTEUDO.indexOf(nome) !== -1) {
+        r.perigosos.push(nome);
+        r.tagsFora[nome] = (r.tagsFora[nome] || 0) + 1;
+      } else if (PERMITIDAS.indexOf(nome) === -1) {
+        r.tagsFora[nome] = (r.tagsFora[nome] || 0) + 1;
+      }
+
+      var permit = (ATRIB_PERMITIDOS['*'] || []).concat(ATRIB_PERMITIDOS[nome] || []);
+      for (var j = 0; j < el.attributes.length; j++) {
+        var a = el.attributes[j], an = a.name.toLowerCase();
+        if (/^on/.test(an)) { r.eventos.push(an); r.atribsFora[an] = (r.atribsFora[an] || 0) + 1; continue; }
+        if (permit.indexOf(an) === -1) { r.atribsFora[an] = (r.atribsFora[an] || 0) + 1; continue; }
+        if (an === 'href' || an === 'src') {
+          var v = String(a.value || '').replace(/[\x00-\x20]+/g, '').toLowerCase();
+          var m = v.match(/^([a-z][a-z0-9.+-]*):/);
+          if (m) {
+            var e = m[1];
+            var seguro = (e === 'http' || e === 'https' || e === 'mailto' || e === 'tel');
+            var dataImg = /^data:image\/(png|jpe?g|gif|webp|avif);base64,/.test(v);
+            if (!seguro && !dataImg) { r.protocolos.push(e + ':'); r.perigosos.push(e + ': em ' + an); }
+          }
+        }
+        if (an === 'style') {
+          var decls = String(a.value || '').split(';');
+          for (var k = 0; k < decls.length; k++) {
+            var p = decls[k].split(':')[0];
+            if (!p || decls[k].indexOf(':') === -1) continue;
+            p = p.trim().toLowerCase();
+            if (!p) continue;
+            if (CSS_PERMITIDO.indexOf(p) === -1) {
+              r.cssFora[p] = (r.cssFora[p] || 0) + 1;
+              if (p === 'position' || /url\s*\(|expression|behavior|@import/i.test(decls[k])) {
+                r.perigosos.push('CSS ' + p);
+              }
+            }
+          }
+        }
+      }
+    }
+    return r;
+  }
+
+  function juntar(destino, origem) {
+    Object.keys(origem).forEach(function (k) { destino[k] = (destino[k] || 0) + origem[k]; });
+  }
+
+  function tabelaContagem(titulo, obj, classe) {
+    var ks = Object.keys(obj);
+    if (!ks.length) return '';
+    ks.sort(function (a, b) { return obj[b] - obj[a]; });
+    var linhas = ks.map(function (k) {
+      return '<tr><td><span class="etiqueta ' + classe + '">' + esc(k) + '</span></td><td class="n">' + obj[k] + '</td></tr>';
+    }).join('');
+    return '<div class="cartao"><h2>' + esc(titulo) + '</h2><table><thead><tr><th>elemento</th><th class="n">ocorrências</th></tr></thead><tbody>' + linhas + '</tbody></table></div>';
+  }
+
+  document.getElementById('btAnalisar').addEventListener('click', function () {
+    var saida = document.getElementById('saida');
+    var dados = lerNoticias();
+
+    if (!dados.lista.length) {
+      saida.innerHTML = '<div class="cartao"><div class="vazio">' +
+        '<strong>Não encontrei notícias neste endereço.</strong><br>' +
+        'Ou o painel nunca gravou notícias aqui, ou esta página está aberta num ' +
+        'endereço diferente do painel. Confirme que o endereço na barra do browser ' +
+        'começa exactamente igual ao do painel.' +
+        '</div></div>';
+      return;
+    }
+
+    var total = dados.lista.length, semTexto = 0, compativeis = 0, alteradas = 0;
+    var tagsFora = {}, atribsFora = {}, cssFora = {};
+    var eventos = {}, protocolos = {}, perigosas = [], afetadas = [];
+
+    dados.lista.forEach(function (n) {
+      var corpo = (n && typeof n.resumo === 'string') ? n.resumo : '';
+      if (!corpo.trim()) { semTexto++; return; }
+      var r = analisarCorpo(corpo);
+      var nTags = Object.keys(r.tagsFora).length;
+      var nAtr  = Object.keys(r.atribsFora).length;
+      var nCss  = Object.keys(r.cssFora).length;
+      if (!nTags && !nAtr && !nCss) { compativeis++; return; }
+      alteradas++;
+      juntar(tagsFora, r.tagsFora); juntar(atribsFora, r.atribsFora); juntar(cssFora, r.cssFora);
+      r.eventos.forEach(function (e) { eventos[e] = (eventos[e] || 0) + 1; });
+      r.protocolos.forEach(function (p) { protocolos[p] = (protocolos[p] || 0) + 1; });
+      var reg = {
+        id: n.id, titulo: n.titulo || '(sem título)',
+        tags: Object.keys(r.tagsFora), atribs: Object.keys(r.atribsFora), css: Object.keys(r.cssFora),
+        perigosos: r.perigosos.filter(function (v, i, a) { return a.indexOf(v) === i; })
+      };
+      afetadas.push(reg);
+      if (reg.perigosos.length) perigosas.push(reg);
+    });
+
+    var html = '';
+    html += '<div class="cartao"><h2>Resumo</h2><div class="resumo">' +
+      '<div><b>' + total + '</b><span>notícias</span></div>' +
+      '<div><b>' + compativeis + '</b><span>compatíveis</span></div>' +
+      '<div><b>' + alteradas + '</b><span>seriam alteradas</span></div>' +
+      '<div><b>' + semTexto + '</b><span>sem texto</span></div>' +
+      '<div><b>' + perigosas.length + '</b><span>com conteúdo perigoso</span></div>' +
+      '</div><p style="margin:14px 0 0;color:var(--suave);font-size:14px">Lido de <code>' +
+      esc(dados.chave) + '</code>. Nada foi alterado.</p></div>';
+
+    if (perigosas.length) {
+      html += '<div class="cartao" style="border-left:4px solid var(--mau)"><h2>Conteúdo perigoso</h2><table><thead><tr><th>notícia</th><th>o que foi encontrado</th></tr></thead><tbody>' +
+        perigosas.map(function (r) {
+          return '<tr><td>#' + esc(r.id) + ' ' + esc(String(r.titulo).slice(0, 60)) + '</td><td>' +
+            r.perigosos.map(function (p) { return '<span class="etiqueta et-mau">' + esc(p) + '</span>'; }).join('') + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+    } else {
+      html += '<div class="cartao"><h2>Conteúdo perigoso</h2><p style="margin:0"><span class="etiqueta et-ok">nenhum</span> Sem script, iframe, object, embed, form, atributos de evento ou protocolos perigosos.</p></div>';
+    }
+
+    html += tabelaContagem('Etiquetas que seriam removidas', tagsFora, 'et-aviso');
+    html += tabelaContagem('Atributos que seriam removidos', atribsFora, 'et-aviso');
+    html += tabelaContagem('Propriedades CSS que seriam removidas', cssFora, 'et-aviso');
+    html += tabelaContagem('Atributos de evento encontrados', eventos, 'et-mau');
+    html += tabelaContagem('Protocolos recusados', protocolos, 'et-mau');
+
+    if (afetadas.length) {
+      html += '<div class="cartao"><h2>Notícias afetadas</h2><table><thead><tr><th>notícia</th><th>seria removido</th></tr></thead><tbody>' +
+        afetadas.map(function (r) {
+          var l = [].concat(
+            r.tags.map(function (t) { return '&lt;' + t + '&gt;'; }),
+            r.atribs, r.css.map(function (c) { return 'CSS ' + c; })
+          );
+          return '<tr><td>#' + esc(r.id) + ' ' + esc(String(r.titulo).slice(0, 60)) + '</td><td>' +
+            l.map(function (x) { return '<span class="etiqueta et-aviso">' + x + '</span>'; }).join('') + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+    }
+
+    html += '<div class="cartao"><h2>Enviar para análise exata</h2>' +
+      '<p style="margin:0 0 4px">O ficheiro leva <strong>apenas as notícias</strong> — título, categoria, data e texto. ' +
+      'Não leva inscrições, mensagens, contactos nem palavras-passe.</p>' +
+      '<div class="botoes">' +
+      '<button id="btDescarregar">Descarregar só as notícias</button>' +
+      '<button id="btMostrar" class="secundario">Mostrar para copiar</button>' +
+      '</div><div id="caixaTexto" style="margin-top:14px"></div></div>';
+
+    saida.innerHTML = html;
+
+    var soNoticias = { noticias: dados.lista.map(function (n) {
+      return { id: n.id, titulo: n.titulo, categoria: n.categoria, data: n.data, resumo: n.resumo };
+    }) };
+    var texto = JSON.stringify(soNoticias, null, 2);
+
+    document.getElementById('btDescarregar').addEventListener('click', function () {
+      var blob = new Blob([texto], { type: 'application/json' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'noticias-para-auditoria.json';
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(a.href);
+    });
+    document.getElementById('btMostrar').addEventListener('click', function () {
+      document.getElementById('caixaTexto').innerHTML =
+        '<textarea readonly onclick="this.select()"></textarea>';
+      document.querySelector('#caixaTexto textarea').value = texto;
+    });
+  });
+})();
+</script>
+</body>
+</html>

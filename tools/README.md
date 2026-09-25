@@ -93,6 +93,27 @@ internet.
 Se o Apache não estiver disponível, o guião usa `php -S` e avisa que as
 regras do `.htaccess` não estão a ser aplicadas.
 
+## Auditar as notícias já escritas, a partir do browser
+
+As notícias vivem no `localStorage` do browser onde o painel é usado. Para as
+verificar sem linha de comandos e sem exportar dados pessoais, abra
+
+```
+tools/auditar-noticias.html
+```
+
+**no mesmo endereço onde abre o painel** — se o painel está em
+`http://127.0.0.1:5500/admin/`, a página é
+`http://127.0.0.1:5500/tools/auditar-noticias.html`. O browser guarda os dados
+de cada endereço em separado; aberta como ficheiro solto (`file://`) a página
+não encontra nada.
+
+A página só lê. Mostra quantas notícias existem, quantas passam pela allowlist
+sem alteração, que etiquetas, atributos e propriedades CSS seriam removidos, e
+se há atributos de evento ou protocolos perigosos. Permite descarregar um
+ficheiro **só com as notícias** — título, categoria, data e texto — sem
+inscrições, mensagens nem contactos, para a análise exata pelo comando abaixo.
+
 ## Impacto do filtro nas notícias já escritas
 
 O corpo das notícias passa por um filtro de HTML antes de ser gravado, mas

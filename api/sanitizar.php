@@ -193,8 +193,12 @@ const JSC_NOTICIA_ATRIBUTOS = [
 // position não entra de propósito — é o que permite tapar a página com um
 // ecrã falso por cima. z-index e float juntos também não chegam para isso
 // sem position.
+//
+// background entra na forma completa, e não só background-color, porque é o
+// que vem nas colagens. A forma perigosa — background:url(...) — já é
+// recusada pela verificação do valor, logo abaixo.
 const JSC_NOTICIA_CSS = [
-    'color', 'background-color', 'text-align', 'text-decoration', 'text-transform',
+    'color', 'background-color', 'background', 'text-align', 'text-decoration', 'text-transform',
     'font-family', 'font-size', 'font-style', 'font-weight', 'line-height',
     'letter-spacing', 'white-space', 'vertical-align',
     'margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left',
