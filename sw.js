@@ -1,5 +1,5 @@
 // Service Worker — Juventude Sport Campinense
-const CACHE_NAME = 'jsc-v16';
+const CACHE_NAME = 'jsc-v17';
 const PRECACHE = [
   '/',
   '/index.html',
@@ -65,6 +65,14 @@ self.addEventListener('fetch', e => {
 
   // Never intercept admin routes or non-GET requests
   if (url.pathname.startsWith('/admin') || e.request.method !== 'GET') return;
+
+  // Nem os endpoints. O /api/ responde o estado da sessão e o conteúdo
+  // publicado: são respostas de agora, não ficheiros. Estavam a cair na
+  // regra do "cache primeiro", cá em baixo, e ficavam guardadas — depois
+  // de entrar no painel, recarregar a página devolvia a resposta antiga,
+  // "sem sessão", e o painel mandava entrar outra vez. A sessão no
+  // servidor estava boa o tempo todo.
+  if (url.pathname.includes('/api/')) return;
 
   // Network-first for HTML pages so content stays fresh
   if (e.request.destination === 'document') {

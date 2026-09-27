@@ -11,7 +11,7 @@
 Options -Indexes
 
 # Block sensitive file types (data JSON, configs, dumps)
-<FilesMatch "\.(env|json|log|sql|bak|sh)$">
+<FilesMatch "\.(env|json|log|sql|bak|sh|bat)$">
   <IfModule mod_authz_core.c>
     Require all denied
   </IfModule>

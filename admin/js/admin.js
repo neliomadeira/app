@@ -26,12 +26,19 @@ async function apiAuth(acao, corpo) {
     method: corpo ? 'POST' : 'GET',
     headers: { 'X-JSC-Painel': '1' },
     credentials: 'same-origin',
+    // Nunca de uma cópia guardada: isto é o estado da sessão agora.
+    cache: 'no-store',
   };
   if (corpo) {
     opcoes.headers['Content-Type'] = 'application/json';
     opcoes.body = JSON.stringify(corpo);
   }
-  const r = await fetch('/api/auth.php?acao=' + encodeURIComponent(acao), opcoes);
+  // Caminho relativo ao painel, não à raiz do servidor. Com '/api/...' o
+  // painel só funcionava se o site estivesse na raiz do endereço: aberto
+  // pelo Live Server a partir da pasta-mãe, o pedido ia para
+  // http://127.0.0.1:5500/api/auth.php — que não existe — e o painel
+  // dizia que o servidor tinha respondido de forma inesperada.
+  const r = await fetch('../api/auth.php?acao=' + encodeURIComponent(acao), opcoes);
   const texto = await r.text();
   let j = {};
   let phpNaoCorre = false;
@@ -81,8 +88,10 @@ function entrarEmModoLocal(motivo) {
   const aviso = document.getElementById('avisoPerfil');
   if (aviso) {
     aviso.textContent = 'Modo local, sem PHP (' + motivo + '). Pode escrever e organizar '
-      + 'conteúdo, que fica guardado neste browser. Não é possível publicar, ler inscrições '
-      + 'do servidor nem gerir contas — isso precisa de PHP a correr.';
+      + 'conteúdo, que fica guardado neste browser. Não é possível entrar com conta, publicar, '
+      + 'ler inscrições nem gerir contas — isso precisa de PHP a correr. Para ter o painel '
+      + 'completo, pare o Live Server e corra o iniciar.bat (Windows) ou ./iniciar.sh na pasta '
+      + 'do projeto; depois abra http://localhost:8000/admin/.';
     aviso.hidden = false;
   }
 
@@ -217,9 +226,20 @@ async function arrancarAutenticacao() {
       + 'e para publicar. Fale com o alojamento antes de continuar.', true);
     return;
   }
+  if (r.estado === 404) {
+    // A pasta api/ não está a ser servida a partir daqui. Em
+    // desenvolvimento é o caso do Live Server: abre-se o painel para
+    // trabalhar no conteúdo e diz-se como ter o resto.
+    if (ambienteDeDesenvolvimento()) { entrarEmModoLocal('api/ não encontrada neste endereço'); return; }
+    mostrarLogin();
+    showLoginError('Não encontrei api/auth.php a partir deste endereço. Confirme que a pasta api/ '
+      + 'foi enviada para o servidor, ao lado da pasta admin/.', true);
+    return;
+  }
   if (!r.ok) {
     mostrarLogin();
-    showLoginError('O servidor respondeu de forma inesperada ao pedido de sessão.', true);
+    showLoginError('O servidor respondeu de forma inesperada ao pedido de sessão (código '
+      + r.estado + ').', true);
     return;
   }
   if (r.sessao) { entrarNoPainel(r.sessao); return; }
@@ -5008,7 +5028,7 @@ async function publicarNoServidor() {
   try {
     const btn = document.querySelector('[onclick="publicarNoServidor()"]');
     if (btn) { btn.disabled = true; btn.textContent = '⏳ A publicar...'; }
-    const resp = await fetch('/api/save.php', {
+    const resp = await fetch('../api/save.php', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'same-origin',
@@ -5043,7 +5063,7 @@ window.publicarNoServidor = publicarNoServidor;
 // enviarmos um valor por omissão que qualquer pessoa conheceria.
 
 function _regPush(tipo, id, estado) {
-  fetch('/api/registos.php?tipo=' + tipo, {
+  fetch('../api/registos.php?tipo=' + tipo, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'same-origin',
@@ -5052,7 +5072,7 @@ function _regPush(tipo, id, estado) {
 }
 
 function _regDelete(tipo, id) {
-  fetch('/api/registos.php?tipo=' + tipo, {
+  fetch('../api/registos.php?tipo=' + tipo, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'same-origin',
@@ -5093,7 +5113,7 @@ async function sincronizarRegistosServidor() {
   if (MODO_LOCAL) return;   // não há servidor de onde sincronizar
   const headers = {};
   const puxar = async (tipo) => {
-    const r = await fetch('/api/registos.php?tipo=' + tipo, { headers });
+    const r = await fetch('../api/registos.php?tipo=' + tipo, { headers });
     if (!r.ok) return null;
     const json = await r.json();
     return json.ok ? json.registos : null;

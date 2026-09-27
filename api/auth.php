@@ -21,6 +21,10 @@ header('Cache-Control: no-store');
 require_once __DIR__ . '/sessao.php';
 
 function jsc_responder($dados, $codigo = 200) {
+    // Estado de sessão não se guarda em lado nenhum: nem no browser, nem
+    // no service worker, nem num proxy pelo caminho.
+    header('Cache-Control: no-store, no-cache, must-revalidate');
+    header('Pragma: no-cache');
     http_response_code($codigo);
     echo json_encode($dados, JSON_UNESCAPED_UNICODE);
     exit;
