@@ -20,6 +20,23 @@
 }
 .skip-link:focus { top: 0; }
 
+/* Texto que só os leitores de ecrã leem.
+   Serve para dar nome a um campo que na página é identificado por um
+   ícone ou pelo contexto. O placeholder não serve: desaparece assim que
+   se escreve a primeira letra, e há leitores que nem o leem. */
+.so-leitores {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 :root {
   --yellow: #FFD100;
   --yellow-dark: #E6B800;
