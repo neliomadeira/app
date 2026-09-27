@@ -149,10 +149,23 @@ document.addEventListener('DOMContentLoaded', () => {
   // ---- SMOOTH SCROLL for older browsers ----
   document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     anchor.addEventListener('click', (e) => {
-      const target = document.querySelector(anchor.getAttribute('href'));
-      if (target) {
-        e.preventDefault();
-        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const href = anchor.getAttribute('href') || '';
+      // Há ligações com href="#" à espera de endereço. '#' não é um
+      // seletor válido e o querySelector rebentava a cada clique nelas.
+      if (href === '#' || href === '#!') return;
+      let alvo = null;
+      try { alvo = document.querySelector(href); } catch (_) { return; }
+      if (!alvo) return;
+      e.preventDefault();
+      const semMovimento = window.matchMedia
+        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      alvo.scrollIntoView({ behavior: semMovimento ? 'auto' : 'smooth', block: 'start' });
+      // O preventDefault acima cancelava também o salto de foco do browser.
+      // Era por isso que o atalho "saltar para o conteúdo" deslocava a
+      // página mas deixava o foco no cabeçalho: o Tab seguinte recomeçava
+      // do princípio, e o atalho não servia para nada a quem usa teclado.
+      if (alvo.hasAttribute('tabindex') || /^(a|button|input|select|textarea)$/i.test(alvo.tagName)) {
+        alvo.focus({ preventScroll: true });
       }
     });
   });

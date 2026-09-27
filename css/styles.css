@@ -4628,6 +4628,17 @@ input[type="datetime-local"]:focus-within {
   transition: none;
 }
 
+/* O <main> leva tabindex="-1" para que o atalho mova mesmo o foco, e não
+   apenas a barra de deslocamento: sem isso, em várias páginas o Tab a
+   seguir ao atalho voltava ao cabeçalho. Não é um controlo — quem salta vê
+   a página mudar e o Tab seguinte continua daí — por isso não leva anel à
+   volta de toda a área de conteúdo. */
+main[tabindex="-1"]:focus,
+main[tabindex="-1"]:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
 /* O atalho para o conteúdo tem fundo amarelo e encosta ao canto do ecrã:
    aqui o anel vai por dentro e com as cores trocadas, senão o amarelo
    ficaria sobre amarelo e a parte de fora sairia do ecrã. */
@@ -4653,6 +4664,9 @@ input[type="datetime-local"]:focus-within {
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+    /* Sem isto, uma animação com atraso — como o brilho do botão
+       "Inscrever", que só começa 1,5 s depois — ainda arrancava. */
+    animation-delay: -1ms !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }

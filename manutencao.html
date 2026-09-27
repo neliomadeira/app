@@ -9,6 +9,17 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    /* O conteúdo passou a viver dentro de um <main>. Como o body é um
+       flex em coluna, o <main> repete o alinhamento para que tudo fique
+       exatamente onde estava. */
+    main {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    main[tabindex="-1"]:focus,
+    main[tabindex="-1"]:focus-visible { outline: none; box-shadow: none; }
+
     /* Esta página não carrega a folha de estilos do site: traz o mesmo anel
        de foco, azul por fora e amarelo por dentro, sobre o fundo escuro. */
     :focus-visible {
@@ -102,12 +113,14 @@
 </head>
 <body>
 <a href="#main-content" class="skip-link">Saltar para o conteúdo</a>
-  <img src="images/logo.svg" alt="JS Campinense" class="logo" onerror="this.style.display='none'" />
-  <div class="icon">&#128679;</div>
-  <h1 id="main-content">Em Manutenção</h1>
-  <div class="divider"></div>
-  <p class="msg" id="manuMsg">Estamos a melhorar o site. Voltamos em breve!</p>
-  <div class="badge">A trabalhar para si</div>
+  <main id="main-content" tabindex="-1">
+    <img src="images/logo.svg" alt="JS Campinense" class="logo" onerror="this.style.display='none'" />
+    <div class="icon">&#128679;</div>
+    <h1>Em Manutenção</h1>
+    <div class="divider"></div>
+    <p class="msg" id="manuMsg">Estamos a melhorar o site. Voltamos em breve!</p>
+    <div class="badge">A trabalhar para si</div>
+  </main>
 
   <footer>&copy; Juventude Sport Campinense</footer>
 
