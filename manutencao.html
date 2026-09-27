@@ -8,6 +8,14 @@
   <meta name="robots" content="noindex,nofollow" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* Esta página não carrega a folha de estilos do site: traz o mesmo anel
+       de foco, azul por fora e amarelo por dentro, sobre o fundo escuro. */
+    :focus-visible {
+      outline: 3px solid #FFD100;
+      outline-offset: 2px;
+      box-shadow: 0 0 0 5px #003B8E;
+    }
     body {
       min-height: 100vh;
       display: flex;

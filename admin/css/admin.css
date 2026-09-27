@@ -80,7 +80,7 @@ ul { list-style: none; }
 .field label { display: block; font-size: 0.82rem; font-weight: 700; color: var(--black);
   margin-bottom: 6px; }
 .field input { width: 100%; padding: 12px 14px; border: 2px solid var(--gray-border);
-  border-radius: var(--radius); font-family: var(--font); font-size: 0.95rem; outline: none;
+  border-radius: var(--radius); font-family: var(--font); font-size: 0.95rem;
   transition: border-color var(--transition); }
 .field input:focus { border-color: var(--blue); }
 
@@ -352,13 +352,13 @@ ul { list-style: none; }
 .filter-select {
   padding: 8px 12px; border: 2px solid var(--gray-border);
   border-radius: var(--radius); font-family: var(--font); font-size: 0.85rem;
-  color: var(--black); background: var(--white); outline: none; cursor: pointer;
+  color: var(--black); background: var(--white); cursor: pointer;
 }
 .filter-select:focus { border-color: var(--blue); }
 
 .search-input {
   padding: 8px 14px; border: 2px solid var(--gray-border);
-  border-radius: var(--radius); font-family: var(--font); font-size: 0.85rem; outline: none;
+  border-radius: var(--radius); font-family: var(--font); font-size: 0.85rem;
   min-width: 220px; transition: border-color var(--transition);
 }
 .search-input:focus { border-color: var(--blue); }
@@ -559,7 +559,7 @@ ul { list-style: none; }
 .modal-field textarea {
   width: 100%; padding: 10px 13px;
   border: 2px solid var(--gray-border); border-radius: var(--radius);
-  font-family: var(--font); font-size: 0.9rem; outline: none;
+  font-family: var(--font); font-size: 0.9rem;
   transition: border-color var(--transition);
 }
 .modal-field input:focus,
@@ -643,7 +643,7 @@ ul { list-style: none; }
 .fpf-tab-content textarea {
   width: 100%; height: 160px; padding: 12px;
   border: 2px solid var(--gray-border); border-radius: var(--radius);
-  font-family: monospace; font-size: 0.82rem; resize: vertical; outline: none;
+  font-family: monospace; font-size: 0.82rem; resize: vertical;
 }
 .fpf-tab-content textarea:focus { border-color: #006633; }
 
@@ -1032,7 +1032,6 @@ ul { list-style: none; }
   border-radius: 8px;
   padding: 7px 12px;
   font-size: 0.85rem;
-  outline: none;
   box-sizing: border-box;
   transition: border-color 0.2s;
 }
@@ -1173,7 +1172,6 @@ ul { list-style: none; }
 .rte-editor {
   min-height: 140px;
   border-radius: 0 0 8px 8px !important;
-  outline: none;
   line-height: 1.7;
   font-size: 0.92rem;
   overflow-y: auto;
@@ -1257,3 +1255,54 @@ ul { list-style: none; }
 }
 .tpl-menu button:last-child { border-bottom: none; }
 .tpl-menu button:hover { background: #f0f7ff; color: #003B8E; }
+
+/* =============================================
+   FOCO VISÍVEL
+   =============================================
+   O mesmo anel de dois tons do site público: amarelo por dentro, azul por
+   fora. O painel tem barra lateral azul-escura e conteúdo em fundo claro,
+   e nenhuma das duas cores sozinha se veria nos dois.
+
+   O `outline: none` que estava nos campos foi retirado: escondia o
+   indicador sem pôr nada no lugar, e quem usa o painel só com teclado
+   ficava sem saber onde estava.
+   ============================================= */
+:focus-visible,
+.rte-editor:focus-visible,
+.field input:focus-visible,
+.filter-select:focus-visible,
+.search-input:focus-visible,
+.modal-field input:focus-visible,
+.modal-field select:focus-visible,
+.modal-field textarea:focus-visible,
+.fpf-tab-content textarea:focus-visible,
+.emoji-picker__search:focus-visible {
+  outline: 3px solid var(--yellow);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px var(--blue);
+  transition: none;
+}
+
+/* Na barra lateral os itens ocupam a largura toda e o fundo é azul-escuro.
+   Um anel por fora saía da barra e ficava cortado; o azul por dentro não
+   se veria sobre o azul. Aqui o anel vai por dentro e é só amarelo, que
+   sobre este fundo dá cerca de 10:1. */
+.sidebar :focus-visible {
+  outline: 3px solid var(--yellow);
+  outline-offset: -3px;
+  box-shadow: none;
+  transition: none;
+}
+
+/* Os campos de data e hora guardam sub-campos próprios por dentro: com o
+   Tab lá dentro o campo deixa de corresponder a `:focus-visible` e ficava
+   sem anel. */
+input[type="date"]:focus-within,
+input[type="time"]:focus-within,
+input[type="month"]:focus-within,
+input[type="datetime-local"]:focus-within {
+  outline: 3px solid var(--yellow);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px var(--blue);
+  transition: none;
+}

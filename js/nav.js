@@ -48,8 +48,10 @@
 
     if (hamburger) {
       hamburger.addEventListener('click', function () {
-        hamburger.classList.toggle('open');
+        var aberto = hamburger.classList.toggle('open');
         if (nav) nav.classList.toggle('open');
+        // Quem usa leitor de ecrã só sabe se o menu está aberto por aqui.
+        hamburger.setAttribute('aria-expanded', aberto ? 'true' : 'false');
       });
     }
 
@@ -110,24 +112,30 @@
       });
     });
 
+    // O estado anunciado tem de acompanhar o estado visível, em qualquer
+    // dos sítios onde o menu fecha.
+    function fecharMenus() {
+      document.querySelectorAll('.nav__dropdown.open').forEach(function (d) {
+        d.classList.remove('open');
+        var t = d.querySelector('.nav__dropdown-toggle');
+        if (t) t.setAttribute('aria-expanded', 'false');
+      });
+      if (hamburger) {
+        hamburger.classList.remove('open');
+        hamburger.setAttribute('aria-expanded', 'false');
+      }
+      if (nav) nav.classList.remove('open');
+    }
+
     // Close dropdown + mobile nav when a submenu link is clicked
     document.querySelectorAll('.nav__sublink').forEach(function (link) {
-      link.addEventListener('click', function () {
-        document.querySelectorAll('.nav__dropdown.open').forEach(function (d) {
-          d.classList.remove('open');
-        });
-        if (hamburger) hamburger.classList.remove('open');
-        if (nav) nav.classList.remove('open');
-      });
+      link.addEventListener('click', fecharMenus);
     });
 
     // Close mobile nav on any nav link click
     if (nav) {
       nav.querySelectorAll('a').forEach(function (link) {
-        link.addEventListener('click', function () {
-          if (hamburger) hamburger.classList.remove('open');
-          nav.classList.remove('open');
-        });
+        link.addEventListener('click', fecharMenus);
       });
     }
 

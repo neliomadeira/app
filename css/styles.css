@@ -41,6 +41,10 @@
   --shadow: 0 4px 24px rgba(0,0,0,0.10);
   --shadow-lg: 0 8px 40px rgba(0,0,0,0.18);
   --transition: 0.25s ease;
+  /* Anel de foco: dois tons, amarelo por dentro e azul por fora. Ver a
+     secção FOCO VISÍVEL no fim do ficheiro. */
+  --foco-interior: #FFD100;
+  --foco-exterior: #003B8E;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1642,7 +1646,6 @@ html.jsc-anima .tl-reveal.tl-visible {
   color: #111;
   background: var(--white);
   transition: border-color var(--transition);
-  outline: none;
 }
 
 .form-group input:focus,
@@ -3902,7 +3905,7 @@ html[data-theme="dark"] .esc-empty__btn { background:var(--yellow); color:#001f4
 .search-bar:focus-within { border-color: #001f4d; }
 .search-bar__icon { font-size: 1.2rem; flex-shrink: 0; color: #999; }
 .search-bar__input {
-  flex: 1; border: none; outline: none; font-size: 1rem;
+  flex: 1; border: none; font-size: 1rem;
   font-family: inherit; color: #1a2744; background: transparent;
 }
 .search-bar__input::placeholder { color: #aaa; }
@@ -3956,11 +3959,6 @@ html[data-theme="dark"] .esc-empty__btn { background:var(--yellow); color:#001f4
 .btn { position: relative; overflow: hidden; }
 
 .btn:active { transform: scale(0.97) !important; }
-
-.btn:focus-visible {
-  outline: 3px solid var(--yellow);
-  outline-offset: 3px;
-}
 
 /* Ripple */
 .btn__ripple {
@@ -4584,6 +4582,60 @@ html[data-theme="dark"] .cal-day__num { color: #cbd5e1; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
+
+/* =====================================================
+   FOCO VISÍVEL
+   =====================================================
+   Quem navega por teclado precisa de ver onde está. O indicador é um anel
+   de dois tons — amarelo por dentro, azul por fora — e a razão de serem
+   dois é simples: o site tem fundos brancos, fundos azuis e fundos de
+   fotografia, e nenhuma cor sozinha se vê em todos.
+
+   Com os dois, um dos anéis contrasta sempre com o fundo, e os dois
+   contrastam entre si (amarelo #FFD100 sobre azul #003B8E, cerca de 8:1).
+   O amarelo sozinho sobre branco daria 1,4:1 e não se veria.
+
+   Só `:focus-visible`: o rato e o toque não trazem anel, o teclado traz.
+   Os campos de texto trazem-no sempre, porque o browser os considera
+   sempre focados de forma visível — e é o que se quer num campo onde se
+   vai escrever.
+   ===================================================== */
+:focus-visible,
+html[data-theme="dark"] .form-input:focus-visible {
+  outline: 3px solid var(--foco-interior);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px var(--foco-exterior);
+  /* Vários elementos têm `transition: all`, e sem isto o anel entrava a
+     desvanecer: media-se o estilo no instante do Tab e o anel ainda não
+     estava lá. O foco tem de aparecer no momento em que chega. */
+  transition: none;
+}
+
+/* Os campos de data e hora do Chrome guardam os seus próprios sub-campos
+   por dentro — dia, mês, ano — e o Tab passa por cada um. Quando o foco
+   está num deles, o campo continua a ser o elemento ativo mas já não
+   corresponde nem a `:focus-visible` nem a `:focus`, e ficava sem anel a
+   meio do preenchimento. `:focus-within` cobre o campo e o que tem
+   dentro, que num campo destes é sempre a mesma coisa. */
+input[type="date"]:focus-within,
+input[type="time"]:focus-within,
+input[type="month"]:focus-within,
+input[type="week"]:focus-within,
+input[type="datetime-local"]:focus-within {
+  outline: 3px solid var(--foco-interior);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px var(--foco-exterior);
+  transition: none;
+}
+
+/* O atalho para o conteúdo tem fundo amarelo e encosta ao canto do ecrã:
+   aqui o anel vai por dentro e com as cores trocadas, senão o amarelo
+   ficaria sobre amarelo e a parte de fora sairia do ecrã. */
+.skip-link:focus-visible {
+  outline: 3px solid var(--foco-exterior);
+  outline-offset: -6px;
+  box-shadow: none;
+}
 
 /* =====================================================
    MOVIMENTO REDUZIDO
