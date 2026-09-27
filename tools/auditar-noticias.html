@@ -146,7 +146,8 @@
     try { for (var i = 0; i < localStorage.length; i++) todas.push(localStorage.key(i)); }
     catch (_) { return { erro: 'o browser não deixa ler o armazenamento deste endereço' }; }
     var doPainel = todas.filter(function (k) { return CHAVES_DO_PAINEL.indexOf(k) !== -1; }).sort();
-    return { total: todas.length, doPainel: doPainel, endereco: location.origin };
+    var outras   = todas.filter(function (k) { return CHAVES_DO_PAINEL.indexOf(k) === -1; }).sort();
+    return { total: todas.length, doPainel: doPainel, outras: outras, endereco: location.origin };
   }
 
   function analisarCorpo(html) {
@@ -241,11 +242,27 @@
           '<div class="cartao"><h2>Conclusão</h2><p style="margin:0">' +
           'Não existe nenhum corpo de notícia para auditar. Nada a filtrar, nada a migrar.</p></div>';
       } else {
-        html = '<div class="vazio"><strong>Este endereço não tem dados do painel.</strong><br><br>' +
-          'Endereço actual: <code>' + esc(d.endereco) + '</code> — ' + d.total + (d.total === 1 ? ' chave' : ' chaves') + ', nenhuma do painel.<br><br>' +
-          'Abra o painel, veja o endereço na barra do browser, e volte a abrir esta página ' +
-          'com o mesmo <strong>nome e porta</strong>. Atenção: <code>localhost</code> e ' +
-          '<code>127.0.0.1</code> são endereços diferentes para o browser, mesmo com a mesma porta.</div>';
+        // Chaves que a simples visita ao site público cria. Se forem só estas,
+        // o painel nunca foi usado neste endereço.
+        var SO_DO_SITE = ['jsc_theme','jsc_sync_done','jsc_sync_reloaded','pwa_banner_dismissed',
+                          'cookie_consent','jsc_cookies','news_preview'];
+        var soVisita = d.outras.length > 0 && d.outras.every(function (k) { return SO_DO_SITE.indexOf(k) !== -1; });
+
+        html = '<div class="vazio"><strong>O painel nunca foi usado neste endereço.</strong><br><br>' +
+          'Endereço actual: <code>' + esc(d.endereco) + '</code> — ' +
+          d.total + (d.total === 1 ? ' chave' : ' chaves') + ', nenhuma do painel.' +
+          (d.outras.length ? '<br>Encontrei: ' + d.outras.map(function (k) {
+              return '<span class="etiqueta et-aviso">' + esc(k) + '</span>'; }).join('') : '') +
+          (soVisita ? '<br><br><strong>Estas chaves são criadas só por visitar o site</strong> ' +
+              '(tema claro/escuro, aviso da aplicação). Não vêm do painel. Ou o painel nunca ' +
+              'gravou nada aqui, ou foi usado noutro endereço.' : '') +
+          '<br><br><strong>Para saber se há conteúdo noutro endereço:</strong> abra o painel e veja a ' +
+          'secção Notícias. Se estiver vazia, não há notícias escritas — e não há nada para auditar. ' +
+          'Para ter a certeza absoluta, no browser carregue em F12, separador ' +
+          '<em>Application</em> (ou <em>Armazenamento</em>), <em>Local Storage</em>: ficam listados ' +
+          'todos os endereços com dados, e vê num relance se algum tem <code>jsc_noticias</code>.' +
+          '<br><br>Atenção: <code>localhost</code> e <code>127.0.0.1</code> são endereços diferentes ' +
+          'para o browser, mesmo com a mesma porta.</div>';
       }
       saida.innerHTML = '<div class="cartao">' + html + '</div>';
       return;
