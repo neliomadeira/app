@@ -117,25 +117,38 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ---- SCROLL REVEAL ANIMATION ----
+  // O esconder só acontece se houver mesmo quem volte a mostrar. Antes era
+  // sempre: punha-se opacity:0 em cada cartão, e se o IntersectionObserver
+  // não existisse, ou se a página fosse impressa antes de o visitante lá
+  // chegar, os cartões ficavam invisíveis para sempre.
+  //
+  // O estado invisível passou a viver no CSS, sob a marca .jsc-anima, para
+  // que a impressão e a preferência por movimento reduzido o possam
+  // desfazer — com estilos em linha não conseguiam.
   const revealElements = document.querySelectorAll(
     '.category-card, .news-card, .about__text, .about__visual, .contact__info, .contact__form, .gallery__item, .stat'
   );
+  const semMovimento = window.matchMedia
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  const revealObserver = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('revealed');
-        revealObserver.unobserve(entry.target);
-      }
+  if (revealElements.length && window.IntersectionObserver && !semMovimento) {
+    document.documentElement.classList.add('jsc-anima');
+
+    const revealObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('revealed');
+          revealObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12 });
+
+    revealElements.forEach((el, i) => {
+      el.classList.add('jsc-revelar');
+      el.style.transitionDelay = `${i * 0.07}s`;
+      revealObserver.observe(el);
     });
-  }, { threshold: 0.12 });
-
-  revealElements.forEach((el, i) => {
-    el.style.opacity = '0';
-    el.style.transform = 'translateY(30px)';
-    el.style.transition = `opacity 0.6s ease ${i * 0.07}s, transform 0.6s ease ${i * 0.07}s`;
-    revealObserver.observe(el);
-  });
+  }
 
   document.head.insertAdjacentHTML('beforeend', `
     <style>

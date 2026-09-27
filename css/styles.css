@@ -4578,7 +4578,9 @@ html[data-theme="dark"] .cal-day__num { color: #cbd5e1; }
   /* Nada de animações no papel. Sem isto, tudo o que o visitante não
      tivesse percorrido saía em branco. */
   html.jsc-anima .tl-reveal,
-  .tl-reveal {
+  .tl-reveal,
+  html.jsc-anima .jsc-revelar,
+  .jsc-revelar {
     opacity: 1 !important;
     transform: none !important;
     transition: none !important;
@@ -4586,6 +4588,31 @@ html[data-theme="dark"] .cal-day__num { color: #cbd5e1; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
+
+/* =====================================================
+   REVELAÇÃO AO PERCORRER
+   =====================================================
+   Cartões e blocos entram a aparecer quando chegam ao ecrã. O estado
+   invisível vive aqui, e só enquanto o documento estiver marcado com
+   .jsc-anima — marca que o próprio JavaScript põe, e só quando há de
+   facto quem volte a mostrar o elemento.
+
+   Assim, sem JavaScript, com o IntersectionObserver em falta, na
+   impressão ou com movimento reduzido, o conteúdo fica visível. É a mesma
+   regra da cronologia da história, pela mesma razão: nada de esconder
+   conteúdo sem garantia de que volta.
+   ===================================================== */
+.jsc-revelar {
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+html.jsc-anima .jsc-revelar {
+  opacity: 0;
+  transform: translateY(30px);
+}
+html.jsc-anima .jsc-revelar.revealed {
+  opacity: 1;
+  transform: none;
+}
 
 /* =====================================================
    FOCO VISÍVEL
@@ -4678,7 +4705,9 @@ main[tabindex="-1"]:focus-visible {
   /* A revelação da cronologia deixa de esconder: o conteúdo já está no
      lugar final quando aparece. */
   html.jsc-anima .tl-reveal,
-  html.jsc-anima .tl-reveal.tl-visible {
+  html.jsc-anima .tl-reveal.tl-visible,
+  html.jsc-anima .jsc-revelar,
+  html.jsc-anima .jsc-revelar.revealed {
     opacity: 1 !important;
     transform: none !important;
   }
