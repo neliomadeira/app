@@ -120,16 +120,33 @@
     });
   }
 
+  // Chaves que o painel cria. Servem para saber se estamos no endereço certo
+  // mesmo quando não há notícias nenhumas.
+  var CHAVES_DO_PAINEL = ['jsc_noticias','db_atletas','db_jogos','db_escaloes','db_treinadores',
+    'db_patrocinadores','db_galeria','db_videos','db_agenda','db_modalidades','db_seniores',
+    'db_inscricoes','db_contact_msgs','site_config','site_cores','dados_clube','db_historia',
+    'db_palmares','site_legal','email_config','db_logos','news_autosave'];
+
   function lerNoticias() {
     for (var i = 0; i < CHAVES.length; i++) {
       try {
         var cru = localStorage.getItem(CHAVES[i]);
-        if (!cru) continue;
+        if (cru === null) continue;
         var d = JSON.parse(cru);
-        if (Array.isArray(d) && d.length) return { chave: CHAVES[i], lista: d };
+        if (Array.isArray(d)) return { chave: CHAVES[i], lista: d, existia: true };
       } catch (_) { /* segue */ }
     }
-    return { chave: null, lista: [] };
+    return { chave: null, lista: [], existia: false };
+  }
+
+  // Só nomes de chaves e contagens. Nunca valores: lá dentro há dados de
+  // inscrições e mensagens.
+  function diagnostico() {
+    var todas = [];
+    try { for (var i = 0; i < localStorage.length; i++) todas.push(localStorage.key(i)); }
+    catch (_) { return { erro: 'o browser não deixa ler o armazenamento deste endereço' }; }
+    var doPainel = todas.filter(function (k) { return CHAVES_DO_PAINEL.indexOf(k) !== -1; }).sort();
+    return { total: todas.length, doPainel: doPainel, endereco: location.origin };
   }
 
   function analisarCorpo(html) {
@@ -204,12 +221,33 @@
     var dados = lerNoticias();
 
     if (!dados.lista.length) {
-      saida.innerHTML = '<div class="cartao"><div class="vazio">' +
-        '<strong>Não encontrei notícias neste endereço.</strong><br>' +
-        'Ou o painel nunca gravou notícias aqui, ou esta página está aberta num ' +
-        'endereço diferente do painel. Confirme que o endereço na barra do browser ' +
-        'começa exactamente igual ao do painel.' +
-        '</div></div>';
+      var d = diagnostico();
+      var html;
+
+      if (d.erro) {
+        html = '<div class="vazio"><strong>' + esc(d.erro) + '</strong><br>' +
+          'Acontece em janelas privadas ou com o armazenamento bloqueado. Abra numa janela normal.</div>';
+      } else if (d.doPainel.length) {
+        // Há dados do painel aqui: o endereço está certo, simplesmente não há notícias.
+        html = '<div class="cartao" style="border-left:4px solid var(--bom)">' +
+          '<h2>Endereço certo. Não há notícias escritas.</h2>' +
+          '<p>Encontrei dados do painel neste endereço, portanto não é caso de endereço errado. ' +
+          'A lista de notícias está ' + (dados.existia ? 'criada mas vazia' : 'por criar') + '.</p>' +
+          '<p style="margin-bottom:6px"><strong>Chaves do painel presentes</strong> ' +
+          '(só os nomes — não leio o conteúdo):</p><p style="margin:0">' +
+          d.doPainel.map(function (k) { return '<span class="etiqueta et-ok">' + esc(k) + '</span>'; }).join('') +
+          '</p><p style="margin:14px 0 0;color:var(--suave);font-size:14px">' +
+          'Endereço: <code>' + esc(d.endereco) + '</code> · ' + d.total + (d.total === 1 ? ' chave' : ' chaves') + ' no total.</p></div>' +
+          '<div class="cartao"><h2>Conclusão</h2><p style="margin:0">' +
+          'Não existe nenhum corpo de notícia para auditar. Nada a filtrar, nada a migrar.</p></div>';
+      } else {
+        html = '<div class="vazio"><strong>Este endereço não tem dados do painel.</strong><br><br>' +
+          'Endereço actual: <code>' + esc(d.endereco) + '</code> — ' + d.total + (d.total === 1 ? ' chave' : ' chaves') + ', nenhuma do painel.<br><br>' +
+          'Abra o painel, veja o endereço na barra do browser, e volte a abrir esta página ' +
+          'com o mesmo <strong>nome e porta</strong>. Atenção: <code>localhost</code> e ' +
+          '<code>127.0.0.1</code> são endereços diferentes para o browser, mesmo com a mesma porta.</div>';
+      }
+      saida.innerHTML = '<div class="cartao">' + html + '</div>';
       return;
     }
 
