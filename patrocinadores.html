@@ -211,7 +211,9 @@
       text-align: center;
       background: linear-gradient(135deg, #001f4d 0%, #003080 100%);
       border-radius: 20px;
-      padding: 60px 32px;
+      /* O espaçamento acompanha a largura: a 320px, 32px de cada lado
+         deixavam a caixa interior com 216px e o título não cabia. */
+      padding: clamp(36px, 9vw, 60px) clamp(18px, 5vw, 32px);
       margin-top: 64px;
       color: #fff;
     }
@@ -229,10 +231,16 @@
     }
     .sp-cta__title {
       font-family: 'Bebas Neue', sans-serif;
-      font-size: 2.4rem;
+      /* Era 2.4rem fixo. Em Bebas Neue, a palavra "patrocionador?" media
+         288px dentro de uma caixa de 208px a 320px de largura, e empurrava
+         a página inteira para fora. Passa a acompanhar o ecrã. */
+      font-size: clamp(1.6rem, 6.4vw, 2.4rem);
       letter-spacing: .06em;
       margin-bottom: 14px;
       line-height: 1.1;
+      /* Rede de segurança: nenhuma palavra volta a poder transbordar,
+         mesmo que o texto mude. */
+      overflow-wrap: break-word;
     }
     .sp-cta__desc {
       color: rgba(255,255,255,.75);
@@ -295,7 +303,7 @@
           <li><a href="inscricao.html" class="btn btn--nav">Inscrever</a></li>
         </ul>
       </nav>
-      <button class="hamburger" id="hamburger" aria-label="Menu">
+      <button class="hamburger" id="hamburger" aria-label="Menu" aria-expanded="false" aria-controls="nav">
         <span></span><span></span><span></span>
       </button>
     </div>
