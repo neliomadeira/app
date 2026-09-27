@@ -564,3 +564,143 @@ php tools/impacto-noticias.php data/db.json
 
 Tratar as antigas exige uma decisão à parte, com o impacto à vista.
 
+
+---
+
+# FASE B — UX, MOBILE E ACESSIBILIDADE
+
+Autorizada a 27 de setembro de 2026. Nove alterações, todas em CSS, HTML e
+JavaScript de apresentação. Nada da Fase A foi tocado: `api/`, `proxy.php` e
+`admin/js/` não têm uma linha alterada.
+
+## O que estava mal, e como se soube
+
+A medição foi feita com o browser a sério, nas páginas construídas — não a
+ler o código. Cada número abaixo veio de um guião que se pode voltar a
+correr.
+
+### Os dois problemas conhecidos
+
+**M1 — patrocinadores, 320px.** O título "Quer ser patrocinador?" era
+desenhado a 38px dentro de uma caixa com 32px de goteira fixa. A palavra
+mais longa não cabia e empurrava a página: scroll horizontal em todos os
+ecrãs pequenos. O tamanho e a goteira passaram a acompanhar a largura. Nos
+ecrãs grandes o título ficou exatamente como estava, a 38,4px.
+
+**M2 — história, 901 a ~1260px.** Os itens da direita entravam a deslizar
+30px na horizontal. A goteira do container é de 24px e a diferença saía
+para fora. O deslocamento passou a ser vertical em todas as larguras.
+
+### O conteúdo que podia desaparecer
+
+A cronologia da história escondia os itens pelo CSS e contava com o
+JavaScript para os mostrar. Se o JavaScript falhasse a meio, ou se a página
+fosse impressa antes de ser percorrida, ficava em branco — 22 itens
+invisíveis no papel.
+
+O mesmo defeito estava no `main.js`, em maior escala: `opacity: 0` posto em
+linha em cada cartão de escalão, notícia, galeria e bloco de contacto.
+
+Nos dois casos o estado invisível passou para o CSS, debaixo de uma marca
+que o JavaScript só põe quando há de facto quem volte a mostrar. Medido em
+formacao.html, com 8 elementos:
+
+| condição | visíveis ao abrir | depois de percorrer |
+|---|---|---|
+| movimento normal | 3/8 | 8/8 |
+| movimento reduzido | 8/8 | 8/8 |
+| sem JavaScript | 8/8 | 8/8 |
+| impressão | 8/8 | — |
+
+### Foco e teclado
+
+Nove sítios tinham `outline: none` sem nada no lugar. O indicador passou a
+ser um anel de dois tons — amarelo por dentro, azul por fora — porque o
+site tem fundos brancos, azuis e de fotografia e nenhuma cor sozinha se vê
+em todos: o amarelo sobre branco dá 1,46:1.
+
+Três casos precisaram de tratamento próprio: os campos de data (o Tab
+percorre os sub-campos e o campo deixa de corresponder a `:focus-visible`),
+a barra lateral do painel (o anel exterior saía da barra cortado) e o
+`transition: all` de vários elementos, que fazia o anel entrar a
+desvanecer.
+
+O atalho "saltar para o conteúdo" não cumpria o que dizia: o `smooth
+scroll` do `main.js` apanhava todas as ligações internas e chamava
+`preventDefault()`, o que cancelava também o salto de foco. A página
+deslizava e o foco ficava no cabeçalho.
+
+Cartões que eram `<div onclick>` — publicações das modalidades, dos
+seniores, itens do arquivo de notícias — não recebiam foco nem tinham tecla
+que os acionasse.
+
+### Estrutura
+
+Catorze páginas não tinham `<main>`. Em três, o alvo do atalho era um
+`<span aria-hidden="true">` escondido a meio do conteúdo.
+
+Dezasseis páginas saltavam níveis de título. O caso repetido: as colunas do
+rodapé eram `<h4>` por causa do tamanho, logo a seguir a um `<h1>`.
+
+### Contraste
+
+Medido o contraste real entre cada texto visível e o fundo por trás dele,
+nas 20 páginas e nos dois temas.
+
+| | antes | depois |
+|---|---|---|
+| tema claro | 38 | 5 |
+| tema escuro | 31 | 0 |
+
+Das 5 que ficam no tema claro, 4 são emojis — desenham-se com as suas
+próprias cores e a cor do CSS não lhes toca. A quinta está por decidir,
+abaixo.
+
+O pior caso era o botão do modo escuro: `color: inherit` apanhava o preto
+do corpo e ficava preto sobre o azul do cabeçalho, a 1,25:1, em 15 páginas.
+
+No tema escuro o problema era de raiz: o cinzento do texto secundário está
+definido para fundo branco e ficava a 2,6:1. Como é uma variável, bastou
+redefini-la dentro do tema.
+
+## Por decidir: o ano em destaque da cronologia
+
+`.timeline-item--destaque .timeline-year` é escrito a `--yellow-dark`
+(#E6B800) sobre branco, a 42px. Dá **1,87:1**; o mínimo para texto grande é
+3:1.
+
+| opção | rácio | o que muda |
+|---|---|---|
+| como está | 1,87 | — |
+| #A88500 | 3,49 | o dourado escurece e aproxima-se do castanho |
+| #8a6d00 | 4,92 | deixa de ser dourado |
+| azul do clube | 10,42 | perde-se a distinção do marco em destaque |
+| caixa amarela com o ano a azul | 7,13 | muda a forma, não só a cor |
+
+Nenhuma destas é uma decisão técnica. Ficou como está, à espera de decisão.
+
+## Verificação
+
+- `node tools/validar.js --comparar`: **168 combinações, 0 problemas**, os
+  dois conhecidos resolvidos, 0 novos;
+- transbordo horizontal a 320, 375, 390, 430 e 768px, nas 20 páginas, com o
+  menu fechado, aberto e com o submenu aberto: **nenhum**;
+- Tab pelas 20 páginas públicas: **todos os elementos focáveis têm
+  indicador visível**; no painel, 30 controlos, todos com indicador;
+- 40 fotografias de página inteira comparadas pixel a pixel antes e depois
+  de cada alteração estrutural;
+- formulários: submeter vazio marca os 7 campos obrigatórios e mostra 7
+  mensagens; escrever por teclado funciona; sem erros de JavaScript;
+- Fase A intacta: publicar sem sessão devolve 401, pedir utilizadores sem
+  sessão devolve 401, palavra-passe errada é recusada, os seis perfis
+  continuam a ser listados.
+
+## Como voltar a correr estas medições
+
+Os guiões de medição desta fase não ficaram no repositório — são de
+diagnóstico, não do site. O que fica é o `tools/validar.js`, que cobre
+overflow, erros de consola, recursos em falta e as regras do `.htaccess`:
+
+```
+node tools/validar.js --comparar
+```
