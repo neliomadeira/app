@@ -99,7 +99,7 @@
     .galeria-empty {
       text-align: center;
       padding: 64px 24px;
-      color: #666;
+      color: var(--gray-mid);
     }
     .galeria-empty__icon {
       font-size: 3.5rem;

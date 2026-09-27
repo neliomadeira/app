@@ -22,6 +22,23 @@
 
     /* Esta página não carrega a folha de estilos do site: traz o mesmo anel
        de foco, azul por fora e amarelo por dentro, sobre o fundo escuro. */
+    /* Esta página não carrega a folha de estilos do site: o atalho ficava
+       com o azul do browser sobre o azul-escuro do fundo, a 1,7:1. */
+    .skip-link {
+      position: absolute;
+      top: -100%;
+      left: 0;
+      z-index: 9999;
+      padding: 10px 20px;
+      background: #FFD100;
+      color: #001f4d;
+      font-weight: 700;
+      font-size: 0.9rem;
+      border-radius: 0 0 6px 0;
+      text-decoration: none;
+    }
+    .skip-link:focus { top: 0; }
+
     :focus-visible {
       outline: 3px solid #FFD100;
       outline-offset: 2px;
@@ -107,7 +124,7 @@
       position: fixed;
       bottom: 20px;
       font-size: 0.75rem;
-      color: rgba(255,255,255,0.3);
+      color: rgba(255,255,255,0.55);
     }
   </style>
 </head>

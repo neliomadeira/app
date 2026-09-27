@@ -30,7 +30,7 @@
     var li = document.createElement('li');
     li.innerHTML = '<button id="darkModeToggle" aria-label="Activar modo escuro" title="Modo escuro" '
       + 'style="background:none;border:none;cursor:pointer;font-size:1.15rem;padding:9px 11px;'
-      + 'color:inherit;display:inline-flex;align-items:center;opacity:0.85;transition:opacity 0.2s">'
+      + 'color:rgba(255,255,255,0.85);display:inline-flex;align-items:center;transition:color 0.2s">'
       + '&#9790;</button>';
     if (searchLi) {
       navList.insertBefore(li, searchLi);
