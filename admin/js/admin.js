@@ -32,9 +32,65 @@ async function apiAuth(acao, corpo) {
     opcoes.body = JSON.stringify(corpo);
   }
   const r = await fetch('/api/auth.php?acao=' + encodeURIComponent(acao), opcoes);
+  const texto = await r.text();
   let j = {};
-  try { j = await r.json(); } catch (_) {}
-  return { estado: r.status, ...j };
+  let phpNaoCorre = false;
+  try {
+    j = JSON.parse(texto);
+  } catch (_) {
+    // Um servidor que não execute PHP devolve o código-fonte como texto.
+    // É esse o sinal, e é inequívoco.
+    phpNaoCorre = /^\s*<\?php/.test(texto) || texto.indexOf('<?php') !== -1;
+  }
+  return { estado: r.status, phpNaoCorre, ...j };
+}
+
+// Endereços de desenvolvimento. O modo local só existe aqui: num servidor a
+// sério, se o PHP falhar, o painel recusa em vez de abrir sem autenticação.
+function ambienteDeDesenvolvimento() {
+  if (location.protocol === 'file:') return true;
+  const h = location.hostname;
+  return h === 'localhost' || h === '127.0.0.1' || h === '::1' || h === ''
+      || /^192\.168\./.test(h) || /^10\./.test(h)
+      || /^172\.(1[6-9]|2\d|3[01])\./.test(h);
+}
+
+// MODO LOCAL — sem PHP
+// O Live Server do VS Code serve ficheiros e não executa PHP. Como a
+// autenticação e a publicação vivem em PHP, o painel deixava de abrir: foi
+// isso que aconteceu ao passar o login para o servidor.
+//
+// Aqui o painel abre para trabalhar no conteúdo, que está todo no
+// localStorage deste browser. Não há login porque não há servidor com quem o
+// fazer — e também não há nada do servidor ao alcance: publicar, ler
+// inscrições e gerir contas ficam indisponíveis até haver PHP.
+let MODO_LOCAL = false;
+
+function entrarEmModoLocal(motivo) {
+  MODO_LOCAL = true;
+  SESSAO = null;
+  loginWrap.style.display = 'none';
+  document.body.classList.remove('login-page');
+  adminLayout.style.display = 'flex';
+
+  const nome = document.getElementById('adminUserName');
+  if (nome) nome.textContent = 'Modo local';
+  const avatar = document.getElementById('adminUserAvatar');
+  if (avatar) avatar.textContent = '\u{1F4BB}';
+
+  const aviso = document.getElementById('avisoPerfil');
+  if (aviso) {
+    aviso.textContent = 'Modo local, sem PHP (' + motivo + '). Pode escrever e organizar '
+      + 'conteúdo, que fica guardado neste browser. Não é possível publicar, ler inscrições '
+      + 'do servidor nem gerir contas — isso precisa de PHP a correr.';
+    aviso.hidden = false;
+  }
+
+  // Em modo local todas as secções de conteúdo estão disponíveis; as que
+  // dependem do servidor avisam quando forem usadas.
+  document.querySelectorAll('.nav-item[data-page]').forEach(function (i) { i.hidden = false; });
+
+  initAdmin();
 }
 
 function showLoginError(msg, persistente) {
@@ -149,8 +205,16 @@ async function arrancarAutenticacao() {
   try {
     r = await apiAuth('estado');
   } catch (_) {
+    if (ambienteDeDesenvolvimento()) { entrarEmModoLocal('servidor não respondeu'); return; }
     mostrarLogin();
     showLoginError('Não foi possível falar com o servidor. O painel precisa de PHP para funcionar.', true);
+    return;
+  }
+  if (r.phpNaoCorre) {
+    if (ambienteDeDesenvolvimento()) { entrarEmModoLocal('o servidor não executa PHP'); return; }
+    mostrarLogin();
+    showLoginError('Este servidor não está a executar PHP. O painel precisa de PHP para autenticar '
+      + 'e para publicar. Fale com o alojamento antes de continuar.', true);
     return;
   }
   if (!r.ok) {
@@ -4791,6 +4855,10 @@ window.resetarLegal = function() {
 };
 
 async function guardarSeguranca() {
+  if (MODO_LOCAL) {
+    showToast('Modo local: a palavra-passe é do servidor e precisa de PHP.', 'red');
+    return;
+  }
   const atual = document.getElementById('cfgAdminPwAtual').value;
   const pw    = document.getElementById('cfgAdminPw').value;
   const conf  = document.getElementById('cfgAdminPwConf').value;
@@ -4813,6 +4881,10 @@ let _perfisDisponiveis = {};
 async function renderAdminUsers() {
   const el = document.getElementById('adminUsersList');
   if (!el) return;
+  if (MODO_LOCAL) {
+    el.innerHTML = '<p style="font-size:0.78rem;color:#aaa;margin:0">As contas do painel vivem no servidor. Em modo local não há contas para mostrar.</p>';
+    return;
+  }
 
   const est = await apiAuth('estado').catch(() => null);
   if (est && est.perfis) {
@@ -4876,6 +4948,10 @@ window.removerAdminUser = async function (utilizador) {
 
 // ---- PUBLICAR NO SERVIDOR ----
 async function publicarNoServidor() {
+  if (MODO_LOCAL) {
+    showToast('Modo local: publicar precisa de PHP a correr no servidor.', 'red');
+    return;
+  }
   // Publicar torna tudo isto conteúdo oficial do site. Se ainda houver
   // registos que vieram dos dados de exemplo, convém saber antes.
   if (typeof contarRegistosDeExemplo === 'function') {
@@ -5014,6 +5090,7 @@ function _mapInscricaoServidor(item) {
 }
 
 async function sincronizarRegistosServidor() {
+  if (MODO_LOCAL) return;   // não há servidor de onde sincronizar
   const headers = {};
   const puxar = async (tipo) => {
     const r = await fetch('/api/registos.php?tipo=' + tipo, { headers });
