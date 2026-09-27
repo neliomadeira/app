@@ -1090,7 +1090,18 @@ ul { list-style: none; }
   letter-spacing: 1px;
   line-height: 1.1;
 }
-.timeline-item--destaque .timeline-year { color: var(--yellow-dark); font-size: 2.6rem; }
+/* O ano dos marcos em destaque era escrito a amarelo-escuro sobre branco:
+   1,87:1, abaixo do mínimo de 3:1 para texto grande. Passa a ser o azul do
+   clube dentro de uma caixa do amarelo do clube — as duas cores oficiais,
+   com 7,13:1 entre elas. O destaque continua a ler-se de longe, e agora
+   lê-se mesmo. */
+.timeline-item--destaque .timeline-year {
+  color: var(--blue);
+  font-size: 2.6rem;
+  background: var(--yellow);
+  padding: 2px 14px 4px;
+  border-radius: var(--radius);
+}
 .timeline-card {
   background: var(--white);
   border-radius: var(--radius-lg);
@@ -4526,7 +4537,7 @@ html[data-theme="dark"] .timeline-card__title,
 html[data-theme="dark"] .palmares-card__title { color: #e2e8f0; }
 html[data-theme="dark"] .timeline-card__desc { color: #94a3b8; }
 html[data-theme="dark"] .timeline-year { color: #93c5fd; }
-html[data-theme="dark"] .timeline-item--destaque .timeline-year { color: var(--yellow); }
+html[data-theme="dark"] .timeline-item--destaque .timeline-year { color: var(--blue); }
 
 /* Agenda */
 html[data-theme="dark"] .agenda-list-title { color: #e2e8f0; }
