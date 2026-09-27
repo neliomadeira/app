@@ -395,7 +395,7 @@
     main.innerHTML = (
       '<div class="esc-empty">' +
         '<div class="esc-empty__icon">⚠️</div>' +
-        '<h2 class="esc-empty__title">Escalão não encontrado</h2>' +
+        '<h1 class="esc-empty__title">Escalão não encontrado</h1>' +
         '<p class="esc-empty__text">O escalão indicado não existe ou o endereço está incorreto.</p>' +
         '<a href="formacao.html" class="esc-empty__btn">← Voltar à Formação</a>' +
       '</div>'

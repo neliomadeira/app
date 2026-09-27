@@ -189,7 +189,7 @@
   function renderError(msg) {
     const main = document.getElementById('atletaMain');
     if (main) main.innerHTML = `<div class="container" style="padding:60px 20px;text-align:center">
-      <p style="font-size:1.1rem;color:#666;margin-bottom:20px">${jscEsc(msg)}</p>
+      <h1 style="font-size:1.1rem;font-weight:400;color:#666;margin-bottom:20px">${jscEsc(msg)}</h1>
       <a href="formacao.html" class="btn" style="background:var(--blue);color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none">← Voltar à Formação</a>
     </div>`;
   }

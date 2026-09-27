@@ -447,7 +447,7 @@ document.addEventListener('DOMContentLoaded', () => {
               </div>
               <div class="agenda-card__body">
                 <span class="agenda-card__tipo agenda-card__tipo--${jscEsc(cls)}">${jscEsc(e.tipo)}</span>
-                <h4 class="agenda-card__title">${jscEsc(e.titulo)}</h4>
+                <h3 class="agenda-card__title">${jscEsc(e.titulo)}</h3>
                 <p class="agenda-card__meta">&#128337; ${jscEsc(e.hora)} &nbsp;·&nbsp; &#128205; ${jscEsc(e.local)}</p>
                 ${e.escalao && e.escalao !== 'Todos' ? `<p class="agenda-card__meta">&#127942; ${jscEsc(e.escalao)}</p>` : ''}
               </div>

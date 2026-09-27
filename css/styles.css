@@ -1808,8 +1808,12 @@ html[data-theme="dark"] .form-group textarea.is-invalid {
   line-height: 1.6;
 }
 
-.footer__links h4,
-.footer__contact h4 {
+/* Os títulos das colunas do rodapé eram <h4> por causa do tamanho. O
+   tamanho vem daqui, e o nível passa a dizer o que estes títulos são: as
+   secções do rodapé, ao lado das secções da página. Saltava-se de h1 para
+   h4 em nove páginas. */
+.footer__links h2,
+.footer__contact h2 {
   color: var(--yellow);
   font-size: 0.85rem;
   font-weight: 700;
