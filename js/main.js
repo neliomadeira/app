@@ -226,7 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <time class="news-card__date">${jscEsc(ptDate(n.data))}</time>
             <h3 class="news-card__title">${jscEsc(n.titulo)}</h3>
             ${n.resumo ? `<p class="news-card__excerpt">${jscEsc(n.resumo.replace(/<[^>]+>/g,'').slice(0,160))}</p>` : ''}
-            <span class="news-card__link">Ler mais &rarr;</span>
+            <a class="news-card__link" href="noticias.html?id=${n.id}">Ler mais &rarr;</a>
           </div>
         </article>`).join('');
 
@@ -261,7 +261,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('newsArchiveTitle').textContent = 'Todas as Notícias';
     body.innerHTML = `<div class="news-archive__list">${
       lista.map((n, i) => `
-        <div class="news-archive__item" onclick="openNewsArticle(${n.id})">
+        <div class="news-archive__item" role="button" tabindex="0" data-tecla onclick="openNewsArticle(${n.id})">
           ${archiveDateBox(n.data)}
           <div class="news-archive__img${n.imagem ? '' : ` news-card__img--${jscEsc((i % 3) + 1)}`}"
                ${n.imagem ? `style="background-image:url('${jscEscUrl(n.imagem)}');background-size:cover;background-position:center;background-repeat:no-repeat"` : ''}></div>

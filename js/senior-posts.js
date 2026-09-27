@@ -33,6 +33,7 @@
     const imgClass = n.imagem ? '' : ` news-card__img--${n.img || 1}`;
     return `
       <article class="senior-post-card${jscEsc(i === 0 ? ' senior-post-card--featured' : '')}"
+               role="button" tabindex="0" data-tecla
                onclick="openSeniorPost(${n.id})" style="cursor:pointer">
         <div class="senior-post-card__img${jscEsc(imgClass)}" ${imgStyle}>
           <span class="senior-post-card__tag">Seniores</span>
@@ -41,7 +42,7 @@
           <time class="senior-post-card__date">${jscEsc(ptDate(n.data))}</time>
           <h3 class="senior-post-card__title">${jscEsc(n.titulo)}</h3>
           ${n.resumo ? `<p class="senior-post-card__excerpt">${jscEsc(n.resumo.replace(/<[^>]+>/g, ''))}</p>` : ''}
-          <span class="senior-post-card__more">Ler mais &rarr;</span>
+          <span class="senior-post-card__more" aria-hidden="true">Ler mais &rarr;</span>
         </div>
       </article>`;
   }
@@ -82,7 +83,7 @@
     document.getElementById('newsArchiveTitle').textContent = 'Publicações — Equipa Principal';
     body.innerHTML = `<div class="news-archive__list">${
       posts.map(n => `
-        <div class="news-archive__item" onclick="openSeniorPost(${n.id})">
+        <div class="news-archive__item" role="button" tabindex="0" data-tecla onclick="openSeniorPost(${n.id})">
           ${archiveDateBox(n.data)}
           <div class="news-archive__img news-card__img--${jscEsc(n.img || 1)}"
                ${n.imagem ? `style="background-image:url('${jscEscUrl(n.imagem)}');background-size:cover;background-position:${jscEsc(n.imagemPos || 'center')}"` : ''}></div>

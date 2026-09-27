@@ -87,7 +87,7 @@
       </p>`;
     } else {
       grid.innerHTML = posts.map((p, i) => `
-        <div class="mod-post-card" onclick="openPost(${p.id})">
+        <div class="mod-post-card" role="button" tabindex="0" data-tecla onclick="openPost(${p.id})">
           <div class="mod-post-card__img-wrap mod-post-card__img--${jscEsc((i % 3) + 1)}">
             ${p.imagem ? `<img src="${jscEscUrl(p.imagem)}" class="mod-post-card__img-el"
               style="object-fit:${jscEsc(p.imagemSize === 'contain' ? 'contain' : 'cover')};object-position:${jscEsc(p.imagemPos || 'center')}"
@@ -112,20 +112,43 @@
     const p = posts.find(x => x.id === id);
     if (!p) return;
 
+    // Quem abriu isto volta a ter o foco quando isto fechar.
+    const veioDe = document.activeElement;
+
     const ov = document.createElement('div');
     ov.id = 'postOverlay';
     ov.className = 'post-overlay';
+    ov.setAttribute('role', 'dialog');
+    ov.setAttribute('aria-modal', 'true');
+    ov.setAttribute('aria-label', p.titulo || 'Publicação');
     ov.innerHTML = `
       <div class="post-overlay__panel">
         <div class="post-overlay__header">
           <span class="post-overlay__date">${jscEsc(ptDate(p.data))}</span>
-          <button class="post-overlay__close" onclick="document.getElementById('postOverlay').remove()">&#10005;</button>
+          <button class="post-overlay__close" aria-label="Fechar" onclick="document.getElementById('postOverlay').remove()">&#10005;</button>
         </div>
-        ${p.imagem ? `<img src="${jscEscUrl(p.imagem)}" class="post-overlay__img" onerror="this.style.display='none'">` : ''}
+        ${p.imagem ? `<img src="${jscEscUrl(p.imagem)}" class="post-overlay__img" alt="${jscEsc(p.titulo)}" onerror="this.style.display='none'">` : ''}
         <h2 class="post-overlay__title">${jscEsc(p.titulo)}</h2>
         <div class="post-overlay__body">${jscEsc(p.texto || '')}</div>
       </div>`;
     ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
+
+    // Escape fecha, como em qualquer caixa destas. Sem isto, quem usa
+    // teclado abria a publicação e não tinha como sair.
+    const porTecla = (e) => {
+      if (e.key !== 'Escape') return;
+      ov.remove();
+    };
+    document.addEventListener('keydown', porTecla);
+    // Quando a caixa sai da página, desliga-se a tecla e devolve-se o foco.
+    new MutationObserver((_, obs) => {
+      if (document.getElementById('postOverlay')) return;
+      document.removeEventListener('keydown', porTecla);
+      obs.disconnect();
+      if (veioDe && veioDe.focus) veioDe.focus();
+    }).observe(document.body, { childList: true });
+
     document.body.appendChild(ov);
+    ov.querySelector('.post-overlay__close').focus();
   };
 })();

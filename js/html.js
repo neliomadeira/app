@@ -44,3 +44,21 @@
   global.jscEsc = jscEsc;
   global.jscEscUrl = jscEscUrl;
 })(typeof window !== 'undefined' ? window : this);
+
+// =====================================================
+// ATIVAR COM O TECLADO
+// =====================================================
+// Há cartões que são clicáveis sem serem um botão nem uma ligação: um
+// <div onclick>. Ao rato respondem, ao teclado não — não recebem foco e
+// não têm tecla que os acione.
+//
+// Estes cartões passam a levar role="button" e tabindex="0", e é aqui que
+// se lhes dá a tecla: Enter e barra de espaço, como num botão a sério.
+// Fica neste ficheiro por ser o único que todas as páginas carregam.
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+  var el = document.activeElement;
+  if (!el || !el.hasAttribute || !el.hasAttribute('data-tecla')) return;
+  e.preventDefault();
+  el.click();
+});
