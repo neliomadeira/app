@@ -179,6 +179,9 @@
         }
       });
     }, { threshold: 0.12 });
+    // Só a partir daqui o CSS pode esconder: a marca no documento é o que
+    // liga a animação. Sem ela, o conteúdo construído fica visível.
+    document.documentElement.classList.add('jsc-anima');
     items.forEach(el => { el.classList.add('tl-reveal'); obs.observe(el); });
   }
 
