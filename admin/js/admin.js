@@ -252,7 +252,12 @@ async function arrancarAutenticacao() {
 );
 
 togglePw?.addEventListener('click', () => {
-  loginPassEl.type = loginPassEl.type === 'password' ? 'text' : 'password';
+  const aMostrar = loginPassEl.type === 'password';
+  loginPassEl.type = aMostrar ? 'text' : 'password';
+  // O botão é um olho: sem isto, quem usa leitor de ecrã ouvia "botão" e
+  // mais nada, e não sabia se a palavra-passe estava à vista.
+  togglePw.setAttribute('aria-label', aMostrar ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe');
+  togglePw.setAttribute('aria-pressed', aMostrar ? 'true' : 'false');
 });
 
 loginForm?.addEventListener('submit', async (e) => {

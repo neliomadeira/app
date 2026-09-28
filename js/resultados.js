@@ -235,7 +235,7 @@ function renderJogos(escalao) {
             <div class="resultado-placar">${jscEsc(j.gcasa)}–${jscEsc(j.gfora)}</div>
             ${res ? `<div class="resultado-badge resultado-badge--${jscEsc(res)}">${jscEsc(resLabel)}</div>` : ''}
           </div>
-          <button class="jogo-share-btn" data-jogo="${jscEsc(jData)}" title="Partilhar resultado">&#8679;</button>
+          <button class="jogo-share-btn" data-jogo="${jscEsc(jData)}" aria-label="Partilhar resultado" title="Partilhar resultado"><span aria-hidden="true">&#8679;</span></button>
         </div>`;
     }).join('');
 
