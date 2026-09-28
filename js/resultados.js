@@ -2,99 +2,14 @@
 // RESULTADOS & CLASSIFICAÇÃO — JS
 // =============================================
 
-const DADOS = {
-  'Sub-17': {
-    competicao: 'Campeonato Distrital AF Algarve – Iniciados',
-    classificacao: [
-      { equipa: 'Olhanense',          abrev: 'OLH', j:14, v:11, e:1, d:2, gm:38, gs:14, forma:'VVVEV' },
-      { equipa: 'Sport Campinense',   abrev: 'SC',  j:14, v:10, e:2, d:2, gm:35, gs:16, forma:'VVVVE', sc:true },
-      { equipa: 'SC Farense',         abrev: 'FAR', j:14, v: 9, e:2, d:3, gm:29, gs:17, forma:'VEVDV' },
-      { equipa: 'FC Quarteira',       abrev: 'QUA', j:14, v: 8, e:2, d:4, gm:27, gs:20, forma:'VVDDE' },
-      { equipa: 'CD Tavira',          abrev: 'TAV', j:14, v: 7, e:3, d:4, gm:24, gs:22, forma:'EVVDV' },
-      { equipa: 'GD Silves',          abrev: 'SIL', j:14, v: 5, e:4, d:5, gm:20, gs:23, forma:'DEDVV' },
-      { equipa: 'CD Portimão',        abrev: 'POR', j:14, v: 4, e:3, d:7, gm:18, gs:28, forma:'VDDDD' },
-      { equipa: 'AD Lagoa',           abrev: 'LAG', j:14, v: 3, e:2, d:9, gm:14, gs:33, forma:'DDDVD' },
-      { equipa: 'FC Moncarapacho',    abrev: 'MON', j:14, v: 2, e:1, d:11,gm:10, gs:40, forma:'DDDDD' },
-    ],
-    jogos: [
-      { id:1,  casa:'Sport Campinense', fora:'CD Tavira',         gcasa:3, gfora:1, data:'2026-03-22', hora:'10:30', local:'Est. Municipal Loulé', estado:'Realizado' },
-      { id:2,  casa:'GD Silves',        fora:'Sport Campinense',  gcasa:1, gfora:2, data:'2026-03-15', hora:'15:00', local:'Campo de Silves',      estado:'Realizado' },
-      { id:3,  casa:'Sport Campinense', fora:'FC Quarteira',      gcasa:2, gfora:2, data:'2026-03-08', hora:'10:30', local:'Est. Municipal Loulé', estado:'Realizado' },
-      { id:4,  casa:'Olhanense',        fora:'Sport Campinense',  gcasa:2, gfora:1, data:'2026-03-01', hora:'11:00', local:'Estádio José Artur Lavado', estado:'Realizado' },
-      { id:5,  casa:'Sport Campinense', fora:'SC Farense',        gcasa:4, gfora:0, data:'2026-02-22', hora:'10:30', local:'Est. Municipal Loulé', estado:'Realizado' },
-      { id:6,  casa:'Sport Campinense', fora:'Olhanense',         gcasa:null, gfora:null, data:'2026-04-12', hora:'10:30', local:'Est. Municipal Loulé', estado:'Agendado' },
-      { id:7,  casa:'CD Portimão',      fora:'Sport Campinense',  gcasa:null, gfora:null, data:'2026-04-19', hora:'11:00', local:'Campo Municipal Portimão', estado:'Agendado' },
-      { id:8,  casa:'Sport Campinense', fora:'AD Lagoa',          gcasa:null, gfora:null, data:'2026-04-26', hora:'10:30', local:'Est. Municipal Loulé', estado:'Agendado' },
-    ],
-  },
-  'Sub-15': {
-    competicao: 'Campeonato Distrital AF Algarve – Infantis',
-    classificacao: [
-      { equipa: 'Sport Campinense',   abrev: 'SC',  j:12, v:9,  e:2, d:1, gm:32, gs:12, forma:'VVVVV', sc:true },
-      { equipa: 'SC Farense',         abrev: 'FAR', j:12, v:8,  e:2, d:2, gm:28, gs:14, forma:'VVEVD' },
-      { equipa: 'FC Quarteira',       abrev: 'QUA', j:12, v:7,  e:1, d:4, gm:23, gs:18, forma:'VVDVD' },
-      { equipa: 'Olhanense',          abrev: 'OLH', j:12, v:6,  e:2, d:4, gm:22, gs:20, forma:'VDVVE' },
-      { equipa: 'CD Tavira',          abrev: 'TAV', j:12, v:5,  e:2, d:5, gm:18, gs:21, forma:'DVEVV' },
-      { equipa: 'GD Silves',          abrev: 'SIL', j:12, v:3,  e:3, d:6, gm:15, gs:25, forma:'DEDDD' },
-      { equipa: 'AD Lagoa',           abrev: 'LAG', j:12, v:2,  e:1, d:9, gm:10, gs:38, forma:'DDDDD' },
-    ],
-    jogos: [
-      { id:10, casa:'Sport Campinense', fora:'FC Quarteira',     gcasa:3, gfora:0, data:'2026-03-29', hora:'09:00', local:'Est. Municipal Loulé', estado:'Realizado' },
-      { id:11, casa:'SC Farense',       fora:'Sport Campinense', gcasa:1, gfora:2, data:'2026-03-22', hora:'09:30', local:'Estádio Algarve',      estado:'Realizado' },
-      { id:12, casa:'Sport Campinense', fora:'Olhanense',        gcasa:null, gfora:null, data:'2026-04-12', hora:'09:00', local:'Est. Municipal Loulé', estado:'Agendado' },
-      { id:13, casa:'CD Tavira',        fora:'Sport Campinense', gcasa:null, gfora:null, data:'2026-04-26', hora:'10:00', local:'Campo Municipal Tavira', estado:'Agendado' },
-    ],
-  },
-  'Sub-13': {
-    competicao: 'Campeonato Distrital AF Algarve – Benjamins',
-    classificacao: [
-      { equipa: 'FC Quarteira',       abrev: 'QUA', j:10, v:8,  e:1, d:1, gm:28, gs:10, forma:'VVVVV' },
-      { equipa: 'Sport Campinense',   abrev: 'SC',  j:10, v:7,  e:2, d:1, gm:25, gs:11, forma:'VVVEV', sc:true },
-      { equipa: 'Olhanense',          abrev: 'OLH', j:10, v:6,  e:1, d:3, gm:20, gs:15, forma:'VVDVD' },
-      { equipa: 'GD Silves',          abrev: 'SIL', j:10, v:4,  e:2, d:4, gm:15, gs:18, forma:'VDDEV' },
-      { equipa: 'CD Tavira',          abrev: 'TAV', j:10, v:3,  e:1, d:6, gm:12, gs:22, forma:'DVDDD' },
-      { equipa: 'AD Lagoa',           abrev: 'LAG', j:10, v:1,  e:1, d:8, gm: 8, gs:32, forma:'DDDDD' },
-    ],
-    jogos: [
-      { id:20, casa:'Sport Campinense', fora:'GD Silves',        gcasa:4, gfora:1, data:'2026-03-29', hora:'09:00', local:'Est. Municipal Loulé', estado:'Realizado' },
-      { id:21, casa:'Olhanense',        fora:'Sport Campinense', gcasa:1, gfora:1, data:'2026-03-22', hora:'09:00', local:'Est. José Artur Lavado', estado:'Realizado' },
-      { id:22, casa:'Sport Campinense', fora:'FC Quarteira',     gcasa:null, gfora:null, data:'2026-04-19', hora:'09:00', local:'Est. Municipal Loulé', estado:'Agendado' },
-    ],
-  },
-  'Sub-19': {
-    competicao: 'Campeonato Nacional Juvenis – Série Sul',
-    classificacao: [
-      { equipa: 'SL Benfica B',       abrev: 'SLB', j:16, v:13, e:2, d:1, gm:42, gs:12, forma:'VVVVV' },
-      { equipa: 'Sporting CP B',      abrev: 'SCP', j:16, v:12, e:2, d:2, gm:38, gs:14, forma:'VVVEV' },
-      { equipa: 'SC Farense',         abrev: 'FAR', j:16, v:9,  e:3, d:4, gm:28, gs:20, forma:'VVDVV' },
-      { equipa: 'Olhanense',          abrev: 'OLH', j:16, v:7,  e:3, d:6, gm:24, gs:24, forma:'EVVDD' },
-      { equipa: 'Sport Campinense',   abrev: 'SC',  j:16, v:6,  e:3, d:7, gm:22, gs:26, forma:'VDDVE', sc:true },
-      { equipa: 'FC Portimão',        abrev: 'POR', j:16, v:5,  e:2, d:9, gm:18, gs:30, forma:'DVDDV' },
-      { equipa: 'GD Silves',          abrev: 'SIL', j:16, v:3,  e:2, d:11,gm:14, gs:38, forma:'DDDDD' },
-      { equipa: 'CD Tavira',          abrev: 'TAV', j:16, v:2,  e:1, d:13,gm:10, gs:46, forma:'DDDDD' },
-    ],
-    jogos: [
-      { id:30, casa:'Sport Campinense', fora:'SC Farense',       gcasa:1, gfora:2, data:'2026-03-28', hora:'15:00', local:'Est. Municipal Loulé', estado:'Realizado' },
-      { id:31, casa:'Olhanense',        fora:'Sport Campinense', gcasa:1, gfora:1, data:'2026-03-21', hora:'15:00', local:'Est. José Artur Lavado', estado:'Realizado' },
-      { id:32, casa:'Sport Campinense', fora:'SL Benfica B',     gcasa:null, gfora:null, data:'2026-04-11', hora:'15:00', local:'Est. Municipal Loulé', estado:'Agendado' },
-      { id:33, casa:'FC Portimão',      fora:'Sport Campinense', gcasa:null, gfora:null, data:'2026-04-18', hora:'15:00', local:'Campo Municipal Portimão', estado:'Agendado' },
-    ],
-  },
-  'Sub-11': {
-    competicao: 'Torneio Distrital AF Algarve – Traquinas',
-    classificacao: [
-      { equipa: 'Sport Campinense',   abrev: 'SC',  j:8, v:6, e:1, d:1, gm:22, gs: 8, forma:'VVVVV', sc:true },
-      { equipa: 'FC Quarteira',       abrev: 'QUA', j:8, v:5, e:2, d:1, gm:18, gs:10, forma:'VVEVV' },
-      { equipa: 'GD Silves',          abrev: 'SIL', j:8, v:4, e:1, d:3, gm:14, gs:12, forma:'VVDDV' },
-      { equipa: 'CD Tavira',          abrev: 'TAV', j:8, v:2, e:2, d:4, gm:10, gs:18, forma:'DEVDD' },
-      { equipa: 'AD Lagoa',           abrev: 'LAG', j:8, v:1, e:0, d:7, gm: 5, gs:21, forma:'DDDDD' },
-    ],
-    jogos: [
-      { id:40, casa:'Sport Campinense', fora:'GD Silves',    gcasa:3, gfora:1, data:'2026-03-29', hora:'10:00', local:'Est. Municipal Loulé', estado:'Realizado' },
-      { id:41, casa:'Sport Campinense', fora:'AD Lagoa',     gcasa:null, gfora:null, data:'2026-04-12', hora:'10:00', local:'Est. Municipal Loulé', estado:'Agendado' },
-    ],
-  },
-};
+// Estavam aqui classificações completas de cinco escalões e vinte e um
+// jogos com resultados inventados, a nomear doze clubes reais. Saíram: um
+// resultado desportivo que não aconteceu não pode ser publicado, e muito
+// menos em nome de outros clubes.
+//
+// A página lê agora só o que for importado ou publicado pelo painel. Sem
+// isso, mostra "Sem resultados registados".
+const DADOS = {};
 
 // ---- HELPERS ---- //
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];

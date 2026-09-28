@@ -10,52 +10,22 @@
   const DEFAULT_ESCALOES = [
     { id: 7, nome: 'Sub-5',  designacao: 'Pré-Petizes', faixa: 'Até 5 anos',   atletas: 0, treinador: '', treinos: '', descricao: 'Para as crianças mais novas, focado no lúdico.', destaque: false },
     { id: 8, nome: 'Sub-7',  designacao: 'Petizes',     faixa: '6 a 7 anos',   atletas: 0, treinador: '', treinos: '', descricao: 'Fase de sensibilização, sem cariz competitivo oficial.', destaque: false },
-    { id: 1, nome: 'Sub-9',  designacao: 'Traquinas',    faixa: '8 a 9 anos',   atletas: 18, treinador: 'Ricardo Matos',  treinos: '3ª, 5ª — 17h30',      descricao: 'Actividades essencialmente recreativas e festas do futebol.', destaque: false },
-    { id: 2, nome: 'Sub-11', designacao: 'Benjamins',  faixa: '10 a 11 anos', atletas: 22, treinador: 'Jorge Pinto',    treinos: '3ª, 5ª, Sáb — 17h30', descricao: 'Início de uma organização competitiva mais regrada.', destaque: false },
-    { id: 3, nome: 'Sub-13', designacao: 'Infantis',  faixa: '12 a 13 anos', atletas: 26, treinador: 'Nuno Carvalho',  treinos: '2ª, 4ª, 6ª — 18h00',  descricao: 'Passagem para modelos de jogo mais complexos.', destaque: true  },
-    { id: 4, nome: 'Sub-15', designacao: 'Iniciados',   faixa: '14 a 15 anos', atletas: 24, treinador: 'Filipe Gomes',   treinos: '2ª, 4ª, 6ª — 18h30',  descricao: 'Escalão importante de transição e consolidação técnica e táctica.', destaque: false },
-    { id: 5, nome: 'Sub-17', designacao: 'Juvenis',  faixa: '16 a 17 anos', atletas: 20, treinador: 'André Monteiro', treinos: '2ª a 6ª — 18h30',     descricao: 'Fase altamente competitiva de alto rendimento jovem.', destaque: false },
-    { id: 6, nome: 'Sub-19', designacao: 'Juniores',    faixa: '18 a 19 anos', atletas: 18, treinador: 'Sérgio Fonseca', treinos: '2ª a 6ª — 19h00',     descricao: 'O último patamar da formação antes do salto para o futebol sénior ou sub-23.', destaque: false },
+    { id: 1, nome: 'Sub-9',  designacao: 'Traquinas',    faixa: '8 a 9 anos',   atletas: 0, treinador: '', treinos: '',      descricao: 'Actividades essencialmente recreativas e festas do futebol.', destaque: false },
+    { id: 2, nome: 'Sub-11', designacao: 'Benjamins',  faixa: '10 a 11 anos', atletas: 0, treinador: '', treinos: '', descricao: 'Início de uma organização competitiva mais regrada.', destaque: false },
+    { id: 3, nome: 'Sub-13', designacao: 'Infantis',  faixa: '12 a 13 anos', atletas: 0, treinador: '', treinos: '',  descricao: 'Passagem para modelos de jogo mais complexos.', destaque: true  },
+    { id: 4, nome: 'Sub-15', designacao: 'Iniciados',   faixa: '14 a 15 anos', atletas: 0, treinador: '', treinos: '',  descricao: 'Escalão importante de transição e consolidação técnica e táctica.', destaque: false },
+    { id: 5, nome: 'Sub-17', designacao: 'Juvenis',  faixa: '16 a 17 anos', atletas: 0, treinador: '', treinos: '',     descricao: 'Fase altamente competitiva de alto rendimento jovem.', destaque: false },
+    { id: 6, nome: 'Sub-19', designacao: 'Juniores',    faixa: '18 a 19 anos', atletas: 0, treinador: '', treinos: '',     descricao: 'O último patamar da formação antes do salto para o futebol sénior ou sub-23.', destaque: false },
   ];
 
-  const DEFAULT_ATLETAS = [
-    { id: 1,  nome: 'Diogo Nunes Marques',    escalao: 'Sub-9',  posicao: '',             dataNascimento: '2018-04-13', encarregado: 'Carlos Nunes',   telefone: '+351 915 678 901', estado: 'Activo'   },
-    { id: 2,  nome: 'Rui Sousa Carvalho',      escalao: 'Sub-11', posicao: 'Médio',        dataNascimento: '2016-07-22', encarregado: 'Ana Carvalho',   telefone: '+351 962 789 012', estado: 'Activo'   },
-    { id: 3,  nome: 'Luís Tavares Brito',      escalao: 'Sub-11', posicao: 'Avançado',     dataNascimento: '2015-11-08', encarregado: 'Mário Tavares',  telefone: '+351 935 111 222', estado: 'Activo'   },
-    { id: 4,  nome: 'Rafael Castro Mota',      escalao: 'Sub-13', posicao: 'Extremo',      dataNascimento: '2014-03-30', encarregado: 'Paulo Castro',   telefone: '+351 912 222 333', estado: 'Activo'   },
-    { id: 5,  nome: 'Gonçalo Pires Mendes',    escalao: 'Sub-13', posicao: 'Central',      dataNascimento: '2013-09-15', encarregado: 'Sofia Pires',    telefone: '+351 963 333 444', estado: 'Activo'   },
-    { id: 6,  nome: 'Tiago Ferreira Lima',     escalao: 'Sub-15', posicao: 'Defesa Dir.',  dataNascimento: '2012-06-01', encarregado: 'Jorge Ferreira', telefone: '+351 934 444 555', estado: 'Activo'   },
-    { id: 7,  nome: 'Bernardo Santos Cruz',    escalao: 'Sub-15', posicao: 'Médio Def.',   dataNascimento: '2011-02-19', encarregado: 'Carla Santos',   telefone: '+351 916 555 666', estado: 'Activo'   },
-    { id: 8,  nome: 'Francisco Lopes Vaz',     escalao: 'Sub-17', posicao: 'Avançado',     dataNascimento: '2010-08-05', encarregado: 'António Lopes',  telefone: '+351 962 666 777', estado: 'Activo'   },
-    { id: 9,  nome: 'Martim Costa Azevedo',    escalao: 'Sub-17', posicao: 'Extremo',      dataNascimento: '2009-12-27', encarregado: 'Rosa Costa',     telefone: '+351 933 777 888', estado: 'Activo'   },
-    { id: 10, nome: 'Pedro Gomes Rodrigues',   escalao: 'Sub-19', posicao: 'Guarda-redes', dataNascimento: '2008-05-14', encarregado: '-',              telefone: '+351 916 901 234', estado: 'Activo'   },
-    { id: 11, nome: 'Rodrigo Alves Monteiro',  escalao: 'Sub-19', posicao: 'Médio',        dataNascimento: '2007-10-03', encarregado: '-',              telefone: '+351 915 888 999', estado: 'Inactivo' },
-  ];
+  // Estava aqui um conjunto de registos inventados, usado quando não havia
+  // nada publicado. Saiu: o site não mostra pessoas, jogos nem resultados
+  // que não existem. Sem dados publicados, a página diz que ainda não há.
+  const DEFAULT_ATLETAS = [];
 
-  const DEFAULT_TREINADORES = [
-    { id: 1, nome: 'Carlos Mendes',   cargo: 'Director Técnico',          escalao: 'Todos',  telefone: '+351 912 000 001', email: 'carlos@campinense.pt', desde: '2020', ativo: true  },
-    { id: 2, nome: 'João Silva',      cargo: 'Treinador Principal',       escalao: 'Sub-17', telefone: '+351 912 000 002', email: 'joao@campinense.pt',   desde: '2021', ativo: true  },
-    { id: 3, nome: 'Pedro Alves',     cargo: 'Treinador Principal',       escalao: 'Sub-15', telefone: '+351 912 000 003', email: 'pedro@campinense.pt',  desde: '2022', ativo: true  },
-    { id: 4, nome: 'Rui Costa',       cargo: 'Treinador Adjunto',         escalao: 'Sub-17', telefone: '+351 912 000 004', email: 'rui@campinense.pt',    desde: '2023', ativo: true  },
-    { id: 5, nome: 'Ana Rodrigues',   cargo: 'Preparadora Física',        escalao: 'Todos',  telefone: '+351 912 000 005', email: 'ana@campinense.pt',    desde: '2022', ativo: true  },
-    { id: 6, nome: 'Miguel Ferreira', cargo: 'Treinador de Guarda-redes', escalao: 'Todos',  telefone: '+351 912 000 006', email: 'miguel@campinense.pt', desde: '2021', ativo: true  },
-    { id: 7, nome: 'Sofia Lopes',     cargo: 'Psicóloga',                 escalao: 'Todos',  telefone: '+351 912 000 007', email: 'sofia@campinense.pt',  desde: '2023', ativo: true  },
-    { id: 8, nome: 'António Gomes',   cargo: 'Team Manager',              escalao: 'Sub-19', telefone: '+351 912 000 008', email: 'antonio@campinense.pt',desde: '2020', ativo: false },
-  ];
+  const DEFAULT_TREINADORES = [];
 
-  const DEFAULT_JOGOS = [
-    { id: 1,  escalao: 'Sub-17', casa: 'Sport Campinense', fora: 'CD Tavira',        gcasa: 3,    gfora: 1,    data: '2026-03-22', hora: '10:30', local: 'Est. Municipal Loulé',     estado: 'Realizado' },
-    { id: 2,  escalao: 'Sub-17', casa: 'GD Silves',        fora: 'Sport Campinense', gcasa: 1,    gfora: 2,    data: '2026-03-15', hora: '15:00', local: 'Campo de Silves',          estado: 'Realizado' },
-    { id: 3,  escalao: 'Sub-17', casa: 'Sport Campinense', fora: 'Olhanense',        gcasa: null, gfora: null, data: '2026-04-12', hora: '10:30', local: 'Est. Municipal Loulé',     estado: 'Agendado'  },
-    { id: 4,  escalao: 'Sub-17', casa: 'CD Portimão',      fora: 'Sport Campinense', gcasa: null, gfora: null, data: '2026-04-19', hora: '11:00', local: 'Campo Municipal Portimão', estado: 'Agendado'  },
-    { id: 5,  escalao: 'Sub-15', casa: 'Sport Campinense', fora: 'FC Quarteira',     gcasa: 3,    gfora: 0,    data: '2026-03-29', hora: '09:00', local: 'Est. Municipal Loulé',     estado: 'Realizado' },
-    { id: 6,  escalao: 'Sub-15', casa: 'SC Farense',       fora: 'Sport Campinense', gcasa: 1,    gfora: 2,    data: '2026-03-22', hora: '09:30', local: 'Estádio Algarve',          estado: 'Realizado' },
-    { id: 7,  escalao: 'Sub-15', casa: 'Sport Campinense', fora: 'Olhanense',        gcasa: null, gfora: null, data: '2026-04-12', hora: '09:00', local: 'Est. Municipal Loulé',     estado: 'Agendado'  },
-    { id: 8,  escalao: 'Sub-13', casa: 'Sport Campinense', fora: 'GD Silves',        gcasa: 4,    gfora: 1,    data: '2026-03-29', hora: '09:00', local: 'Est. Municipal Loulé',     estado: 'Realizado' },
-    { id: 9,  escalao: 'Sub-13', casa: 'Sport Campinense', fora: 'FC Quarteira',     gcasa: null, gfora: null, data: '2026-04-19', hora: '09:00', local: 'Est. Municipal Loulé',     estado: 'Agendado'  },
-    { id: 10, escalao: 'Sub-19', casa: 'Sport Campinense', fora: 'SC Farense',       gcasa: 1,    gfora: 2,    data: '2026-03-28', hora: '15:00', local: 'Est. Municipal Loulé',     estado: 'Realizado' },
-    { id: 11, escalao: 'Sub-19', casa: 'Sport Campinense', fora: 'SL Benfica B',     gcasa: null, gfora: null, data: '2026-04-11', hora: '15:00', local: 'Est. Municipal Loulé',     estado: 'Agendado'  },
-  ];
+  const DEFAULT_JOGOS = [];
 
   // --------------------------------------------------
   // DATA LOADERS

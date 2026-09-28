@@ -559,11 +559,17 @@ document.addEventListener('DOMContentLoaded', () => {
           { pos: 'MEI', label: 'Médios' },
           { pos: 'AVA', label: 'Avançados' },
         ];
+        // Os grupos chegam escondidos e o aviso "Plantel a atualizar"
+        // visível: sem plantel publicado não se mostram quatro cabeçalhos
+        // vazios. Cada grupo que for preenchido aparece, e o aviso sai.
+        let algumPreenchido = false;
         grupos.forEach(({ pos, label }) => {
           const container = document.getElementById('sg' + pos);
           if (!container) return;
           const jogadores = plantel.filter(j => j.posicao === pos);
-          if (!jogadores.length) { container.closest('.squad-group').style.display = 'none'; return; }
+          if (!jogadores.length) { container.closest('.squad-group').hidden = true; return; }
+          container.closest('.squad-group').hidden = false;
+          algumPreenchido = true;
           const initStr = j => j.nome.split(' ').slice(0,2).map(p => p[0]).join('').toUpperCase();
           const avatarStyle = j => j.foto
             ? `style="background-image:url('${j.foto}');background-size:cover;background-position:center;font-size:0"`
@@ -576,6 +582,8 @@ document.addEventListener('DOMContentLoaded', () => {
               <span class="player-card__pos player-card__pos--${jscEsc(j.posicao)}">${jscEsc(j.posicaoFull || j.posicao)}</span>
             </div>`).join('');
         });
+        const aviso = document.getElementById('plantelVazio');
+        if (aviso && algumPreenchido) aviso.hidden = true;
       }
     }
   } catch(e) {}

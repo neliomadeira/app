@@ -4636,6 +4636,35 @@ html[data-theme="dark"] .cal-day__num { color: #cbd5e1; }
 
 
 /* =====================================================
+   SECÇÃO SEM CONTEÚDO PUBLICADO
+   =====================================================
+   Quando ainda não há nada publicado, a secção diz isso em vez de ficar
+   um buraco — e em vez de mostrar conteúdo de exemplo, que foi o que
+   esteve cá até agora.
+
+   Ocupa a largura toda da grelha onde estiver, e muda de cor conforme o
+   fundo: sobre as secções escuras o cinzento do texto secundário não se
+   leria.
+   ===================================================== */
+.jsc-vazio {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 48px 24px;
+  margin: 0;
+  color: var(--gray-mid);
+  font-size: 0.95rem;
+  border: 2px dashed #e2e8f0;
+  border-radius: var(--radius-lg);
+}
+.section--dark .jsc-vazio {
+  color: rgba(255,255,255,0.78);
+  border-color: rgba(255,255,255,0.18);
+}
+html[data-theme="dark"] .jsc-vazio {
+  border-color: rgba(255,255,255,0.14);
+}
+
+/* =====================================================
    REVELAÇÃO AO PERCORRER
    =====================================================
    Cartões e blocos entram a aparecer quando chegam ao ecrã. O estado

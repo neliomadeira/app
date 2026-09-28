@@ -3,19 +3,10 @@
 // =============================================
 (function () {
 
-  const DEFAULT_ATLETAS = [
-    { id: 1,  nome: 'Diogo Nunes Marques',    escalao: 'Sub-9',  posicao: '',             numero: '', dataNascimento: '2018-04-13', encarregado: 'Carlos Nunes',   telefone: '+351 915 678 901', estado: 'Activo',   foto: '' },
-    { id: 2,  nome: 'Rui Sousa Carvalho',      escalao: 'Sub-11', posicao: 'Médio',        numero: '', dataNascimento: '2016-07-22', encarregado: 'Ana Carvalho',   telefone: '+351 962 789 012', estado: 'Activo',   foto: '' },
-    { id: 3,  nome: 'Luís Tavares Brito',      escalao: 'Sub-11', posicao: 'Avançado',     numero: '', dataNascimento: '2015-11-08', encarregado: 'Mário Tavares',  telefone: '+351 935 111 222', estado: 'Activo',   foto: '' },
-    { id: 4,  nome: 'Rafael Castro Mota',      escalao: 'Sub-13', posicao: 'Extremo',      numero: '', dataNascimento: '2014-03-30', encarregado: 'Paulo Castro',   telefone: '+351 912 222 333', estado: 'Activo',   foto: '' },
-    { id: 5,  nome: 'Gonçalo Pires Mendes',    escalao: 'Sub-13', posicao: 'Central',      numero: '', dataNascimento: '2013-09-15', encarregado: 'Sofia Pires',    telefone: '+351 963 333 444', estado: 'Activo',   foto: '' },
-    { id: 6,  nome: 'Tiago Ferreira Lima',     escalao: 'Sub-15', posicao: 'Defesa Dir.',  numero: '', dataNascimento: '2012-06-01', encarregado: 'Jorge Ferreira', telefone: '+351 934 444 555', estado: 'Activo',   foto: '' },
-    { id: 7,  nome: 'Bernardo Santos Cruz',    escalao: 'Sub-15', posicao: 'Médio Def.',   numero: '', dataNascimento: '2011-02-19', encarregado: 'Carla Santos',   telefone: '+351 916 555 666', estado: 'Activo',   foto: '' },
-    { id: 8,  nome: 'Francisco Lopes Vaz',     escalao: 'Sub-17', posicao: 'Avançado',     numero: '', dataNascimento: '2010-08-05', encarregado: 'António Lopes',  telefone: '+351 962 666 777', estado: 'Activo',   foto: '' },
-    { id: 9,  nome: 'Martim Costa Azevedo',    escalao: 'Sub-17', posicao: 'Extremo',      numero: '', dataNascimento: '2009-12-27', encarregado: 'Rosa Costa',     telefone: '+351 933 777 888', estado: 'Activo',   foto: '' },
-    { id: 10, nome: 'Pedro Gomes Rodrigues',   escalao: 'Sub-19', posicao: 'Guarda-redes', numero: '', dataNascimento: '2008-05-14', encarregado: '-',              telefone: '+351 916 901 234', estado: 'Activo',   foto: '' },
-    { id: 11, nome: 'Rodrigo Alves Monteiro',  escalao: 'Sub-19', posicao: 'Médio',        numero: '', dataNascimento: '2007-10-03', encarregado: '-',              telefone: '+351 915 888 999', estado: 'Inactivo', foto: '' },
-  ];
+  // Estava aqui um conjunto de registos inventados, usado quando não havia
+  // nada publicado. Saiu: o site não mostra pessoas, jogos nem resultados
+  // que não existem. Sem dados publicados, a página diz que ainda não há.
+  const DEFAULT_ATLETAS = [];
 
   const DEFAULT_ESCALOES = [
     { id: 7, nome: 'Sub-5',  designacao: 'Pré-Petizes' },

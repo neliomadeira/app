@@ -18,14 +18,10 @@
     'Outro':   '#94a3b8',
   };
 
-  const DEFAULTS = [
-    { id:1, titulo:'Jogo Sub-17 vs FC Tavira',   tipo:'Jogo',    escalao:'Sub-17', data:'2026-04-12', hora:'15:00', local:'Est. Municipal Loulé',  descricao:'Campeonato Distrital AF Algarve', estado:'Agendado' },
-    { id:2, titulo:'Torneio Primavera Sub-9',     tipo:'Torneio', escalao:'Sub-9',  data:'2026-04-13', hora:'09:00', local:'Campo Sintético Loulé',  descricao:'Torneio festivo de Primavera',    estado:'Agendado' },
-    { id:3, titulo:'Reunião de Pais Sub-13',      tipo:'Reunião', escalao:'Sub-13', data:'2026-04-15', hora:'19:00', local:'Sede do Clube',           descricao:'Reunião trimestral com encarregados', estado:'Agendado' },
-    { id:4, titulo:'Treino físico Sub-15',        tipo:'Treino',  escalao:'Sub-15', data:'2026-04-10', hora:'17:30', local:'Est. Municipal Loulé',  descricao:'Treino de preparação física',     estado:'Agendado' },
-    { id:5, titulo:'Jogo Sub-19 vs Portimonense', tipo:'Jogo',    escalao:'Sub-19', data:'2026-04-11', hora:'17:00', local:'Est. Municipal Loulé',  descricao:'Liga Nacional Juvenis',           estado:'Agendado' },
-    { id:6, titulo:'Festa de Encerramento',       tipo:'Outro',   escalao:'Todos',  data:'2026-06-15', hora:'18:00', local:'Pavilhão Municipal',     descricao:'Festa de fim de época',           estado:'Agendado' },
-  ];
+  // Estava aqui um conjunto de registos inventados, usado quando não havia
+  // nada publicado. Saiu: o site não mostra pessoas, jogos nem resultados
+  // que não existem. Sem dados publicados, a página diz que ainda não há.
+  const DEFAULTS = [];
 
   // ---- State ----
   const today = new Date();

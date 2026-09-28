@@ -8,46 +8,25 @@
   // Default data (mirrors admin/js/data.js)
   // ------------------------------------------------------------------
 
-  var DEFAULT_NOTICIAS = [
-    { id: 1, titulo: 'Sub-17 vence Olhanense e avança às meias-finais do Campeonato Distrital', categoria: 'Resultado', data: '2026-04-05', publicada: true,  resumo: '' },
-    { id: 2, titulo: 'Testes de seleção abertos para Sub-13 e Sub-15',                          categoria: 'Seleção',   data: '2026-03-28', publicada: true,  resumo: '' },
-    { id: 3, titulo: 'Três atletas da formação convocados para a Seleção Regional do Algarve',  categoria: 'Conquista', data: '2026-03-15', publicada: true,  resumo: '' },
-    { id: 4, titulo: 'Parceria com Escola Secundária de Loulé reforça formação académica',      categoria: 'Clube',     data: '2026-03-05', publicada: false, resumo: '' },
-  ];
+  // Estava aqui um conjunto de registos inventados, usado quando não havia
+  // nada publicado. Saiu: o site não mostra pessoas, jogos nem resultados
+  // que não existem. Sem dados publicados, a página diz que ainda não há.
+  var DEFAULT_NOTICIAS = [];
 
-  var DEFAULT_ATLETAS = [
-    { id: 1,  nome: 'Diogo Nunes Marques',       escalao: 'Sub-9',  posicao: ''              },
-    { id: 2,  nome: 'Rui Sousa Carvalho',         escalao: 'Sub-11', posicao: 'Médio'         },
-    { id: 3,  nome: 'Luís Tavares Brito',         escalao: 'Sub-11', posicao: 'Avançado'      },
-    { id: 4,  nome: 'Rafael Castro Mota',         escalao: 'Sub-13', posicao: 'Extremo'       },
-    { id: 5,  nome: 'Gonçalo Pires Mendes',       escalao: 'Sub-13', posicao: 'Central'       },
-    { id: 6,  nome: 'Tiago Ferreira Lima',        escalao: 'Sub-15', posicao: 'Defesa Dir.'   },
-    { id: 7,  nome: 'Bernardo Santos Cruz',       escalao: 'Sub-15', posicao: 'Médio Def.'    },
-    { id: 8,  nome: 'Francisco Lopes Vaz',        escalao: 'Sub-17', posicao: 'Avançado'      },
-    { id: 9,  nome: 'Martim Costa Azevedo',       escalao: 'Sub-17', posicao: 'Extremo'       },
-    { id: 10, nome: 'Pedro Gomes Rodrigues',      escalao: 'Sub-19', posicao: 'Guarda-redes'  },
-    { id: 11, nome: 'Rodrigo Alves Monteiro',     escalao: 'Sub-19', posicao: 'Médio'         },
-  ];
+  var DEFAULT_ATLETAS = [];
 
   var DEFAULT_ESCALOES = [
     { id: 7, nome: 'Sub-5',  designacao: 'Pré-Petizes', faixa: 'Até 5 anos',   treinador: '' },
     { id: 8, nome: 'Sub-7',  designacao: 'Petizes',     faixa: '6 a 7 anos',   treinador: '' },
-    { id: 1, nome: 'Sub-9',  designacao: 'Traquinas',   faixa: '8 a 9 anos',   treinador: 'Ricardo Matos'  },
-    { id: 2, nome: 'Sub-11', designacao: 'Benjamins', faixa: '10 a 11 anos', treinador: 'Jorge Pinto'    },
-    { id: 3, nome: 'Sub-13', designacao: 'Infantis', faixa: '12 a 13 anos', treinador: 'Nuno Carvalho'  },
-    { id: 4, nome: 'Sub-15', designacao: 'Iniciados',  faixa: '14 a 15 anos', treinador: 'Filipe Gomes'   },
-    { id: 5, nome: 'Sub-17', designacao: 'Juvenis', faixa: '16 a 17 anos', treinador: 'André Monteiro' },
-    { id: 6, nome: 'Sub-19', designacao: 'Juniores',   faixa: '18 a 19 anos', treinador: 'Sérgio Fonseca' },
+    { id: 1, nome: 'Sub-9',  designacao: 'Traquinas',   faixa: '8 a 9 anos',   treinador: ''  },
+    { id: 2, nome: 'Sub-11', designacao: 'Benjamins', faixa: '10 a 11 anos', treinador: ''    },
+    { id: 3, nome: 'Sub-13', designacao: 'Infantis', faixa: '12 a 13 anos', treinador: ''  },
+    { id: 4, nome: 'Sub-15', designacao: 'Iniciados',  faixa: '14 a 15 anos', treinador: ''   },
+    { id: 5, nome: 'Sub-17', designacao: 'Juvenis', faixa: '16 a 17 anos', treinador: '' },
+    { id: 6, nome: 'Sub-19', designacao: 'Juniores',   faixa: '18 a 19 anos', treinador: '' },
   ];
 
-  var DEFAULT_AGENDA = [
-    { id: 1, titulo: 'Jogo Sub-17 vs FC Tavira',   tipo: 'Jogo',    escalao: 'Sub-17', data: '2026-04-12', hora: '15:00', local: 'Est. Municipal Loulé',   descricao: 'Campeonato Distrital AF Algarve'     },
-    { id: 2, titulo: 'Torneio Primavera Sub-9',     tipo: 'Torneio', escalao: 'Sub-9',  data: '2026-04-13', hora: '09:00', local: 'Campo Sintético Loulé',   descricao: 'Torneio festivo de Primavera'         },
-    { id: 3, titulo: 'Reunião de Pais Sub-13',      tipo: 'Reunião', escalao: 'Sub-13', data: '2026-04-15', hora: '19:00', local: 'Sede do Clube',            descricao: 'Reunião trimestral com encarregados' },
-    { id: 4, titulo: 'Treino físico Sub-15',        tipo: 'Treino',  escalao: 'Sub-15', data: '2026-04-10', hora: '17:30', local: 'Est. Municipal Loulé',   descricao: 'Treino de preparação física'          },
-    { id: 5, titulo: 'Jogo Sub-19 vs Portimonense', tipo: 'Jogo',    escalao: 'Sub-19', data: '2026-04-11', hora: '17:00', local: 'Est. Municipal Loulé',   descricao: 'Liga Nacional Juvenis'                },
-    { id: 6, titulo: 'Festa de Encerramento',       tipo: 'Outro',   escalao: 'Todos',  data: '2026-06-15', hora: '18:00', local: 'Pavilhão Municipal',      descricao: 'Festa de fim de época'                },
-  ];
+  var DEFAULT_AGENDA = [];
 
   var DEFAULT_HISTORIA = [
     { id: 1, ano: 1947, titulo: 'Fundação do Clube',
@@ -115,16 +94,7 @@
     { id: 15, competicao: '2.ª Divisão Nacional de Ténis de Mesa', escalao: 'Equipa', ano: 2012, observacao: 'Subida de divisão (2011/12)' },
   ];
 
-  var DEFAULT_TREINADORES = [
-    { id: 1, nome: 'Carlos Mendes',   cargo: 'Director Técnico',          escalao: 'Todos'  },
-    { id: 2, nome: 'João Silva',      cargo: 'Treinador Principal',       escalao: 'Sub-17' },
-    { id: 3, nome: 'Pedro Alves',     cargo: 'Treinador Principal',       escalao: 'Sub-15' },
-    { id: 4, nome: 'Rui Costa',       cargo: 'Treinador Adjunto',         escalao: 'Sub-17' },
-    { id: 5, nome: 'Ana Rodrigues',   cargo: 'Preparadora Física',        escalao: 'Todos'  },
-    { id: 6, nome: 'Miguel Ferreira', cargo: 'Treinador de Guarda-redes', escalao: 'Todos'  },
-    { id: 7, nome: 'Sofia Lopes',     cargo: 'Psicóloga',                 escalao: 'Todos'  },
-    { id: 8, nome: 'António Gomes',   cargo: 'Team Manager',              escalao: 'Sub-19' },
-  ];
+  var DEFAULT_TREINADORES = [];
 
   // ------------------------------------------------------------------
   // Helpers
