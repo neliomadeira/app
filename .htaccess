@@ -11,16 +11,33 @@
 Options -Indexes
 
 # Block sensitive file types (data JSON, configs, dumps)
+#
+# As duas sintaxes de propósito, como em data/.htaccess e tools/.htaccess:
+# a de cima é do Apache 2.4, a de baixo do 2.2. Sem a segunda, num
+# servidor que não anuncie o mod_authz_core — é o caso do LiteSpeed, que
+# entende as duas sintaxes mas não aparece com esse módulo na lista — o
+# bloco inteiro era ignorado e o data/db.json ficava legível por qualquer
+# pessoa. Onde o mod_authz_core existe, a segunda nunca é lida.
 <FilesMatch "\.(env|json|log|sql|bak|sh|bat)$">
   <IfModule mod_authz_core.c>
     Require all denied
   </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
 </FilesMatch>
 # ...but the PWA manifest must stay public (blocking it breaks the
-# service worker install: cache.addAll fails on any 403)
+# service worker install: cache.addAll fails on any 403).
+# A excepção tem de existir nas duas sintaxes, senão o manifesto ficava
+# bloqueado justamente nos servidores onde a regra de cima não se aplica.
 <Files "manifest.json">
   <IfModule mod_authz_core.c>
     Require all granted
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Allow from all
   </IfModule>
 </Files>
 
