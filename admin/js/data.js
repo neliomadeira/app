@@ -63,12 +63,12 @@ const DEMO_DB = {
   ],
 
   senioresInfo: {
-    temporada: '2025/2026',
-    liga: 'Campeonato de Portugal — Série F',
+    temporada: '2026/2027',
+    liga: 'Competições da AF Algarve',
     treinador: '',
     treinos: '3ª, 5ª e 6ª — 20h00',
-    estadio: 'Estádio Municipal de Loulé',
-    descricao: 'A equipa principal do Sport Campinense de Loulé disputa o Campeonato de Portugal, o terceiro escalão do futebol português.',
+    estadio: 'Campo Municipal N.º 2 - Loulé',
+    descricao: 'A equipa sénior do J.S. Campinense representa o clube nas competições organizadas pela AF Algarve.',
   },
 
   seniores: [],

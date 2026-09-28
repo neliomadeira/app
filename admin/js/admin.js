@@ -4236,7 +4236,7 @@ const TEMPLATES_EVENTO = {
     tipo: 'Jogo',
     titulo: '[Escalão] vs [Adversário]',
     hora: '10:00',
-    local: 'Estádio Municipal de Loulé',
+    local: 'Campo Municipal N.º 2 - Loulé',
     descricao: 'Jogo em casa. Entrada livre para todos os adeptos.',
   },
   jogoFora: {
@@ -4257,7 +4257,7 @@ const TEMPLATES_EVENTO = {
     tipo: 'Torneio',
     titulo: 'Torneio [Nome]',
     hora: '09:00',
-    local: 'Estádio Municipal de Loulé',
+    local: 'Campo Municipal N.º 2 - Loulé',
     descricao: 'Torneio inter-clubes. Mais informações em breve.',
   },
   reuniaoPais: {
