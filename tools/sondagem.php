@@ -1,31 +1,47 @@
 <?php
 // =====================================================
-// SONDAGEM AO ALOJAMENTO — só leitura
+// SONDAGEM AO ALOJAMENTO — só leitura, e um teste de escrita
+// controlado, dentro da própria pasta
 // =====================================================
-// Responde às perguntas de que a decisão de arquitetura precisa, sem
-// alterar coisa nenhuma: não escreve ficheiros, não cria tabelas, não
-// muda configuração, não instala nada. Todas as verificações de escrita
-// são perguntas — `is_writable()` — e não escritas.
+// Serve para saber o que o alojamento permite, ANTES de lá pôr o site
+// novo. Não precisa do site instalado: é um ficheiro solto, que corre
+// sozinho e não carrega nada do projeto.
+//
+// O QUE FAZ
+//   - lê a configuração do PHP: versão, extensões, limites, sessões;
+//   - lê o que o servidor web diz de si;
+//   - cria um ficheiro temporário DENTRO DA PRÓPRIA PASTA, lê-o e
+//     apaga-o a seguir. É a única escrita, e serve para responder à
+//     única pergunta que não se responde de outra maneira: o processo
+//     PHP consegue escrever ficheiros?
+//   - diz com que utilizador o PHP corre, e de quem são as pastas. É
+//     isso que distingue "a minha conta escreve" de "o PHP escreve".
+//
+// O QUE NÃO FAZ
+//   - não toca no site publicado, seja ele qual for;
+//   - não abre ligação a nenhuma base de dados;
+//   - não lê ficheiros do site, nem de configuração, nem de WordPress;
+//   - não escreve fora da pasta onde está;
+//   - não envia nada para lado nenhum.
 //
 // COMO USAR
-//   1. abra este ficheiro e escreva uma senha na linha JSC_SONDA_SENHA;
-//   2. envie-o para a raiz do site;
-//   3. abra https://campinense.pt/tools/sondagem.php?senha=A_SUA_SENHA
-//   4. guarde a página (Ctrl+S) ou copie o texto;
-//   5. APAGUE O FICHEIRO DO SERVIDOR.
-//
-// Sem senha certa não mostra nada: esta informação não deve ficar à vista
-// de quem passe pelo endereço.
+//   1. escreva uma senha na linha JSC_SONDA_SENHA, aqui em baixo;
+//   2. crie uma pasta nova no alojamento, por exemplo /sonda-jsc/;
+//   3. ponha lá este ficheiro, e só este;
+//   4. abra https://o-seu-dominio/sonda-jsc/sondagem.php?senha=A_SUA_SENHA
+//   5. copie o resultado;
+//   6. apague a pasta.
 // =====================================================
 
 const JSC_SONDA_SENHA = '';   // <<< escreva aqui uma senha antes de enviar
 
 header('Content-Type: text/plain; charset=utf-8');
 header('X-Robots-Tag: noindex, nofollow');
+header('Cache-Control: no-store');
 
 if (JSC_SONDA_SENHA === '') {
     http_response_code(403);
-    exit("Abra o ficheiro e escreva uma senha na linha JSC_SONDA_SENHA antes de o usar.\n");
+    exit("Abra este ficheiro num editor e escreva uma senha na linha JSC_SONDA_SENHA.\n");
 }
 if (!isset($_GET['senha']) || !hash_equals(JSC_SONDA_SENHA, (string)$_GET['senha'])) {
     http_response_code(403);
@@ -33,130 +49,135 @@ if (!isset($_GET['senha']) || !hash_equals(JSC_SONDA_SENHA, (string)$_GET['senha
 }
 
 function linha($rotulo, $valor) { printf("%-34s %s\n", $rotulo, $valor); }
-function titulo($t) { echo "\n", $t, "\n", str_repeat('-', 62), "\n"; }
-function simNao($v) { return $v ? 'sim' : 'NÃO'; }
+function titulo($t) { echo "\n", $t, "\n", str_repeat('-', 64), "\n"; }
+function simNao($v) { return $v ? 'sim' : 'NAO'; }
 
-echo "SONDAGEM AO ALOJAMENTO — Juventude Sport Campinense\n";
+$aqui = __DIR__;
+
+echo "SONDAGEM AO ALOJAMENTO — J.S. Campinense\n";
 echo date('c'), "\n";
+echo "Esta pagina nao altera o site nem a base de dados.\n";
 
-titulo('PHP');
-linha('versão', PHP_VERSION);
-linha('como corre (SAPI)', PHP_SAPI);
+// =====================================================
+titulo('1. O PHP CONSEGUE ESCREVER FICHEIROS?');
+// =====================================================
+// A pergunta que decide a arquitetura. Responde-se escrevendo mesmo, e
+// nao a perguntar ao sistema: is_writable() engana-se com ACLs, com
+// open_basedir e com sistemas de ficheiros so de leitura.
+//
+// A escrita e feita aqui, nesta pasta, que e uma pasta criada da mesma
+// maneira que a futura pasta do site tera de ser. E apagada a seguir.
+$nome = $aqui . DIRECTORY_SEPARATOR . 'sonda-escrita-' . bin2hex(random_bytes(6)) . '.txt';
+$conteudo = 'teste de escrita ' . date('c');
+
+$escreveu = @file_put_contents($nome, $conteudo);
+if ($escreveu === false) {
+    linha('escrever um ficheiro', 'NAO — ' . (error_get_last()['message'] ?? 'sem detalhe'));
+    linha('  conclusao', 'o PHP NAO escreve nesta pasta');
+} else {
+    linha('escrever um ficheiro', 'sim (' . $escreveu . ' bytes)');
+    $lido = @file_get_contents($nome);
+    linha('voltar a ler o que escreveu', $lido === $conteudo ? 'sim' : 'NAO');
+    $dono = function_exists('posix_getpwuid') && function_exists('fileowner')
+        ? (posix_getpwuid(fileowner($nome))['name'] ?? '?') : '?';
+    linha('dono do ficheiro criado', $dono);
+    linha('permissoes do ficheiro criado', substr(sprintf('%o', fileperms($nome)), -4));
+    $apagou = @unlink($nome);
+    linha('apagar o ficheiro', $apagou ? 'sim — nao ficou nada' : 'NAO — APAGUE-O A MAO');
+    linha('  conclusao', 'o PHP escreve e apaga ficheiros nesta pasta');
+}
+
+// =====================================================
+titulo('2. COM QUE UTILIZADOR CORRE O PHP');
+// =====================================================
+// E aqui que se ve se "a minha conta escreve" e o mesmo que "o PHP
+// escreve". Se o PHP correr com o utilizador da conta (suPHP, FPM, CGI),
+// e o mesmo. Se correr com um utilizador do servidor (mod_php: www-data,
+// nobody, apache), nao e.
+$utilizador = function_exists('posix_getpwuid') && function_exists('posix_geteuid')
+    ? (posix_getpwuid(posix_geteuid())['name'] ?? '?')
+    : (get_current_user() ?: '?');
+linha('utilizador do PHP', $utilizador);
+linha('como o PHP corre (SAPI)', PHP_SAPI);
+$pistas = [
+    'fpm-fcgi' => 'FPM — corre com o utilizador da conta',
+    'cgi-fcgi' => 'CGI/suPHP — corre com o utilizador da conta',
+    'litespeed'=> 'LiteSpeed — normalmente com o utilizador da conta',
+    'apache2handler' => 'mod_php — corre com o utilizador do servidor, NAO com o da conta',
+];
+linha('  o que isso quer dizer', $pistas[PHP_SAPI] ?? '(sem regra conhecida para este modo)');
+
+$donoPasta = function_exists('posix_getpwuid') ? (posix_getpwuid(fileowner($aqui))['name'] ?? '?') : '?';
+linha('dono desta pasta', $donoPasta);
+linha('permissoes desta pasta', substr(sprintf('%o', fileperms($aqui)), -4));
+linha('o PHP e o dono desta pasta?', simNao($utilizador === $donoPasta && $utilizador !== '?'));
+
+// =====================================================
+titulo('3. PHP');
+// =====================================================
+linha('versao', PHP_VERSION);
 linha('sistema', PHP_OS_FAMILY);
 linha('64 bits', simNao(PHP_INT_SIZE === 8));
 
-titulo('Extensões de que o projeto precisa');
+titulo('4. EXTENSOES DE QUE O PROJETO PRECISA');
 $precisa = [
-    'json'      => 'ler e gravar o conteúdo publicado',
-    'mbstring'  => 'texto em português nas ferramentas',
-    'dom'       => 'filtro de HTML das notícias e textos legais',
+    'json'      => 'gravar e ler o conteudo publicado',
+    'mbstring'  => 'texto em portugues nas ferramentas',
+    'dom'       => 'filtro de HTML das noticias e textos legais',
     'libxml'    => 'idem',
-    'session'   => 'autenticação do painel',
+    'session'   => 'autenticacao do painel',
     'openssl'   => 'https e hashes',
     'fileinfo'  => 'validar imagens enviadas',
-    'curl'      => 'importações (opcional, há alternativa)',
-    'pdo_mysql' => 'base de dados (opcional hoje)',
+    'curl'      => 'importacoes (opcional)',
+    'pdo_mysql' => 'base de dados (so a partir da Fase D)',
     'mysqli'    => 'base de dados (alternativa)',
-    'zip'       => 'cópias de segurança (opcional)',
+    'zip'       => 'copias de seguranca (opcional)',
     'gd'        => 'redimensionar imagens (opcional)',
-    'intl'      => 'datas e ordenação (opcional)',
 ];
 foreach ($precisa as $ext => $porque) {
-    linha($ext, (extension_loaded($ext) ? 'sim' : 'NÃO') . '   — ' . $porque);
+    linha($ext, (extension_loaded($ext) ? 'sim' : 'NAO') . '   — ' . $porque);
 }
 
-titulo('Limites');
-foreach (['memory_limit','max_execution_time','post_max_size','upload_max_filesize',
-          'max_input_vars','default_socket_timeout'] as $k) {
+titulo('5. LIMITES');
+foreach (['memory_limit', 'max_execution_time', 'post_max_size',
+          'upload_max_filesize', 'max_input_vars'] as $k) {
     linha($k, ini_get($k));
 }
 linha('allow_url_fopen', simNao(ini_get('allow_url_fopen')));
-linha('open_basedir', ini_get('open_basedir') ?: '(sem restrição)');
+linha('open_basedir', ini_get('open_basedir') ?: '(sem restricao)');
 $desativadas = trim((string)ini_get('disable_functions'));
-linha('funções desativadas', $desativadas === '' ? '(nenhuma)' : $desativadas);
+linha('funcoes desativadas', $desativadas === '' ? '(nenhuma)' : $desativadas);
 
-titulo('Sessões');
+titulo('6. SESSOES (a autenticacao do painel depende disto)');
 linha('handler', ini_get('session.save_handler'));
 $sp = ini_get('session.save_path') ?: sys_get_temp_dir();
-linha('pasta das sessões', $sp);
-linha('pasta escrita pelo PHP', simNao(is_writable(explode(';', $sp)[count(explode(';', $sp)) - 1])));
-linha('cookie só por https', simNao(ini_get('session.cookie_secure')));
+$partes = explode(';', $sp);
+$ultimo = trim((string)end($partes));
+linha('pasta das sessoes', $sp);
+linha('o PHP escreve nessa pasta', simNao(@is_writable($ultimo)));
+linha('cookie so por https', simNao(ini_get('session.cookie_secure')));
 linha('cookie fora do JavaScript', simNao(ini_get('session.cookie_httponly')));
-linha('gc_maxlifetime', ini_get('session.gc_maxlifetime'));
 
-titulo('Servidor web');
-linha('software', $_SERVER['SERVER_SOFTWARE'] ?? '(não diz)');
+titulo('7. SERVIDOR WEB');
+linha('software', $_SERVER['SERVER_SOFTWARE'] ?? '(nao diz)');
 linha('protocolo', $_SERVER['SERVER_PROTOCOL'] ?? '?');
 linha('https neste pedido', simNao(!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'));
 linha('X-Forwarded-Proto', $_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '(nenhum)');
-linha('raiz do site', $_SERVER['DOCUMENT_ROOT'] ?? '?');
 if (function_exists('apache_get_modules')) {
-    $mods = apache_get_modules();
-    foreach (['mod_rewrite','mod_headers','mod_deflate','mod_expires','mod_setenvif',
-              'mod_include','mod_authz_core','mod_php','mod_mime'] as $m) {
-        linha('  ' . $m, simNao(in_array($m, $mods, true)));
+    foreach (['mod_rewrite', 'mod_headers', 'mod_deflate', 'mod_expires',
+              'mod_setenvif', 'mod_include', 'mod_authz_core'] as $m) {
+        linha('  ' . $m, simNao(in_array($m, apache_get_modules(), true)));
     }
 } else {
-    linha('lista de módulos', '(não acessível a partir do PHP — normal em FPM/CGI)');
+    linha('lista de modulos', '(o PHP nao a ve neste modo — normal em FPM/CGI)');
 }
+linha('o .htaccess desta pasta e lido', file_exists($aqui . '/.htaccess')
+    ? 'ha um .htaccess aqui' : '(nao pus nenhum .htaccess para testar)');
 
-titulo('O .htaccess está a ser lido?');
-// Se estas regras estivessem a ser ignoradas, o pedido a este ficheiro
-// teria chegado na mesma; o que se pode confirmar daqui é que existe.
-$raiz = rtrim($_SERVER['DOCUMENT_ROOT'] ?? dirname(__DIR__), '/');
-foreach (['/.htaccess', '/data/.htaccess', '/api/config.php', '/data/db.json'] as $f) {
-    linha($f, is_file($raiz . $f) ? 'existe' : 'não existe');
-}
-echo "\nPara confirmar as regras a sério, abra estes endereços no browser\n";
-echo "e anote o código de resposta (espera-se 403, 403, 200, 404):\n";
-echo "  /data/db.json      → deve dar 403\n";
-echo "  /api/schema.sql    → deve dar 403\n";
-echo "  /manifest.json     → deve dar 200\n";
-echo "  /nao-existe-xyz    → deve dar 404\n";
+titulo('8. BASE DE DADOS');
+linha('ligacao', 'NAO tentada — esta sondagem nao toca na base de dados');
+linha('  onde ver a versao', 'painel do alojamento > MySQL / phpMyAdmin');
 
-titulo('O PHP pode gerar HTML e gravá-lo?');
-// Só perguntas. Nada é escrito.
-$alvos = [
-    'raiz do site'      => $raiz,
-    'pasta data/'       => $raiz . '/data',
-    'pasta do projeto'  => dirname(__DIR__),
-];
-foreach ($alvos as $rotulo => $caminho) {
-    if (!is_dir($caminho)) { linha($rotulo, '(não existe: ' . $caminho . ')'); continue; }
-    linha($rotulo, 'escrita pelo PHP: ' . simNao(is_writable($caminho)) . '   ' . $caminho);
-}
-linha('index.html na raiz', is_file($raiz . '/index.html')
-    ? ('escrita pelo PHP: ' . simNao(is_writable($raiz . '/index.html')))
-    : '(não existe — o site ainda não está aqui)');
-linha('utilizador do PHP', function_exists('posix_getpwuid') && function_exists('posix_geteuid')
-    ? (posix_getpwuid(posix_geteuid())['name'] ?? '?') : get_current_user());
-
-titulo('Base de dados');
-if (is_file(__DIR__ . '/../api/config.local.php')) {
-    // Lê a versão e mais nada. Não cria, não altera, não apaga.
-    $antes = get_defined_vars();
-    require __DIR__ . '/../api/config.local.php';
-    $temConst = defined('DB_HOST') && defined('DB_NAME') && defined('DB_USER');
-    if ($temConst && extension_loaded('pdo_mysql')) {
-        try {
-            $pdo = new PDO('mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4',
-                DB_USER, defined('DB_PASS') ? DB_PASS : '',
-                [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT => 5]);
-            linha('ligação', 'ok');
-            linha('versão', $pdo->query('SELECT VERSION()')->fetchColumn());
-            linha('codificação', $pdo->query("SELECT @@character_set_database")->fetchColumn());
-            $n = $pdo->query('SHOW TABLES')->rowCount();
-            linha('tabelas existentes', $n);
-        } catch (Throwable $e) {
-            linha('ligação', 'falhou — ' . $e->getMessage());
-        }
-    } else {
-        linha('credenciais', $temConst ? 'existem, mas falta pdo_mysql' : 'não definidas em config.local.php');
-    }
-} else {
-    linha('api/config.local.php', 'não existe — sem credenciais para testar');
-}
-
-titulo('Fim');
-echo "Esta página não alterou nada no servidor.\n";
-echo "APAGUE ESTE FICHEIRO DO SERVIDOR depois de copiar o resultado.\n";
+titulo('FIM');
+echo "Nada foi alterado: o unico ficheiro criado foi o do teste, e foi apagado.\n";
+echo "APAGUE AGORA a pasta onde pos este ficheiro.\n";
