@@ -1,0 +1,13 @@
+# A pasta tools/ é de desenvolvimento e de diagnóstico: o encaminhador do
+# servidor local, o guião de validação, a sondagem ao alojamento, a página
+# de auditoria das notícias. Nada disto é para ser servido pela web.
+#
+# Em produção fica fechada. Em desenvolvimento não muda nada: nem o
+# servidor embutido do PHP nem o Live Server leem .htaccess.
+<IfModule mod_authz_core.c>
+  Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+  Order allow,deny
+  Deny from all
+</IfModule>
