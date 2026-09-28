@@ -543,10 +543,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const rawInfo = localStorage.getItem('db_seniores_info');
     if (rawInfo) {
       const info = JSON.parse(rawInfo);
+      // Cada campo aparece se tiver valor e desaparece se for apagado no
+      // painel. Antes, apagar um campo deixava ficar o que estivesse
+      // escrito no HTML — e o site continuava a mostrar o valor antigo.
       const fields = { seniorLiga: 'liga', seniorTemporada: 'temporada', seniorTreinos: 'treinos', seniorEstadio: 'estadio' };
       Object.entries(fields).forEach(([id, key]) => {
         const el = document.getElementById(id);
-        if (el && info[key]) el.textContent = info[key];
+        if (!el) return;
+        const item = el.closest('.senior-info__item');
+        const valor = (info[key] || '').toString().trim();
+        el.textContent = valor;
+        if (item) item.hidden = valor === '';
       });
     }
     const rawPlantel = localStorage.getItem('db_seniores');

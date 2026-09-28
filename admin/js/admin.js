@@ -2367,8 +2367,8 @@ function renderEscaloes() {
         </div>
       </div>
       <div class="escalao-treinador">
-        <strong>Treinador:</strong> ${jscEsc(e.treinador)}<br />
-        <strong>Treinos:</strong> ${jscEsc(e.treinos)}
+        <strong>Treinador:</strong> ${e.treinador ? jscEsc(e.treinador) : '<em style="color:#94a3b8">por preencher</em>'}<br />
+        <strong>Treinos:</strong> ${e.treinos ? jscEsc(e.treinos) : '<em style="color:#94a3b8">por preencher</em>'}
       </div>
       ${e.descricao ? `<div class="escalao-desc">${jscEsc(e.descricao)}</div>` : ''}
       <div style="display:flex;gap:6px;margin-top:10px">
@@ -2406,7 +2406,7 @@ window.editEscalao = function(idx) {
       <div class="modal-field"><label>Treinador responsável</label>
         <input class="form-input" id="eTreinador" value="${jscEsc(e.treinador)}" /></div>
       <div class="modal-field"><label>Horário de treinos</label>
-        <input class="form-input" id="eTreinos" value="${jscEsc(e.treinos)}" placeholder="Ex: Seg, Qua e Sex 17h" /></div>
+        <input class="form-input" id="eTreinos" value="${jscEsc(e.treinos)}" placeholder="Dias e hora dos treinos" /></div>
     </div>
     <div class="modal-field"><label>Descrição (aparece no site)</label>
       <textarea class="form-input" id="eDesc" rows="3">${jscEsc(e.descricao || '')}</textarea></div>
@@ -5445,7 +5445,7 @@ function editModalidade(idx) {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div class="modal-field">
           <label class="form-label">Horários de treino</label>
-          <input class="form-input" type="text" id="mTreinos" value="${jscEsc(m.treinos || '')}" placeholder="3ª e 5ª — 19h00" />
+          <input class="form-input" type="text" id="mTreinos" value="${jscEsc(m.treinos || '')}" placeholder="Dias e hora dos treinos" />
         </div>
         <div class="modal-field">
           <label class="form-label">Local</label>

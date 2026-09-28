@@ -4636,6 +4636,21 @@ html[data-theme="dark"] .cal-day__num { color: #cbd5e1; }
 
 
 /* =====================================================
+   ESCONDIDO É ESCONDIDO
+   =====================================================
+   O atributo `hidden` do HTML vale `display: none`, mas essa regra vem da
+   folha de estilos do browser e qualquer `display` escrito aqui ganha-lhe.
+   Como várias peças deste site são `display: flex`, havia elementos
+   marcados como escondidos que continuavam à vista: o horário de treinos
+   da equipa sénior, e no painel as secções que o perfil não pode usar.
+
+   Uma regra, e o atributo passa a valer em todo o lado.
+   ===================================================== */
+[hidden] {
+  display: none !important;
+}
+
+/* =====================================================
    SECÇÃO SEM CONTEÚDO PUBLICADO
    =====================================================
    Quando ainda não há nada publicado, a secção diz isso em vez de ficar

@@ -15,9 +15,9 @@
   }
 
   var DEFAULT_MODALIDADES = [
-    { id:1, nome:'Kickboxing', icone:'🥊', descricao:'Artes marciais de impacto que combinam técnicas de boxe e karaté. Aberto a todas as idades e níveis, com grupos adaptados.', treinos:'3ª e 5ª — 19h00', local:'Pavilhão Municipal de Loulé', responsavel:'', ativo:true, imagem:'', imagemPos:'center' },
-    { id:2, nome:'Judo',       icone:'🥋', descricao:'Arte marcial japonesa focada em técnicas de projeção e imobilização. Desenvolve disciplina, respeito e autoconfiança desde criança.', treinos:'2ª, 4ª e 6ª — 18h30', local:'Pavilhão Municipal de Loulé', responsavel:'', ativo:true, imagem:'', imagemPos:'center' },
-    { id:3, nome:'Futsal',     icone:'⚽', descricao:'Futebol em espaço reduzido que potencia a técnica e velocidade de decisão. Escalões de formação com competição distrital.', treinos:'2ª e 4ª — 20h00', local:'Pavilhão Desportivo de Loulé', responsavel:'', ativo:true, imagem:'', imagemPos:'center' },
+    { id:1, nome:'Kickboxing', icone:'🥊', descricao:'Artes marciais de impacto que combinam técnicas de boxe e karaté. Aberto a todas as idades e níveis, com grupos adaptados.', treinos:'', local:'Pavilhão Municipal de Loulé', responsavel:'', ativo:true, imagem:'', imagemPos:'center' },
+    { id:2, nome:'Judo',       icone:'🥋', descricao:'Arte marcial japonesa focada em técnicas de projeção e imobilização. Desenvolve disciplina, respeito e autoconfiança desde criança.', treinos:'', local:'Pavilhão Municipal de Loulé', responsavel:'', ativo:true, imagem:'', imagemPos:'center' },
+    { id:3, nome:'Futsal',     icone:'⚽', descricao:'Futebol em espaço reduzido que potencia a técnica e velocidade de decisão. Escalões de formação com competição distrital.', treinos:'', local:'Pavilhão Desportivo de Loulé', responsavel:'', ativo:true, imagem:'', imagemPos:'center' },
   ];
 
   let posts = []; // partilhado com openPost

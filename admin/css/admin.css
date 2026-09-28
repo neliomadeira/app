@@ -1257,6 +1257,19 @@ ul { list-style: none; }
 .tpl-menu button:hover { background: #f0f7ff; color: #003B8E; }
 
 /* =============================================
+   ESCONDIDO É ESCONDIDO
+   =============================================
+   O `hidden` do HTML vale `display: none`, mas vem da folha de estilos do
+   browser e perde para qualquer `display` escrito aqui. Os itens do menu
+   lateral são `display: flex`, e por isso as secções que o perfil não pode
+   usar continuavam à vista — o servidor recusava-as, mas o painel
+   mostrava-as na mesma.
+   ============================================= */
+[hidden] {
+  display: none !important;
+}
+
+/* =============================================
    FOCO VISÍVEL
    =============================================
    O mesmo anel de dois tons do site público: amarelo por dentro, azul por
