@@ -125,13 +125,27 @@
     document.getElementById('escHeroBadge').textContent = escalao.nome;
     document.getElementById('escHeroTitle').textContent = escalao.designacao;
     document.getElementById('escHeroFaixa').textContent = escalao.faixa;
-    document.getElementById('escStatAtletas').textContent = escalao.atletas || 0;
+    // Só se mostra o que existir de facto. Sem contagem publicada não se
+    // escreve "0 atletas", que soa a escalão sem ninguém quando o que se
+    // passa é que o número ainda não foi introduzido.
+    function estatistica(idBloco, idValor, valor) {
+      var bloco = document.getElementById(idBloco);
+      var span  = document.getElementById(idValor);
+      if (!bloco || !span) return;
+      if (valor === '' || valor === null || valor === undefined) { bloco.hidden = true; return; }
+      span.textContent = valor;
+      bloco.hidden = false;
+    }
 
-    var treinos = escalao.treinos || '—';
+    var nAtletas = parseInt(escalao.atletas, 10);
+    estatistica('escStatAtletasBloco', 'escStatAtletas',
+      (isNaN(nAtletas) || nAtletas <= 0) ? '' : nAtletas);
+
+    var treinos = (escalao.treinos || '').trim();
     if (treinos.length > 22) treinos = treinos.substring(0, 20) + '…';
-    document.getElementById('escStatTreinos').textContent = treinos;
+    estatistica('escStatTreinosBloco', 'escStatTreinos', treinos);
 
-    document.getElementById('escStatTreinador').textContent = escalao.treinador || '—';
+    estatistica('escStatTreinadorBloco', 'escStatTreinador', (escalao.treinador || '').trim());
   }
 
   // --------------------------------------------------

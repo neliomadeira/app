@@ -98,10 +98,13 @@
         <h1 class="escalao-hero__title" id="escHeroTitle">Iniciados</h1>
         <p class="escalao-hero__faixa" id="escHeroFaixa">16 a 17 anos</p>
       </div>
+      <!-- Cada número nasce escondido e só aparece quando houver valor a
+           mostrar. Um "0 Atletas" ou um travessão em vez do treinador não
+           informa ninguém: diz apenas que ainda não foi preenchido. -->
       <div class="escalao-hero__stats">
-        <div class="escalao-hero__stat"><span id="escStatAtletas">0</span><label>Atletas</label></div>
-        <div class="escalao-hero__stat"><span id="escStatTreinos">—</span><label>Treinos</label></div>
-        <div class="escalao-hero__stat"><span id="escStatTreinador">—</span><label>Treinador</label></div>
+        <div class="escalao-hero__stat" id="escStatAtletasBloco" hidden><span id="escStatAtletas"></span><label>Atletas</label></div>
+        <div class="escalao-hero__stat" id="escStatTreinosBloco" hidden><span id="escStatTreinos"></span><label>Treinos</label></div>
+        <div class="escalao-hero__stat" id="escStatTreinadorBloco" hidden><span id="escStatTreinador"></span><label>Treinador</label></div>
       </div>
     </div>
 
