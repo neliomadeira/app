@@ -5449,7 +5449,7 @@ function editModalidade(idx) {
         </div>
         <div class="modal-field">
           <label class="form-label">Local</label>
-          <input class="form-input" type="text" id="mLocal" value="${jscEsc(m.local || '')}" placeholder="Pavilhão Municipal" />
+          <input class="form-input" type="text" id="mLocal" value="${jscEsc(m.local || '')}" placeholder="Local dos treinos" />
         </div>
       </div>
       <div class="modal-field">

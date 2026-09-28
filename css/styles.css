@@ -4635,6 +4635,13 @@ html[data-theme="dark"] .cal-day__num { color: #cbd5e1; }
 }
 
 
+/* Caixa de informação da modalidade sem nada dentro: sem horário nem
+   local publicados, não fica uma faixa vazia entre a descrição e a
+   ligação. */
+.modality-card__info:empty {
+  display: none;
+}
+
 /* =====================================================
    ESCONDIDO É ESCONDIDO
    =====================================================

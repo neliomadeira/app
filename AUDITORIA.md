@@ -704,3 +704,54 @@ overflow, erros de consola, recursos em falta e as regras do `.htaccess`:
 ```
 node tools/validar.js --comparar
 ```
+
+---
+
+# PRINCÍPIO — O QUE MUDA DURANTE A ÉPOCA GERE-SE NO PAINEL
+
+Registado a 28 de setembro de 2026, por decisão do clube, para valer nas
+fases seguintes.
+
+**Informação operacional que muda durante a época deve, sempre que
+adequado, ser gerível pelo painel e não exigir alteração manual do
+código.**
+
+Aplica-se, conforme o modelo de dados de cada fase, a: competição, época,
+horários, locais, treinadores, plantéis, jogos, resultados, classificações
+e outras informações desportivas variáveis.
+
+Na prática, três regras que vieram da limpeza de setembro de 2026:
+
+1. **Nada de valores de recurso no código.** Um horário, um local ou um
+   resultado escritos num ficheiro `.js` aparecem no site sem ninguém os
+   ter introduzido, e continuam lá depois de deixarem de ser verdade.
+2. **Campo vazio é campo que não aparece.** Se a informação não foi
+   introduzida, a página não mostra nem um travessão nem um zero: mostra
+   nada, ou diz que ainda não há.
+3. **O que se escreve no painel aparece; o que se apaga desaparece.** O
+   caminho é sempre o mesmo — painel → `data/db.json` → `api/load.php` →
+   página — e tem de funcionar nos dois sentidos.
+
+Isto **não** é autorização para construir estas funcionalidades todas: é o
+critério com que cada uma será construída quando a sua fase chegar.
+
+## Onde isto já está feito
+
+| informação | gerível no painel | campo vazio esconde |
+|---|---|---|
+| competição dos seniores | sim | sim |
+| época | sim | sim |
+| horário de treinos (sénior) | sim | sim |
+| local dos jogos (sénior) | sim | sim |
+| horário e local das modalidades | sim | sim |
+| horário, treinador e nº de atletas dos escalões | sim | sim |
+| notícias, agenda, galeria, vídeos, patrocinadores | sim | sim |
+
+## Onde ainda não está
+
+| informação | estado |
+|---|---|
+| jogos e resultados | importados por ficheiro ou escritos à mão no painel; sem ligação automática |
+| classificações | importadas do scraper da FPF, com o identificador da época a ser editado no código |
+| plantéis | geríveis no painel, mas sem separação por modalidade |
+| dia de jogo (Matchday) | por construir — Fase E |

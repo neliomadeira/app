@@ -57,9 +57,9 @@ const DEMO_DB = {
   agenda: [],
 
   modalidades: [
-    { id:1, nome:'Kickboxing', icone:'🥊', descricao:'Artes marciais de impacto que combinam técnicas de boxe e karaté. Aberto a todas as idades e níveis, com grupos adaptados.', treinos:'', responsavel:'', local:'Pavilhão Municipal de Loulé', ativo:true, imagem:'', imagemPos:'center' },
-    { id:2, nome:'Judo',       icone:'🥋', descricao:'Arte marcial japonesa focada em técnicas de projeção e imobilização. Desenvolve disciplina, respeito e autoconfiança desde criança.', treinos:'', responsavel:'', local:'Pavilhão Municipal de Loulé', ativo:true, imagem:'', imagemPos:'center' },
-    { id:3, nome:'Futsal',     icone:'⚽', descricao:'Futebol em espaço reduzido que potencia a técnica e velocidade de decisão. Escalões de formação com competição distrital.', treinos:'', responsavel:'', local:'Pavilhão Desportivo de Loulé', ativo:true, imagem:'', imagemPos:'center' },
+    { id:1, nome:'Kickboxing', icone:'🥊', descricao:'Artes marciais de impacto que combinam técnicas de boxe e karaté. Aberto a todas as idades e níveis, com grupos adaptados.', treinos:'', responsavel:'', local:'', ativo:true, imagem:'', imagemPos:'center' },
+    { id:2, nome:'Judo',       icone:'🥋', descricao:'Arte marcial japonesa focada em técnicas de projeção e imobilização. Desenvolve disciplina, respeito e autoconfiança desde criança.', treinos:'', responsavel:'', local:'', ativo:true, imagem:'', imagemPos:'center' },
+    { id:3, nome:'Futsal',     icone:'⚽', descricao:'Futebol em espaço reduzido que potencia a técnica e velocidade de decisão. Escalões de formação com competição distrital.', treinos:'', responsavel:'', local:'', ativo:true, imagem:'', imagemPos:'center' },
   ],
 
   senioresInfo: {
