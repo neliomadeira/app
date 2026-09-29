@@ -1272,6 +1272,16 @@ existe fallback**, e não se volta a escrever valores à mão no HTML: um
 literal aqui mostraria informação desatualizada assim que o painel mudasse,
 que é exactamente o defeito que esta decisão fechou.
 
+Há cinco verificações a guardar isto (`barra-base:` no
+`tools/testar-sem-js.js`). Olham **só** para dentro da região
+`seniores-info` da `equipa-principal.html`, antes de qualquer geração, e
+exigem que lá esteja apenas a barra vazia e escondida: sem itens, sem os ids
+dos quatro campos, sem texto visível. Não procuram textos concretos — procuram
+a forma de um valor publicado, para apanharem também um fallback novo com um
+valor que hoje ainda não existe. Não procuram no resto do projeto, onde os
+mesmos textos são placeholders, dados iniciais ou conteúdo de outras páginas.
+Provadas ao contrário: com um dos literais de volta na região, as cinco falham.
+
 Os mesmos três textos continuam a existir noutros sítios, e são outra coisa:
 `placeholder` das caixas do painel (`admin/index.html`), predefinições de
 arranque dos dados (`admin/js/data.js`, `admin/js/admin.js`) e textos de
@@ -1280,7 +1290,7 @@ barra da equipa principal; não foram tocados.
 
 ## Como se verificou
 
-`node tools/testar-sem-js.js` — **331 verificações**. Desta página: barra com
+`node tools/testar-sem-js.js` — **336 verificações**. Desta página: barra com
 os campos preenchidos e sem o vazio; três grupos de posição e nenhum grupo de
 médios; cinco jogadores, sem o inativo; travessão no número em falta;
 iniciais sem fotografia; URL com apóstrofo e parêntesis percent-encoded;

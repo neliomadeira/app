@@ -176,6 +176,44 @@ function testesDeGeracao(raiz, dados) {
     foraDasMarcas(antesEqp, 'equipa-principal.html') !== null
     && BLOCOS['equipa-principal.html'].every((b) => antesEqp.includes(b.ini) && antesEqp.includes(b.fim)));
 
+  // ---- Guarda da fonte única da barra de informação ----------------
+  // Competição, temporada, treinos e local vêm só do db_seniores_info. Em
+  // 7d38e40 saíram do HTML os valores que lá estavam escritos à mão, e esta
+  // verificação existe para não voltarem: um valor aqui reapareceria em
+  // qualquer visita anterior à primeira geração, e ficaria a mostrar o que o
+  // painel já tinha mudado.
+  //
+  // Olha só para dentro da região seniores-info da equipa-principal.html, e
+  // não pelo projeto: os mesmos textos existem legitimamente como placeholder
+  // das caixas do painel, como dados iniciais do Admin e como conteúdo de
+  // outras páginas.
+  //
+  // Também não procura textos concretos — procura a *forma* de um valor
+  // publicado: o item, o sítio onde o valor é escrito (o id de cada campo,
+  // a classe do valor) e qualquer texto visível. Assim apanha um fallback
+  // novo, com um valor que hoje ainda não existe.
+  {
+    const base = dentroDasMarcas(antesEqp, 'equipa-principal.html', 'seniores-info')
+      .replace(/<!--[\s\S]*?-->/g, '');          // comentários não são conteúdo
+    const texto = base.replace(/<[^>]*>/g, '').trim();
+    const idsDosCampos = ['seniorLiga', 'seniorTemporada', 'seniorTreinos', 'seniorEstadio']
+      .filter((id) => base.includes(id));
+
+    verificar('barra-base: a região no repositório é só a barra, vazia',
+      /^\s*<div class="senior-info" id="seniorInfoBar"[^>]*><\/div>\s*$/.test(base),
+      'obtive: ' + JSON.stringify(base.trim().slice(0, 160)));
+    verificar('barra-base: a barra vazia está hidden',
+      /<div class="senior-info" id="seniorInfoBar"[^>]*\shidden[\s>]/.test(base));
+    verificar('barra-base: nenhum item escrito à mão',
+      !base.includes('senior-info__item') && !base.includes('senior-info__val'),
+      'a região não pode trazer itens: o bloco é escrito pela geração ou pelo js/main.js');
+    verificar('barra-base: nenhum campo com valor fixo (competição, temporada, treinos, local)',
+      idsDosCampos.length === 0,
+      'campos escritos à mão na região: ' + idsDosCampos.join(', '));
+    verificar('barra-base: nenhum texto visível antes da geração',
+      texto === '', 'texto encontrado: ' + JSON.stringify(texto.slice(0, 160)));
+  }
+
   escreverDados(raiz, dados);
   let g = gerar(raiz);
   verificar('geração corre sem erro', g.estado === 0, g.saida.trim());
