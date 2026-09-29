@@ -1245,26 +1245,42 @@ JavaScript lhe toca: é texto institucional fixo.
 notícia agendada aparece lá e não aqui. Replicado fielmente, sem alterar a
 regra.
 
-## Fonte única da barra de informação: o que falta
+## Fonte única da barra de informação: fechado
 
 A decisão foi tornar o painel a fonte única de competição, temporada, treinos
 e local, e retirar do HTML os valores duplicados — **depois** de confirmar que
 esses valores existem nos dados persistentes.
 
-**Essa confirmação não é possível a partir do repositório:** o `data/db.json`
-não existe aqui e está ignorado por desenho (é estado de cada servidor). Os
-valores vivem no painel de quem publica.
+Essa confirmação não é possível a partir do repositório: o `data/db.json` não
+existe aqui e está ignorado por desenho (é estado de cada servidor). Os
+valores vivem no painel de quem publica, e só quem lá entra os pode ver. Foi
+verificada por quem tem o painel, e confirmada na própria página: competição,
+temporada e local preenchidos, treinos vazio e por isso ausente.
 
-Por isso os três literais — competição, temporada e local — **continuam no
-HTML** como estado anterior à geração, e não foram removidos. O que já está
-feito: **o bloco gerado lê exclusivamente o painel**, por isso a partir da
-primeira publicação é o painel que manda, e um campo vazio no painel faz o
-item desaparecer. O que falta: apagar os três literais do HTML, quando se
-confirmar que estão no painel.
+Com a confirmação feita, os três literais saíram do HTML. A região
+`seniores-info` fica no repositório como uma barra vazia e escondida:
+
+```html
+<div class="senior-info" id="seniorInfoBar" hidden></div>
+```
+
+A partir daqui, os quatro campos têm **uma única fonte**, o
+`db_seniores_info` do painel, e dois caminhos para chegar à página — a geração
+(`modelos/seniores-info.php`) e, com JavaScript, o `js/main.js`. Um campo
+vazio no painel não produz item; com os quatro vazios não há barra. **Não
+existe fallback**, e não se volta a escrever valores à mão no HTML: um
+literal aqui mostraria informação desatualizada assim que o painel mudasse,
+que é exactamente o defeito que esta decisão fechou.
+
+Os mesmos três textos continuam a existir noutros sítios, e são outra coisa:
+`placeholder` das caixas do painel (`admin/index.html`), predefinições de
+arranque dos dados (`admin/js/data.js`, `admin/js/admin.js`) e textos de
+outras páginas (`resultados.html`, `formacao.html`). Nenhum deles alimenta a
+barra da equipa principal; não foram tocados.
 
 ## Como se verificou
 
-`node tools/testar-sem-js.js` — **328 verificações**. Desta página: barra com
+`node tools/testar-sem-js.js` — **331 verificações**. Desta página: barra com
 os campos preenchidos e sem o vazio; três grupos de posição e nenhum grupo de
 médios; cinco jogadores, sem o inativo; travessão no número em falta;
 iniciais sem fotografia; URL com apóstrofo e parêntesis percent-encoded;

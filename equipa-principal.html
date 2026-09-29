@@ -110,39 +110,14 @@
 
       <!-- Info da equipa -->
       <!-- JSC:seniores-info:inicio -->
-      <div class="senior-info" id="seniorInfoBar">
-        <div class="senior-info__item">
-          <span class="senior-info__icon">&#127942;</span>
-          <div>
-            <span class="senior-info__label">Competição</span>
-            <span class="senior-info__val" id="seniorLiga">Competições da AF Algarve</span>
-          </div>
-        </div>
-        <div class="senior-info__item">
-          <span class="senior-info__icon">&#128197;</span>
-          <div>
-            <span class="senior-info__label">Temporada</span>
-            <span class="senior-info__val" id="seniorTemporada">2026/2027</span>
-          </div>
-        </div>
-        <!-- O horário de treinos é introduzido no painel. Enquanto estiver
-             vazio, este item não aparece: não há horário nenhum escrito no
-             código à espera de ser mostrado. -->
-        <div class="senior-info__item" hidden>
-          <span class="senior-info__icon">&#128337;</span>
-          <div>
-            <span class="senior-info__label">Treinos</span>
-            <span class="senior-info__val" id="seniorTreinos"></span>
-          </div>
-        </div>
-        <div class="senior-info__item">
-          <span class="senior-info__icon">&#128205;</span>
-          <div>
-            <span class="senior-info__label">Local</span>
-            <span class="senior-info__val" id="seniorEstadio">Campo Municipal N.º 2 - Loulé</span>
-          </div>
-        </div>
-      </div>
+      <!-- A barra fica vazia no repositório de propósito. Competição,
+           temporada, treinos e local têm como única fonte o db_seniores_info
+           do painel: o bloco é escrito aqui pela geração (modelos/seniores-info.php)
+           e, com JavaScript, pelo js/main.js. Um campo vazio no painel não
+           produz item, e com os quatro vazios não há barra. Não voltar a pôr
+           valores escritos à mão: seriam um fallback que mostraria informação
+           desatualizada depois de o painel a mudar. -->
+      <div class="senior-info" id="seniorInfoBar" hidden></div>
       <!-- JSC:seniores-info:fim -->
 
       <!-- Plantel por posição -->
