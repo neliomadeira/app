@@ -37,7 +37,7 @@ $gerado = isset($gerado) ? (string)$gerado : '';
         <p class="jsc-vazio">Ainda não existem notícias publicadas.</p>
 <?php else: foreach ($noticias as $n):
         $id    = jsc_esc(urlencode($n['id']));
-        $classe = 'news-card' . ($n['destaque'] ? ' news-card--featured' : '');
+        $classe = 'news-card' . ($n['grande'] ? ' news-card--featured' : '');
         $imgCl  = 'news-card__img' . ($n['imagem'] !== '' ? '' : ' news-card__img--' . $n['variante']);
         $estilo = $n['imagem'] === '' ? '' : ' style="background-image:url(\''
                 . jsc_esc_url_css($n['imagem']) . '\');background-size:'

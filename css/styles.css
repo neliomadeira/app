@@ -1389,6 +1389,18 @@ html.jsc-anima .tl-reveal.tl-visible {
   grid-template-columns: repeat(3, 1fr);
   gap: 24px;
 }
+
+/* Cartões da página de notícias além dos nove primeiros. Com JavaScript,
+   quem os mostra é o botão "Ver mais"; sem JavaScript não há botão, e o
+   <noscript> da própria página mostra-os todos. O conteúdo está sempre no
+   HTML: o que muda é o que se vê.
+
+   Convenção a par desta, sem regra própria aqui: os controlos que só fazem
+   sentido com JavaScript — filtrar, copiar ligação, "Ver mais" — levam a
+   classe .jsc-so-com-js, e é o <noscript> de cada página que os retira. Um
+   botão que não faz nada é pior do que botão nenhum. */
+.news-page__grid .news-page__card--extra { display: none; }
+
 .news-page__empty {
   text-align: center;
   padding: 80px 24px;

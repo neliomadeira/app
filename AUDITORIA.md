@@ -870,3 +870,159 @@ A `noticias.html`, o carrossel da página inicial, o arquivo de notícias, a
 agenda, os resultados, a história, os patrocinadores, a galeria e os vídeos
 continuam a depender de JavaScript. Entram nos blocos seguintes, um a um,
 pelo mesmo mecanismo.
+
+---
+
+# FASE C — ARQUITETURA APROVADA E ORDEM DOS BLOCOS
+
+O piloto das notícias da página inicial provou o mecanismo. O que segue é o
+princípio com que os blocos seguintes são construídos, para não haver duas
+maneiras de fazer a mesma coisa.
+
+## O princípio, em seis regras
+
+1. **Marcas no HTML.** Cada bloco gerado vive entre um par de comentários
+   `<!-- JSC:<nome>:inicio -->` e `<!-- JSC:<nome>:fim -->`. O que está fora
+   não é analisado: é copiado byte a byte, e a geração compara o hash do
+   antes e do depois para o garantir.
+2. **Um modelo por bloco**, em `modelos/`, só com apresentação.
+3. **A leitura é sempre pelo `api/conteudo.php`.** Nenhum modelo lê o
+   `data/db.json` diretamente. É esta a costura que permite trocar a origem
+   por MariaDB na Fase D sem tocar nos modelos.
+4. **Publicar é uma transação com diário** — `api/geracao.php`. Gera para
+   `data/publicacao/novo/`, valida tudo, guarda backup, promove com
+   `rename()`, confirma no destino e só então fecha o diário. Qualquer erro
+   antes da promoção aborta sem tocar na versão pública; uma falha durante a
+   promoção volta atrás; um processo morto a meio é reparado pela publicação
+   seguinte. O conjunto move-se junto: `data/db.json` e as páginas, ou
+   nenhum.
+5. **Contra a dupla renderização**, dois atributos no contentor gerado:
+   `data-gerado` (a data da publicação) e, onde a lista possa mudar sozinha,
+   `data-itens` (quantos itens foram escritos). O JavaScript só desenha no
+   arranque se o que tem for mais recente, ou se a contagem não bater. Tudo
+   o que venha depois — filtrar, "ver mais", voltar de um artigo, o painel a
+   gravar noutro separador — desenha sempre.
+6. **Progressive enhancement, com o CSS a decidir o que se vê.** O conteúdo
+   está todo no HTML. Duas convenções, reutilizáveis:
+   `.jsc-so-com-js` sai da página quando não há JavaScript (um botão que não
+   faz nada é pior do que botão nenhum), e listas longas geram-se completas
+   com uma classe `--extra` que o CSS esconde e o `<noscript>` da página
+   mostra.
+
+## Ordem dos blocos
+
+| # | Bloco | Estado |
+|---|---|---|
+| — | Notícias da página inicial (piloto) | **feito** |
+| 1 | Notícias: página completa e arquivo | **feito** |
+| 2 | Agenda e próximos jogos | por fazer — **precisa da extensão E1** |
+| 3 | Equipa principal | por fazer |
+| 4 | Formação e escalões (grelha) | por fazer |
+| 5 | Patrocinadores | por fazer |
+| 6 | Modalidades (grelha) | por fazer |
+| 7 | Galeria e vídeos | por fazer |
+| 8 | História (com consolidação da fonte) | por fazer |
+| 9 | Institucional e SEO | por fazer |
+| 10 | Extensão E2 do motor (ficheiros por entidade) | por fazer |
+| 11 | Artigos de notícia e modalidades por endereço | por fazer — depende do 10 |
+| 12 | Escalões (sem fichas de atleta) | por fazer — depende do 10 |
+| 13 | Resultados e classificações | por fazer — depende do identificador da época |
+| 14 | Modo de manutenção sem JavaScript | por fazer |
+
+**Extensões do motor ainda não feitas:** **E1**, várias marcas no mesmo
+ficheiro — hoje dois blocos no mesmo ficheiro escreveriam um por cima do
+outro, e a página inicial vai precisar disto no Bloco 2. **E2**, gerar e
+apagar ficheiros por entidade, dentro da mesma transação.
+
+**Fora de âmbito por decisão tomada:** as fichas individuais de atleta
+(`atleta.html`) não são geradas — são dados pessoais de menores, e em HTML
+estático ficariam indexáveis e arquiváveis. O plantel continua a mostrar
+nome e número; a data de nascimento e a ficha individual ficam fora do que é
+publicado.
+
+---
+
+# FASE C — BLOCO 1: A PÁGINA DE NOTÍCIAS SEM JAVASCRIPT
+
+A `noticias.html` chegava vazia: seis esqueletos de carregamento e um
+JavaScript que os substituía a partir do `localStorage`. Sem JavaScript não
+havia uma notícia sequer — e esta é a página com mais conteúdo indexável do
+site.
+
+## O que passou a existir no HTML
+
+Cartão de destaque (categoria, data, título, resumo de 200 caracteres), a
+barra de filtros, a lista **completa** das notícias publicadas — mais as
+agendadas cujo momento já passou — cada uma com imagem, categoria, data,
+tempo de leitura, título, resumo de 130 caracteres e partilha, o estado
+vazio e o botão "Ver mais".
+
+## Sem JavaScript aparecem todas
+
+Com JavaScript continuam a ser nove cartões e um botão "Ver mais", como
+antes. Sem JavaScript não haveria botão que funcionasse, por isso aparecem
+todas: os cartões além dos nove levam a classe `news-page__card--extra`, que
+o `css/styles.css` esconde e o `<noscript>` da página mostra. Pelo mesmo
+caminho saem os controlos que não funcionariam — filtros e copiar ligação.
+
+## Cartões com ligação a sério
+
+O "Ler mais" era um `<span>` com um `addEventListener` no cartão: sem
+JavaScript não havia nada para clicar e com teclado não havia nada para
+alcançar. Passou a ser um `<a href="noticias.html?id=N">`, no elemento que já
+estava desenhado como ligação — sem mudança de aspeto e com acesso pelo
+teclado. Com JavaScript, um ouvinte no contentor intercepta o clique e abre o
+artigo como antes.
+
+**O que este bloco não faz:** o texto integral do artigo continua a ser
+desenhado pelo JavaScript. Sem ele, `noticias.html?id=N` mostra a lista. É o
+Bloco 11, depois da extensão E2 — e as ligações que este bloco gera são
+exatamente os endereços que esse bloco vai redirecionar.
+
+## Notícias agendadas
+
+A página de notícias mostra também as agendadas cujo momento já passou. Um
+bloco gerado congela no momento da publicação, por isso uma notícia que
+vença depois disso não estaria lá. É para isso que serve o `data-itens`: o
+JavaScript conta a sua lista, vê que não bate com a do gerador, e desenha.
+
+## Escape das URLs de imagem
+
+O `jscEscUrlCss()` passou para o `js/html.js`, partilhado por todas as
+páginas, e dá byte a byte o mesmo resultado que o `jsc_esc_url_css()` do
+`api/conteudo.php`. Corrigidos neste bloco os três sítios das notícias que
+metiam o endereço da imagem no atributo sem tratamento
+(`js/noticias.js` no destaque, na grelha e no artigo) e os dois do arquivo em
+sobreposição (`js/main.js`).
+
+**Ficam por corrigir, cada um no seu bloco:** o plantel sénior
+(`js/main.js`, Bloco 3), o carrossel do hero (`js/main.js`), a galeria
+(`js/galeria.js`, Bloco 7) e as publicações da equipa
+(`js/senior-posts.js`, Bloco 3).
+
+## Visibilidade: `hidden`, não `style.display`
+
+O projeto tem `[hidden] { display: none !important }` desde a Fase B. Os
+contentores desta página passaram todos a usar o atributo `hidden`, em vez de
+um `style="display:none"` inline que o JavaScript tinha de limpar. Havia aqui
+um erro à espera: com o bloco gerado, um `style` inline deixado pela vista de
+artigo escondia a barra de filtros para sempre.
+
+## Como se verificou
+
+`node tools/testar-sem-js.js` — **118 verificações**, sobre uma cópia
+temporária e com dados de teste que nunca entram no site: geração das duas
+páginas; lista completa visível sem JavaScript, a 1440 e a 320 px; nove
+visíveis com JavaScript; "Ver mais"; filtro por categoria; `?id=`;
+`?preview=1`; notícia agendada; divergência de `data-itens`; estado sem
+notícias; ausência de duplicações; HTML fora das marcas igual byte a byte nas
+duas páginas; `403` em `modelos/` e `data/publicacao/`; e a transação a
+abortar ou a reverter com os **três** ficheiros intactos byte a byte.
+
+`node tools/validar.js --comparar` — sem problemas em 168 combinações,
+**novos: 0**.
+
+Fase A verificada à mão outra vez, depois destas alterações: `405` fora do
+POST, `401` sem sessão, `403` num perfil sem a área `noticias`, `200` em
+Comunicação, `401` com palavra-passe errada, e o `api/save.php` a continuar a
+recusar por área. Nada da autenticação foi alterado.

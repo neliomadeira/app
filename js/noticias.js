@@ -40,8 +40,10 @@
     const bar = document.getElementById('notFilters');
     if (!bar) return;
     const cats = [...new Set(_all.map(n => n.categoria).filter(Boolean))];
-    if (!cats.length) { bar.style.display = 'none'; return; }
-    bar.style.display = '';
+    // hidden, e não style.display: o projeto tem [hidden] com !important
+    // (Fase B), e um style inline perderia contra ele.
+    if (!cats.length) { bar.hidden = true; bar.innerHTML = ''; return; }
+    bar.hidden = false;
     bar.innerHTML = ['Todas', ...cats].map(c =>
       `<button class="news-filter-btn${jscEsc((c === 'Todas' ? '' : c) === _cat ? ' active' : '')}" data-cat="${jscEsc(c === 'Todas' ? '' : c)}">${jscEsc(c)}</button>`
     ).join('');
@@ -51,11 +53,12 @@
     const wrap = document.getElementById('notFeatured');
     if (!wrap) return;
     const destaque = _all.find(n => n.destaque);
-    if (!destaque) { wrap.innerHTML = ''; return; }
+    if (!destaque) { wrap.innerHTML = ''; wrap.hidden = true; return; }
+    wrap.hidden = false;
     const plainText = (destaque.resumo || '').replace(/<[^>]+>/g, '');
     const excerpt = plainText.length > 200 ? plainText.slice(0, 200) + '…' : plainText;
     const imgStyle = destaque.imagem
-      ? `background-image:url('${destaque.imagem}');background-size:cover;background-position:${destaque.focalPos || 'center'};background-repeat:no-repeat`
+      ? `background-image:url('${jscEscUrlCss(destaque.imagem)}');background-size:cover;background-position:${jscEsc(destaque.focalPos || 'center')};background-repeat:no-repeat`
       : '';
     wrap.innerHTML = `
       <article class="news-hero-card" data-id="${jscEsc(destaque.id)}" style="cursor:pointer">
@@ -67,10 +70,9 @@
           <time class="news-card__date">${jscEsc(ptDate(destaque.data))}</time>
           <h2 class="news-hero-card__title">${jscEsc(destaque.titulo)}</h2>
           ${excerpt ? `<p class="news-hero-card__excerpt">${jscEsc(excerpt)}</p>` : ''}
-          <span class="news-card__link">Ler mais &rarr;</span>
+          <a class="news-card__link" href="noticias.html?id=${jscEsc(encodeURIComponent(destaque.id))}">Ler mais &rarr;</a>
         </div>
       </article>`;
-    wrap.querySelector('.news-hero-card').addEventListener('click', () => openArticle(destaque.id));
   }
 
   const SHARE_BTN_STYLE = 'font-size:0.75rem;padding:5px 10px;border-radius:20px;background:#f0f4ff;color:#003B8E;border:none;cursor:pointer;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:4px';
@@ -99,15 +101,15 @@
 
     if (!lista.length) {
       grid.innerHTML = '';
-      if (moreWrap) moreWrap.style.display = 'none';
-      if (empty) empty.style.display = '';
+      if (moreWrap) moreWrap.hidden = true;
+      if (empty) empty.hidden = false;
       return;
     }
-    if (empty) empty.style.display = 'none';
+    if (empty) empty.hidden = true;
 
     grid.innerHTML = show.map((n, i) => {
       const imgStyle = n.imagem
-        ? `background-image:url('${jscEscUrl(n.imagem)}');background-size:${jscEsc(n.imagemSize || 'cover')};background-position:${jscEsc(n.focalPos || 'center')};background-repeat:no-repeat`
+        ? `background-image:url('${jscEscUrlCss(n.imagem)}');background-size:${jscEsc(n.imagemSize || 'cover')};background-position:${jscEsc(n.focalPos || 'center')};background-repeat:no-repeat`
         : '';
       const plainText = (n.resumo || '').replace(/<[^>]+>/g, '');
       const excerpt = plainText.length > 130 ? plainText.slice(0, 130) + '…' : plainText;
@@ -123,23 +125,19 @@
             </div>
             <h2 class="news-card__title" style="font-size:1.05rem">${jscEsc(n.titulo)}</h2>
             ${excerpt ? `<p class="news-card__excerpt">${jscEsc(excerpt)}</p>` : ''}
-            <span class="news-card__link">Ler mais &rarr;</span>
+            <a class="news-card__link" href="noticias.html?id=${jscEsc(encodeURIComponent(n.id))}">Ler mais &rarr;</a>
             ${shareRowHtml(n.id, n.titulo)}
           </div>
         </article>`;
     }).join('');
 
-    grid.querySelectorAll('.news-page__card').forEach(card => {
-      card.addEventListener('click', () => openArticle(card.dataset.id));
-    });
-
     if (moreWrap && moreBtn) {
       const remaining = lista.length - show.length;
       if (!_expanded && remaining > 0) {
-        moreWrap.style.display = '';
+        moreWrap.hidden = false;
         moreBtn.textContent = `Ver mais notícias (${remaining} restantes)`;
       } else {
-        moreWrap.style.display = 'none';
+        moreWrap.hidden = true;
       }
     }
   }
@@ -219,17 +217,17 @@
     const empty    = document.getElementById('notEmpty');
     const featured = document.getElementById('notFeatured');
 
-    if (grid)     grid.style.display     = 'none';
-    if (filters)  filters.style.display  = 'none';
-    if (moreWrap) moreWrap.style.display = 'none';
-    if (empty)    empty.style.display    = 'none';
-    if (featured) featured.style.display = 'none';
+    if (grid)     grid.hidden     = true;
+    if (filters)  filters.hidden  = true;
+    if (moreWrap) moreWrap.hidden = true;
+    if (empty)    empty.hidden    = true;
+    if (featured) featured.hidden = true;
     if (!article) return;
 
     const imgPos   = n.imagemPos  || 'top';
     const imgSize  = n.imagemSize || 'cover';
     const imgStyle = n.imagem
-      ? `background-image:url('${n.imagem}');background-size:${imgSize};background-position:${n.focalPos || 'center'};background-repeat:no-repeat`
+      ? `background-image:url('${jscEscUrlCss(n.imagem)}');background-size:${jscEsc(imgSize)};background-position:${jscEsc(n.focalPos || 'center')};background-repeat:no-repeat`
       : '';
     const imgHtml = n.imagem
       ? `<div class="news-article__img news-article__img--${jscEsc(imgPos)}" style="${imgStyle}"></div>`
@@ -260,7 +258,7 @@
         </div>
       </div>` : '';
 
-    article.style.display = '';
+    article.hidden = false;
     article.innerHTML = `
       <div class="not-article-wrap">
         <div style="padding-top:20px">
@@ -304,13 +302,11 @@
     const article  = document.getElementById('notArticle');
     const featured = document.getElementById('notFeatured');
 
-    if (article)  article.style.display  = 'none';
-    if (grid)     grid.style.display     = '';
-    if (featured) featured.style.display = '';
+    if (article)  article.hidden  = true;
+    if (grid)     grid.hidden     = false;
+    if (featured) featured.hidden = false;
     document.getElementById('articleJsonLd')?.remove();
-    renderFilters();
-    renderGrid();
-    renderFeatured();
+    desenharLista();
   }
 
   window.addEventListener('popstate', e => {
@@ -321,6 +317,20 @@
       backToList();
     }
   });
+
+  // Os cliques são ouvidos no contentor, não em cada cartão. Assim funcionam
+  // igual sobre os cartões que o servidor gerou e sobre os que este ficheiro
+  // desenha — e não há ouvintes a ligar de novo a cada desenho.
+  function abrirDoClique(e) {
+    const externo = e.target.closest('a[target="_blank"], .news-share');
+    if (externo) return;                       // partilha segue o seu caminho
+    const cartao = e.target.closest('[data-id]');
+    if (!cartao) return;
+    e.preventDefault();                        // com JavaScript abre aqui
+    openArticle(cartao.dataset.id);
+  }
+  document.getElementById('notGrid')?.addEventListener('click', abrirDoClique);
+  document.getElementById('notFeatured')?.addEventListener('click', abrirDoClique);
 
   document.getElementById('notFilters')?.addEventListener('click', e => {
     const btn = e.target.closest('.news-filter-btn');
@@ -341,6 +351,42 @@
   // Initialise
   _all = loadAll();
 
+  // O bloco desta página pode já vir escrito no HTML pelo servidor
+  // (api/gerar.php). Quando vem e está atual, não se toca: o visitante já o
+  // está a ver, e reescrevê-lo só arriscava mostrar uma versão mais antiga.
+  //
+  // Duas condições, e ambas têm de se verificar:
+  //   data-gerado  o que está guardado não é mais recente do que o gerado;
+  //   data-itens   o gerador escreveu tantos cartões quantos os que agora
+  //                contamos. É isto que trata das notícias agendadas: uma
+  //                que tenha vencido depois da publicação faz a contagem
+  //                subir, e então desenhamos, para ela aparecer a horas.
+  function blocoGeradoEstaAtual() {
+    const grade = document.getElementById('notGrid');
+    if (!grade) return false;
+    const gerado = grade.getAttribute('data-gerado') || '';
+    if (!gerado) return false;
+    const publicado = localStorage.getItem('jsc_publicado_em') || '';
+    if (publicado && publicado > gerado) return false;
+    return Number(grade.getAttribute('data-itens')) === _all.length;
+  }
+
+  // Só o primeiro desenho é que se pode dispensar. Tudo o que venha depois —
+  // filtrar, "Ver mais", voltar do artigo, o painel a gravar noutro
+  // separador — desenha sempre.
+  const _servido = blocoGeradoEstaAtual();
+
+  function desenharLista() {
+    renderFilters();
+    renderGrid();
+    renderFeatured();
+  }
+
+  function desenharListaSeNecessario() {
+    if (_servido) return;
+    desenharLista();
+  }
+
   const params       = new URLSearchParams(window.location.search);
   const idParam      = params.get('id');
   const previewParam = params.get('preview');
@@ -360,38 +406,28 @@
         }
         showArticle(prev);
       } else {
-        renderFilters();
-        renderGrid();
-        renderFeatured();
+        desenharListaSeNecessario();
       }
     } catch (e) {
-      renderFilters();
-      renderGrid();
-      renderFeatured();
+      desenharListaSeNecessario();
     }
   } else if (idParam) {
     const n = _all.find(x => x.id == idParam);
     if (n) {
       showArticle(n);
     } else {
-      renderFilters();
-      renderGrid();
-      renderFeatured();
+      desenharListaSeNecessario();
     }
   } else {
-    renderFilters();
-    renderGrid();
-    renderFeatured();
+    desenharListaSeNecessario();
   }
 
   window.addEventListener('storage', e => {
     if (e.key === NEWS_KEY) {
       _all = loadAll();
       const article = document.getElementById('notArticle');
-      if (!article || article.style.display === 'none') {
-        renderFilters();
-        renderGrid();
-        renderFeatured();
+      if (!article || article.hidden) {
+        desenharLista();
       }
     }
   });

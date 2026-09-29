@@ -136,9 +136,130 @@ function jsc_noticias(array $conteudo, $limite = null) {
             'imagemSize'=> str_replace('auto ', '',
                              isset($n['imagemSize']) && is_string($n['imagemSize']) && $n['imagemSize'] !== ''
                                  ? $n['imagemSize'] : 'cover'),
-            'destaque'  => $i === 0,          // o primeiro cartão é o grande
+            // Cuidado com os dois sentidos de "destaque": este é o cartão
+            // visualmente grande, o primeiro da grelha. O campo de dados
+            // n.destaque, esse, é a notícia que o painel marcou como
+            // destaque da página de notícias — e chama-se 'emDestaque'.
+            'grande'    => $i === 0,
             'variante'  => ($i % 3) + 1,      // news-card__img--1/2/3
         ];
     }
     return $fora;
+}
+
+// ---------------------------------------------------------------------
+// PÁGINA DE NOTÍCIAS (noticias.html)
+// ---------------------------------------------------------------------
+// As regras aqui são as do js/noticias.js, não as da página inicial: a
+// página de notícias mostra também as agendadas cujo momento já passou, não
+// corta a lista, e os resumos têm outros tamanhos. Se as duas divergirem, o
+// visitante com JavaScript vê uma coisa e o visitante sem JavaScript outra.
+
+// Sem tags, cortado ao limite, com "…" só se de facto cortou.
+function jsc_resumo_curto($html, $limite, $reticencias = true) {
+    $texto = preg_replace('/<[^>]+>/', '', (string)$html);
+    if ($texto === null) return '';
+    if (mb_strlen($texto, 'UTF-8') <= $limite) return $texto;
+    return mb_substr($texto, 0, $limite, 'UTF-8') . ($reticencias ? '…' : '');
+}
+
+// "3 min" — o mesmo cálculo do readingTime() do js/noticias.js.
+function jsc_tempo_leitura($html) {
+    $texto = trim(preg_replace('/<[^>]+>/', ' ', (string)$html));
+    $palavras = $texto === '' ? 0 : count(preg_split('/\s+/', $texto, -1, PREG_SPLIT_NO_EMPTY));
+    return max(1, (int)round($palavras / 200)) . ' min';
+}
+
+// A lista da página de notícias: publicadas, mais as agendadas cujo momento
+// já passou. Sem corte — quem corta é a apresentação.
+function jsc_noticias_pagina(array $conteudo, $agora = null) {
+    if (!isset($conteudo['noticias']) || !is_array($conteudo['noticias'])) return [];
+    if ($agora === null) $agora = gmdate('Y-m-d\TH:i:s.v\Z');
+
+    $lista = [];
+    foreach ($conteudo['noticias'] as $n) {
+        if (!is_array($n)) continue;
+        $publicada = !empty($n['publicada']);
+        $agendada  = isset($n['scheduledAt']) && is_string($n['scheduledAt'])
+                  && $n['scheduledAt'] !== '' && strcmp($n['scheduledAt'], (string)$agora) <= 0;
+        if (!$publicada && !$agendada) continue;
+        $lista[] = $n;
+    }
+    usort($lista, function ($a, $b) {
+        $da = isset($a['data']) ? (string)$a['data'] : '';
+        $db = isset($b['data']) ? (string)$b['data'] : '';
+        return strcmp($db, $da);
+    });
+
+    $fora = [];
+    foreach ($lista as $i => $n) {
+        $resumo = isset($n['resumo']) && is_string($n['resumo']) ? $n['resumo'] : '';
+        $fora[] = [
+            'id'         => isset($n['id']) ? (string)$n['id'] : '',
+            'titulo'     => isset($n['titulo']) ? (string)$n['titulo'] : '',
+            'categoria'  => isset($n['categoria']) ? (string)$n['categoria'] : '',
+            'data'       => isset($n['data']) ? (string)$n['data'] : '',
+            'dataPt'     => jsc_data_pt(isset($n['data']) ? $n['data'] : ''),
+            // Dois tamanhos: 130 no cartão da grelha, 200 no cartão de
+            // destaque. São os do js/noticias.js.
+            'resumo130'  => jsc_resumo_curto($resumo, 130),
+            'resumo200'  => jsc_resumo_curto($resumo, 200),
+            'leitura'    => jsc_tempo_leitura($resumo),
+            'imagem'     => isset($n['imagem']) && is_string($n['imagem']) ? $n['imagem'] : '',
+            'imagemSize' => isset($n['imagemSize']) && is_string($n['imagemSize']) && $n['imagemSize'] !== ''
+                              ? $n['imagemSize'] : 'cover',
+            'focalPos'   => isset($n['focalPos']) && is_string($n['focalPos']) && $n['focalPos'] !== ''
+                              ? $n['focalPos'] : 'center',
+            'emDestaque' => !empty($n['destaque']),   // o campo de dados
+            'variante'   => ($i % 3) + 1,
+        ];
+    }
+    return $fora;
+}
+
+// A notícia em destaque: a primeira da lista já ordenada que o painel tenha
+// marcado. O js/noticias.js faz _all.find(n => n.destaque).
+function jsc_noticias_destaque(array $lista) {
+    foreach ($lista as $n) if (!empty($n['emDestaque'])) return $n;
+    return null;
+}
+
+// Categorias pela ordem em que aparecem na lista, sem repetições e sem
+// vazias. Igual ao [...new Set(...)].filter(Boolean) do js/noticias.js.
+function jsc_noticias_categorias(array $lista) {
+    $cats = [];
+    foreach ($lista as $n) {
+        $c = trim((string)$n['categoria']);
+        if ($c !== '' && !in_array($c, $cats, true)) $cats[] = $c;
+    }
+    return $cats;
+}
+
+// Quantos cartões a grelha mostra antes de ser preciso o "Ver mais".
+// O PREVIEW do js/noticias.js.
+function jsc_noticias_previa() {
+    return 9;
+}
+
+// Equivalente ao encodeURIComponent(): o rawurlencode() do PHP escapa mais
+// caracteres do que ele. Sem isto, as ligações de partilha geradas aqui não
+// seriam iguais às que o JavaScript constrói para o mesmo cartão.
+function jsc_enc_uri($valor) {
+    return strtr(rawurlencode((string)$valor), [
+        '%21' => '!', '%2A' => '*', '%27' => "'", '%28' => '(', '%29' => ')',
+    ]);
+}
+
+// O endereço público do site, lido do <link rel="canonical"> da própria
+// página. O JavaScript usa window.location.origin; aqui não há browser, e
+// não se inventa nem se fixa um domínio no código: se o endereço mudar no
+// HTML, muda também no que for gerado. Devolve '' se não houver canonical.
+function jsc_url_base($ficheiro) {
+    if (!is_file($ficheiro)) return '';
+    $html = (string)@file_get_contents($ficheiro);
+    if (!preg_match('/<link[^>]+rel=["\']canonical["\'][^>]+href=["\']([^"\']+)["\']/i', $html, $m)) return '';
+    $partes = parse_url(trim($m[1]));
+    if (empty($partes['scheme']) || empty($partes['host'])) return '';
+    return $partes['scheme'] . '://' . $partes['host']
+         . (isset($partes['port']) ? ':' . $partes['port'] : '');
 }

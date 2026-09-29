@@ -193,26 +193,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const MESES_CURTOS = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
 
-  // Percent-encode de um caractere, byte a byte em UTF-8 e em maiúsculas,
-  // igual ao rawurlencode() do PHP. Feito à mão porque o
-  // encodeURIComponent deixa passar ' ( ) — precisamente os que fechariam
-  // o url(...) do CSS.
-  function pctCss(c) {
-    return Array.from(new TextEncoder().encode(c))
-      .map((b) => '%' + b.toString(16).toUpperCase().padStart(2, '0'))
-      .join('');
-  }
-
   // O atributo de estilo é construído com cada pedaço escapado à parte.
   // Escapar a string toda, como se fazia antes, transformava o atributo em
   // texto dentro da etiqueta e a imagem nunca aparecia.
   //
-  // Tem de dar o mesmo resultado que o jsc_esc_url_css() do
+  // O jscEscUrlCss() vive no js/html.js, partilhado por todas as páginas, e
+  // dá exatamente o mesmo resultado que o jsc_esc_url_css() do
   // api/conteudo.php: o cartão gerado no servidor e o cartão desenhado aqui
   // são o mesmo cartão.
   function newsCardImg(n) {
     if (!n.imagem) return '';
-    const url = jscEscUrl(String(n.imagem).replace(/['"()\\\s]/g, pctCss));
+    const url = jscEscUrlCss(n.imagem);
     if (!url) return '';
     const size = jscEsc((n.imagemSize || 'cover').replace('auto ', ''));
     return ` style="background-image:url('${url}');background-size:${size};background-position:center;background-repeat:no-repeat"`;
@@ -292,7 +283,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="news-archive__item" role="button" tabindex="0" data-tecla onclick="openNewsArticle(${n.id})">
           ${archiveDateBox(n.data)}
           <div class="news-archive__img${n.imagem ? '' : ` news-card__img--${jscEsc((i % 3) + 1)}`}"
-               ${n.imagem ? `style="background-image:url('${jscEscUrl(n.imagem)}');background-size:cover;background-position:center;background-repeat:no-repeat"` : ''}></div>
+               ${n.imagem ? `style="background-image:url('${jscEscUrlCss(n.imagem)}');background-size:cover;background-position:center;background-repeat:no-repeat"` : ''}></div>
           <div class="news-archive__info">
             <span class="news-archive__cat">${jscEsc(n.categoria || '')}</span>
             <div class="news-archive__heading">${jscEsc(n.titulo)}</div>
@@ -322,7 +313,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const imgPos  = n.imagemPos  || 'top';
     const imgSize = (n.imagemSize || 'cover').replace('auto ', '');
     const imgStyle = n.imagem
-      ? `background-image:url('${n.imagem}');background-size:${imgSize};background-position:center;background-repeat:no-repeat`
+      ? `background-image:url('${jscEscUrlCss(n.imagem)}');background-size:${jscEsc(imgSize)};background-position:center;background-repeat:no-repeat`
       : '';
     const imgHtml = n.imagem
       ? `<div class="news-article__img news-article__img--${jscEsc(imgPos)}" style="${imgStyle}"></div>`

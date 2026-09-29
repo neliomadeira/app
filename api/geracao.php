@@ -79,6 +79,72 @@ function jsc_blocos() {
                 return $erros;
             },
         ],
+
+        'noticias-pagina' => [
+            'ficheiro' => 'noticias.html',
+            'modelo'   => 'noticias-pagina.php',
+            'inicio'   => '<!-- JSC:noticias-pagina:inicio -->',
+            'fim'      => '<!-- JSC:noticias-pagina:fim -->',
+            'dados'    => function (array $conteudo) {
+                $lista = jsc_noticias_pagina($conteudo);
+                return [
+                    'noticias'   => $lista,
+                    'destaque'   => jsc_noticias_destaque($lista),
+                    'categorias' => jsc_noticias_categorias($lista),
+                    'previa'     => jsc_noticias_previa(),
+                    // O endereço público vem do <link rel="canonical"> da
+                    // própria página, não de um valor fixo no código.
+                    'base'       => jsc_url_base(JSC_RAIZ . '/noticias.html'),
+                ];
+            },
+            'validar'  => function ($meio, array $conteudo) {
+                $erros = [];
+                $lista = jsc_noticias_pagina($conteudo);
+                $esperados = count($lista);
+
+                $obtidos = substr_count($meio, '<article class="news-card news-page__card');
+                if ($obtidos !== $esperados) {
+                    $erros[] = "gerou $obtidos cartões, esperava $esperados";
+                }
+
+                foreach (['notFeatured', 'notFilters', 'notGrid', 'notEmpty', 'notMoreWrap'] as $id) {
+                    if (strpos($meio, 'id="' . $id . '"') === false) {
+                        $erros[] = 'falta o contentor id="' . $id . '"';
+                    }
+                }
+
+                // Uma ligação a sério por cartão, mais a do destaque. É o que
+                // torna a lista navegável sem JavaScript e com o teclado.
+                $temDestaque = jsc_noticias_destaque($lista) !== null;
+                $ligacoes = substr_count($meio, '<a class="news-card__link"');
+                $esperadas = $esperados + ($temDestaque ? 1 : 0);
+                if ($ligacoes !== $esperadas) {
+                    $erros[] = "gerou $ligacoes ligações \"Ler mais\", esperava $esperadas";
+                }
+
+                // Os cartões além da prévia levam a classe que o CSS esconde
+                // com JavaScript e o <noscript> mostra sem ele.
+                $extras = max(0, $esperados - jsc_noticias_previa());
+                $obtidosExtras = substr_count($meio, 'news-page__card--extra');
+                if ($obtidosExtras !== $extras) {
+                    $erros[] = "marcou $obtidosExtras cartões como extra, esperava $extras";
+                }
+
+                $vazioEscondido = strpos($meio, 'id="notEmpty" hidden') !== false;
+                if ($esperados === 0 && $vazioEscondido) {
+                    $erros[] = 'sem notícias, o estado vazio tem de ficar visível';
+                }
+                if ($esperados > 0 && !$vazioEscondido) {
+                    $erros[] = 'com notícias, o estado vazio tem de ficar escondido';
+                }
+
+                if (strpos($meio, 'data-itens="' . $esperados . '"') === false) {
+                    $erros[] = 'o data-itens não corresponde ao número de notícias geradas';
+                }
+
+                return $erros;
+            },
+        ],
     ];
 }
 
@@ -240,7 +306,7 @@ function jsc_validar_html(array $alvo, array $conteudo) {
 
     // (c) Etiquetas equilibradas no bloco gerado. Apanha uma geração
     //     truncada, que o parser mais tolerante ainda aceitaria.
-    foreach (['article', 'div', 'p', 'h3', 'time', 'a', 'span'] as $tag) {
+    foreach (['article', 'div', 'p', 'h2', 'h3', 'time', 'a', 'span', 'button'] as $tag) {
         $abre  = preg_match_all('/<' . $tag . '(\s|>)/i', $meio);
         $fecha = preg_match_all('/<\/' . $tag . '\s*>/i', $meio);
         if ($abre !== $fecha) {

@@ -41,8 +41,32 @@
     return jscEsc(s);
   }
 
+  // Percent-encode de um caractere, byte a byte em UTF-8 e em maiúsculas,
+  // igual ao rawurlencode() do PHP. Feito à mão porque o
+  // encodeURIComponent deixa passar ' ( ) — precisamente os que fechariam
+  // o url(...) do CSS.
+  function pctCss(c) {
+    return Array.from(new TextEncoder().encode(c))
+      .map(function (b) { return '%' + b.toString(16).toUpperCase().padStart(2, '0'); })
+      .join('');
+  }
+
+  // Para URLs que vão dentro de url('...') numa folha de estilo. Além do
+  // escape de HTML e da recusa de esquemas perigosos, os caracteres que
+  // fechariam a função ou a string são percent-encoded: sem isso, um
+  // apóstrofo no nome do ficheiro fecha o url(...) e o resto do valor passa
+  // a ser CSS.
+  //
+  // Tem de dar exatamente o mesmo resultado que o jsc_esc_url_css() do
+  // api/conteudo.php: o mesmo cartão é desenhado aqui e gerado lá.
+  function jscEscUrlCss(valor) {
+    if (valor === null || valor === undefined) return '';
+    return jscEscUrl(String(valor).replace(/['"()\\\s]/g, pctCss));
+  }
+
   global.jscEsc = jscEsc;
   global.jscEscUrl = jscEscUrl;
+  global.jscEscUrlCss = jscEscUrlCss;
 })(typeof window !== 'undefined' ? window : this);
 
 // =====================================================
