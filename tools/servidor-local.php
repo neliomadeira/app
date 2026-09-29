@@ -42,6 +42,14 @@ if ($ficheiro !== 'manifest.json'
     jsc_negar('Ficheiros ' . pathinfo($ficheiro, PATHINFO_EXTENSION) . ' não são servidos.');
 }
 
+// ---- Pastas negadas por inteiro ------------------------------------
+// data/.htaccess e modelos/.htaccess: Require all denied. A regra das
+// extensões acima não chega: o backup da publicação é um .html
+// (data/publicacao/anterior/index.html) e em produção também não é servido.
+if (preg_match('#^/(data|modelos)(/|$)#i', $uri, $m)) {
+    jsc_negar('A pasta ' . $m[1] . '/ não é servida pela web.');
+}
+
 // ---- Options -Indexes ----------------------------------------------
 // Uma pasta sem index não mostra a lista do que lá está dentro.
 if ($alvo !== false && is_dir($alvo)) {

@@ -18,6 +18,14 @@
           } catch (_) {}
         }
       }
+      // Quando foi publicado este conteúdo. Fica guardado à parte e de
+      // propósito fora do ls(): muda a cada publicação, e contá-lo como
+      // alteração forçaria um recarregamento por sessão sem haver nada de
+      // novo para mostrar. É por esta marca que o js/main.js sabe se o
+      // bloco que o servidor já escreveu no HTML está atual.
+      if (typeof data.publicadoEm === 'string') {
+        try { localStorage.setItem('jsc_publicado_em', data.publicadoEm); } catch (_) {}
+      }
       if (data.noticias)       ls('jsc_noticias',       data.noticias);
       if (data.agenda)         ls('db_agenda',           data.agenda);
       if (data.galeria)        ls('db_galeria',          data.galeria);

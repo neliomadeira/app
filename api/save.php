@@ -131,7 +131,7 @@ if (isset($novos['noticias']) && is_array($novos['noticias'])) {
     }
 }
 
-// ---- Gravar --------------------------------------------------------
+// ---- Gravar e gerar ------------------------------------------------
 // As áreas que não venham no pedido ficam como estavam. O painel envia
 // sempre tudo, mas assim um pedido parcial nunca apaga o que não menciona.
 $gravar = array_merge($antigos, $novos);
@@ -141,10 +141,25 @@ if (!is_dir($dir) && !mkdir($dir, 0755, true)) {
     jsc_saida(['ok' => false, 'error' => 'nao foi possivel criar a pasta data/'], 500);
 }
 
-$tmp = DATA_FILE . '.tmp';
-if (file_put_contents($tmp, json_encode($gravar, JSON_UNESCAPED_UNICODE)) === false || !rename($tmp, DATA_FILE)) {
-    @unlink($tmp);
-    jsc_saida(['ok' => false, 'error' => 'erro ao guardar'], 500);
+$bytes = json_encode($gravar, JSON_UNESCAPED_UNICODE);
+if ($bytes === false) {
+    jsc_saida(['ok' => false, 'error' => 'nao foi possivel converter o conteudo para JSON'], 500);
+}
+
+// O data/db.json e as páginas geradas movem-se juntos, numa só transação.
+// Se a geração falhar, nada avança: o conteúdo antigo fica onde estava e o
+// painel fica a saber. Assim nunca há dados novos com HTML antigo, nem
+// metade do site publicado. Ver api/geracao.php.
+require_once __DIR__ . '/geracao.php';
+$pub = jsc_publicar($gravar, $bytes, $perfil['nome']);
+
+if (!$pub['ok']) {
+    jsc_saida([
+        'ok'        => false,
+        'error'     => 'publicacao abortada: ' . implode('; ', $pub['erros']),
+        'revertido' => $pub['revertido'],
+        'avisos'    => $pub['avisos'],
+    ], 500);
 }
 
 jsc_saida([
@@ -152,4 +167,6 @@ jsc_saida([
     'savedAt'   => date('c'),
     'alteradas' => $alteradas,
     'porQuem'   => $perfil['nome'],
+    'gerados'   => $pub['ficheiros'],
+    'avisos'    => $pub['avisos'],
 ]);

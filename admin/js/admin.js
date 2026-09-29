@@ -5046,7 +5046,10 @@ async function publicarNoServidor() {
       localStorage.setItem('jsc_ultima_publicacao', ts);
       const el = document.getElementById('ultimaPublicacao');
       if (el) el.textContent = 'Última publicação: ' + ts;
-      showToast('✓ Site atualizado! Visitantes já veem o novo conteúdo.', 'green');
+      const geradas = Array.isArray(json.gerados) ? json.gerados.filter(f => f.endsWith('.html')) : [];
+      showToast('✓ Site atualizado! Visitantes já veem o novo conteúdo.'
+        + (geradas.length ? ' Páginas escritas: ' + geradas.join(', ') + '.' : ''), 'green');
+      (json.avisos || []).forEach(a => showToast('⚠ ' + a));
     } else if (resp.status === 401) {
       showToast('❌ Token inválido. Verifique em Configurações > Segurança.', 'red');
     } else {
@@ -5059,6 +5062,44 @@ async function publicarNoServidor() {
   }
 }
 window.publicarNoServidor = publicarNoServidor;
+// ---- REGENERAR AS PÁGINAS ----
+// Escreve outra vez o conteúdo já publicado dentro das páginas do site, sem
+// publicar nada de novo. Precisa-se disto depois de enviar ficheiros para o
+// alojamento: o index.html que vem do repositório traz o bloco das notícias
+// vazio, e é esta operação que o volta a encher.
+async function regenerarPaginas() {
+  if (MODO_LOCAL) {
+    showToast('Modo local: regenerar precisa de PHP a correr no servidor.', 'red');
+    return;
+  }
+  const btn = document.querySelector('[onclick="regenerarPaginas()"]');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ A gerar...'; }
+  try {
+    const resp = await fetch('../api/gerar.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ acao: 'gerar' }),
+    });
+    const json = await resp.json();
+    if (resp.ok && json.ok) {
+      showToast('✓ Páginas geradas: ' + (json.ficheiros || []).join(', '), 'green');
+      (json.avisos || []).forEach(a => showToast('⚠ ' + a));
+    } else if (resp.status === 401) {
+      showToast('❌ Sessão expirada. Entre outra vez.', 'red');
+    } else if (resp.status === 403) {
+      showToast('❌ Este perfil não pode gerar as notícias.', 'red');
+    } else {
+      showToast('❌ Não gerou: ' + (json.error || resp.status)
+        + (json.revertido ? ' (versão anterior restaurada)' : ' (site inalterado)'), 'red');
+    }
+  } catch (e) {
+    showToast('❌ Sem ligação ao servidor: ' + e.message, 'red');
+  }
+  if (btn) { btn.disabled = false; btn.innerHTML = '&#128260; Regenerar páginas'; }
+}
+window.regenerarPaginas = regenerarPaginas;
+
 
 // ---- REGISTOS DO SERVIDOR (base de dados MySQL) ----
 // Inscrições e mensagens submetidas pelos visitantes chegam à BD via

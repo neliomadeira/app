@@ -1,0 +1,15 @@
+# Os modelos são lidos pelo PHP que gera as páginas. Não são servidos a
+# ninguém: pedir /modelos/noticias-inicio.php diretamente não faz sentido
+# e executaria o ficheiro fora do seu contexto.
+#
+# As duas sintaxes de propósito, como em data/.htaccess e tools/.htaccess:
+# a de baixo é do Apache 2.4, a de cima do 2.2. Num servidor 2.4 sem
+# mod_access_compat, "deny from all" sozinho dá erro 500 em vez de 403;
+# num 2.2 sem mod_authz_core, "Require" sozinho não é entendido e a pasta
+# ficaria aberta.
+<IfModule mod_authz_core.c>
+  Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+  deny from all
+</IfModule>

@@ -1,0 +1,55 @@
+{
+  "_LEIA_ISTO": "DADOS DE TESTE. Nada aqui é conteúdo do Juventude Sport Campinense: nem notícias, nem datas, nem categorias. Existe só para o tools/testar-sem-js.js poder contar cartões e comparar textos. Nunca é copiado para o data/db.json do projeto nem do alojamento: o teste trabalha sempre sobre uma cópia temporária do site.",
+  "publicadoEm": "2020-01-05T10:00:00.000Z",
+  "siteConfig": {
+    "homepageNewsCount": 3
+  },
+  "noticias": [
+    {
+      "id": 1001,
+      "titulo": "TESTE A",
+      "data": "2020-01-03",
+      "categoria": "TESTE",
+      "resumo": "<p>Resumo de <strong>teste</strong> A.</p>",
+      "imagem": "images/logo.png",
+      "imagemSize": "auto cover",
+      "publicada": true
+    },
+    {
+      "id": 1002,
+      "titulo": "TESTE B",
+      "data": "2020-01-02",
+      "categoria": "TESTE",
+      "resumo": "Resumo de teste B.",
+      "imagem": "",
+      "publicada": true
+    },
+    {
+      "id": 1003,
+      "titulo": "TESTE C & <b>escape</b>",
+      "data": "2020-01-01",
+      "categoria": "TESTE",
+      "resumo": "Resumo de teste C.",
+      "imagem": "",
+      "publicada": true
+    },
+    {
+      "id": 1004,
+      "titulo": "TESTE D NAO PUBLICADA",
+      "data": "2020-01-04",
+      "categoria": "TESTE",
+      "resumo": "Esta não está publicada e não pode aparecer, apesar de ser a mais recente.",
+      "imagem": "",
+      "publicada": false
+    },
+    {
+      "id": 1005,
+      "titulo": "TESTE E",
+      "data": "2019-12-31",
+      "categoria": "TESTE",
+      "resumo": "A quarta publicada: existe para o botão Ver todas ter de aparecer.",
+      "imagem": "",
+      "publicada": true
+    }
+  ]
+}

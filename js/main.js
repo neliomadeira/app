@@ -193,16 +193,44 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const MESES_CURTOS = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
 
+  // Percent-encode de um caractere, byte a byte em UTF-8 e em maiúsculas,
+  // igual ao rawurlencode() do PHP. Feito à mão porque o
+  // encodeURIComponent deixa passar ' ( ) — precisamente os que fechariam
+  // o url(...) do CSS.
+  function pctCss(c) {
+    return Array.from(new TextEncoder().encode(c))
+      .map((b) => '%' + b.toString(16).toUpperCase().padStart(2, '0'))
+      .join('');
+  }
+
+  // O atributo de estilo é construído com cada pedaço escapado à parte.
+  // Escapar a string toda, como se fazia antes, transformava o atributo em
+  // texto dentro da etiqueta e a imagem nunca aparecia.
+  //
+  // Tem de dar o mesmo resultado que o jsc_esc_url_css() do
+  // api/conteudo.php: o cartão gerado no servidor e o cartão desenhado aqui
+  // são o mesmo cartão.
   function newsCardImg(n) {
-    if (n.imagem) {
-      const size = (n.imagemSize || 'cover').replace('auto ', '');
-      return `style="background-image:url('${n.imagem}');background-size:${size};background-position:center;background-repeat:no-repeat"`;
-    }
-    return '';
+    if (!n.imagem) return '';
+    const url = jscEscUrl(String(n.imagem).replace(/['"()\\\s]/g, pctCss));
+    if (!url) return '';
+    const size = jscEsc((n.imagemSize || 'cover').replace('auto ', ''));
+    return ` style="background-image:url('${url}');background-size:${size};background-position:center;background-repeat:no-repeat"`;
   }
 
   function renderNoticias() {
     try {
+      // O bloco das notícias pode já vir escrito no HTML pelo servidor
+      // (api/gerar.php). Quando vem, o visitante vê as notícias mesmo sem
+      // JavaScript, e reescrevê-las aqui só arriscava mostrar uma versão
+      // mais antiga do que a que está na página. Só se mexe no bloco se o
+      // que está guardado for mais recente do que o que foi gerado.
+      const grade  = document.getElementById('newsGrid');
+      const gerado = grade ? (grade.getAttribute('data-gerado') || '') : '';
+      if (gerado) {
+        const publicado = localStorage.getItem('jsc_publicado_em') || '';
+        if (!publicado || publicado <= gerado) return;
+      }
       const raw = localStorage.getItem('jsc_noticias');
       if (!raw) return;
       const lista = JSON.parse(raw).filter(n => n.publicada)
@@ -219,7 +247,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const newsCount = parseInt(cfg.homepageNewsCount) || 3;
       grid.innerHTML = lista.slice(0, newsCount).map((n, i) => `
         <article class="news-card${jscEsc(i === 0 ? ' news-card--featured' : '')}" style="cursor:pointer" onclick="window.location='noticias.html?id=${n.id}'">
-          <div class="news-card__img${n.imagem ? '' : ` news-card__img--${jscEsc((i % 3) + 1)}`}" ${jscEsc(newsCardImg(n))}>
+          <div class="news-card__img${n.imagem ? '' : ` news-card__img--${jscEsc((i % 3) + 1)}`}"${newsCardImg(n)}>
             <span class="news-card__cat">${jscEsc(n.categoria || '')}</span>
           </div>
           <div class="news-card__body">

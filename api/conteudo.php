@@ -1,0 +1,144 @@
+<?php
+// =====================================================
+// CONTEÚDO PUBLICADO — leitura para quem gera as páginas
+// =====================================================
+// Hoje a origem do conteúdo é o data/db.json. Amanhã pode ser a base de
+// dados. Os modelos em modelos/ chamam estas funções e não sabem de onde
+// vêm os dados: é aqui, e só aqui, que a origem se troca.
+//
+// Estas funções repetem, em PHP, as mesmas regras que o js/main.js aplica
+// no browser: só notícias publicadas, ordenadas da mais recente para a
+// mais antiga, com o limite que estiver nas configurações do site. Se as
+// duas divergirem, o visitante com JavaScript veria uma coisa e o
+// visitante sem JavaScript outra.
+// =====================================================
+
+require_once __DIR__ . '/config.php';
+
+// ---- Escape ---------------------------------------------------------
+// Equivalente ao jscEsc() do js/html.js: os mesmos cinco caracteres.
+function jsc_esc($valor) {
+    if ($valor === null) return '';
+    return htmlspecialchars((string)$valor, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+}
+
+// Equivalente ao jscEscUrl(): recusa esquemas perigosos antes de escapar.
+function jsc_esc_url($valor) {
+    if ($valor === null) return '';
+    $s = trim((string)$valor);
+    if (preg_match('/^\s*(javascript|vbscript)\s*:/i', $s)) return '';
+    if (preg_match('/^\s*data\s*:/i', $s) && !preg_match('/^\s*data:image\//i', $s)) return '';
+    return jsc_esc($s);
+}
+
+// Para valores que vão dentro de url('...') numa folha de estilo: além do
+// escape de HTML, os caracteres que fechariam a função ou a string são
+// percent-encoded. Tem de dar o mesmo resultado que o newsCardImg() do
+// js/main.js, senão o cartão gerado e o cartão desenhado pelo JavaScript
+// ficariam diferentes.
+function jsc_esc_url_css($valor) {
+    $s = preg_replace_callback('/[\'"()\\\\\s]/', function ($m) { return rawurlencode($m[0]); }, (string)$valor);
+    return jsc_esc_url($s);
+}
+
+// Equivalente ao ptDate(): "5 de Março, 2026".
+function jsc_data_pt($iso) {
+    $iso = trim((string)$iso);
+    if ($iso === '') return '';
+    $meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+              'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    // O JavaScript faz new Date(str + 'T00:00:00'); uma data inválida dá
+    // "NaN de undefined, NaN". Aqui devolve-se vazio, que é o que o cartão
+    // deve mostrar quando a data não presta.
+    $d = date_create_from_format('Y-m-d', substr($iso, 0, 10));
+    if (!$d) return '';
+    $mes = (int)$d->format('n');
+    if ($mes < 1 || $mes > 12) return '';
+    return (int)$d->format('j') . ' de ' . $meses[$mes - 1] . ', ' . $d->format('Y');
+}
+
+// ---- Origem do conteúdo --------------------------------------------
+function jsc_conteudo_do_ficheiro() {
+    if (!is_file(DATA_FILE)) return [];
+    $raw = file_get_contents(DATA_FILE);
+    if ($raw === false || $raw === '') return [];
+    $d = json_decode($raw, true);
+    return is_array($d) ? $d : [];
+}
+
+// Quando foi publicado este conteúdo. É esta a marca que vai para o HTML
+// gerado, e é por ela que o JavaScript sabe se o que já está na página é
+// atual e não precisa de ser reescrito.
+function jsc_publicado_em(array $conteudo) {
+    return isset($conteudo['publicadoEm']) && is_string($conteudo['publicadoEm'])
+        ? $conteudo['publicadoEm'] : '';
+}
+
+// Quantas notícias mostra a página inicial. Mesma regra do main.js:
+// site_config.homepageNewsCount, ou 3.
+function jsc_limite_noticias(array $conteudo) {
+    $n = 0;
+    if (isset($conteudo['siteConfig']) && is_array($conteudo['siteConfig'])
+        && isset($conteudo['siteConfig']['homepageNewsCount'])) {
+        $n = (int)$conteudo['siteConfig']['homepageNewsCount'];
+    }
+    return $n > 0 ? $n : 3;
+}
+
+// Quantas notícias publicadas existem no total — o botão "Ver todas" só
+// aparece quando há mais do que as que couberam na página inicial.
+function jsc_total_noticias(array $conteudo) {
+    return count(jsc_noticias_publicadas($conteudo));
+}
+
+function jsc_noticias_publicadas(array $conteudo) {
+    if (!isset($conteudo['noticias']) || !is_array($conteudo['noticias'])) return [];
+    $lista = [];
+    foreach ($conteudo['noticias'] as $n) {
+        if (!is_array($n)) continue;
+        if (empty($n['publicada'])) continue;
+        $lista[] = $n;
+    }
+    // Mesma ordenação do main.js: (b.data||'').localeCompare(a.data||'').
+    // As datas são ISO (AAAA-MM-DD), por isso a comparação de texto basta.
+    usort($lista, function ($a, $b) {
+        $da = isset($a['data']) ? (string)$a['data'] : '';
+        $db = isset($b['data']) ? (string)$b['data'] : '';
+        return strcmp($db, $da);
+    });
+    return $lista;
+}
+
+// A lista pronta para o modelo: já filtrada, ordenada, cortada e com os
+// campos calculados. O modelo só escreve markup.
+function jsc_noticias(array $conteudo, $limite = null) {
+    $lista = jsc_noticias_publicadas($conteudo);
+    if ($limite === null) $limite = jsc_limite_noticias($conteudo);
+    $lista = array_slice($lista, 0, $limite);
+
+    $fora = [];
+    foreach ($lista as $i => $n) {
+        $resumo = isset($n['resumo']) && is_string($n['resumo']) ? $n['resumo'] : '';
+        if ($resumo !== '') {
+            // Mesma regra do main.js: sem tags, cortado aos 160 caracteres.
+            $resumo = preg_replace('/<[^>]+>/', '', $resumo);
+            $resumo = mb_substr($resumo, 0, 160, 'UTF-8');
+        }
+        $fora[] = [
+            'id'        => isset($n['id']) ? (string)$n['id'] : '',
+            'titulo'    => isset($n['titulo']) ? (string)$n['titulo'] : '',
+            'categoria' => isset($n['categoria']) ? (string)$n['categoria'] : '',
+            'data'      => isset($n['data']) ? (string)$n['data'] : '',
+            'dataPt'    => jsc_data_pt(isset($n['data']) ? $n['data'] : ''),
+            'resumo'    => $resumo,
+            'imagem'    => isset($n['imagem']) && is_string($n['imagem']) ? $n['imagem'] : '',
+            // O main.js tira o "auto " do valor guardado no painel.
+            'imagemSize'=> str_replace('auto ', '',
+                             isset($n['imagemSize']) && is_string($n['imagemSize']) && $n['imagemSize'] !== ''
+                                 ? $n['imagemSize'] : 'cover'),
+            'destaque'  => $i === 0,          // o primeiro cartão é o grande
+            'variante'  => ($i % 3) + 1,      // news-card__img--1/2/3
+        ];
+    }
+    return $fora;
+}

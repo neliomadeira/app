@@ -755,3 +755,118 @@ critério com que cada uma será construída quando a sua fase chegar.
 | classificações | importadas do scraper da FPF, com o identificador da época a ser editado no código |
 | plantéis | geríveis no painel, mas sem separação por modalidade |
 | dia de jogo (Matchday) | por construir — Fase E |
+
+---
+
+# FASE C — BLOCO-PILOTO: NOTÍCIAS DA PÁGINA INICIAL SEM JAVASCRIPT
+
+Até aqui todo o conteúdo do site era desenhado pelo browser: as páginas
+chegavam vazias e o JavaScript enchia-as a partir do `localStorage`. Quem
+tivesse o JavaScript desligado, ou uma ligação que o cortasse a meio, via
+uma página sem notícias, sem agenda e sem resultados. Os motores de busca
+também.
+
+Este bloco é o primeiro passo para mudar isso, e é só um: **as notícias da
+página inicial**. O resto continua exatamente como estava.
+
+## Como funciona
+
+O `index.html` tem duas marcas:
+
+```html
+<!-- JSC:noticias:inicio -->
+   ... aqui dentro é gerado ...
+<!-- JSC:noticias:fim -->
+```
+
+Ao publicar, o `api/save.php` chama o `api/geracao.php`, que escreve o bloco
+entre as marcas a partir do conteúdo publicado. O HTML que está fora das
+marcas **não é analisado, é copiado byte a byte** — nunca é reformatado nem
+reordenado.
+
+Quem prepara os dados é o `api/conteudo.php`; quem escreve o markup é o
+`modelos/noticias-inicio.php`. Essa separação existe para que, quando o
+conteúdo passar para a base de dados, mude só o `api/conteudo.php` e os
+modelos fiquem como estão.
+
+O bloco gerado leva a marca `data-gerado` com a data da publicação. O
+`js/main.js` compara-a com a sua e, se o que está na página já é o atual,
+não mexe. Assim não há duplicação nem piscar, e quem chega sem JavaScript vê
+as notícias mesmo assim.
+
+## Publicar é uma transação
+
+O requisito é não haver meias publicações: nunca o site com uma página nova
+e outra antiga, nem os dados novos com o HTML antigo. O `api/geracao.php`
+trata a publicação como uma transação, com estes passos:
+
+1. **reparar** — se ficou um diário de uma publicação interrompida, restaura
+   a última versão válida antes de qualquer coisa;
+2. **gerar** para `data/publicacao/novo/`, nunca para o destino;
+3. **validar** tudo, antes de promover o que quer que seja: hash do HTML
+   fora das marcas, número de cartões, etiquetas equilibradas, o bloco
+   passado por um parser, tamanho mínimo do ficheiro, releitura byte a byte;
+4. **backup** da versão atual para `data/publicacao/anterior/` e escrita do
+   diário `data/publicacao/transacao.json`;
+5. **promover** com `rename()`, que é atómico por ficheiro — nunca se serve
+   um ficheiro a meio;
+6. **confirmar** o sha256 no destino e só então apagar o diário.
+
+Qualquer erro até ao passo 4 aborta **sem tocar na versão pública**. Uma
+falha durante a promoção faz voltar atrás, de imediato, os ficheiros já
+promovidos. E se o processo morrer entre a primeira promoção e a
+confirmação, o diário sobrevive: a publicação seguinte encontra-o e restaura
+a última versão válida antes de tentar outra vez.
+
+O que fica atómico por ficheiro é o `rename()`; um conjunto de ficheiros não
+fica. A janela é entre a primeira e a última mudança de nome, sem geração
+nem validação pelo meio — os bytes já estão todos em disco e validados — e é
+essa janela que o diário cobre. Não há, neste alojamento, forma de a
+eliminar sem mexer na sua configuração: a troca de *symlink* de uma pasta de
+versão depende do `FollowSymLinks` do Apache, e gerar para outra pasta
+depende de regras de reescrita novas.
+
+Para voltar atrás de propósito: `php api/gerar.php --reverter`.
+
+## Depois de enviar ficheiros para o alojamento
+
+O `index.html` do repositório traz o bloco vazio. Depois de um envio de
+ficheiros, carregue uma vez em **Regenerar páginas** no painel (Dados &
+Backup), ou corra `php api/gerar.php` no terminal do alojamento. Sem isso as
+notícias só reaparecem na publicação seguinte.
+
+Regenerar automaticamente a partir do `api/load.php` foi considerado e
+recusado: seria uma escrita em ficheiros do site disparada por um pedido
+público.
+
+## Como se verificou
+
+`node tools/testar-sem-js.js` — 43 verificações, sobre uma cópia temporária
+do site e com dados de teste que nunca entram no projeto
+(`tools/teste/noticias-EXEMPLO-TESTE.json`, TESTE A/B/C):
+
+- geração, com e sem notícias publicadas;
+- página inicial **sem JavaScript**: 3 cartões, pela ordem certa, com links
+  navegáveis, a 1440 e a 320 px;
+- página inicial **com JavaScript**: os mesmos 3 cartões, sem duplicação e
+  sem erros de consola;
+- HTML fora das marcas igual **byte a byte**, por hash calculado fora do
+  código que gera;
+- `403` em `modelos/`, em `data/publicacao/` e no `data/db.json`;
+- e a transação: modelo que rebenta, HTML desequilibrado, marca em falta e
+  diário pendente — em todos, o `index.html` e o `data/db.json` ficam
+  intactos byte a byte, ou são restaurados.
+
+`node tools/validar.js --comparar` — sem problemas em 168 combinações,
+**novos: 0**.
+
+Fase A verificada à mão no `api/gerar.php`: `405` fora do POST, `401` sem
+sessão, `403` para um perfil sem a área `noticias`, `200` para Comunicação.
+Nada da autenticação foi alterado.
+
+## O que este bloco NÃO faz
+
+A `noticias.html`, o carrossel da página inicial, o arquivo de notícias, a
+agenda, os resultados, a história, os patrocinadores, a galeria e os vídeos
+continuam a depender de JavaScript. Entram nos blocos seguintes, um a um,
+pelo mesmo mecanismo.

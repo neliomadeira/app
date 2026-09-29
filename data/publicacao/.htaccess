@@ -1,0 +1,12 @@
+# Esta pasta guarda o backup da última publicação válida e a área temporária
+# onde as páginas são geradas antes de serem promovidas. Contém cópias do
+# data/db.json e das páginas do site: nada disto pode ser servido.
+#
+# A pasta data/ já nega tudo por herança. Este ficheiro é a segunda camada,
+# para a proteção não depender de um ficheiro que fica um nível acima.
+<IfModule mod_authz_core.c>
+  Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+  deny from all
+</IfModule>

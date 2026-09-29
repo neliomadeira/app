@@ -22,16 +22,16 @@
 // Código de saída: 0 sem problemas, 1 com problemas.
 // =====================================================================
 
-const { spawn, spawnSync } = require('child_process');
+const { spawnSync } = require('child_process');
 const fs   = require('fs');
-const net  = require('net');
-const os   = require('os');
 const path = require('path');
+
+// O arranque do servidor e a localização do Chromium estão em ambiente.js,
+// partilhados com o tools/testar-sem-js.js.
+const { carregarPlaywright, caminhoChromium, arrancarServidor } = require('./ambiente');
 
 const RAIZ       = path.resolve(__dirname, '..');
 const BASE_FICH  = path.join(__dirname, 'estado-inicial.json');
-const PORTA_HTTP = 8099;   // Apache
-const PORTA_PHP  = 8098;   // php -S por trás, só para os .php
 const LARGURAS   = [320, 375, 390, 430, 768, 1024, 1440];
 
 // Páginas com parâmetros, que não se descobrem só pela lista de ficheiros.
@@ -45,6 +45,8 @@ const ROTAS_EXTRA = [
 const ROTAS_HTTP = [
   { caminho: '/data/db.json',   esperado: 403, porque: 'o conteúdo publicado não pode ser lido diretamente' },
   { caminho: '/api/schema.sql', esperado: 403, porque: 'ficheiros .sql estão bloqueados' },
+  { caminho: '/modelos/noticias-inicio.php', esperado: 403, porque: 'os modelos são incluídos pelo PHP, não servidos' },
+  { caminho: '/data/publicacao/anterior/index.html', esperado: 403, porque: 'o backup da publicação não pode ser lido' },
   { caminho: '/manifest.json',  esperado: 200, porque: 'o manifest tem de ficar público ou o service worker não instala' },
   { caminho: '/api/load.php',   esperado: 200, porque: 'as páginas leem daqui o conteúdo publicado' },
   { caminho: '/images/',        esperado: [403, 404], porque: 'a listagem de diretórios não pode ser exposta' },
@@ -64,184 +66,6 @@ const temOpcao = (n) => args.includes(n);
 const SO_JSON  = temOpcao('--json');
 
 const log = (...m) => { if (!SO_JSON) console.log(...m); };
-
-// ---------------------------------------------------------------------
-// Playwright
-// ---------------------------------------------------------------------
-function carregarPlaywright() {
-  const tentativas = [
-    'playwright',
-    path.join(__dirname, 'node_modules', 'playwright'),
-    path.join(RAIZ, 'node_modules', 'playwright'),
-    '/opt/node22/lib/node_modules/playwright',
-    '/usr/lib/node_modules/playwright',
-  ];
-  for (const t of tentativas) {
-    try { return require(t); } catch (_) { /* segue */ }
-  }
-  console.error(
-    'Playwright não encontrado.\n' +
-    'Instale-o dentro de tools/:\n\n' +
-    '    cd tools && npm install\n'
-  );
-  process.exit(2);
-}
-
-function caminhoChromium(playwright) {
-  // Em alguns ambientes o browser está fora do sítio onde o Playwright o
-  // procura. Se o executável por omissão não existir, tenta os conhecidos.
-  try {
-    const p = playwright.chromium.executablePath();
-    if (fs.existsSync(p)) return undefined;   // undefined = usa o por omissão
-  } catch (_) { /* segue */ }
-  const alternativas = [
-    '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
-    '/opt/pw-browsers/chromium/chrome-linux/chrome',
-  ];
-  for (const a of alternativas) if (fs.existsSync(a)) return a;
-  return undefined;
-}
-
-// ---------------------------------------------------------------------
-// Servidor
-// ---------------------------------------------------------------------
-function existe(cmd) {
-  return spawnSync('sh', ['-c', `command -v ${cmd}`], { encoding: 'utf8' }).status === 0;
-}
-
-const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
-
-function portaAberta(porta) {
-  return new Promise((resolve) => {
-    const s = net.connect({ host: '127.0.0.1', port: porta });
-    const fim = (ok) => { s.destroy(); resolve(ok); };
-    s.once('connect', () => fim(true));
-    s.once('error',   () => fim(false));
-    s.setTimeout(700, () => fim(false));
-  });
-}
-
-async function esperarPorta(porta, segundos = 15) {
-  const fim = Date.now() + segundos * 1000;
-  while (Date.now() < fim) {
-    if (await portaAberta(porta)) return true;
-    await dormir(250);
-  }
-  return false;
-}
-
-function modulosApache() {
-  const dirs = ['/usr/lib/apache2/modules', '/usr/libexec/apache2', '/usr/lib64/httpd/modules'];
-  const dir  = dirs.find((d) => fs.existsSync(d));
-  if (!dir) return null;
-  // Nome do módulo → ficheiro. Só se carrega o que existir.
-  const querer = {
-    mpm_event: 'mod_mpm_event.so', unixd: 'mod_unixd.so', authz_core: 'mod_authz_core.so',
-    authz_host: 'mod_authz_host.so', log_config: 'mod_log_config.so', mime: 'mod_mime.so',
-    access_compat: 'mod_access_compat.so', autoindex: 'mod_autoindex.so',
-    dir: 'mod_dir.so', alias: 'mod_alias.so', filter: 'mod_filter.so',
-    headers: 'mod_headers.so', setenvif: 'mod_setenvif.so', rewrite: 'mod_rewrite.so',
-    deflate: 'mod_deflate.so', expires: 'mod_expires.so',
-    proxy: 'mod_proxy.so', proxy_http: 'mod_proxy_http.so',
-  };
-  const linhas = [];
-  for (const [nome, fich] of Object.entries(querer)) {
-    if (fs.existsSync(path.join(dir, fich))) {
-      linhas.push(`LoadModule ${nome}_module ${path.join(dir, fich)}`);
-    }
-  }
-  return { dir, linhas, temProxy: linhas.some((l) => l.includes('mod_proxy_http.so')) };
-}
-
-// Arranca o servidor. Devolve { url, modo, avisos, parar() }.
-async function arrancarServidor() {
-  const avisos  = [];
-  const filhos  = [];
-  const tmp     = fs.mkdtempSync(path.join(os.tmpdir(), 'jsc-validar-'));
-  const parar   = () => {
-    for (const f of filhos) { try { process.kill(-f.pid, 'SIGTERM'); } catch (_) {} }
-    if (process.env.JSC_DEBUG) { console.error('configuração do teste mantida em ' + tmp); return; }
-    try { fs.rmSync(tmp, { recursive: true, force: true }); } catch (_) {}
-  };
-
-  const mods = existe('apache2') || existe('httpd') ? modulosApache() : null;
-  const temPhp = existe('php');
-
-  // --- Apache com o .htaccess real ---------------------------------
-  if (mods && mods.linhas.length) {
-    let proxyPhp = '';
-    if (temPhp && mods.temProxy) {
-      // O Apache aqui não traz módulo de PHP. Os .php vão por proxy para
-      // um `php -S`, para os endpoints funcionarem a sério em vez de
-      // serem servidos como texto.
-      const php = spawn('php', ['-S', `127.0.0.1:${PORTA_PHP}`, '-t', RAIZ],
-        { detached: true, stdio: 'ignore' });
-      filhos.push(php);
-      if (await esperarPorta(PORTA_PHP, 10)) {
-        proxyPhp = `ProxyPassMatch ^/(.*\\.php)$ http://127.0.0.1:${PORTA_PHP}/$1\n  ProxyPreserveHost On`;
-      } else {
-        avisos.push('php -S não arrancou: os endpoints .php não são executados.');
-      }
-    } else if (!temPhp) {
-      avisos.push('PHP não está instalado: os endpoints .php não são executados.');
-    }
-
-    const conf = path.join(tmp, 'apache.conf');
-    // JSC_DEBUG=1 mantém a configuração gerada, para diagnóstico.
-    fs.writeFileSync(conf, `
-ServerName localhost
-ServerRoot ${tmp}
-PidFile ${tmp}/apache.pid
-ErrorLog ${tmp}/erro.log
-${process.getuid && process.getuid() === 0 ? 'User www-data\nGroup www-data' : ''}
-${mods.linhas.join('\n')}
-TypesConfig ${fs.existsSync('/etc/mime.types') ? '/etc/mime.types' : path.join(tmp, 'mime.types')}
-Listen ${PORTA_HTTP}
-DirectoryIndex index.html index.php
-DocumentRoot "${RAIZ}"
-<Directory "${RAIZ}">
-  AllowOverride All
-  Require all granted
-</Directory>
-# O .htaccess força https. Aqui o pedido é local, por isso diz-se-lhe que já vem seguro.
-# Tem de ser no servidor: os pedidos do service worker não levam cabeçalhos do contexto.
-<IfModule mod_headers.c>
-  RequestHeader set X-Forwarded-Proto "https" early
-</IfModule>
-${proxyPhp}
-`.trim() + '\n');
-    if (!fs.existsSync('/etc/mime.types')) fs.writeFileSync(path.join(tmp, 'mime.types'), 'text/html html\ntext/css css\napplication/javascript js\n');
-
-    const bin = existe('apache2') ? 'apache2' : 'httpd';
-    const ap  = spawn(bin, ['-f', conf, '-D', 'FOREGROUND'], { detached: true, stdio: 'ignore' });
-    filhos.push(ap);
-
-    if (await esperarPorta(PORTA_HTTP, 15)) {
-      return { url: `http://127.0.0.1:${PORTA_HTTP}`, modo: 'apache', avisos, parar };
-    }
-    const erro = fs.existsSync(path.join(tmp, 'erro.log'))
-      ? fs.readFileSync(path.join(tmp, 'erro.log'), 'utf8').trim().split('\n').slice(-3).join('\n') : '';
-    avisos.push('Apache não arrancou' + (erro ? ': ' + erro : '') + '. A usar php -S, sem as regras do .htaccess.');
-    for (const f of filhos) { try { process.kill(-f.pid, 'SIGTERM'); } catch (_) {} }
-    filhos.length = 0;
-  } else {
-    avisos.push('Apache não está instalado. A usar php -S, sem as regras do .htaccess.');
-  }
-
-  // --- Alternativa: php -S -----------------------------------------
-  if (temPhp) {
-    const php = spawn('php', ['-S', `127.0.0.1:${PORTA_HTTP}`, '-t', RAIZ],
-      { detached: true, stdio: 'ignore' });
-    filhos.push(php);
-    if (await esperarPorta(PORTA_HTTP, 10)) {
-      return { url: `http://127.0.0.1:${PORTA_HTTP}`, modo: 'php', avisos, parar };
-    }
-  }
-
-  parar();
-  console.error('Não foi possível arrancar nenhum servidor local (Apache ou PHP).');
-  process.exit(2);
-}
 
 // ---------------------------------------------------------------------
 // Páginas a testar

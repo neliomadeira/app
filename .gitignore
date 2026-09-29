@@ -9,6 +9,12 @@ api/config.local.php
 # Versioná-lo faria uma publicação de teste sobrepor-se à de produção.
 data/db.json
 
+# Backup da última publicação válida e área temporária da geração das
+# páginas. Estado de cada servidor, pela mesma razão. O .htaccess que
+# protege a pasta é do projeto e fica versionado.
+data/publicacao/*
+!data/publicacao/.htaccess
+
 # Ferramentas de validação (browser descarregado pelo Playwright)
 tools/node_modules/
 
