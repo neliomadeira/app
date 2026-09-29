@@ -579,51 +579,81 @@ document.addEventListener('DOMContentLoaded', () => {
       // Cada campo aparece se tiver valor e desaparece se for apagado no
       // painel. Antes, apagar um campo deixava ficar o que estivesse
       // escrito no HTML — e o site continuava a mostrar o valor antigo.
-      const fields = { seniorLiga: 'liga', seniorTemporada: 'temporada', seniorTreinos: 'treinos', seniorEstadio: 'estadio' };
-      Object.entries(fields).forEach(([id, key]) => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        const item = el.closest('.senior-info__item');
-        const valor = (info[key] || '').toString().trim();
-        el.textContent = valor;
-        if (item) item.hidden = valor === '';
-      });
+      // Os quatro campos da barra, na ordem da página.
+      const campos = [
+        { chave: 'liga',      icone: '&#127942;', rotulo: 'Competição', id: 'seniorLiga' },
+        { chave: 'temporada', icone: '&#128197;', rotulo: 'Temporada',  id: 'seniorTemporada' },
+        { chave: 'treinos',   icone: '&#128337;', rotulo: 'Treinos',    id: 'seniorTreinos' },
+        { chave: 'estadio',   icone: '&#128205;', rotulo: 'Local',      id: 'seniorEstadio' },
+      ];
+      const preenchidos = campos.filter(c => (info[c.chave] || '').toString().trim() !== '');
+      const barra = document.getElementById('seniorInfoBar');
+      // Se o servidor já escreveu esta barra com estes campos, não se lhe
+      // toca. Quando é preciso desenhar, desenha-se a barra toda: o bloco
+      // gerado só escreve os campos preenchidos, e um item que não exista
+      // não se pode preencher.
+      if (barra && !jscBlocoAtual(barra, preenchidos.length)) {
+        barra.innerHTML = preenchidos.map(c => `
+        <div class="senior-info__item">
+          <span class="senior-info__icon">${c.icone}</span>
+          <div>
+            <span class="senior-info__label">${jscEsc(c.rotulo)}</span>
+            <span class="senior-info__val" id="${jscEsc(c.id)}">${jscEsc((info[c.chave] || '').toString().trim())}</span>
+          </div>
+        </div>`).join('');
+        // Com os quatro campos vazios a barra inteira sai, em vez de ficar
+        // uma caixa vazia na página.
+        barra.hidden = preenchidos.length === 0;
+      }
     }
+    // O plantel pode já vir escrito no HTML pelo servidor. Quando vem e a
+    // contagem bate, não se mexe: o visitante já o está a ver, sem
+    // JavaScript nenhum.
+    //
+    // Quando é preciso desenhar, desenha-se o bloco todo — grupos incluídos —
+    // e não só o interior de cada grelha. Antes, isto contava com os quatro
+    // grupos já existirem no HTML; o bloco gerado só escreve os que têm
+    // jogadores, e um grupo que não exista não se pode preencher.
+    const caixaPlantel = document.getElementById('seniorPlantel');
     const rawPlantel = localStorage.getItem('db_seniores');
-    if (rawPlantel) {
+    if (caixaPlantel && rawPlantel) {
       const plantel = JSON.parse(rawPlantel).filter(j => j.ativo !== false);
-      if (plantel.length) {
+      if (!jscBlocoAtual(caixaPlantel, plantel.length)) {
+        // Os rótulos são os que a página mostra: no plural, como nos
+        // cabeçalhos. A grelha dos guarda-redes tem a sua variante.
         const grupos = [
-          { pos: 'GR',  label: 'Guarda-Redes' },
-          { pos: 'DEF', label: 'Defesas' },
-          { pos: 'MEI', label: 'Médios' },
-          { pos: 'AVA', label: 'Avançados' },
+          { pos: 'GR',  label: 'Guarda-redes', grelha: 'squad-grid squad-grid--gr' },
+          { pos: 'DEF', label: 'Defesas',      grelha: 'squad-grid' },
+          { pos: 'MEI', label: 'Médios',       grelha: 'squad-grid' },
+          { pos: 'AVA', label: 'Avançados',    grelha: 'squad-grid' },
         ];
-        // Os grupos chegam escondidos e o aviso "Plantel a atualizar"
-        // visível: sem plantel publicado não se mostram quatro cabeçalhos
-        // vazios. Cada grupo que for preenchido aparece, e o aviso sai.
-        let algumPreenchido = false;
-        grupos.forEach(({ pos, label }) => {
-          const container = document.getElementById('sg' + pos);
-          if (!container) return;
-          const jogadores = plantel.filter(j => j.posicao === pos);
-          if (!jogadores.length) { container.closest('.squad-group').hidden = true; return; }
-          container.closest('.squad-group').hidden = false;
-          algumPreenchido = true;
-          const initStr = j => j.nome.split(' ').slice(0,2).map(p => p[0]).join('').toUpperCase();
-          const avatarStyle = j => j.foto
-            ? `style="background-image:url('${j.foto}');background-size:cover;background-position:center;font-size:0"`
-            : '';
-          container.innerHTML = jogadores.map(j => `
-            <div class="player-card">
+        const initStr = j => (j.nome || '').split(' ').slice(0, 2).map(p => p[0]).join('').toUpperCase();
+        // O endereço da foto entrava no atributo sem tratamento nenhum: um
+        // apóstrofo no nome do ficheiro fechava o url(...) do CSS. O
+        // jscEscUrlCss() vive no js/html.js e dá exatamente o mesmo
+        // resultado que o jsc_esc_url_css() do api/conteudo.php.
+        const avatarStyle = j => j.foto
+          ? ` style="background-image:url('${jscEscUrlCss(j.foto)}');background-size:cover;background-position:center;font-size:0"`
+          : '';
+        const html = grupos.map(g => {
+          const jogadores = plantel.filter(j => j.posicao === g.pos);
+          // Grupo sem jogadores não aparece.
+          if (!jogadores.length) return '';
+          return `
+        <div class="squad-group">
+          <h2 class="squad-group__title"><span class="squad-pos-badge squad-pos-badge--${jscEsc(g.pos.toLowerCase())}">${jscEsc(g.pos)}</span> ${jscEsc(g.label)}</h2>
+          <div class="${jscEsc(g.grelha)}" id="sg${jscEsc(g.pos)}">
+${jogadores.map(j => `            <div class="player-card">
               <span class="player-card__num">${jscEsc(j.numero || '—')}</span>
-              <div class="player-card__avatar" ${avatarStyle(j)}>${jscEsc(j.foto ? '' : initStr(j))}</div>
+              <div class="player-card__avatar"${avatarStyle(j)}>${jscEsc(j.foto ? '' : initStr(j))}</div>
               <span class="player-card__name">${jscEsc(j.nome)}</span>
               <span class="player-card__pos player-card__pos--${jscEsc(j.posicao)}">${jscEsc(j.posicaoFull || j.posicao)}</span>
-            </div>`).join('');
-        });
-        const aviso = document.getElementById('plantelVazio');
-        if (aviso && algumPreenchido) aviso.hidden = true;
+            </div>`).join('\n')}
+          </div>
+        </div>`;
+        }).join('');
+        caixaPlantel.innerHTML = html
+          || '\n        <p class="jsc-vazio" id="plantelVazio">Plantel a atualizar.</p>\n      ';
       }
     }
   } catch(e) {}

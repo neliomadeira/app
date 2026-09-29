@@ -43,6 +43,11 @@ const BLOCOS = {
   'agenda.html': [
     { nome: 'agenda-pagina', ini: '<!-- JSC:agenda-pagina:inicio -->', fim: '<!-- JSC:agenda-pagina:fim -->' },
   ],
+  'equipa-principal.html': [
+    { nome: 'seniores-info',    ini: '<!-- JSC:seniores-info:inicio -->',    fim: '<!-- JSC:seniores-info:fim -->' },
+    { nome: 'seniores-plantel', ini: '<!-- JSC:seniores-plantel:inicio -->', fim: '<!-- JSC:seniores-plantel:fim -->' },
+    { nome: 'seniores-posts',   ini: '<!-- JSC:seniores-posts:inicio -->',   fim: '<!-- JSC:seniores-posts:fim -->' },
+  ],
 };
 
 // Datas da agenda a partir dos offsets da fixture: 0 = hoje. Devolve uma
@@ -145,6 +150,7 @@ function testesDeGeracao(raiz, dados) {
   const idx = path.join(raiz, 'index.html');
   const not = path.join(raiz, 'noticias.html');
   const age = path.join(raiz, 'agenda.html');
+  const eqp = path.join(raiz, 'equipa-principal.html');
   const db  = path.join(raiz, 'data', 'db.json');
 
   // Quantas notícias cada página deve mostrar, contado a partir da fixture e
@@ -160,28 +166,34 @@ function testesDeGeracao(raiz, dados) {
   const antesIdx = fs.readFileSync(idx, 'utf8');
   const antesNot = fs.readFileSync(not, 'utf8');
   const antesAge = fs.readFileSync(age, 'utf8');
+  const antesEqp = fs.readFileSync(eqp, 'utf8');
   verificar('index.html tem as marcas das DUAS regiões — agenda e notícias',
     foraDasMarcas(antesIdx, 'index.html') !== null
     && antesIdx.indexOf(BLOCOS['index.html'][0].ini) < antesIdx.indexOf(BLOCOS['index.html'][1].ini));
   verificar('noticias.html tem as duas marcas', foraDasMarcas(antesNot, 'noticias.html') !== null);
   verificar('agenda.html tem as duas marcas', foraDasMarcas(antesAge, 'agenda.html') !== null);
+  verificar('equipa-principal.html tem as marcas das TRÊS regiões',
+    foraDasMarcas(antesEqp, 'equipa-principal.html') !== null
+    && BLOCOS['equipa-principal.html'].every((b) => antesEqp.includes(b.ini) && antesEqp.includes(b.fim)));
 
   escreverDados(raiz, dados);
   let g = gerar(raiz);
   verificar('geração corre sem erro', g.estado === 0, g.saida.trim());
-  verificar('a geração escreveu as três páginas',
-    /index\.html/.test(g.saida) && /noticias\.html/.test(g.saida) && /agenda\.html/.test(g.saida),
-    g.saida.trim());
+  verificar('a geração escreveu as quatro páginas',
+    /index\.html/.test(g.saida) && /noticias\.html/.test(g.saida) && /agenda\.html/.test(g.saida)
+    && /equipa-principal\.html/.test(g.saida), g.saida.trim());
 
   const depoisHtml = fs.readFileSync(idx, 'utf8');
   const depoisNot  = fs.readFileSync(not, 'utf8');
   const depoisAge  = fs.readFileSync(age, 'utf8');
+  const depoisEqp  = fs.readFileSync(eqp, 'utf8');
 
   // ---- 9 / E1-8. Comparação byte a byte do exterior a TODAS as marcas ----
   for (const [nome, antes, depois] of [
     ['index.html', antesIdx, depoisHtml],
     ['noticias.html', antesNot, depoisNot],
     ['agenda.html', antesAge, depoisAge],
+    ['equipa-principal.html', antesEqp, depoisEqp],
   ]) {
     const a = foraDasMarcas(antes, nome);
     const d = foraDasMarcas(depois, nome);
@@ -299,6 +311,75 @@ function testesDeGeracao(raiz, dados) {
   verificar('agenda: o data-ics traz o evento em JSON percent-encoded',
     blocoAgP.includes('data-ics="%7B%22titulo%22%3A%22TESTE%20EVENTO%20HOJE%22'));
 
+  // ---- equipa principal: as três regiões --------------------------
+  const infoEsperados = ['liga', 'temporada', 'treinos', 'estadio']
+    .filter((k) => (dados.senioresInfo[k] || '').trim() !== '').length;
+  const ativos = dados.seniores.filter((j) => j.ativo !== false);
+  const porPos = (p) => ativos.filter((j) => j.posicao === p).length;
+  const gruposEsperados = ['GR', 'DEF', 'MEI', 'AVA'].filter((p) => porPos(p) > 0);
+  const postsSeniores = dados.noticias.filter((n) => n.publicada && n.categoria === 'Seniores');
+
+  const bInfo = dentroDasMarcas(depoisEqp, 'equipa-principal.html', 'seniores-info');
+  const bPlantel = dentroDasMarcas(depoisEqp, 'equipa-principal.html', 'seniores-plantel');
+  const bPosts = dentroDasMarcas(depoisEqp, 'equipa-principal.html', 'seniores-posts');
+
+  verificar(`barra de informação: ${infoEsperados} campos (o vazio não produz item)`,
+    (bInfo.match(/<div class="senior-info__item">/g) || []).length === infoEsperados,
+    'obtive ' + (bInfo.match(/<div class="senior-info__item">/g) || []).length);
+  verificar('barra: os campos preenchidos aparecem com o valor do painel',
+    bInfo.includes('TESTE COMPETICAO') && bInfo.includes('TESTE EPOCA 1999/2000')
+    && bInfo.includes('TESTE LOCAL DOS JOGOS'));
+  verificar('barra: o campo de treinos vazio não produz item',
+    !bInfo.includes('Treinos'));
+  verificar('barra: o treinador guardado no painel NÃO é publicado',
+    !bInfo.includes('TESTE TREINADOR QUE NAO APARECE')
+    && !depoisEqp.includes('TESTE TREINADOR QUE NAO APARECE'));
+  verificar('barra: os ids mantêm-se, para o JavaScript os encontrar',
+    bInfo.includes('id="seniorLiga"') && bInfo.includes('id="seniorTemporada"')
+    && bInfo.includes('id="seniorEstadio"'));
+
+  verificar(`plantel: ${gruposEsperados.length} grupos de posição (${gruposEsperados.join(', ')})`,
+    (bPlantel.match(/<div class="squad-group">/g) || []).length === gruposEsperados.length,
+    'obtive ' + (bPlantel.match(/<div class="squad-group">/g) || []).length);
+  verificar('plantel: o grupo sem jogadores NÃO é escrito',
+    !bPlantel.includes('id="sgMEI"') && !bPlantel.includes('Médios'));
+  verificar(`plantel: ${ativos.length} cartões de jogador`,
+    (bPlantel.match(/<div class="player-card">/g) || []).length === ativos.length,
+    'obtive ' + (bPlantel.match(/<div class="player-card">/g) || []).length);
+  verificar('plantel: o jogador inativo não aparece',
+    !bPlantel.includes('TESTE JOGADOR INATIVO'));
+  verificar('plantel: sem número aparece o travessão',
+    /<span class="player-card__num">—<\/span>/.test(bPlantel));
+  verificar('plantel: sem fotografia aparecem as iniciais e não há atributo style',
+    bPlantel.includes('<div class="player-card__avatar">TD</div>'));
+  verificar('plantel: URL de fotografia com apóstrofo e parêntesis vem percent-encoded',
+    bPlantel.includes("url('images/logo.png?x=a%27b%281%29')"),
+    (bPlantel.match(/url\('images\/logo\.png[^']*'\)/g) || []).join(' | '));
+  verificar('plantel: posicaoFull vazio cai para a posição',
+    bPlantel.includes('player-card__pos--AVA">AVA<'));
+  verificar('plantel: a mensagem de plantel vazio sai quando há jogadores',
+    !bPlantel.includes('id="plantelVazio"'));
+  verificar('plantel: nenhum dado pessoal além de nome, número, posição e foto',
+    !/nascimento|idade|telefone|email/i.test(bPlantel));
+
+  verificar(`publicações: 4 cartões de ${postsSeniores.length} publicadas`,
+    (bPosts.match(/<article class="senior-post-card/g) || []).length === 4,
+    'obtive ' + (bPosts.match(/<article class="senior-post-card/g) || []).length);
+  verificar('publicações: uma ligação real "Ler mais" por cartão',
+    (bPosts.match(/<a class="senior-post-card__more" href="noticias\.html\?id=\d+"/g) || []).length === 4);
+  verificar('publicações: o primeiro cartão é o grande',
+    bPosts.includes('senior-post-card senior-post-card--featured'));
+  verificar('publicações: a não publicada não aparece',
+    !bPosts.includes('NAO PUBLICADO'));
+  verificar('publicações: sem resumo não há parágrafo de resumo vazio',
+    !bPosts.includes('<p class="senior-post-card__excerpt"></p>'));
+  verificar('publicações: o estado vazio fica escondido',
+    bPosts.includes('id="seniorPostsEmpty" hidden'));
+  verificar('publicações: o botão "Ver todas" aparece (5 publicadas, 4 mostradas)',
+    bPosts.includes('id="btnVerTodosPosts"') && !/id="btnVerTodosPosts" hidden/.test(bPosts));
+  verificar('publicações: o botão leva a classe que o tira sem JavaScript',
+    bPosts.includes('btn-outline jsc-so-com-js'));
+
   // ---- E1/1, E1/2 e E1/3: as duas regiões do index.html ----------
   verificar('E1: as duas regiões do index.html vêm preenchidas',
     blocoAgI.includes('agenda-card') && dentroDasMarcas(depoisHtml, 'index.html', 'noticias').includes('news-card'));
@@ -345,10 +426,17 @@ function testesDeGeracao(raiz, dados) {
   const bomInicio = fs.readFileSync(modeloInicio, 'utf8');
   const bomPagina = fs.readFileSync(modeloPagina, 'utf8');
   const bomAgenda = fs.readFileSync(modeloAgenda, 'utf8');
+  const modeloSenInfo = path.join(raiz, 'modelos', 'seniores-info.php');
+  const modeloSenPlan = path.join(raiz, 'modelos', 'seniores-plantel.php');
+  const modeloSenPost = path.join(raiz, 'modelos', 'seniores-posts.php');
   const bomAgPag  = fs.readFileSync(modeloAgPag, 'utf8');
+  const bomSenInfo = fs.readFileSync(modeloSenInfo, 'utf8');
+  const bomSenPlan = fs.readFileSync(modeloSenPlan, 'utf8');
+  const bomSenPost = fs.readFileSync(modeloSenPost, 'utf8');
   const htmlBom   = fs.readFileSync(idx, 'utf8');
   const notBom    = fs.readFileSync(not, 'utf8');
   const ageBom    = fs.readFileSync(age, 'utf8');
+  const eqpBom    = fs.readFileSync(eqp, 'utf8');
   const dbBom     = fs.readFileSync(db, 'utf8');
 
   // Quando é o próprio teste que estraga o index.html, o que se verifica é
@@ -361,6 +449,8 @@ function testesDeGeracao(raiz, dados) {
       fs.readFileSync(not, 'utf8') === notBom);
     verificar(etiqueta + ': agenda.html intacto byte a byte',
       fs.readFileSync(age, 'utf8') === ageBom);
+    verificar(etiqueta + ': equipa-principal.html intacto byte a byte',
+      fs.readFileSync(eqp, 'utf8') === eqpBom);
     verificar(etiqueta + ': data/db.json intacto byte a byte',
       fs.readFileSync(db, 'utf8') === dbBom);
   };
@@ -372,6 +462,8 @@ function testesDeGeracao(raiz, dados) {
       fs.readFileSync(not, 'utf8') === notBom);
     verificar(etiqueta + ': agenda.html intacto byte a byte',
       fs.readFileSync(age, 'utf8') === ageBom);
+    verificar(etiqueta + ': equipa-principal.html intacto byte a byte',
+      fs.readFileSync(eqp, 'utf8') === eqpBom);
     verificar(etiqueta + ': data/db.json intacto byte a byte',
       fs.readFileSync(db, 'utf8') === dbBom);
   };
@@ -383,6 +475,11 @@ function testesDeGeracao(raiz, dados) {
     // primeiro publicado — nem a página inteira meio escrita.
     ['modelo da agenda da página inicial que rebenta', modeloAgenda, bomAgenda],
     ['modelo da lista da agenda que rebenta', modeloAgPag, bomAgPag],
+    // Três regiões no mesmo ficheiro: qualquer uma a falhar não pode deixar
+    // as outras duas publicadas.
+    ['modelo da barra de informação que rebenta', modeloSenInfo, bomSenInfo],
+    ['modelo do plantel que rebenta', modeloSenPlan, bomSenPlan],
+    ['modelo das publicações da equipa que rebenta', modeloSenPost, bomSenPost],
   ]) {
     fs.writeFileSync(ficheiro, bom + "\n<?php throw new RuntimeException('corrupção de teste'); ?>\n");
     g = gerar(raiz);
@@ -417,6 +514,7 @@ function testesDeGeracao(raiz, dados) {
     ['index.html', idx, htmlBom],
     ['noticias.html', not, notBom],
     ['agenda.html', age, ageBom],
+    ['equipa-principal.html', eqp, eqpBom],
   ]) {
     for (const b of BLOCOS[nomeFich]) {
       for (const [qual, marca] of [['início', b.ini], ['fim', b.fim]]) {
@@ -473,20 +571,24 @@ function testesDeGeracao(raiz, dados) {
   fs.writeFileSync(path.join(ant, 'index.html'), versaoAnterior);
   fs.writeFileSync(path.join(ant, 'noticias.html'), notBom);
   fs.writeFileSync(path.join(ant, 'agenda.html'), ageBom);
+  fs.writeFileSync(path.join(ant, 'equipa-principal.html'), eqpBom);
   fs.writeFileSync(path.join(raiz, 'data', 'publicacao', 'transacao.json'),
     JSON.stringify({ iniciada: '2020-01-01T00:00:00+00:00', por: 'teste',
                      ficheiros: [{ destino: 'index.html' }, { destino: 'noticias.html' },
-                                 { destino: 'agenda.html' }] }));
+                                 { destino: 'agenda.html' },
+                                 { destino: 'equipa-principal.html' }] }));
   fs.writeFileSync(idx, htmlBom.replace('</body>', '<!-- estado a meio --></body>'));
   fs.writeFileSync(not, notBom.replace('</body>', '<!-- estado a meio --></body>'));
   fs.writeFileSync(age, ageBom.replace('</body>', '<!-- estado a meio --></body>'));
+  fs.writeFileSync(eqp, eqpBom.replace('</body>', '<!-- estado a meio --></body>'));
   g = gerar(raiz);
   verificar('diário pendente: a publicação seguinte restaura e avisa',
     g.estado === 0 && /não tinha terminado/.test(g.saida), g.saida.trim().slice(0, 200));
-  verificar('diário pendente: as três páginas foram repostas',
+  verificar('diário pendente: as quatro páginas foram repostas',
     !fs.readFileSync(idx, 'utf8').includes('estado a meio')
     && !fs.readFileSync(not, 'utf8').includes('estado a meio')
-    && !fs.readFileSync(age, 'utf8').includes('estado a meio'));
+    && !fs.readFileSync(age, 'utf8').includes('estado a meio')
+    && !fs.readFileSync(eqp, 'utf8').includes('estado a meio'));
   verificar('diário pendente: o diário foi fechado',
     !fs.existsSync(path.join(raiz, 'data', 'publicacao', 'transacao.json')));
 
@@ -505,10 +607,19 @@ function testesDeGeracao(raiz, dados) {
   fs.writeFileSync(idx, idxGerado.replace('</body>', '<!-- rabisco --></body>'));
   fs.writeFileSync(not, notBom.replace('</body>', '<!-- rabisco --></body>'));
   fs.writeFileSync(age, ageBom.replace('</body>', '<!-- rabisco --></body>'));
+  const eqpGerado = fs.readFileSync(eqp, 'utf8');
+  fs.writeFileSync(eqp, eqpGerado.replace('</body>', '<!-- rabisco --></body>'));
   g = gerar(raiz, ['--reverter']);
-  verificar('reverter: corre sem erro e nomeia as três páginas',
+  verificar('reverter: corre sem erro e nomeia as quatro páginas',
     g.estado === 0 && /index\.html/.test(g.saida) && /noticias\.html/.test(g.saida)
-    && /agenda\.html/.test(g.saida), g.saida.trim().slice(0, 200));
+    && /agenda\.html/.test(g.saida) && /equipa-principal\.html/.test(g.saida),
+    g.saida.trim().slice(0, 200));
+  verificar('reverter: a equipa-principal.html voltou inteira, com as três regiões',
+    !fs.readFileSync(eqp, 'utf8').includes('rabisco')
+    && BLOCOS['equipa-principal.html'].every((b) => {
+      const c = fs.readFileSync(eqp, 'utf8');
+      return c.includes(b.ini) && c.includes(b.fim);
+    }));
   const idxRevertido = fs.readFileSync(idx, 'utf8');
   verificar('reverter: o index.html voltou inteiro, sem o rabisco',
     !idxRevertido.includes('rabisco')
@@ -522,6 +633,7 @@ function testesDeGeracao(raiz, dados) {
   fs.writeFileSync(idx, htmlBom);
   fs.writeFileSync(not, notBom);
   fs.writeFileSync(age, ageBom);
+  fs.writeFileSync(eqp, eqpBom);
   escreverDados(raiz, dados);
   g = gerar(raiz);
   verificar('geração final para os testes de browser', g.estado === 0, g.saida.trim());
@@ -734,6 +846,84 @@ async function testarAgenda(browser, url, comJs, largura, opcoes = {}) {
   const inicioDoCorpo = estado === 200 ? '' : (await pg.content()).slice(0, 300);
   await ctx.close();
   return { ...d, estado, inicioDoCorpo, descarregou, erros };
+}
+
+// Sonda da equipa-principal.html. Mede o que se vê: a barra, o plantel
+// agrupado, as publicações, e as interações que só existem com JavaScript.
+async function testarEquipa(browser, url, comJs, largura, opcoes = {}) {
+  const ctx = await browser.newContext({
+    javaScriptEnabled: comJs,
+    extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+  });
+  const pg = await ctx.newPage();
+  await pg.setViewportSize({ width: largura, height: 900 });
+
+  const erros = [];
+  const ruido = (t) => RUIDO.some((r) => r.test(t));
+  pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+  pg.on('console', (m) => { if (m.type() === 'error' && !ruido(m.text())) erros.push(m.text()); });
+  pg.on('response', (r) => {
+    const t = r.status() + ' ' + r.url().replace(url, '');
+    if (r.status() >= 400 && !ruido(t)) erros.push(t);
+  });
+  await pg.route('**', (rota) => {
+    const alvo = rota.request().url();
+    if (alvo.startsWith(url) || alvo.startsWith('data:') || alvo.startsWith('blob:')) return rota.continue();
+    return rota.abort();
+  });
+
+  const resp = await pg.goto(url + '/equipa-principal.html',
+    { waitUntil: comJs ? 'networkidle' : 'load', timeout: 20000 });
+  const estado = resp ? resp.status() : 0;
+
+  if (opcoes.clicar) await pg.click(opcoes.clicar);
+  if (opcoes.teclado) {
+    await pg.focus(opcoes.teclado);
+    await pg.keyboard.press('Enter');
+    await pg.waitForTimeout(150);
+  }
+
+  const d = await pg.evaluate(() => {
+    const visivel = (el) => !!el && getComputedStyle(el).display !== 'none' && !el.hidden;
+    const cartoes = Array.from(document.querySelectorAll('#seniorPlantel .player-card'));
+    const posts = Array.from(document.querySelectorAll('#seniorPostsGrid .senior-post-card'));
+    const grupos = Array.from(document.querySelectorAll('#seniorPlantel .squad-group'));
+    const doc = document.documentElement;
+    const modal = document.getElementById('newsArchive');
+    return {
+      infoItens: document.querySelectorAll('#seniorInfoBar .senior-info__item').length,
+      infoVisivel: visivel(document.getElementById('seniorInfoBar')),
+      infoRotulos: Array.from(document.querySelectorAll('#seniorInfoBar .senior-info__label'))
+        .map((el) => el.textContent),
+      infoValores: Array.from(document.querySelectorAll('#seniorInfoBar .senior-info__val'))
+        .map((el) => el.textContent),
+      grupos: grupos.filter(visivel).length,
+      gruposTitulos: grupos.filter(visivel).map((g) => (g.querySelector('.squad-group__title') || {}).textContent || ''),
+      jogadores: cartoes.length,
+      jogadoresVisiveis: cartoes.filter(visivel).length,
+      nomes: cartoes.map((c) => (c.querySelector('.player-card__name') || {}).textContent || ''),
+      numeros: cartoes.map((c) => (c.querySelector('.player-card__num') || {}).textContent || ''),
+      avataresComFoto: cartoes.filter((c) => {
+        const a = c.querySelector('.player-card__avatar');
+        return a && a.getAttribute('style');
+      }).length,
+      plantelVazio: visivel(document.getElementById('plantelVazio')),
+      posts: posts.length,
+      postsVisiveis: posts.filter(visivel).length,
+      postsTitulos: posts.map((c) => (c.querySelector('.senior-post-card__title') || {}).textContent || ''),
+      ligacoes: Array.from(document.querySelectorAll('#seniorPostsGrid .senior-post-card__more'))
+        .map((a) => a.tagName.toLowerCase() + ':' + (a.getAttribute('href') || '')),
+      postsVazio: visivel(document.getElementById('seniorPostsEmpty')),
+      botao: visivel(document.getElementById('btnVerTodosPosts')),
+      modalAberto: !!(modal && modal.classList.contains('open')),
+      modalTexto: modal ? (modal.textContent || '').slice(0, 300) : '',
+      modalItens: document.querySelectorAll('#newsArchiveBody .news-archive__item').length,
+      transbordo: doc.scrollWidth - doc.clientWidth,
+    };
+  });
+  const inicioDoCorpo = estado === 200 ? '' : (await pg.content()).slice(0, 300);
+  await ctx.close();
+  return { ...d, estado, inicioDoCorpo, erros };
 }
 
 // ---------------------------------------------------------------------
@@ -972,8 +1162,15 @@ async function testarAgenda(browser, url, comJs, largura, opcoes = {}) {
     verificar('os ' + N + ' cartões continuam no HTML — sem duplicação',
       p.cartoes === N, 'obtive ' + p.cartoes);
     verificar('só 9 visíveis, como hoje', p.visiveis === 9, 'visíveis ' + p.visiveis);
-    verificar('a barra de filtros aparece, com "Todas" mais as 2 categorias',
-      p.filtros && p.nFiltros === 3, 'visível=' + p.filtros + ' botões=' + p.nFiltros);
+    // "Todas" mais uma por categoria existente na lista — contado a partir
+    // dos dados, não fixado no teste.
+    const agoraISO = new Date().toISOString();
+    const categorias = [...new Set(dados.noticias
+      .filter((n) => n.publicada || (n.scheduledAt && n.scheduledAt <= agoraISO))
+      .map((n) => n.categoria).filter(Boolean))];
+    verificar(`a barra de filtros aparece, com "Todas" mais as ${categorias.length} categorias`,
+      p.filtros && p.nFiltros === categorias.length + 1,
+      'visível=' + p.filtros + ' botões=' + p.nFiltros + ' esperados=' + (categorias.length + 1));
     verificar('o botão "Ver mais" aparece com as (' + EXTRAS + ' restantes)',
       p.mais && p.maisTexto.includes('(' + EXTRAS + ' restantes)'), p.maisTexto);
     verificar('o botão de copiar ligação aparece', p.copiarVisivel > 0);
@@ -1031,6 +1228,119 @@ async function testarAgenda(browser, url, comJs, largura, opcoes = {}) {
     verificar('reposto o data-itens: o JavaScript volta a não mexer',
       p.cartoes === N, 'cartões no DOM ' + p.cartoes);
 
+    // ---- Equipa principal ---------------------------------------
+    const ativosB = dados.seniores.filter((j) => j.ativo !== false);
+    const gruposB = ['GR', 'DEF', 'MEI', 'AVA']
+      .filter((pos) => ativosB.some((j) => j.posicao === pos));
+    const infoB = ['liga', 'temporada', 'treinos', 'estadio']
+      .filter((k) => (dados.senioresInfo[k] || '').trim() !== '').length;
+    const postsB = dados.noticias.filter((n) => n.publicada && n.categoria === 'Seniores');
+
+    console.log('\nequipa principal SEM JavaScript (1440px)');
+    let q = await testarEquipa(browser, srv.url, false, 1440);
+    verificar('responde 200', q.estado === 200,
+      'respondeu ' + q.estado + ' — ' + q.inicioDoCorpo.replace(/\s+/g, ' '));
+    verificar(`barra de informação com ${infoB} campos`, q.infoItens === infoB, 'obtive ' + q.infoItens);
+    verificar('barra: sem o campo de treinos, que está vazio',
+      !q.infoRotulos.includes('Treinos'), q.infoRotulos.join(' | '));
+    verificar(`plantel: ${gruposB.length} grupos visíveis (${gruposB.join(', ')})`,
+      q.grupos === gruposB.length, 'obtive ' + q.grupos + ': ' + q.gruposTitulos.join(' | '));
+    verificar('plantel: o grupo dos médios não existe na página',
+      !q.gruposTitulos.some((t) => /Médios/.test(t)));
+    verificar(`plantel: ${ativosB.length} jogadores, todos visíveis`,
+      q.jogadores === ativosB.length && q.jogadoresVisiveis === ativosB.length,
+      'no DOM ' + q.jogadores + ', visíveis ' + q.jogadoresVisiveis);
+    verificar('plantel: o inativo não aparece',
+      !q.nomes.some((n) => /INATIVO/.test(n)), q.nomes.join(' | '));
+    verificar('plantel: o jogador sem número mostra o travessão',
+      q.numeros.includes('—'), q.numeros.join(' | '));
+    verificar('plantel: só os jogadores com foto têm imagem de fundo',
+      q.avataresComFoto === ativosB.filter((j) => (j.foto || '') !== '').length,
+      'com foto ' + q.avataresComFoto);
+    verificar('plantel: a mensagem de plantel vazio não aparece', !q.plantelVazio);
+    verificar('publicações: 4 cartões visíveis',
+      q.posts === 4 && q.postsVisiveis === 4, 'no DOM ' + q.posts);
+    verificar('publicações: cada "Ler mais" é uma ligação <a> a sério',
+      q.ligacoes.length === 4 && q.ligacoes.every((l) => /^a:noticias\.html\?id=\d+$/.test(l)),
+      q.ligacoes.join(' | '));
+    verificar('publicações: o estado vazio não aparece', !q.postsVazio);
+    verificar('o botão "Ver todas" NÃO aparece sem JavaScript', !q.botao);
+    verificar('sem transbordo horizontal', q.transbordo <= 0, '+' + q.transbordo + 'px');
+
+    console.log('\nequipa principal SEM JavaScript (320px)');
+    q = await testarEquipa(browser, srv.url, false, 320);
+    verificar(`os ${ativosB.length} jogadores visíveis a 320px`,
+      q.jogadoresVisiveis === ativosB.length, 'visíveis ' + q.jogadoresVisiveis);
+    verificar('4 publicações visíveis a 320px', q.postsVisiveis === 4, 'visíveis ' + q.postsVisiveis);
+    verificar('sem transbordo horizontal a 320px', q.transbordo <= 0, '+' + q.transbordo + 'px');
+
+    console.log('\nequipa principal COM JavaScript (1440px)');
+    q = await testarEquipa(browser, srv.url, true, 1440);
+    verificar(`barra: continuam ${infoB} campos — sem duplicação`, q.infoItens === infoB, 'obtive ' + q.infoItens);
+    verificar(`plantel: continuam ${ativosB.length} jogadores e ${gruposB.length} grupos — sem duplicação`,
+      q.jogadores === ativosB.length && q.grupos === gruposB.length,
+      'jogadores ' + q.jogadores + ', grupos ' + q.grupos);
+    verificar('publicações: continuam 4 cartões — sem duplicação', q.posts === 4, 'obtive ' + q.posts);
+    verificar(`o botão "Ver todas" aparece (${postsB.length} publicadas, 4 mostradas)`, q.botao);
+    verificar('sem erros de consola', q.erros.length === 0, q.erros.join(' / '));
+    verificar('sem transbordo horizontal', q.transbordo <= 0, '+' + q.transbordo + 'px');
+
+    q = await testarEquipa(browser, srv.url, true, 320);
+    verificar('a 320px com JavaScript: sem transbordo', q.transbordo <= 0, '+' + q.transbordo + 'px');
+
+    console.log('\nequipa principal: interações do JavaScript');
+    q = await testarEquipa(browser, srv.url, true, 1440,
+      { clicar: '#seniorPostsGrid .senior-post-card .senior-post-card__more' });
+    verificar('clicar no "Ler mais" abre o modal em vez de navegar',
+      q.modalAberto && /TESTE POST SENIORES A/.test(q.modalTexto),
+      'modal aberto=' + q.modalAberto);
+
+    q = await testarEquipa(browser, srv.url, true, 1440,
+      { teclado: '#seniorPostsGrid .senior-post-card .senior-post-card__more' });
+    verificar('a mesma ligação é alcançável e acionável com o teclado (Enter)',
+      q.modalAberto && /TESTE POST SENIORES A/.test(q.modalTexto),
+      'modal aberto=' + q.modalAberto);
+
+    // ---- divergência de contagem: o JavaScript reconstrói os blocos ----
+    // Com o data-itens errado, o JavaScript tem de voltar a desenhar — e a
+    // desenhar o bloco TODO, não só o interior. É isso que a marca de água
+    // prova: se desaparecer, foi reescrito. Sem isto, um campo ou um grupo
+    // que o gerador não escreveu nunca poderia ser acrescentado.
+    const eqpPath = path.join(raiz, 'equipa-principal.html');
+    const eqpGeradoB = fs.readFileSync(eqpPath, 'utf8');
+    const comAgua = eqpGeradoB
+      .replace('TESTE COMPETICAO', 'MARCA DE AGUA NA BARRA')
+      .replace('TESTE GUARDIAO UM', 'MARCA DE AGUA NO PLANTEL');
+
+    fs.writeFileSync(eqpPath, comAgua);
+    q = await testarEquipa(browser, srv.url, true, 1440);
+    verificar('contagens certas: o JavaScript não mexe no que foi gerado',
+      q.infoItens === infoB && q.jogadores === ativosB.length
+      && q.infoValores.includes('MARCA DE AGUA NA BARRA')
+      && q.nomes.includes('MARCA DE AGUA NO PLANTEL'),
+      'itens ' + q.infoItens + ', jogadores ' + q.jogadores
+      + ', barra: ' + q.infoValores.join(' | '));
+
+    fs.writeFileSync(eqpPath, comAgua.replace(`data-itens="${ativosB.length}"`, 'data-itens="99"'));
+    q = await testarEquipa(browser, srv.url, true, 1440);
+    verificar('data-itens do plantel errado: o JavaScript reconstrói o bloco todo',
+      !q.nomes.includes('MARCA DE AGUA NO PLANTEL')
+      && q.jogadores === ativosB.length && q.grupos === gruposB.length,
+      'jogadores ' + q.jogadores + ', grupos ' + q.grupos);
+
+    fs.writeFileSync(eqpPath, comAgua.replace(`data-itens="${infoB}"`, 'data-itens="98"'));
+    q = await testarEquipa(browser, srv.url, true, 1440);
+    verificar('data-itens da barra errado: o JavaScript reconstrói a barra toda',
+      q.infoItens === infoB && !q.infoRotulos.includes('Treinos')
+      && !q.infoValores.includes('MARCA DE AGUA NA BARRA'),
+      'itens ' + q.infoItens + ': ' + q.infoValores.join(' | '));
+    fs.writeFileSync(eqpPath, eqpGeradoB);
+
+    q = await testarEquipa(browser, srv.url, true, 1440, { clicar: '#btnVerTodosPosts' });
+    verificar(`o botão "Ver todas" abre o arquivo com as ${postsB.length} publicações`,
+      q.modalAberto && q.modalItens === postsB.length,
+      'modal aberto=' + q.modalAberto + ', itens ' + q.modalItens);
+
     // ---- 7. Bloqueios do .htaccess ------------------------------
     console.log('\nproteções');
     const ctx = await browser.newContext({ extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' } });
@@ -1039,6 +1349,9 @@ async function testarAgenda(browser, url, comJs, largura, opcoes = {}) {
       ['/modelos/noticias-pagina.php', 403],
       ['/modelos/agenda-inicio.php', 403],
       ['/modelos/agenda-pagina.php', 403],
+      ['/modelos/seniores-info.php', 403],
+      ['/modelos/seniores-plantel.php', 403],
+      ['/modelos/seniores-posts.php', 403],
       ['/data/publicacao/anterior/index.html', 403],
       ['/data/publicacao/transacao.json', 403],
       ['/data/db.json', 403],
@@ -1057,6 +1370,10 @@ async function testarAgenda(browser, url, comJs, largura, opcoes = {}) {
     semNoticias.noticias.forEach((n) => { n.publicada = false; delete n.scheduledAt; });
     // Sem eventos nenhuns: a agenda tem de mostrar a sua mensagem própria.
     semNoticias.agenda = [];
+    // E a equipa principal sem nada: barra vazia, plantel vazio, e as
+    // publicações desaparecem com as notícias todas despublicadas.
+    semNoticias.seniores = [];
+    semNoticias.senioresInfo = { temporada: '', liga: '', treinador: '', treinos: '', estadio: '' };
     semNoticias.publicadoEm = '2020-02-01T10:00:00.000Z';
     escreverDados(raiz, semNoticias);
     const g = gerar(raiz);
@@ -1081,6 +1398,23 @@ async function testarAgenda(browser, url, comJs, largura, opcoes = {}) {
     const ai = await testarPagina(browser, srv.url, false, 1440);
     verificar('página inicial sem eventos: nenhum cartão de agenda', ai.agendaCartoes === 0);
     verificar('página inicial sem eventos: aparece a mensagem de lista vazia', ai.agendaVazio);
+
+    const qv = await testarEquipa(browser, srv.url, false, 1440);
+    verificar('equipa: barra totalmente vazia não aparece',
+      qv.infoItens === 0 && !qv.infoVisivel, 'itens ' + qv.infoItens + ', visível=' + qv.infoVisivel);
+    verificar('equipa: plantel vazio mostra a mensagem e nenhum grupo',
+      qv.jogadores === 0 && qv.grupos === 0 && qv.plantelVazio,
+      'jogadores ' + qv.jogadores + ', grupos ' + qv.grupos + ', mensagem=' + qv.plantelVazio);
+    verificar('equipa: sem publicações aparece o estado vazio e o botão sai',
+      qv.posts === 0 && qv.postsVazio && !qv.botao,
+      'publicações ' + qv.posts + ', vazio=' + qv.postsVazio + ', botão=' + qv.botao);
+    verificar('equipa: sem transbordo no estado vazio', qv.transbordo <= 0, '+' + qv.transbordo + 'px');
+    const qvJs = await testarEquipa(browser, srv.url, true, 1440);
+    verificar('equipa: com JavaScript o estado vazio mantém-se, sem duplicar',
+      qvJs.jogadores === 0 && qvJs.posts === 0 && qvJs.plantelVazio && qvJs.postsVazio
+      && qvJs.infoItens === 0, 'jogadores ' + qvJs.jogadores + ', publicações ' + qvJs.posts);
+    verificar('equipa: sem erros de consola no estado vazio',
+      qvJs.erros.length === 0, qvJs.erros.join(' / '));
 
     verificar('nenhum texto de teste na página', !(await (async () => {
       const ctx2 = await browser.newContext({ javaScriptEnabled: false });

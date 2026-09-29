@@ -916,7 +916,7 @@ maneiras de fazer a mesma coisa.
 | — | Notícias da página inicial (piloto) | **feito** |
 | 1 | Notícias: página completa e arquivo | **feito** |
 | 2 | Agenda e próximos jogos | **feito** (com o E1) |
-| 3 | Equipa principal | por fazer |
+| 3 | Equipa principal | **feito** |
 | 4 | Formação e escalões (grelha) | por fazer |
 | 5 | Patrocinadores | por fazer |
 | 6 | Modalidades (grelha) | por fazer |
@@ -1166,3 +1166,114 @@ o reverter devolve o ficheiro inteiro, com as duas regiões de pé.
 `node tools/validar.js --comparar` — sem problemas em 168 combinações,
 **novos: 0**. Fase A verificada à mão outra vez: `405`, `401`, `403` e `200`
 nos sítios certos, e o `api/save.php` a continuar a recusar por área.
+
+---
+
+# FASE C — BLOCO 3: EQUIPA PRINCIPAL
+
+Três regiões no mesmo ficheiro, pelo mecanismo do E1: a barra de informação,
+o plantel e as publicações da equipa.
+
+## O que passou a existir no HTML
+
+**Barra de informação** — um item por campo preenchido (Competição,
+Temporada, Treinos, Local), pela ordem da página. Campo vazio não produz
+item; com os quatro vazios a barra inteira sai, em vez de ficar uma caixa
+vazia.
+
+**Plantel** — agrupado pelas posições **que têm jogadores**. Antes existiam
+sempre os quatro grupos no HTML, escondidos; agora um grupo sem jogadores não
+chega a ser escrito. Jogador inativo não aparece. Sem plantel, fica só
+"Plantel a atualizar.".
+
+**Publicações** — as quatro mais recentes. Uma publicação da equipa principal
+é uma notícia do painel com a categoria **"Seniores"** e publicada: não há
+chave nem tabela à parte.
+
+## Os dados pessoais publicados não aumentaram
+
+O cartão de jogador publica os mesmos quatro campos de sempre: **nome,
+número, posição e fotografia**. Nada mais — e o modelo de dados
+`db_seniores` também não tem mais nada. A validação do bloco recusa a
+publicação se aparecer no HTML gerado qualquer coisa parecida com data de
+nascimento, idade, telefone ou email.
+
+Isto é diferente do `atleta.html`, que mostra data de nascimento e idade de
+menores e por isso continua fora de toda a Fase C.
+
+## Uma consequência estrutural, resolvida
+
+Se o bloco gerado só escreve os grupos com jogadores, o JavaScript deixa de
+encontrar os contentores `#sgMEI` e companhia quando precisa de redesenhar —
+e um grupo que não existe não se pode preencher. O renderizador do
+`js/main.js` passou a escrever o bloco todo, grupos incluídos, em vez de
+preencher grelhas que tinham de existir de antemão. Ganhou-se de passagem que
+os rótulos dos grupos deixaram de existir em três sítios: estavam no HTML, no
+JavaScript (onde nunca eram usados) e no painel.
+
+## Um defeito encontrado pelo caminho
+
+O botão "Ver todas as publicações" abria o arquivo de **todas** as notícias,
+em vez do das publicações da equipa. O `js/senior-posts.js` substituía o
+`openNewsArchive` no arranque do ficheiro, mas o `js/main.js` atribui a versão
+dele **dentro** do seu `DOMContentLoaded`, que corre depois — e apagava a
+substituição. A substituição passou para o arranque do senior-posts, que corre
+a seguir ao do main. Foi o teste deste bloco que o apanhou.
+
+## Escape das URLs de imagem
+
+Corrigidos com o `jscEscUrlCss()` já centralizado, sem criar nada de novo: o
+avatar do jogador (`js/main.js`) e os três sítios das publicações da equipa
+(cartão, arquivo e artigo do modal, em `js/senior-posts.js`). Ficam por
+corrigir, cada um no seu bloco: a galeria (`js/galeria.js`, Bloco 7) e o
+carrossel do hero (`js/main.js`).
+
+## Situações registadas, sem alteração de comportamento
+
+**Dois campos do painel que não são mostrados em lado nenhum.** O formulário
+da Equipa Sénior guarda `senioresInfo.treinador` e `senioresInfo.descricao`;
+esta página não mostra nem um nem outro (só o `js/formacao.js` lê o
+`treinador`, e esse ficheiro não é carregado por página nenhuma — é código
+morto). Quem os preenche não vê efeito. Não ganharam comportamento novo neste
+bloco.
+
+**O `#seniorDescricao` parece administrável e não é.** Tem `id`, mas nenhum
+JavaScript lhe toca: é texto institucional fixo.
+
+**Notícias agendadas.** Esta página mostra só as `publicada: true`; a
+`noticias.html` mostra também as agendadas cujo momento já passou. A mesma
+notícia agendada aparece lá e não aqui. Replicado fielmente, sem alterar a
+regra.
+
+## Fonte única da barra de informação: o que falta
+
+A decisão foi tornar o painel a fonte única de competição, temporada, treinos
+e local, e retirar do HTML os valores duplicados — **depois** de confirmar que
+esses valores existem nos dados persistentes.
+
+**Essa confirmação não é possível a partir do repositório:** o `data/db.json`
+não existe aqui e está ignorado por desenho (é estado de cada servidor). Os
+valores vivem no painel de quem publica.
+
+Por isso os três literais — competição, temporada e local — **continuam no
+HTML** como estado anterior à geração, e não foram removidos. O que já está
+feito: **o bloco gerado lê exclusivamente o painel**, por isso a partir da
+primeira publicação é o painel que manda, e um campo vazio no painel faz o
+item desaparecer. O que falta: apagar os três literais do HTML, quando se
+confirmar que estão no painel.
+
+## Como se verificou
+
+`node tools/testar-sem-js.js` — **328 verificações**. Desta página: barra com
+os campos preenchidos e sem o vazio; três grupos de posição e nenhum grupo de
+médios; cinco jogadores, sem o inativo; travessão no número em falta;
+iniciais sem fotografia; URL com apóstrofo e parêntesis percent-encoded;
+`posicaoFull` vazio a cair para a posição; quatro publicações com ligação
+`<a>` a sério; botão "Ver todas" fora sem JavaScript e a abrir o arquivo com
+ele; o "Ler mais" a abrir o modal com o rato **e com o teclado**; estado vazio
+nos três blocos; 320 px e 1440 px; e o exterior às **três** regiões igual byte
+a byte. A transação passou a cobrir cinco ficheiros, e o reverter devolve a
+página inteira com as três regiões.
+
+`node tools/validar.js --comparar` — sem problemas em 168 combinações,
+**novos: 0**. Fase A verificada à mão outra vez.

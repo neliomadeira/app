@@ -380,3 +380,148 @@ function jsc_agenda_proximos(array $conteudo, $hoje = null, $limite = null) {
     }
     return $fora;
 }
+
+// ---------------------------------------------------------------------
+// EQUIPA PRINCIPAL (equipa-principal.html)
+// ---------------------------------------------------------------------
+// Três blocos: a barra de informação, o plantel e as publicações. As regras
+// são as do js/main.js (barra e plantel) e do js/senior-posts.js
+// (publicações), para o que é gerado e o que o browser desenha darem o
+// mesmo.
+//
+// Não há aqui nenhum dado pessoal além dos quatro que o cartão de jogador já
+// publica hoje: nome, número, posição e fotografia. O modelo de dados
+// db_seniores não tem outros.
+
+// Os quatro campos da barra, pela ordem fixa da página, só os preenchidos.
+// Campo vazio não produz item, e com os quatro vazios não há barra nenhuma.
+function jsc_seniores_info(array $conteudo) {
+    $info = (isset($conteudo['senioresInfo']) && is_array($conteudo['senioresInfo']))
+          ? $conteudo['senioresInfo'] : [];
+    $campos = [
+        ['chave' => 'liga',      'icone' => '&#127942;', 'rotulo' => 'Competição', 'id' => 'seniorLiga'],
+        ['chave' => 'temporada', 'icone' => '&#128197;', 'rotulo' => 'Temporada',  'id' => 'seniorTemporada'],
+        ['chave' => 'treinos',   'icone' => '&#128337;', 'rotulo' => 'Treinos',    'id' => 'seniorTreinos'],
+        ['chave' => 'estadio',   'icone' => '&#128205;', 'rotulo' => 'Local',      'id' => 'seniorEstadio'],
+    ];
+    $fora = [];
+    foreach ($campos as $c) {
+        $valor = isset($info[$c['chave']]) ? trim((string)$info[$c['chave']]) : '';
+        if ($valor === '') continue;
+        $c['valor'] = $valor;
+        $fora[] = $c;
+    }
+    return $fora;
+}
+
+// As iniciais que aparecem quando não há fotografia. Réplica exata do
+// js/main.js: as duas primeiras palavras, a primeira letra de cada.
+function jsc_iniciais($nome) {
+    $partes = array_slice(explode(' ', (string)$nome), 0, 2);
+    $ini = '';
+    foreach ($partes as $p) {
+        if ($p === '') continue;
+        $ini .= mb_substr($p, 0, 1, 'UTF-8');
+    }
+    return mb_strtoupper($ini, 'UTF-8');
+}
+
+// O plantel, agrupado pelas posições que têm jogadores. Um grupo sem
+// jogadores não é devolvido — e por isso não chega a ser escrito.
+//
+// A ordem dentro de cada grupo é a ordem do array, que é a que a página
+// pública usa hoje. O painel mostra-os por número; aqui não se ordena.
+function jsc_seniores_plantel(array $conteudo) {
+    $plantel = (isset($conteudo['seniores']) && is_array($conteudo['seniores']))
+             ? $conteudo['seniores'] : [];
+
+    $grupos = [
+        ['pos' => 'GR',  'label' => 'Guarda-redes', 'grelha' => 'squad-grid squad-grid--gr'],
+        ['pos' => 'DEF', 'label' => 'Defesas',      'grelha' => 'squad-grid'],
+        ['pos' => 'MEI', 'label' => 'Médios',       'grelha' => 'squad-grid'],
+        ['pos' => 'AVA', 'label' => 'Avançados',    'grelha' => 'squad-grid'],
+    ];
+
+    $fora = [];
+    foreach ($grupos as $g) {
+        $jogadores = [];
+        foreach ($plantel as $j) {
+            if (!is_array($j)) continue;
+            // Mesmo filtro do js/main.js: inativo não aparece.
+            if (isset($j['ativo']) && $j['ativo'] === false) continue;
+            if (!isset($j['posicao']) || (string)$j['posicao'] !== $g['pos']) continue;
+            $foto = isset($j['foto']) && is_string($j['foto']) ? trim($j['foto']) : '';
+            $nome = isset($j['nome']) ? (string)$j['nome'] : '';
+            $numero = isset($j['numero']) ? trim((string)$j['numero']) : '';
+            $jogadores[] = [
+                'nome'     => $nome,
+                // O traço faz parte do desenho do cartão: é o que ancora a
+                // coluna do número quando o número não está preenchido.
+                'numero'   => $numero !== '' ? $numero : '—',
+                'posicao'  => (string)$j['posicao'],
+                'posicaoFull' => (isset($j['posicaoFull']) && trim((string)$j['posicaoFull']) !== '')
+                                 ? (string)$j['posicaoFull'] : (string)$j['posicao'],
+                'foto'     => $foto,
+                'iniciais' => $foto === '' ? jsc_iniciais($nome) : '',
+            ];
+        }
+        if (!$jogadores) continue;
+        $g['jogadores'] = $jogadores;
+        $fora[] = $g;
+    }
+    return $fora;
+}
+
+// As publicações da equipa principal. Não há chave nem tabela à parte: é a
+// categoria da notícia. Uma notícia do painel com categoria "Seniores" e
+// publicada é uma publicação desta equipa — é o que o js/senior-posts.js
+// faz.
+//
+// Ao contrário da noticias.html, aqui não entram as agendadas cujo momento
+// já passou. Réplica fiel do que a página mostra hoje; a diferença está
+// registada no AUDITORIA.md.
+function jsc_seniores_posts_publicadas(array $conteudo) {
+    if (!isset($conteudo['noticias']) || !is_array($conteudo['noticias'])) return [];
+    $lista = [];
+    foreach ($conteudo['noticias'] as $n) {
+        if (!is_array($n)) continue;
+        if (empty($n['publicada'])) continue;
+        if (!isset($n['categoria']) || (string)$n['categoria'] !== 'Seniores') continue;
+        $lista[] = $n;
+    }
+    return jsc_ordenar_por_data($lista, true);
+}
+
+function jsc_seniores_total_posts(array $conteudo) {
+    return count(jsc_seniores_posts_publicadas($conteudo));
+}
+
+function jsc_seniores_previa() {
+    return 4;
+}
+
+function jsc_seniores_posts(array $conteudo, $limite = null) {
+    if ($limite === null) $limite = jsc_seniores_previa();
+    $lista = array_slice(jsc_seniores_posts_publicadas($conteudo), 0, $limite);
+
+    $fora = [];
+    foreach ($lista as $i => $n) {
+        $resumo = isset($n['resumo']) && is_string($n['resumo']) ? $n['resumo'] : '';
+        $fora[] = [
+            'id'         => isset($n['id']) ? (string)$n['id'] : '',
+            'titulo'     => isset($n['titulo']) ? (string)$n['titulo'] : '',
+            'dataPt'     => jsc_data_pt(isset($n['data']) ? $n['data'] : ''),
+            // O js/senior-posts.js não corta o resumo: só lhe tira as tags.
+            'resumo'     => $resumo === '' ? '' : trim(preg_replace('/<[^>]+>/', '', $resumo)),
+            'imagem'     => isset($n['imagem']) && is_string($n['imagem']) ? $n['imagem'] : '',
+            'imagemSize' => (isset($n['imagemSize']) && is_string($n['imagemSize']) && $n['imagemSize'] !== '')
+                              ? $n['imagemSize'] : 'cover',
+            'imagemPos'  => (isset($n['imagemPos']) && is_string($n['imagemPos']) && $n['imagemPos'] !== '')
+                              ? $n['imagemPos'] : 'center',
+            // O painel não escreve o campo img; fica 1, como no JavaScript.
+            'variante'   => isset($n['img']) && (int)$n['img'] > 0 ? (int)$n['img'] : 1,
+            'grande'     => $i === 0,
+        ];
+    }
+    return $fora;
+}

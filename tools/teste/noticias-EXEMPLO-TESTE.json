@@ -1,5 +1,5 @@
 {
-  "_LEIA_ISTO": "DADOS DE TESTE. Nada aqui é conteúdo do Juventude Sport Campinense: nem notícias, nem eventos, nem datas, nem locais. Existe só para os testes em tools/ poderem contar cartões e comparar textos. Nunca é copiado para o data/db.json do projeto nem do alojamento: os testes trabalham sempre sobre uma cópia temporária do site. Os eventos da agenda não têm data: têm _offsetDias, que o teste converte em data (0 = hoje) antes de escrever o db.json da cópia. Sem isso, uma agenda com datas fixas ficava no passado e os testes começavam a falhar sozinhos.",
+  "_LEIA_ISTO": "DADOS DE TESTE. Nada aqui é conteúdo do Juventude Sport Campinense: nem notícias, nem eventos, nem jogadores, nem datas, nem locais. Existe só para os testes em tools/ poderem contar cartões e comparar textos. Nunca é copiado para o data/db.json do projeto nem do alojamento: os testes trabalham sempre sobre uma cópia temporária do site. Os eventos da agenda não têm data: têm _offsetDias, que o teste converte em data (0 = hoje) antes de escrever o db.json da cópia. Sem isso, uma agenda com datas fixas ficava no passado e os testes começavam a falhar sozinhos.",
   "publicadoEm": "2020-01-05T10:00:00.000Z",
   "siteConfig": {
     "homepageNewsCount": 3
@@ -170,6 +170,60 @@
       "resumo": "A imagem tem apóstrofo e parêntesis no endereço: sem percent-encode, o url(...) do CSS fecha a meio.",
       "imagem": "images/logo.png?x=a'b(1)",
       "publicada": true
+    },
+    {
+      "id": 3001,
+      "titulo": "TESTE POST SENIORES A",
+      "data": "2019-12-17",
+      "categoria": "Seniores",
+      "resumo": "<p>Resumo do post <b>A</b>.</p>",
+      "imagem": "",
+      "publicada": true
+    },
+    {
+      "id": 3002,
+      "titulo": "TESTE POST SENIORES B",
+      "data": "2019-12-16",
+      "categoria": "Seniores",
+      "resumo": "",
+      "imagem": "images/logo.png",
+      "publicada": true
+    },
+    {
+      "id": 3003,
+      "titulo": "TESTE POST SENIORES C",
+      "data": "2019-12-15",
+      "categoria": "Seniores",
+      "resumo": "Resumo do post C.",
+      "imagem": "",
+      "publicada": true
+    },
+    {
+      "id": 3004,
+      "titulo": "TESTE POST SENIORES D",
+      "data": "2019-12-14",
+      "categoria": "Seniores",
+      "resumo": "Resumo do post D.",
+      "imagem": "",
+      "publicada": true
+    },
+    {
+      "id": 3005,
+      "titulo": "TESTE POST SENIORES E",
+      "data": "2019-12-13",
+      "categoria": "Seniores",
+      "resumo": "Resumo do post E.",
+      "imagem": "",
+      "publicada": true
+    },
+    {
+      "id": 3010,
+      "titulo": "TESTE POST SENIORES NAO PUBLICADO",
+      "data": "2019-12-12",
+      "categoria": "Seniores",
+      "resumo": "Não publicada.",
+      "imagem": "",
+      "publicada": false
     }
   ],
   "agenda": [
@@ -304,6 +358,69 @@
       "local": "Campo F",
       "descricao": "",
       "estado": "Agendado"
+    }
+  ],
+  "senioresInfo": {
+    "temporada": "TESTE EPOCA 1999/2000",
+    "liga": "TESTE COMPETICAO",
+    "treinador": "TESTE TREINADOR QUE NAO APARECE",
+    "treinos": "",
+    "estadio": "TESTE LOCAL DOS JOGOS"
+  },
+  "seniores": [
+    {
+      "id": "jt1",
+      "nome": "TESTE GUARDIAO UM",
+      "numero": 1,
+      "posicao": "GR",
+      "posicaoFull": "Guarda-Redes",
+      "foto": "images/logo.png",
+      "ativo": true
+    },
+    {
+      "id": "jt2",
+      "nome": "TESTE DEFESA SEM NUMERO",
+      "numero": "",
+      "posicao": "DEF",
+      "posicaoFull": "Defesa",
+      "foto": "",
+      "ativo": true
+    },
+    {
+      "id": "jt3",
+      "nome": "TESTE DEFESA URL DIFICIL",
+      "numero": 5,
+      "posicao": "DEF",
+      "posicaoFull": "Defesa",
+      "foto": "images/logo.png?x=a'b(1)",
+      "ativo": true
+    },
+    {
+      "id": "jt4",
+      "nome": "TESTE JOGADOR INATIVO",
+      "numero": 9,
+      "posicao": "AVA",
+      "posicaoFull": "Avançado",
+      "foto": "",
+      "ativo": false
+    },
+    {
+      "id": "jt5",
+      "nome": "TESTE AVANCADO UM",
+      "numero": 11,
+      "posicao": "AVA",
+      "posicaoFull": "Avançado",
+      "foto": "",
+      "ativo": true
+    },
+    {
+      "id": "jt6",
+      "nome": "TESTE AVANCADO SEM POSICAOFULL",
+      "numero": 7,
+      "posicao": "AVA",
+      "posicaoFull": "",
+      "foto": "",
+      "ativo": true
     }
   ]
 }

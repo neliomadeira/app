@@ -23,6 +23,11 @@
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" />
   <link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" />
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" /></noscript>
+  <!-- O botão "Ver todas as publicações" abre um modal que só existe com
+       JavaScript. Sem ele sai da página, em vez de ficar lá a não fazer nada. -->
+  <noscript><style>
+    .jsc-so-com-js { display: none !important; }
+  </style></noscript>
   <meta name="theme-color" content="#001f4d" />
   <link rel="manifest" href="/manifest.json" />
   <link rel="icon" href="/favicon.ico" sizes="any" />
@@ -104,6 +109,7 @@
     <div class="container">
 
       <!-- Info da equipa -->
+      <!-- JSC:seniores-info:inicio -->
       <div class="senior-info" id="seniorInfoBar">
         <div class="senior-info__item">
           <span class="senior-info__icon">&#127942;</span>
@@ -137,31 +143,14 @@
           </div>
         </div>
       </div>
+      <!-- JSC:seniores-info:fim -->
 
       <!-- Plantel por posição -->
+      <!-- JSC:seniores-plantel:inicio -->
       <div id="seniorPlantel">
         <p class="jsc-vazio" id="plantelVazio">Plantel a atualizar.</p>
-        <div class="squad-group" hidden>
-          <h2 class="squad-group__title"><span class="squad-pos-badge squad-pos-badge--gr">GR</span> Guarda-redes</h2>
-          <div class="squad-grid squad-grid--gr" id="sgGR">
-          </div>
-        </div>
-        <div class="squad-group" hidden>
-          <h2 class="squad-group__title"><span class="squad-pos-badge squad-pos-badge--def">DEF</span> Defesas</h2>
-          <div class="squad-grid" id="sgDEF">
-          </div>
-        </div>
-        <div class="squad-group" hidden>
-          <h2 class="squad-group__title"><span class="squad-pos-badge squad-pos-badge--mei">MEI</span> Médios</h2>
-          <div class="squad-grid" id="sgMEI">
-          </div>
-        </div>
-        <div class="squad-group" hidden>
-          <h2 class="squad-group__title"><span class="squad-pos-badge squad-pos-badge--ava">AVA</span> Avançados</h2>
-          <div class="squad-grid" id="sgAVA">
-          </div>
-        </div>
       </div>
+      <!-- JSC:seniores-plantel:fim -->
 
     </div>
   </section>
@@ -173,6 +162,7 @@
         <span class="section__tag">Equipa Principal</span>
         <h2 class="section__title">Publicações</h2>
       </div>
+      <!-- JSC:seniores-posts:inicio -->
       <div class="senior-posts__grid" id="seniorPostsGrid">
         <!-- preenchido por main.js -->
         <div class="senior-posts__empty" id="seniorPostsEmpty">
@@ -180,11 +170,12 @@
         </div>
       </div>
       <div style="text-align:center;margin-top:36px">
-        <button class="btn-outline" id="btnVerTodosPosts" style="display:none"
+        <button class="btn-outline jsc-so-com-js" id="btnVerTodosPosts" hidden
                 onclick="openNewsArchive('Seniores')">
           Ver todas as publicações &darr;
         </button>
       </div>
+      <!-- JSC:seniores-posts:fim -->
     </div>
   </section>
 

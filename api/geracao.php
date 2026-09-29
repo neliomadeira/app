@@ -149,6 +149,118 @@ function jsc_blocos() {
             },
         ],
 
+        'seniores-info' => [
+            'ficheiro' => 'equipa-principal.html',
+            'modelo'   => 'seniores-info.php',
+            'inicio'   => '<!-- JSC:seniores-info:inicio -->',
+            'fim'      => '<!-- JSC:seniores-info:fim -->',
+            'dados'    => function (array $conteudo) {
+                return ['itens' => jsc_seniores_info($conteudo)];
+            },
+            'validar'  => function ($meio, array $conteudo) {
+                $erros = [];
+                $esperados = count(jsc_seniores_info($conteudo));
+                $obtidos = substr_count($meio, '<div class="senior-info__item">');
+                if ($obtidos !== $esperados) {
+                    $erros[] = "gerou $obtidos campos, esperava $esperados";
+                }
+                if (strpos($meio, 'id="seniorInfoBar"') === false) {
+                    $erros[] = 'o bloco gerado não tem o contentor id="seniorInfoBar"';
+                }
+                // Com os quatro campos vazios não há barra: fica escondida,
+                // em vez de ficar uma caixa vazia na página.
+                $escondida = strpos($meio, 'id="seniorInfoBar"') !== false
+                          && strpos($meio, 'data-itens="0"') !== false;
+                if ($esperados === 0 && !$escondida) {
+                    $erros[] = 'sem campos preenchidos, a barra tem de ficar escondida';
+                }
+                return $erros;
+            },
+        ],
+
+        'seniores-plantel' => [
+            'ficheiro' => 'equipa-principal.html',
+            'modelo'   => 'seniores-plantel.php',
+            'inicio'   => '<!-- JSC:seniores-plantel:inicio -->',
+            'fim'      => '<!-- JSC:seniores-plantel:fim -->',
+            'dados'    => function (array $conteudo) {
+                return ['grupos' => jsc_seniores_plantel($conteudo)];
+            },
+            'validar'  => function ($meio, array $conteudo) {
+                $erros = [];
+                $grupos = jsc_seniores_plantel($conteudo);
+                $jogadores = 0;
+                foreach ($grupos as $g) $jogadores += count($g['jogadores']);
+
+                $obtidosGrupos = substr_count($meio, '<div class="squad-group">');
+                if ($obtidosGrupos !== count($grupos)) {
+                    $erros[] = "gerou $obtidosGrupos grupos de posição, esperava " . count($grupos);
+                }
+                $obtidosCartoes = substr_count($meio, '<div class="player-card">');
+                if ($obtidosCartoes !== $jogadores) {
+                    $erros[] = "gerou $obtidosCartoes cartões de jogador, esperava $jogadores";
+                }
+                if (strpos($meio, 'id="seniorPlantel"') === false) {
+                    $erros[] = 'o bloco gerado não tem o contentor id="seniorPlantel"';
+                }
+                if ($jogadores === 0 && strpos($meio, 'id="plantelVazio"') === false) {
+                    $erros[] = 'sem plantel, o bloco tem de manter a mensagem de plantel a atualizar';
+                }
+                if ($jogadores > 0 && strpos($meio, 'id="plantelVazio"') !== false) {
+                    $erros[] = 'com plantel, a mensagem de plantel a atualizar não pode ficar';
+                }
+                // Nenhum dado pessoal além dos quatro que já eram públicos.
+                foreach (['dataNascimento', 'data-nascimento', 'nascimento', 'idade',
+                          'telefone', 'email'] as $proibido) {
+                    if (stripos($meio, $proibido) !== false) {
+                        $erros[] = "o cartão de jogador não pode conter \"$proibido\"";
+                    }
+                }
+                return $erros;
+            },
+        ],
+
+        'seniores-posts' => [
+            'ficheiro' => 'equipa-principal.html',
+            'modelo'   => 'seniores-posts.php',
+            'inicio'   => '<!-- JSC:seniores-posts:inicio -->',
+            'fim'      => '<!-- JSC:seniores-posts:fim -->',
+            'dados'    => function (array $conteudo) {
+                return [
+                    'posts'  => jsc_seniores_posts($conteudo),
+                    'total'  => jsc_seniores_total_posts($conteudo),
+                    'previa' => jsc_seniores_previa(),
+                ];
+            },
+            'validar'  => function ($meio, array $conteudo) {
+                $erros = [];
+                $esperados = count(jsc_seniores_posts($conteudo));
+                $obtidos = substr_count($meio, '<article class="senior-post-card');
+                if ($obtidos !== $esperados) {
+                    $erros[] = "gerou $obtidos publicações, esperava $esperados";
+                }
+                foreach (['seniorPostsGrid', 'seniorPostsEmpty', 'btnVerTodosPosts'] as $id) {
+                    if (strpos($meio, 'id="' . $id . '"') === false) {
+                        $erros[] = 'falta o contentor id="' . $id . '"';
+                    }
+                }
+                // Uma ligação a sério por publicação: é o que a torna
+                // navegável sem JavaScript e alcançável com o teclado.
+                $ligacoes = substr_count($meio, '<a class="senior-post-card__more" href="noticias.html?id=');
+                if ($ligacoes !== $esperados) {
+                    $erros[] = "gerou $ligacoes ligações \"Ler mais\", esperava $esperados";
+                }
+                $vazioEscondido = strpos($meio, 'id="seniorPostsEmpty" hidden') !== false;
+                if ($esperados === 0 && $vazioEscondido) {
+                    $erros[] = 'sem publicações, o estado vazio tem de ficar visível';
+                }
+                if ($esperados > 0 && !$vazioEscondido) {
+                    $erros[] = 'com publicações, o estado vazio tem de ficar escondido';
+                }
+                return $erros;
+            },
+        ],
+
         'noticias-pagina' => [
             'ficheiro' => 'noticias.html',
             'modelo'   => 'noticias-pagina.php',
