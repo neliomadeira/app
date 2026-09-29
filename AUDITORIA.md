@@ -1303,3 +1303,199 @@ página inteira com as três regiões.
 
 `node tools/validar.js --comparar` — sem problemas em 168 combinações,
 **novos: 0**. Fase A verificada à mão outra vez.
+
+---
+
+# FASE C — BLOCO 4: FORMAÇÃO / ESCALÕES
+
+Uma região num ficheiro: os cartões dos escalões da `formacao.html`,
+alimentados só pelo `db_escaloes`. **Nenhuma pessoa em HTML gerado** — nenhum
+atleta, nenhuma data de nascimento, nenhum contacto. O campo `treinador` do
+escalão é texto livre do próprio escalão, o mesmo que o cartão já mostrava.
+
+A `escalao.html` fica de fora: é parametrizada por `?escalao=`, o que exige a
+extensão E2; metade do conteúdo é sobre menores; e a outra metade depende de
+jogos, cuja fonte única é o Bloco 13. Só três alterações pontuais lá entraram,
+todas de redução ou de correcção — descritas abaixo.
+
+## Achados antes de implementar
+
+**A1 — dados de menores que, juntos, davam a data de nascimento.** A
+`escalao.html` publicava a **idade** de cada atleta no cartão do plantel
+(calculada de `dataNascimento`) e, noutra secção da mesma página, o **dia do
+mês** e a **idade** de quem fizesse anos no mês corrente. Cruzando as duas,
+obtinha-se a data de nascimento quase completa de um menor. Não foi uma
+decisão de publicar isso: foi o efeito de duas funcionalidades independentes
+na mesma página. **As duas saíram** (ver "O que saiu").
+
+**A2 — a `escalao.html` não funcionava sem JavaScript, em parte nenhuma.** O
+HTML-base diz `A carregar plantel…`, `A carregar jogos…`, `A carregar equipa
+técnica…`, `A carregar estatísticas…`, e o herói trazia `Sub-17` /
+`Iniciados` / `16 a 17 anos` escritos à mão — quem abrisse
+`escalao.html?escalao=Sub-9` sem JavaScript lia que estava no Sub-17. Um
+fallback que mente, não um fallback vazio. Fica registado, não corrigido: é
+trabalho do E2.
+
+**A3 — a `formacao.html` tinha duas versões incompatíveis da mesma grelha.**
+Oito cartões escritos à mão, e um `js/main.js` que substituía a grelha inteira
+quando o `db_escaloes` existisse. Doze textos operacionais só existiam no HTML
+e **não têm campo nenhum no painel**: `Treinos 5x por semana`, `Campeonato
+Distrital AF Algarve`, `Regime semi-profissional`, `Primeiros torneios`,
+`Tática coletiva`, `Preparação física`, `Alto rendimento`, `Integração na
+equipa sénior`, `1.º e 2.º ano`, `Sem competição`, `Foco nos fundamentos`,
+`Acompanhamento pedagógico`, `Técnica individual`. Já desapareciam assim que o
+painel tivesse um escalão. Saíram de vez. Um deles — `Campeonato Distrital AF
+Algarve` — é do mesmo tipo do `Campeonato de Portugal — Série F` que já tinha
+sido corrigido: um nome de competição escrito no código, que pode estar errado.
+
+**Fica registado como melhoria futura do painel:** um campo administrável de
+"pontos" ou "informações adicionais" no escalão, lista livre, para quem publica
+poder reintroduzir aquele tipo de linha. **Não foi criado.**
+
+**A4 — `competicao` e `local` existiam no painel e não apareciam em sítio
+nenhum.** Há **dois editores diferentes para o mesmo registo `db_escaloes`**,
+com campos diferentes:
+
+| Editor | Secção do painel | Campos que escreve |
+|---|---|---|
+| `editEscalao` / `salvarEscalao` | Categorias | `nome`, `designacao`, `faixa`, `atletas`, `treinador`, `treinos`, `descricao`, `destaque` |
+| `_renderFormacaoInfo` / `_guardarInfoFormacao` | Futebol Formação | `designacao`, `faixa`, `treinador`, `treinos`, **`competicao`**, **`local`**, `descricao` |
+
+Quem preenchia *"Competição / Liga"* e *"Local de Treino"* gravava em
+`db_escaloes.competicao` e `db_escaloes.local`, e **nada público os lia** — o
+único código que os lia era o `js/formacao.js`, que estava morto. **Passam a
+aparecer no cartão, cada um só quando preenchido.** Nenhum dos dois editores
+foi alterado.
+
+Assimetria registada, sem alterar comportamento: o `_guardarInfoFormacao` usa
+`|| e.designacao` para designação e faixa (não se conseguem apagar) e `|| ''`
+para treinador, treinos, competição e local (apagam-se).
+
+**A5 — `js/formacao.js` estava morto.** Nenhum `.html`, `.js`, `.php` ou
+manifesto o referenciava, e os ids que procurava (`formacaoInfoBar`,
+`formacaoPlantel`, `formacaoEscalaoTitle`) não existem em página pública
+nenhuma. Antes de o apagar, o que tinha de único: **lia `competicao`**, **lia
+`local`** — os dois campos órfãos do A4 — e usava **`—` como valor de
+preenchimento** quando um campo estava vazio, que é exactamente o fallback que
+a decisão da barra da equipa principal proibiu. Como competição e local passam
+a ter destino real, não havia mais nada a preservar. **Removido.**
+
+**A6 — a `escalao.html` lê jogos de três chaves diferentes.** O `loadJogos()`
+tem prioridade em três degraus: `db_jogos` filtrado por escalão; se vier vazio,
+`fpf_jogos_<escalao>` (cache do scraper, sincronizada pelo `js/sync.js` a
+partir de `classData`); se vier vazio, nada. Alimenta *Resultados & Jogos* e
+*Estatísticas da Época*, esta calculada no browser.
+
+**Divergência a resolver no Bloco 13:** o `js/resultados.js` usa uma chave mais
+específica, `fpf_jogos_<escalao>__<equipa>`, e o `js/escalao.js` usa
+`fpf_jogos_<escalao>` sem sufixo. Com um escalão que tenha mais do que uma
+equipa (`Sub-17__A`), o `resultados.js` encontra a cache e o `escalao.js` não.
+Duas páginas, o mesmo facto, resultados diferentes. **Não foi tocado neste
+bloco**: escolher entre as três chaves é definir a fonte única dos resultados.
+Por construção, o Bloco 4 não lê `db_jogos` em sítio nenhum.
+
+**A7 — escapes pendentes.** Três, todos corrigidos ou desaparecidos:
+
+| Sítio | Era | Passou a ser |
+|---|---|---|
+| `js/escalao.js`, foto do treinador | `jscEscUrl` dentro de `url('…')` de CSS | `jscEscUrlCss()`, já centralizado |
+| `js/main.js`, ligação do cartão | `jscEscUrl(e.nome)` no valor de um parâmetro | `jscEsc(encodeURIComponent(nome))` |
+| `js/escalao.js`, aniversários | nome e foto interpolados **sem escape nenhum** | desapareceu com a secção |
+
+O `js/pesquisa.js` já fazia `encodeURIComponent` para a mesma ligação: eram
+duas páginas a construir o mesmo endereço de maneiras diferentes.
+
+## O que saiu, e porquê
+
+**A idade do cartão de cada atleta** (`escalao.html`). O cartão publica nome,
+posição e fotografia. A idade era metade de uma data de nascimento, e a outra
+metade estava na mesma página. A função `calcAge()` saiu com ela: esta página
+não volta a ler a data de nascimento de ninguém.
+
+**A secção "Aniversários do Mês"** (`escalao.html`), inteira — o renderizador,
+as duas chamadas e o HTML da secção. Publicava nome, fotografia, dia do mês de
+nascimento e idade de cada atleta do escalão, com destaque no próprio dia. Nas
+páginas de formação os atletas são menores. As datas de nascimento continuam
+guardadas no painel, para o que é preciso administrativamente; deixam de
+alimentar aniversários públicos. **Nada a substituiu.**
+
+**Os oito cartões escritos à mão** da `formacao.html`, com os doze textos sem
+fonte do A3.
+
+**`js/formacao.js`**, ficheiro inteiro (A5).
+
+## A região, e o que cada campo faz
+
+Uma marca só neste ficheiro — `<!-- JSC:escaloes:inicio -->` … `:fim` —, pelo
+mecanismo do E1, que foi reutilizado **sem uma linha de alteração**. A
+transacção passa a cobrir **seis** ficheiros, e o `--reverter` devolve os seis.
+
+| Campo do `db_escaloes` | Vazio produz |
+|---|---|
+| `nome` | **o escalão inteiro é descartado** — sem nome não há ligação nem título |
+| `designacao` | sem `<h3>` |
+| `faixa` | sem `<p class="category-card__age-range">` |
+| `descricao` | sem `<p class="category-card__desc">` |
+| `treinos` | sem `<li>` |
+| `treinador` | sem `<li>` |
+| `competicao` | sem `<li>` |
+| `local` | sem `<li>` |
+| `atletas` não-inteiro, `0`, `"0"` ou negativo | sem `<li>` |
+| nenhum dos itens acima | **sem `<ul>`**, em vez de uma lista vazia |
+| `destaque` falso | sem badge e sem `--featured` |
+| `db_escaloes` vazio | grelha com `jsc-vazio` e nada mais |
+
+**Defeito corrigido no `js/main.js`:** fazia `if (e.atletas)`. Com o número `0`
+acertava, mas com a string `"0"` — que é o que chega de um JSON editado à mão
+ou de uma importação — escrevia **"0 atletas inscritos"**, que não diz que o
+escalão está vazio, diz que ninguém preencheu o campo. O `js/escalao.js` já
+fazia o `parseInt` com `<= 0`; é essa a versão correcta, e passou a ser a dos
+dois, replicada em PHP no `jsc_escalao_atletas()`.
+
+**Dupla renderização:** `data-gerado` e `data-itens` no contentor;
+`jscBlocoAtual()` no `js/main.js`. Sem `data-desde` — um escalão não expira ao
+virar da meia-noite.
+
+**Texto de página que não é dado de escalão**, registado e não alterado: o
+herói da `formacao.html` diz *"Do Sub-5 ao Sub-19"* e *"Inscrições abertas para
+a época 2026/2027"*, e o subtítulo repete a escada. É texto editorial, não vem
+do painel, e envelhece se os escalões mudarem. Fica para uma decisão futura.
+
+## Guarda de regressão
+
+Quatro verificações `grelha-base:` no `tools/testar-sem-js.js`. Olham **só**
+para dentro da região `escaloes` da `formacao.html`, antes de qualquer geração,
+e exigem que lá esteja apenas a grelha com o estado vazio: sem nenhuma classe
+de cartão, sem ligação para `escalao.html`, e sem outro texto que não o do
+estado vazio. Não procuram textos concretos — procuram a forma de um cartão
+publicado, para apanharem também um cartão novo de um escalão que hoje não
+existe. Provadas ao contrário: com um cartão de volta na região, as quatro
+falham e as outras 395 continuam a passar.
+
+## Como se verificou
+
+`node tools/testar-sem-js.js` — **399 verificações**. Deste bloco: nove
+cartões a partir de dez escalões (o sem nome é descartado); campo vazio sem
+elemento; nenhuma lista vazia; os cinco itens do cartão completo pela ordem
+certa; competição e local sozinhos; `atletas` a `0`, `"0"`, `-3` e `"muitos"`
+sem linha nenhuma; `12` e `7` com linha; um só destaque; uma ligação `<a>` por
+cartão, alcançável por teclado; o nome `TESTE A&B/C 1` percent-encoded no
+`href`, escapado no texto, e recuperado **exacto** pelo `URLSearchParams` que o
+`js/escalao.js` usa; o bloco gerado e atual não é redesenhado; `data-itens`
+errado força o redesenho e o cartão desenhado é **o mesmo** que o gerado; 320 px
+e 1440 px; estado vazio com e sem JavaScript; `/modelos/escaloes.php` → 403; o
+exterior às marcas igual byte a byte nos seis ficheiros; e o reverter a devolver
+a `formacao.html` inteira.
+
+Privacidade: nenhum atleta e nenhum dado pessoal no bloco gerado — verificado
+no teste **e** no validador do gerador, que recusa a publicação se encontrar
+`dataNascimento`, `nascimento`, `idade`, `telefone`, `email` ou `encarregado`.
+Na `escalao.html`: nenhuma idade em toda a página, a secção dos aniversários
+não existe, e a foto do treinador com `'` e `( )` sai percent-encoded dentro do
+`url(...)`.
+
+`node tools/validar.js --comparar` — sem problemas em 168 combinações,
+**novos: 0**. Fase A verificada à mão: `405` a não-POST, `401` sem sessão,
+`401` com password errada, `200` para a Comunicação a alterar notícias, e
+**`403` para a Comunicação a alterar `escaloes`** — a área dos escalões é
+`equipas`, que aquele perfil não tem.

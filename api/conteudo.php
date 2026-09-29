@@ -525,3 +525,91 @@ function jsc_seniores_posts(array $conteudo, $limite = null) {
     }
     return $fora;
 }
+
+// ---- Escalões de formação ------------------------------------------
+//
+// Fonte única: o db_escaloes do painel. A formacao.html tinha oito cartões
+// escritos à mão, com textos operacionais — frequências de treino, nomes de
+// competições — que não têm campo nenhum no painel e que já hoje desapareciam
+// assim que lá existisse um escalão. Saíram.
+//
+// Nenhum atleta é lido aqui. O cartão do escalão não publica pessoas: o
+// campo treinador é texto livre do escalão, o mesmo que a página já mostrava.
+
+// Quantos atletas mostrar no cartão. Só um inteiro maior que zero conta.
+// Devolve null quando não há número para mostrar, e é por ser null que o
+// modelo não escreve linha nenhuma.
+//
+// O js/main.js fazia apenas "if (e.atletas)": com o número 0 acertava, mas
+// com a string "0" — que é o que chega de um JSON editado à mão ou de uma
+// importação — escrevia "0 atletas inscritos". O js/escalao.js já fazia o
+// parseInt com <= 0; é essa a versão correcta, e passa a ser a dos dois.
+function jsc_escalao_atletas($valor) {
+    if (is_bool($valor) || $valor === null) return null;
+    if (is_string($valor)) {
+        $valor = trim($valor);
+        if ($valor === '' || !preg_match('/^-?\d+$/', $valor)) return null;
+    }
+    if (!is_numeric($valor)) return null;
+    $n = (int)$valor;
+    return $n > 0 ? $n : null;
+}
+
+// A ligação para a página do escalão. O nome vai no valor de um parâmetro,
+// por isso é percent-encoded antes de ser escapado como atributo — um &,
+// um espaço ou uma / no nome partiam a query string.
+//
+// jsc_enc_uri() é o equivalente do encodeURIComponent que já cá estava para
+// as ligações de partilha das notícias. Não se cria mais nenhum escape.
+function jsc_escalao_url($nome) {
+    return 'escalao.html?escalao=' . jsc_enc_uri($nome);
+}
+
+// Os escalões que vão para os cartões, na ordem do array — a mesma ordem que
+// a página pública usa hoje. Cada campo vazio é retirado aqui, para o modelo
+// não ter de decidir nada.
+//
+// Um escalão sem nome é descartado: sem nome não há ligação possível nem
+// título para o cartão.
+function jsc_escaloes(array $conteudo) {
+    $lista = (isset($conteudo['escaloes']) && is_array($conteudo['escaloes']))
+           ? $conteudo['escaloes'] : [];
+
+    $texto = function ($e, $chave) {
+        return (isset($e[$chave]) && is_string($e[$chave])) ? trim($e[$chave]) : '';
+    };
+
+    $fora = [];
+    foreach ($lista as $e) {
+        if (!is_array($e)) continue;
+        $nome = $texto($e, 'nome');
+        if ($nome === '') continue;
+
+        // Os itens da lista do cartão, pela ordem em que aparecem. Só entram
+        // os que têm valor; se não entrar nenhum, não há <ul>.
+        $itens = [];
+        $treinos = $texto($e, 'treinos');
+        if ($treinos !== '') $itens[] = $treinos;
+        $treinador = $texto($e, 'treinador');
+        if ($treinador !== '') $itens[] = 'Treinador: ' . $treinador;
+        // competicao e local são administráveis na secção Futebol Formação do
+        // painel e até agora não apareciam em sítio nenhum do site.
+        $competicao = $texto($e, 'competicao');
+        if ($competicao !== '') $itens[] = $competicao;
+        $local = $texto($e, 'local');
+        if ($local !== '') $itens[] = $local;
+        $atletas = jsc_escalao_atletas(isset($e['atletas']) ? $e['atletas'] : null);
+        if ($atletas !== null) $itens[] = $atletas . ' atletas inscritos';
+
+        $fora[] = [
+            'nome'       => $nome,
+            'designacao' => $texto($e, 'designacao'),
+            'faixa'      => $texto($e, 'faixa'),
+            'descricao'  => $texto($e, 'descricao'),
+            'itens'      => $itens,
+            'destaque'   => !empty($e['destaque']),
+            'url'        => jsc_escalao_url($nome),
+        ];
+    }
+    return $fora;
+}

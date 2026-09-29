@@ -71,21 +71,10 @@
   // --------------------------------------------------
   // HELPERS
   // --------------------------------------------------
-  function calcAge(dataNascimento) {
-    if (!dataNascimento) return null;
-    // UTC-safe: split by '-'
-    var parts = String(dataNascimento).split('-');
-    if (parts.length < 3) return null;
-    var birthYear = parseInt(parts[0], 10);
-    var birthMonth = parseInt(parts[1], 10) - 1;
-    var birthDay = parseInt(parts[2], 10);
-    var today = new Date();
-    var age = today.getFullYear() - birthYear;
-    if (today.getMonth() < birthMonth || (today.getMonth() === birthMonth && today.getDate() < birthDay)) {
-      age--;
-    }
-    return age;
-  }
+  // Havia aqui um calcAge(), que transformava a data de nascimento de um
+  // atleta na idade publicada no cartão do plantel e nos aniversários. As duas
+  // utilizações saíram, e a função com elas: esta página não volta a ler a
+  // data de nascimento de ninguém.
 
   function initials(nome) {
     var parts = (nome || '').trim().split(/\s+/);
@@ -180,8 +169,11 @@
         html += '<div class="esc-player-list">';
 
         jogadores.forEach(function (a) {
-          var age = calcAge(a.dataNascimento);
-          var ageTxt = age !== null ? age + ' anos' : '';
+          // O cartão publica nome, posição e fotografia. A idade saiu: era
+          // calculada da data de nascimento e, cruzada com o dia e o mês que
+          // os "Aniversários do Mês" publicavam nesta mesma página, dava a
+          // data de nascimento quase completa de um menor. Não se acrescenta
+          // aqui nenhum outro dado pessoal.
           var avatarHtml = a.foto
             ? '<img src="' + jscEscUrl(a.foto) + '" alt="' + jscEsc(a.nome) + '" style="width:38px;height:38px;border-radius:50%;object-fit:cover" />'
             : jscEsc(initials(a.nome));
@@ -189,7 +181,7 @@
           html += '<div class="esc-player__avatar">' + avatarHtml + '</div>';
           html += '<div>';
           html += '<div class="esc-player__name">' + jscEsc(a.nome) + '</div>';
-          html += '<div class="esc-player__meta">' + jscEsc(a.posicao || g.label) + (ageTxt ? ' · ' + jscEsc(ageTxt) : '') + '</div>';
+          html += '<div class="esc-player__meta">' + jscEsc(a.posicao || g.label) + '</div>';
           html += '</div>';
           html += '<span class="esc-player__arrow">›</span>';
           html += '</a>';
@@ -220,8 +212,12 @@
       html += '<p class="esc-empty">Equipa técnica não disponível.</p>';
     } else {
       staff.forEach(function (t) {
+        // jscEscUrlCss() e não jscEscUrl(): isto vai dentro de um url('...')
+        // de CSS, e um apóstrofo no endereço fechava a função — o resto do
+        // valor passava a ser CSS. O mesmo escape que os cartões de notícia
+        // já usam, sem nenhuma implementação nova.
         var fotoStyle = t.foto
-          ? ' style="background-image:url(\'' + jscEscUrl(t.foto) + '\');background-size:cover;background-position:center;color:transparent"'
+          ? ' style="background-image:url(\'' + jscEscUrlCss(t.foto) + '\');background-size:cover;background-position:center;color:transparent"'
           : '';
         html += '<div class="esc-staff-card">';
         html += '<div class="esc-staff__avatar"' + fotoStyle + '>' + jscEsc(initials(t.nome)) + '</div>';
@@ -386,55 +382,17 @@
     );
   }
 
-  // --------------------------------------------------
-  // ANIVERSÁRIOS DO MÊS (do escalão)
-  // --------------------------------------------------
-  function renderAniversarios(atletas, escalaoNome) {
-    var section = document.getElementById('escAniversarios');
-    var listaEl = document.getElementById('escAniversariosLista');
-    if (!section || !listaEl) return;
-
-    var hoje = new Date();
-    var dia  = hoje.getDate();
-    var mes  = hoje.getMonth();
-
-    var lista = atletas
-      .filter(function (a) {
-        if (a.escalao !== escalaoNome || !a.dataNascimento || a.estado === 'Inactivo') return false;
-        var n = new Date(a.dataNascimento + 'T00:00:00');
-        return !isNaN(n) && n.getMonth() === mes;
-      })
-      .map(function (a) {
-        var n = new Date(a.dataNascimento + 'T00:00:00');
-        return {
-          nome: a.nome, foto: a.foto || '',
-          _dia: n.getDate(),
-          _idade: hoje.getFullYear() - n.getFullYear(),
-          _hoje: n.getDate() === dia,
-        };
-      })
-      .sort(function (a, b) { return (b._hoje - a._hoje) || (a._dia - b._dia); });
-
-    if (!lista.length) { section.style.display = 'none'; return; }
-
-    section.style.display = '';
-    listaEl.innerHTML = lista.map(function (a) {
-      var detalhe = a._hoje
-        ? 'faz ' + a._idade + ' anos <strong>hoje</strong> 🎉'
-        : 'dia ' + a._dia + ' &middot; faz ' + a._idade + ' anos';
-      var avatar = a.foto
-        ? '<img src="' + a.foto + '" alt="" class="birthday__foto" loading="lazy" ' +
-          'onerror="this.outerHTML=\'<div class=&quot;birthday__icon&quot;>🎂</div>\'">'
-        : '<div class="birthday__icon">🎂</div>';
-      return '<div class="birthday__card' + (a._hoje ? ' birthday__card--today' : '') + '">' +
-        avatar +
-        '<div class="birthday__info">' +
-          '<strong class="birthday__nome">' + a.nome + '</strong>' +
-          '<span class="birthday__detalhe">' + detalhe + '</span>' +
-        '</div>' +
-      '</div>';
-    }).join('');
-  }
+  // Havia aqui um bloco de aniversários, que publicava o nome, a fotografia, o
+  // dia do mês de nascimento e a idade de cada atleta do escalão que fizesse
+  // anos no mês corrente, com destaque no próprio dia. Saiu inteiro.
+  //
+  // Nas páginas de escalão de formação, os atletas são menores. Cruzando o dia
+  // e o mês daqui com a idade que o cartão do plantel mostrava, chegava-se à
+  // data de nascimento quase completa. Não foi uma decisão de publicar isso;
+  // foi o efeito de duas funcionalidades independentes na mesma página.
+  //
+  // As datas de nascimento continuam guardadas no painel, para o que é
+  // preciso administrativamente. Deixam de alimentar aniversários públicos.
 
   // --------------------------------------------------
   // INIT
@@ -472,7 +430,6 @@
     renderTechnical(treinadores, escalaoNome);
     renderStats(jogos);
     renderFixtures(jogos);
-    renderAniversarios(atletas, escalaoNome);
   });
 
   // Live update from admin in another tab
@@ -492,7 +449,6 @@
       renderTechnical(treinadores, escalaoNome);
       renderStats(jogos);
       renderFixtures(jogos);
-      renderAniversarios(atletas, escalaoNome);
     }
   });
 

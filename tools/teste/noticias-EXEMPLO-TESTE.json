@@ -422,5 +422,176 @@
       "foto": "",
       "ativo": true
     }
+  ],
+  "escaloes": [
+    {
+      "id": 901,
+      "nome": "TESTE-COMPLETO",
+      "designacao": "TESTE DESIGNACAO",
+      "faixa": "TESTE FAIXA",
+      "descricao": "TESTE DESCRICAO DO ESCALAO",
+      "treinos": "TESTE HORARIO DE TREINOS",
+      "treinador": "TESTE TREINADOR",
+      "competicao": "TESTE COMPETICAO DO ESCALAO",
+      "local": "TESTE LOCAL DO ESCALAO",
+      "atletas": 12,
+      "destaque": false
+    },
+    {
+      "id": 902,
+      "nome": "TESTE-SO-NOME",
+      "designacao": "",
+      "faixa": "",
+      "descricao": "",
+      "treinos": "",
+      "treinador": "",
+      "competicao": "",
+      "local": "",
+      "atletas": 0,
+      "destaque": false
+    },
+    {
+      "id": 903,
+      "nome": "TESTE-ZERO-NUMERO",
+      "designacao": "TESTE ZERO N",
+      "faixa": "",
+      "descricao": "",
+      "treinos": "",
+      "treinador": "",
+      "competicao": "",
+      "local": "",
+      "atletas": 0,
+      "destaque": false
+    },
+    {
+      "id": 904,
+      "nome": "TESTE-ZERO-TEXTO",
+      "designacao": "TESTE ZERO T",
+      "faixa": "",
+      "descricao": "",
+      "treinos": "",
+      "treinador": "",
+      "competicao": "",
+      "local": "",
+      "atletas": "0",
+      "destaque": false
+    },
+    {
+      "id": 905,
+      "nome": "TESTE-ATLETAS-INVALIDO",
+      "designacao": "",
+      "faixa": "",
+      "descricao": "",
+      "treinos": "",
+      "treinador": "",
+      "competicao": "",
+      "local": "",
+      "atletas": "muitos",
+      "destaque": false
+    },
+    {
+      "id": 906,
+      "nome": "TESTE-ATLETAS-NEGATIVO",
+      "designacao": "",
+      "faixa": "",
+      "descricao": "",
+      "treinos": "",
+      "treinador": "",
+      "competicao": "",
+      "local": "",
+      "atletas": -3,
+      "destaque": false
+    },
+    {
+      "id": 907,
+      "nome": "TESTE-DESTAQUE",
+      "designacao": "TESTE DESTAQUE",
+      "faixa": "TESTE FAIXA D",
+      "descricao": "",
+      "treinos": "",
+      "treinador": "",
+      "competicao": "",
+      "local": "",
+      "atletas": 7,
+      "destaque": true
+    },
+    {
+      "id": 908,
+      "nome": "TESTE-COMP-LOCAL",
+      "designacao": "",
+      "faixa": "",
+      "descricao": "",
+      "treinos": "",
+      "treinador": "",
+      "competicao": "TESTE SO COMPETICAO",
+      "local": "TESTE SO LOCAL",
+      "atletas": 0,
+      "destaque": false
+    },
+    {
+      "id": 909,
+      "nome": "TESTE A&B/C 1",
+      "designacao": "TESTE NOME DIFICIL",
+      "faixa": "",
+      "descricao": "",
+      "treinos": "",
+      "treinador": "",
+      "competicao": "",
+      "local": "",
+      "atletas": 0,
+      "destaque": false
+    },
+    {
+      "id": 910,
+      "nome": "",
+      "designacao": "TESTE SEM NOME NAO APARECE",
+      "faixa": "",
+      "descricao": "",
+      "treinos": "",
+      "treinador": "",
+      "competicao": "",
+      "local": "",
+      "atletas": 5,
+      "destaque": false
+    }
+  ],
+  "atletas": [
+    {
+      "id": 951,
+      "nome": "TESTE ATLETA UM",
+      "escalao": "TESTE-COMPLETO",
+      "posicao": "Guarda-redes",
+      "dataNascimento": "2012-09-29",
+      "encarregado": "TESTE ENCARREGADO",
+      "telefone": "000000000",
+      "foto": "",
+      "numero": 1,
+      "estado": "Activo"
+    },
+    {
+      "id": 952,
+      "nome": "TESTE ATLETA DOIS",
+      "escalao": "TESTE-COMPLETO",
+      "posicao": "Avançado",
+      "dataNascimento": "2013-01-15",
+      "encarregado": "TESTE ENCARREGADO",
+      "telefone": "000000000",
+      "foto": "",
+      "numero": 9,
+      "estado": "Activo"
+    }
+  ],
+  "treinadores": [
+    {
+      "id": 961,
+      "nome": "TESTE TREINADOR ESCALAO",
+      "cargo": "TESTE CARGO",
+      "escalao": "TESTE-COMPLETO",
+      "desde": "2026",
+      "telefone": "000000000",
+      "email": "teste@exemplo.invalido",
+      "foto": "images/logo.png?x=a'b(1)",
+      "ativo": true
+    }
   ]
 }

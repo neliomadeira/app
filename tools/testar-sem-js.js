@@ -48,6 +48,9 @@ const BLOCOS = {
     { nome: 'seniores-plantel', ini: '<!-- JSC:seniores-plantel:inicio -->', fim: '<!-- JSC:seniores-plantel:fim -->' },
     { nome: 'seniores-posts',   ini: '<!-- JSC:seniores-posts:inicio -->',   fim: '<!-- JSC:seniores-posts:fim -->' },
   ],
+  'formacao.html': [
+    { nome: 'escaloes', ini: '<!-- JSC:escaloes:inicio -->', fim: '<!-- JSC:escaloes:fim -->' },
+  ],
 };
 
 // Datas da agenda a partir dos offsets da fixture: 0 = hoje. Devolve uma
@@ -151,6 +154,7 @@ function testesDeGeracao(raiz, dados) {
   const not = path.join(raiz, 'noticias.html');
   const age = path.join(raiz, 'agenda.html');
   const eqp = path.join(raiz, 'equipa-principal.html');
+  const fmc = path.join(raiz, 'formacao.html');
   const db  = path.join(raiz, 'data', 'db.json');
 
   // Quantas notícias cada página deve mostrar, contado a partir da fixture e
@@ -167,6 +171,7 @@ function testesDeGeracao(raiz, dados) {
   const antesNot = fs.readFileSync(not, 'utf8');
   const antesAge = fs.readFileSync(age, 'utf8');
   const antesEqp = fs.readFileSync(eqp, 'utf8');
+  const antesFmc = fs.readFileSync(fmc, 'utf8');
   verificar('index.html tem as marcas das DUAS regiões — agenda e notícias',
     foraDasMarcas(antesIdx, 'index.html') !== null
     && antesIdx.indexOf(BLOCOS['index.html'][0].ini) < antesIdx.indexOf(BLOCOS['index.html'][1].ini));
@@ -175,6 +180,42 @@ function testesDeGeracao(raiz, dados) {
   verificar('equipa-principal.html tem as marcas das TRÊS regiões',
     foraDasMarcas(antesEqp, 'equipa-principal.html') !== null
     && BLOCOS['equipa-principal.html'].every((b) => antesEqp.includes(b.ini) && antesEqp.includes(b.fim)));
+  verificar('formacao.html tem as marcas da região dos escalões',
+    foraDasMarcas(antesFmc, 'formacao.html') !== null
+    && BLOCOS['formacao.html'].every((b) => antesFmc.includes(b.ini) && antesFmc.includes(b.fim)));
+
+  // ---- Guarda da fonte única dos cartões de escalão ----------------
+  // A formacao.html tinha oito cartões escritos à mão, com descrições,
+  // frequências de treino e nomes de competições sem campo nenhum no painel.
+  // Saíram, e esta verificação existe para não voltarem: um cartão aqui seria
+  // visto por quem abrisse a página antes da primeira geração, e ficaria a
+  // mostrar o que o painel já tinha mudado.
+  //
+  // Olha só para dentro da região escaloes da formacao.html. Não procura
+  // textos concretos — procura a forma de um cartão publicado: o cartão, o
+  // sítio onde cada campo é escrito, a ligação, e qualquer texto que não seja
+  // o do estado vazio. Assim apanha também um cartão novo, de um escalão que
+  // hoje ainda não existe.
+  {
+    const base = dentroDasMarcas(antesFmc, 'formacao.html', 'escaloes')
+      .replace(/<!--[\s\S]*?-->/g, '');
+    const classes = ['category-card', 'category-card__age', 'category-card__name',
+                     'category-card__age-range', 'category-card__desc',
+                     'category-card__list', 'category-card__badge', 'esc-link']
+      .filter((c) => base.includes(c));
+    const texto = base.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+
+    verificar('grelha-base: a região no repositório é só a grelha com o estado vazio',
+      /^\s*<div class="categories__grid" id="categoriesGrid">\s*<p class="jsc-vazio">[^<]*<\/p>\s*<\/div>\s*$/.test(base),
+      'obtive: ' + JSON.stringify(base.trim().slice(0, 200)));
+    verificar('grelha-base: nenhum cartão de escalão escrito à mão',
+      classes.length === 0,
+      'classes de cartão encontradas na região: ' + classes.join(', '));
+    verificar('grelha-base: nenhuma ligação para escalao.html escrita à mão',
+      !base.includes('escalao.html'));
+    verificar('grelha-base: o único texto é o do estado vazio',
+      texto === 'Escalões a atualizar.', 'texto encontrado: ' + JSON.stringify(texto.slice(0, 200)));
+  }
 
   // ---- Guarda da fonte única da barra de informação ----------------
   // Competição, temporada, treinos e local vêm só do db_seniores_info. Em
@@ -217,14 +258,15 @@ function testesDeGeracao(raiz, dados) {
   escreverDados(raiz, dados);
   let g = gerar(raiz);
   verificar('geração corre sem erro', g.estado === 0, g.saida.trim());
-  verificar('a geração escreveu as quatro páginas',
+  verificar('a geração escreveu as cinco páginas',
     /index\.html/.test(g.saida) && /noticias\.html/.test(g.saida) && /agenda\.html/.test(g.saida)
-    && /equipa-principal\.html/.test(g.saida), g.saida.trim());
+    && /equipa-principal\.html/.test(g.saida) && /formacao\.html/.test(g.saida), g.saida.trim());
 
   const depoisHtml = fs.readFileSync(idx, 'utf8');
   const depoisNot  = fs.readFileSync(not, 'utf8');
   const depoisAge  = fs.readFileSync(age, 'utf8');
   const depoisEqp  = fs.readFileSync(eqp, 'utf8');
+  const depoisFmc  = fs.readFileSync(fmc, 'utf8');
 
   // ---- 9 / E1-8. Comparação byte a byte do exterior a TODAS as marcas ----
   for (const [nome, antes, depois] of [
@@ -232,6 +274,7 @@ function testesDeGeracao(raiz, dados) {
     ['noticias.html', antesNot, depoisNot],
     ['agenda.html', antesAge, depoisAge],
     ['equipa-principal.html', antesEqp, depoisEqp],
+    ['formacao.html', antesFmc, depoisFmc],
   ]) {
     const a = foraDasMarcas(antes, nome);
     const d = foraDasMarcas(depois, nome);
@@ -417,6 +460,78 @@ function testesDeGeracao(raiz, dados) {
     bPosts.includes('id="btnVerTodosPosts"') && !/id="btnVerTodosPosts" hidden/.test(bPosts));
   verificar('publicações: o botão leva a classe que o tira sem JavaScript',
     bPosts.includes('btn-outline jsc-so-com-js'));
+
+  // ---- Bloco 4: os cartões dos escalões --------------------------
+  const bEsc = dentroDasMarcas(depoisFmc, 'formacao.html', 'escaloes');
+  // Contado a partir da fixture, não do que o gerador produziu: um escalão
+  // sem nome não pode dar cartão.
+  const escComNome = dados.escaloes.filter((e) => (e.nome || '').trim() !== '');
+
+  verificar(`escalões: ${escComNome.length} cartões (o escalão sem nome é descartado)`,
+    (bEsc.match(/<div class="category-card[ "]/g) || []).length === escComNome.length,
+    'obtive ' + (bEsc.match(/<div class="category-card[ "]/g) || []).length);
+  verificar('escalões: o escalão sem nome não foi escrito',
+    !bEsc.includes('TESTE SEM NOME NAO APARECE'));
+  verificar('escalões: os campos preenchidos aparecem',
+    bEsc.includes('TESTE DESIGNACAO') && bEsc.includes('TESTE FAIXA')
+    && bEsc.includes('TESTE DESCRICAO DO ESCALAO')
+    && bEsc.includes('TESTE HORARIO DE TREINOS')
+    && bEsc.includes('Treinador: TESTE TREINADOR'));
+  verificar('escalões: competição e local aparecem quando preenchidos',
+    bEsc.includes('TESTE COMPETICAO DO ESCALAO') && bEsc.includes('TESTE LOCAL DO ESCALAO')
+    && bEsc.includes('TESTE SO COMPETICAO') && bEsc.includes('TESTE SO LOCAL'));
+  verificar('escalões: nenhum elemento vazio de designação, faixa ou descrição',
+    !bEsc.includes('<h3 class="category-card__name"></h3>')
+    && !bEsc.includes('<p class="category-card__age-range"></p>')
+    && !bEsc.includes('<p class="category-card__desc"></p>'));
+  verificar('escalões: sem itens não há <ul>',
+    (bEsc.match(/<ul class="category-card__list">/g) || []).length
+      === dados.escaloes.filter((e) => (e.nome || '').trim() !== '' && (
+        (e.treinos || '').trim() || (e.treinador || '').trim() || (e.competicao || '').trim()
+        || (e.local || '').trim() || /^[1-9]\d*$/.test(String(e.atletas).trim()))).length);
+  verificar('escalões: nenhuma lista vazia',
+    !/<ul class="category-card__list">\s*<\/ul>/.test(bEsc));
+  verificar('escalões: atletas > 0 aparece',
+    bEsc.includes('12 atletas inscritos') && bEsc.includes('7 atletas inscritos'));
+  verificar('escalões: atletas 0, "0", negativo e inválido não aparecem',
+    !/\b0 atletas inscritos/.test(bEsc) && !/-3 atletas inscritos/.test(bEsc)
+    && !bEsc.includes('muitos atletas'));
+  verificar('escalões: o destaque produz badge e a classe do cartão',
+    bEsc.includes('<div class="category-card category-card--featured">')
+    && bEsc.includes('<div class="category-card__badge">Destaque</div>')
+    && (bEsc.match(/category-card--featured/g) || []).length === 1);
+  verificar('escalões: uma ligação por cartão',
+    (bEsc.match(/<a href="escalao\.html\?escalao=/g) || []).length === escComNome.length);
+  verificar('escalões: o nome com &, espaço e / é percent-encoded na ligação',
+    bEsc.includes('href="escalao.html?escalao=TESTE%20A%26B%2FC%201"'));
+  verificar('escalões: e escapado como texto no cartão',
+    bEsc.includes('>TESTE A&amp;B/C 1<'));
+  verificar('escalões: o data-itens corresponde aos cartões',
+    bEsc.includes('data-itens="' + escComNome.length + '"'));
+  verificar('escalões: nenhum atleta no bloco gerado',
+    !bEsc.includes('TESTE ATLETA UM') && !bEsc.includes('TESTE ATLETA DOIS'));
+  verificar('escalões: nenhum dado pessoal no bloco gerado',
+    ['dataNascimento', 'nascimento', 'idade', 'telefone', 'email', 'encarregado',
+     'TESTE ENCARREGADO', '000000000'].every((x) => !bEsc.toLowerCase().includes(x.toLowerCase())));
+  verificar('escalões: nenhum atleta em toda a formacao.html gerada',
+    !depoisFmc.includes('TESTE ATLETA') && !depoisFmc.includes('TESTE ENCARREGADO'));
+
+  // Com o db_escaloes vazio a grelha volta ao estado vazio.
+  const semEscaloes = JSON.parse(JSON.stringify(dados));
+  semEscaloes.escaloes = [];
+  escreverDados(raiz, semEscaloes);
+  g = gerar(raiz);
+  const fmcVazio = dentroDasMarcas(fs.readFileSync(fmc, 'utf8'), 'formacao.html', 'escaloes');
+  verificar('escalões: sem escalões há estado vazio e nenhum cartão',
+    g.estado === 0 && fmcVazio.includes('jsc-vazio')
+    && !/<div class="category-card[ "]/.test(fmcVazio), g.saida.trim().slice(0, 160));
+  verificar('escalões: sem escalões o data-itens é 0',
+    fmcVazio.includes('data-itens="0"'));
+  // Volta a pôr a fixture completa para o resto dos testes.
+  escreverDados(raiz, dados);
+  g = gerar(raiz);
+  verificar('escalões: a fixture completa volta a gerar sem erro', g.estado === 0,
+    g.saida.trim().slice(0, 160));
 
   // ---- E1/1, E1/2 e E1/3: as duas regiões do index.html ----------
   verificar('E1: as duas regiões do index.html vêm preenchidas',
@@ -647,11 +762,20 @@ function testesDeGeracao(raiz, dados) {
   fs.writeFileSync(age, ageBom.replace('</body>', '<!-- rabisco --></body>'));
   const eqpGerado = fs.readFileSync(eqp, 'utf8');
   fs.writeFileSync(eqp, eqpGerado.replace('</body>', '<!-- rabisco --></body>'));
+  const fmcGerado = fs.readFileSync(fmc, 'utf8');
+  fs.writeFileSync(fmc, fmcGerado.replace('</body>', '<!-- rabisco --></body>'));
   g = gerar(raiz, ['--reverter']);
-  verificar('reverter: corre sem erro e nomeia as quatro páginas',
+  verificar('reverter: corre sem erro e nomeia as cinco páginas',
     g.estado === 0 && /index\.html/.test(g.saida) && /noticias\.html/.test(g.saida)
-    && /agenda\.html/.test(g.saida) && /equipa-principal\.html/.test(g.saida),
+    && /agenda\.html/.test(g.saida) && /equipa-principal\.html/.test(g.saida)
+    && /formacao\.html/.test(g.saida),
     g.saida.trim().slice(0, 200));
+  verificar('reverter: a formacao.html voltou inteira, com a região dos escalões',
+    !fs.readFileSync(fmc, 'utf8').includes('rabisco')
+    && BLOCOS['formacao.html'].every((b) => {
+      const c = fs.readFileSync(fmc, 'utf8');
+      return c.includes(b.ini) && c.includes(b.fim);
+    }));
   verificar('reverter: a equipa-principal.html voltou inteira, com as três regiões',
     !fs.readFileSync(eqp, 'utf8').includes('rabisco')
     && BLOCOS['equipa-principal.html'].every((b) => {
@@ -962,6 +1086,136 @@ async function testarEquipa(browser, url, comJs, largura, opcoes = {}) {
   const inicioDoCorpo = estado === 200 ? '' : (await pg.content()).slice(0, 300);
   await ctx.close();
   return { ...d, estado, inicioDoCorpo, erros };
+}
+
+// A formacao.html: os cartões dos escalões.
+async function testarFormacao(browser, url, comJs, largura) {
+  const ctx = await browser.newContext({
+    javaScriptEnabled: comJs,
+    extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+  });
+  const pg = await ctx.newPage();
+  await pg.setViewportSize({ width: largura, height: 900 });
+
+  const erros = [];
+  const ruido = (t) => RUIDO.some((r) => r.test(t));
+  pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+  pg.on('console', (m) => { if (m.type() === 'error' && !ruido(m.text())) erros.push(m.text()); });
+  pg.on('response', (r) => {
+    const t = r.status() + ' ' + r.url().replace(url, '');
+    if (r.status() >= 400 && !ruido(t)) erros.push(t);
+  });
+  await pg.route('**', (rota) => {
+    const alvo = rota.request().url();
+    if (alvo.startsWith(url) || alvo.startsWith('data:') || alvo.startsWith('blob:')) return rota.continue();
+    return rota.abort();
+  });
+
+  await pg.goto(url + '/formacao.html',
+    { waitUntil: comJs ? 'networkidle' : 'load', timeout: 20000 });
+
+  const d = await pg.evaluate(() => {
+    const visivel = (el) => !!el && getComputedStyle(el).display !== 'none' && !el.hidden;
+    const grelha = document.getElementById('categoriesGrid');
+    const cartoes = Array.from(document.querySelectorAll('#categoriesGrid .category-card'));
+    const doc = document.documentElement;
+    // Cada cartão reduzido ao que interessa comparar: assim o cartão gerado
+    // pelo servidor e o cartão desenhado pelo JavaScript comparam-se pelo
+    // conteúdo, e não pela indentação de cada modelo.
+    const lido = (c) => ({
+      nome: (c.querySelector('.category-card__age') || {}).textContent || '',
+      designacao: c.querySelector('.category-card__name')
+        ? c.querySelector('.category-card__name').textContent : null,
+      faixa: c.querySelector('.category-card__age-range')
+        ? c.querySelector('.category-card__age-range').textContent : null,
+      descricao: c.querySelector('.category-card__desc')
+        ? c.querySelector('.category-card__desc').textContent : null,
+      // null quando não existe <ul>; [] nunca deve acontecer (lista vazia).
+      itens: c.querySelector('.category-card__list')
+        ? Array.from(c.querySelectorAll('.category-card__list li')).map((li) => li.textContent.trim())
+        : null,
+      destaque: c.classList.contains('category-card--featured'),
+      badge: !!c.querySelector('.category-card__badge'),
+      // O href como o browser o resolveu, e o nome que o URLSearchParams
+      // devolve a partir dele: é este que o js/escalao.js compara com o
+      // db_escaloes.
+      href: (c.querySelector('.esc-link') || {}).getAttribute
+        ? c.querySelector('.esc-link').getAttribute('href') : '',
+      ligacaoTag: (c.querySelector('.esc-link') || {}).tagName || '',
+      escalaoDoUrl: (function () {
+        const a = c.querySelector('.esc-link');
+        if (!a) return null;
+        try { return new URL(a.href).searchParams.get('escalao'); } catch (_) { return null; }
+      })(),
+    });
+    return {
+      cartoes: cartoes.length,
+      cartoesVisiveis: cartoes.filter(visivel).length,
+      lidos: cartoes.map(lido),
+      listasVazias: cartoes.filter((c) => {
+        const ul = c.querySelector('.category-card__list');
+        return ul && ul.querySelectorAll('li').length === 0;
+      }).length,
+      vazio: !!(grelha && grelha.querySelector('.jsc-vazio')),
+      vazioVisivel: visivel(grelha && grelha.querySelector('.jsc-vazio')),
+      itens: grelha ? grelha.getAttribute('data-itens') : null,
+      gerado: grelha ? grelha.getAttribute('data-gerado') : null,
+      texto: grelha ? (grelha.textContent || '') : '',
+      // Nenhuma ligação alcançável por teclado pode faltar: um cartão sem
+      // <a href> não tem destino nenhum sem JavaScript.
+      focaveis: Array.from(document.querySelectorAll('#categoriesGrid a[href]')).length,
+      transbordo: doc.scrollWidth - doc.clientWidth,
+    };
+  });
+  await ctx.close();
+  return { ...d, erros };
+}
+
+// A escalao.html?escalao=... — continua em JavaScript neste bloco. A sonda
+// serve para provar o que saiu: a idade do cartão de cada atleta e a secção
+// dos aniversários.
+async function testarEscalao(browser, url, escalao, comJs) {
+  const ctx = await browser.newContext({
+    javaScriptEnabled: comJs,
+    extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+  });
+  const pg = await ctx.newPage();
+  await pg.setViewportSize({ width: 1440, height: 900 });
+
+  const erros = [];
+  const ruido = (t) => RUIDO.some((r) => r.test(t));
+  pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+  pg.on('console', (m) => { if (m.type() === 'error' && !ruido(m.text())) erros.push(m.text()); });
+  await pg.route('**', (rota) => {
+    const alvo = rota.request().url();
+    if (alvo.startsWith(url) || alvo.startsWith('data:') || alvo.startsWith('blob:')) return rota.continue();
+    return rota.abort();
+  });
+
+  await pg.goto(url + '/escalao.html?escalao=' + encodeURIComponent(escalao),
+    { waitUntil: comJs ? 'networkidle' : 'load', timeout: 20000 });
+
+  const d = await pg.evaluate(() => {
+    const jogadores = Array.from(document.querySelectorAll('#escPlantel .esc-player'));
+    return {
+      jogadores: jogadores.length,
+      metas: jogadores.map((j) => (j.querySelector('.esc-player__meta') || {}).textContent || ''),
+      nomes: jogadores.map((j) => (j.querySelector('.esc-player__name') || {}).textContent || ''),
+      aniversarios: !!document.getElementById('escAniversarios'),
+      aniversariosLista: !!document.getElementById('escAniversariosLista'),
+      cartoesAniversario: document.querySelectorAll('.birthday__card').length,
+      staff: Array.from(document.querySelectorAll('#escTechnical .esc-staff-card')).length,
+      staffEstilos: Array.from(document.querySelectorAll('#escTechnical .esc-staff__avatar'))
+        .map((el) => el.getAttribute('style') || ''),
+      // A folha de estilo do avatar resolvida pelo browser: se o url('...')
+      // tivesse sido fechado por um apóstrofo, não haveria imagem nenhuma.
+      staffImagens: Array.from(document.querySelectorAll('#escTechnical .esc-staff__avatar'))
+        .map((el) => getComputedStyle(el).backgroundImage),
+      texto: document.body.textContent || '',
+    };
+  });
+  await ctx.close();
+  return { ...d, erros };
 }
 
 // ---------------------------------------------------------------------
@@ -1379,6 +1633,119 @@ async function testarEquipa(browser, url, comJs, largura, opcoes = {}) {
       q.modalAberto && q.modalItens === postsB.length,
       'modal aberto=' + q.modalAberto + ', itens ' + q.modalItens);
 
+    // ---- 6. Bloco 4: formacao.html e escalao.html ---------------
+    console.log('\nformação: cartões dos escalões');
+    const escFix = dados.escaloes.filter((e) => (e.nome || '').trim() !== '');
+    const nomesEsc = escFix.map((e) => e.nome.trim());
+
+    let f = await testarFormacao(browser, srv.url, false, 1440);
+    verificar(`sem JS: ${escFix.length} cartões de escalão`,
+      f.cartoes === escFix.length && f.cartoesVisiveis === escFix.length,
+      'cartões ' + f.cartoes + ', visíveis ' + f.cartoesVisiveis);
+    verificar('sem JS: os nomes são os do painel, pela mesma ordem',
+      JSON.stringify(f.lidos.map((c) => c.nome)) === JSON.stringify(nomesEsc),
+      JSON.stringify(f.lidos.map((c) => c.nome)));
+    verificar('sem JS: nenhum estado vazio visível com escalões', !f.vazioVisivel);
+    verificar('sem JS: campo vazio não produz elemento',
+      (function () {
+        const c = f.lidos.find((x) => x.nome === 'TESTE-SO-NOME');
+        return c && c.designacao === null && c.faixa === null
+          && c.descricao === null && c.itens === null;
+      })(), JSON.stringify(f.lidos.find((x) => x.nome === 'TESTE-SO-NOME')));
+    verificar('sem JS: nenhuma lista vazia em cartão nenhum', f.listasVazias === 0);
+    verificar('sem JS: o cartão completo tem os cinco itens, nesta ordem',
+      (function () {
+        const c = f.lidos.find((x) => x.nome === 'TESTE-COMPLETO');
+        return c && JSON.stringify(c.itens) === JSON.stringify([
+          'TESTE HORARIO DE TREINOS', 'Treinador: TESTE TREINADOR',
+          'TESTE COMPETICAO DO ESCALAO', 'TESTE LOCAL DO ESCALAO', '12 atletas inscritos']);
+      })(), JSON.stringify((f.lidos.find((x) => x.nome === 'TESTE-COMPLETO') || {}).itens));
+    verificar('sem JS: competição e local sozinhos produzem só os seus itens',
+      (function () {
+        const c = f.lidos.find((x) => x.nome === 'TESTE-COMP-LOCAL');
+        return c && JSON.stringify(c.itens) === JSON.stringify(['TESTE SO COMPETICAO', 'TESTE SO LOCAL']);
+      })());
+    verificar('sem JS: nenhum "0 atletas inscritos" na página',
+      !/\b0 atletas inscritos/.test(f.texto) && !/-3 atletas/.test(f.texto)
+      && !f.texto.includes('muitos atletas'));
+    verificar('sem JS: o escalão com atletas 0, "0", negativo e inválido não tem lista',
+      ['TESTE-ZERO-NUMERO', 'TESTE-ZERO-TEXTO', 'TESTE-ATLETAS-NEGATIVO', 'TESTE-ATLETAS-INVALIDO']
+        .every((n) => (f.lidos.find((x) => x.nome === n) || {}).itens === null));
+    verificar('sem JS: só o escalão em destaque tem badge e classe',
+      f.lidos.filter((c) => c.destaque).length === 1
+      && f.lidos.filter((c) => c.badge).length === 1
+      && (f.lidos.find((c) => c.destaque) || {}).nome === 'TESTE-DESTAQUE');
+    verificar('sem JS: cada cartão tem uma ligação <a> a sério',
+      f.focaveis === escFix.length
+      && f.lidos.every((c) => c.ligacaoTag === 'A' && c.href.startsWith('escalao.html?escalao=')));
+    verificar('sem JS: a ligação do nome difícil volta a dar o nome exacto',
+      (function () {
+        const c = f.lidos.find((x) => x.nome === 'TESTE A&B/C 1');
+        return c && c.href === 'escalao.html?escalao=TESTE%20A%26B%2FC%201'
+          && c.escalaoDoUrl === 'TESTE A&B/C 1';
+      })(), JSON.stringify(f.lidos.find((x) => x.nome === 'TESTE A&B/C 1')));
+    verificar('sem JS: o URLSearchParams recupera todos os nomes',
+      JSON.stringify(f.lidos.map((c) => c.escalaoDoUrl)) === JSON.stringify(nomesEsc));
+    verificar('sem JS: nenhum dado pessoal de atleta na formacao.html',
+      !f.texto.includes('TESTE ATLETA') && !f.texto.includes('TESTE ENCARREGADO')
+      && !/\b\d+ anos\b/.test(f.texto));
+    verificar('sem JS: sem transbordo a 1440 px', f.transbordo <= 0, 'transbordo ' + f.transbordo);
+
+    f = await testarFormacao(browser, srv.url, false, 320);
+    verificar('sem JS a 320 px: os cartões continuam todos',
+      f.cartoes === escFix.length);
+    verificar('sem JS a 320 px: sem transbordo', f.transbordo <= 0, 'transbordo ' + f.transbordo);
+
+    // Com JavaScript, o bloco gerado e atual não é redesenhado. A marca de
+    // água prova-o: se o JavaScript reescrevesse a grelha, desaparecia.
+    const fmcFich = path.join(raiz, 'formacao.html');
+    const fmcAntes = fs.readFileSync(fmcFich, 'utf8');
+    fs.writeFileSync(fmcFich, fmcAntes.replace(
+      '<div class="category-card__age">TESTE-COMPLETO</div>',
+      '<div class="category-card__age">TESTE-COMPLETO</div><!--MARCA-->'));
+    f = await testarFormacao(browser, srv.url, true, 1440);
+    verificar('com JS: o bloco gerado e atual não é redesenhado',
+      fs.readFileSync(fmcFich, 'utf8').includes('<!--MARCA-->')
+      && f.cartoes === escFix.length && f.lidos.length === escFix.length);
+    verificar('com JS: sem erros de consola', f.erros.length === 0, f.erros.join(' | '));
+    const lidosGerados = JSON.stringify(f.lidos);
+
+    // data-itens errado: o JavaScript tem de redesenhar, e o cartão que
+    // desenha tem de ser o mesmo cartão que o servidor gerou.
+    fs.writeFileSync(fmcFich, fs.readFileSync(fmcFich, 'utf8')
+      .replace('data-itens="' + escFix.length + '"', 'data-itens="99"'));
+    f = await testarFormacao(browser, srv.url, true, 1440);
+    verificar('com JS: data-itens errado força o redesenho',
+      f.cartoes === escFix.length && f.itens === '99');
+    verificar('com JS: o cartão desenhado é o mesmo que o gerado',
+      JSON.stringify(f.lidos) === lidosGerados,
+      'desenhado: ' + JSON.stringify(f.lidos).slice(0, 300));
+    verificar('com JS: nenhum "0 atletas inscritos" depois do redesenho',
+      !/\b0 atletas inscritos/.test(f.texto));
+    fs.writeFileSync(fmcFich, fmcAntes);
+
+    console.log('\nescalões: redução de dados pessoais');
+    let esc = await testarEscalao(browser, srv.url, 'TESTE-COMPLETO', true);
+    verificar('escalão: o plantel mostra os atletas do escalão',
+      esc.jogadores === dados.atletas.filter((a) => a.escalao === 'TESTE-COMPLETO').length,
+      'jogadores ' + esc.jogadores);
+    verificar('escalão: o cartão do atleta não mostra a idade',
+      esc.metas.every((m) => !/anos/.test(m) && !/·/.test(m)),
+      JSON.stringify(esc.metas));
+    verificar('escalão: nenhuma idade em toda a página',
+      !/\b\d+ anos\b/.test(esc.texto));
+    verificar('escalão: a secção dos aniversários não existe',
+      !esc.aniversarios && !esc.aniversariosLista && esc.cartoesAniversario === 0);
+    verificar('escalão: nem a palavra Aniversários aparece',
+      !/Aniversári/i.test(esc.texto));
+    verificar('escalão: a equipa técnica continua a aparecer',
+      esc.staff === dados.treinadores.filter((t) => t.escalao === 'TESTE-COMPLETO').length);
+    verificar('escalão: a foto do treinador com \' e ( ) é percent-encoded no url(...)',
+      esc.staffEstilos.some((e) => e.includes('%27') && e.includes('%28') && e.includes('%29'))
+      && esc.staffImagens.some((i) => i.startsWith('url(')),
+      JSON.stringify(esc.staffEstilos) + ' | ' + JSON.stringify(esc.staffImagens));
+    verificar('escalão: sem erros de consola', esc.erros.length === 0, esc.erros.join(' | '));
+
     // ---- 7. Bloqueios do .htaccess ------------------------------
     console.log('\nproteções');
     const ctx = await browser.newContext({ extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' } });
@@ -1390,6 +1757,7 @@ async function testarEquipa(browser, url, comJs, largura, opcoes = {}) {
       ['/modelos/seniores-info.php', 403],
       ['/modelos/seniores-plantel.php', 403],
       ['/modelos/seniores-posts.php', 403],
+      ['/modelos/escaloes.php', 403],
       ['/data/publicacao/anterior/index.html', 403],
       ['/data/publicacao/transacao.json', 403],
       ['/data/db.json', 403],
@@ -1412,6 +1780,8 @@ async function testarEquipa(browser, url, comJs, largura, opcoes = {}) {
     // publicações desaparecem com as notícias todas despublicadas.
     semNoticias.seniores = [];
     semNoticias.senioresInfo = { temporada: '', liga: '', treinador: '', treinos: '', estadio: '' };
+    // E a formação sem escalões: a grelha tem de voltar ao estado vazio.
+    semNoticias.escaloes = [];
     semNoticias.publicadoEm = '2020-02-01T10:00:00.000Z';
     escreverDados(raiz, semNoticias);
     const g = gerar(raiz);
@@ -1453,6 +1823,19 @@ async function testarEquipa(browser, url, comJs, largura, opcoes = {}) {
       && qvJs.infoItens === 0, 'jogadores ' + qvJs.jogadores + ', publicações ' + qvJs.posts);
     verificar('equipa: sem erros de consola no estado vazio',
       qvJs.erros.length === 0, qvJs.erros.join(' / '));
+
+    let fv = await testarFormacao(browser, srv.url, false, 1440);
+    verificar('formação: sem escalões nenhum cartão e o estado vazio visível',
+      fv.cartoes === 0 && fv.vazioVisivel, 'cartões ' + fv.cartoes + ', vazio=' + fv.vazioVisivel);
+    verificar('formação: sem escalões nenhuma ligação para escalões',
+      fv.focaveis === 0);
+    verificar('formação: sem transbordo no estado vazio', fv.transbordo <= 0, '+' + fv.transbordo + 'px');
+    fv = await testarFormacao(browser, srv.url, true, 1440);
+    verificar('formação: com JavaScript o estado vazio mantém-se, sem duplicar',
+      fv.cartoes === 0 && fv.vazioVisivel && fv.itens === '0',
+      'cartões ' + fv.cartoes + ', data-itens ' + fv.itens);
+    verificar('formação: sem erros de consola no estado vazio',
+      fv.erros.length === 0, fv.erros.join(' / '));
 
     verificar('nenhum texto de teste na página', !(await (async () => {
       const ctx2 = await browser.newContext({ javaScriptEnabled: false });

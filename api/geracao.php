@@ -326,6 +326,70 @@ function jsc_blocos() {
                 return $erros;
             },
         ],
+
+        'escaloes' => [
+            'ficheiro' => 'formacao.html',
+            'modelo'   => 'escaloes.php',
+            'inicio'   => '<!-- JSC:escaloes:inicio -->',
+            'fim'      => '<!-- JSC:escaloes:fim -->',
+            'dados'    => function (array $conteudo) {
+                return ['escaloes' => jsc_escaloes($conteudo)];
+            },
+            'validar'  => function ($meio, array $conteudo) {
+                $erros = [];
+                $escaloes  = jsc_escaloes($conteudo);
+                $esperados = count($escaloes);
+
+                // O [ "] a seguir a category-card exclui os category-card__age
+                // e category-card__badge que vivem dentro de cada cartão.
+                $obtidos = preg_match_all('/<div class="category-card[ "]/', $meio);
+                if ($obtidos !== $esperados) {
+                    $erros[] = "gerou $obtidos cartões, esperava $esperados";
+                }
+                if (strpos($meio, 'id="categoriesGrid"') === false) {
+                    $erros[] = 'o bloco gerado não tem o contentor id="categoriesGrid"';
+                }
+                if ($esperados === 0 && strpos($meio, 'jsc-vazio') === false) {
+                    $erros[] = 'sem escalões, o bloco tem de manter a mensagem de lista vazia';
+                }
+                if (strpos($meio, 'data-itens="' . $esperados . '"') === false) {
+                    $erros[] = 'o data-itens não corresponde ao número de escalões gerados';
+                }
+
+                // Uma ligação por cartão, e todas para a página do escalão.
+                $ligacoes = substr_count($meio, '<a href="escalao.html?escalao=');
+                if ($ligacoes !== $esperados) {
+                    $erros[] = "gerou $ligacoes ligações para escalões, esperava $esperados";
+                }
+
+                // Uma lista vazia não se escreve: sem itens não há <ul>.
+                $comItens = 0;
+                foreach ($escaloes as $e) { if ($e['itens']) $comItens++; }
+                $listas = substr_count($meio, '<ul class="category-card__list">');
+                if ($listas !== $comItens) {
+                    $erros[] = "gerou $listas listas, esperava $comItens (sem itens não há <ul>)";
+                }
+
+                // O número de atletas só aparece acima de zero. Um "0 atletas"
+                // não diz que o escalão está vazio, diz que ninguém preencheu
+                // o campo.
+                if (preg_match('/(^|[^\d])0 atletas inscritos/', $meio)) {
+                    $erros[] = 'o cartão não pode mostrar "0 atletas inscritos"';
+                }
+
+                // Rede de segurança, não expectativa: este bloco lê apenas o
+                // db_escaloes e nunca chega perto de um atleta. Se algum dia
+                // chegar, a publicação para aqui.
+                foreach (['dataNascimento', 'data-nascimento', 'nascimento', 'idade',
+                          'telefone', 'email', 'encarregado'] as $proibido) {
+                    if (stripos($meio, $proibido) !== false) {
+                        $erros[] = "o cartão de escalão não pode conter \"$proibido\"";
+                    }
+                }
+
+                return $erros;
+            },
+        ],
     ];
 }
 

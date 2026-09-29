@@ -103,109 +103,24 @@
   <section class="section section--dark">
     <div class="container">
 
-      <!-- Escalões info cards (dynamic from admin, static fallback) -->
       <div class="section__header section__header--light" style="margin-top:56px">
         <span class="section__tag">Os nossos escalões</span>
         <h2 class="section__title">Formação</h2>
       </div>
       <p class="section__subtitle">Do Sub-5 ao Sub-19, cada escalão tem um programa adaptado à idade e nível de desenvolvimento do atleta.</p>
+      <!-- Os cartões dos escalões são escritos pela geração (modelos/escaloes.php)
+           e, com JavaScript, pelo js/main.js. A fonte é o db_escaloes do painel.
+           Estavam aqui oito cartões escritos à mão, com descrições, frequências
+           de treino e nomes de competições que não têm campo nenhum no painel —
+           e que já desapareciam assim que lá existisse um escalão. Saíram: um
+           valor escrito aqui mostraria informação desatualizada depois de o
+           painel a mudar. Não voltar a pôr cartões nesta região. -->
+      <!-- JSC:escaloes:inicio -->
       <div class="categories__grid" id="categoriesGrid">
-        <div class="category-card">
-          <div class="category-card__age">Sub-5</div>
-          <h3 class="category-card__name">Pré-Petizes</h3>
-          <p class="category-card__age-range">Até 5 anos</p>
-          <p class="category-card__desc">Para as crianças mais novas, focado no lúdico.</p>
-          <ul class="category-card__list">
-            <li>Primeiro contacto com a bola</li>
-            <li>Sem competição</li>
-          </ul>
-          <a href="escalao.html?escalao=Sub-5" class="esc-link">Ver plantel →</a>
-        </div>
-        <div class="category-card">
-          <div class="category-card__age">Sub-7</div>
-          <h3 class="category-card__name">Petizes</h3>
-          <p class="category-card__age-range">6 a 7 anos</p>
-          <p class="category-card__desc">Fase de sensibilização, sem cariz competitivo oficial.</p>
-          <ul class="category-card__list">
-            <li>1.º e 2.º ano</li>
-            <li>Sem cariz competitivo oficial</li>
-          </ul>
-          <a href="escalao.html?escalao=Sub-7" class="esc-link">Ver plantel →</a>
-        </div>
-        <div class="category-card">
-          <div class="category-card__age">Sub-9</div>
-          <h3 class="category-card__name">Traquinas</h3>
-          <p class="category-card__age-range">8 a 9 anos</p>
-          <p class="category-card__desc">Actividades essencialmente recreativas e festas do futebol.</p>
-          <ul class="category-card__list">
-            <li>Treinos 3x por semana</li>
-            <li>Foco nos fundamentos</li>
-            <li>Acompanhamento pedagógico</li>
-          </ul>
-          <a href="escalao.html?escalao=Sub-9" class="esc-link">Ver plantel →</a>
-        </div>
-        <div class="category-card">
-          <div class="category-card__age">Sub-11</div>
-          <h3 class="category-card__name">Benjamins</h3>
-          <p class="category-card__age-range">10 a 11 anos</p>
-          <p class="category-card__desc">Início de uma organização competitiva mais regrada.</p>
-          <ul class="category-card__list">
-            <li>Treinos 4x por semana</li>
-            <li>Técnica individual</li>
-            <li>Primeiros torneios</li>
-          </ul>
-          <a href="escalao.html?escalao=Sub-11" class="esc-link">Ver plantel →</a>
-        </div>
-        <div class="category-card category-card--featured">
-          <div class="category-card__badge">Destaque</div>
-          <div class="category-card__age">Sub-13</div>
-          <h3 class="category-card__name">Infantis</h3>
-          <p class="category-card__age-range">12 a 13 anos</p>
-          <p class="category-card__desc">Passagem para modelos de jogo mais complexos.</p>
-          <ul class="category-card__list">
-            <li>Treinos 5x por semana</li>
-            <li>Tática coletiva</li>
-            <li>Campeonato Distrital AF Algarve</li>
-          </ul>
-          <a href="escalao.html?escalao=Sub-13" class="esc-link">Ver plantel →</a>
-        </div>
-        <div class="category-card">
-          <div class="category-card__age">Sub-15</div>
-          <h3 class="category-card__name">Iniciados</h3>
-          <p class="category-card__age-range">14 a 15 anos</p>
-          <p class="category-card__desc">Escalão importante de transição e consolidação técnica e táctica.</p>
-          <ul class="category-card__list">
-            <li>Treinos 5x por semana</li>
-            <li>Preparação física</li>
-            <li>Campeonato Distrital AF Algarve</li>
-          </ul>
-          <a href="escalao.html?escalao=Sub-15" class="esc-link">Ver plantel →</a>
-        </div>
-        <div class="category-card">
-          <div class="category-card__age">Sub-17</div>
-          <h3 class="category-card__name">Juvenis</h3>
-          <p class="category-card__age-range">16 a 17 anos</p>
-          <p class="category-card__desc">Fase altamente competitiva de alto rendimento jovem.</p>
-          <ul class="category-card__list">
-            <li>Treinos 6x por semana</li>
-            <li>Alto rendimento</li>
-            <li>Campeonato Distrital AF Algarve</li>
-          </ul>
-          <a href="escalao.html?escalao=Sub-17" class="esc-link">Ver plantel →</a>
-        </div>
-        <div class="category-card">
-          <div class="category-card__age">Sub-19</div>
-          <h3 class="category-card__name">Juniores</h3>
-          <p class="category-card__age-range">18 a 19 anos</p>
-          <p class="category-card__desc">O último patamar da formação antes do salto para o futebol sénior ou sub-23.</p>
-          <ul class="category-card__list">
-            <li>Regime semi-profissional</li>
-            <li>Campeonato Distrital de Juniores</li>
-            <li>Integração na equipa sénior</li>
-          </ul>
-          <a href="escalao.html?escalao=Sub-19" class="esc-link">Ver plantel →</a>
-        </div>
+        <p class="jsc-vazio">Escalões a atualizar.</p>
       </div>
+      <!-- JSC:escaloes:fim -->
+
       <div style="text-align:center;margin-top:48px">
         <a href="inscricao.html" class="btn btn--primary">Inscrever agora &rarr;</a>
       </div>

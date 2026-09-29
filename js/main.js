@@ -424,27 +424,73 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Escalões
+  //
+  // Mesmo cartão que o modelos/escaloes.php gera. Um escalão sem nome não
+  // produz cartão: sem nome não há ligação nem título.
+  //
+  // Quantos atletas mostrar. Só um inteiro acima de zero conta. Antes bastava
+  // "if (e.atletas)": com o número 0 acertava, mas com a string "0" — que é o
+  // que chega de um JSON editado à mão ou de uma importação — a página
+  // escrevia "0 atletas inscritos", que não diz que o escalão está vazio, diz
+  // que ninguém preencheu o campo. Mesma regra do jsc_escalao_atletas().
+  function escalaoAtletas(valor) {
+    if (typeof valor === 'boolean' || valor === null || valor === undefined) return null;
+    if (typeof valor === 'string') {
+      valor = valor.trim();
+      if (!/^-?\d+$/.test(valor)) return null;
+    }
+    const n = parseInt(valor, 10);
+    return (isNaN(n) || n <= 0) ? null : n;
+  }
+
   try {
     const raw = localStorage.getItem('db_escaloes');
-    if (raw) {
-      const lista = JSON.parse(raw);
-      if (lista.length) {
-        const grid = document.getElementById('categoriesGrid');
-        if (grid) {
-          grid.innerHTML = lista.map(e => `
-            <div class="category-card${jscEsc(e.destaque ? ' category-card--featured' : '')}">
+    const grid = document.getElementById('categoriesGrid');
+    if (grid && raw) {
+      const lista = JSON.parse(raw)
+        .filter(e => e && (e.nome || '').toString().trim() !== '');
+
+      // Se o servidor já escreveu esta grelha e ela continua a servir, não se
+      // lhe toca: o visitante já a está a ver, sem JavaScript nenhum.
+      if (!jscBlocoAtual(grid, lista.length)) {
+        if (!lista.length) {
+          grid.innerHTML = '\n        <p class="jsc-vazio">Escalões a atualizar.</p>\n      ';
+        } else {
+          grid.innerHTML = lista.map(e => {
+            const nome       = (e.nome || '').toString().trim();
+            const designacao = (e.designacao || '').toString().trim();
+            const faixa      = (e.faixa || '').toString().trim();
+            const descricao  = (e.descricao || '').toString().trim();
+            // Os itens da lista, pela mesma ordem do modelo. Campo vazio não
+            // produz <li>, e sem nenhum item não há <ul> — em vez de ficar uma
+            // lista vazia no cartão.
+            const itens = [];
+            const treinos = (e.treinos || '').toString().trim();
+            if (treinos) itens.push(treinos);
+            const treinador = (e.treinador || '').toString().trim();
+            if (treinador) itens.push('Treinador: ' + treinador);
+            // competicao e local são administráveis na secção Futebol Formação
+            // do painel e até agora não apareciam em sítio nenhum do site.
+            const competicao = (e.competicao || '').toString().trim();
+            if (competicao) itens.push(competicao);
+            const local = (e.local || '').toString().trim();
+            if (local) itens.push(local);
+            const atletas = escalaoAtletas(e.atletas);
+            if (atletas !== null) itens.push(atletas + ' atletas inscritos');
+
+            return `
+            <div class="category-card${e.destaque ? ' category-card--featured' : ''}">
               ${e.destaque ? '<div class="category-card__badge">Destaque</div>' : ''}
-              <div class="category-card__age">${jscEsc(e.nome)}</div>
-              <h3 class="category-card__name">${jscEsc(e.designacao || '')}</h3>
-              <p class="category-card__age-range">${jscEsc(e.faixa || '')}</p>
-              ${e.descricao ? `<p class="category-card__desc">${jscEsc(e.descricao)}</p>` : ''}
-              <ul class="category-card__list">
-                ${e.treinos ? `<li>${jscEsc(e.treinos)}</li>` : ''}
-                ${e.treinador ? `<li>Treinador: ${jscEsc(e.treinador)}</li>` : ''}
-                ${e.atletas ? `<li>${jscEsc(e.atletas)} atletas inscritos</li>` : ''}
-              </ul>
-              <a href="escalao.html?escalao=${jscEscUrl(e.nome)}" class="esc-link">Ver plantel →</a>
-            </div>`).join('');
+              <div class="category-card__age">${jscEsc(nome)}</div>
+              ${designacao ? `<h3 class="category-card__name">${jscEsc(designacao)}</h3>` : ''}
+              ${faixa ? `<p class="category-card__age-range">${jscEsc(faixa)}</p>` : ''}
+              ${descricao ? `<p class="category-card__desc">${jscEsc(descricao)}</p>` : ''}
+              ${itens.length ? `<ul class="category-card__list">
+                ${itens.map(i => `<li>${jscEsc(i)}</li>`).join('\n                ')}
+              </ul>` : ''}
+              <a href="escalao.html?escalao=${jscEsc(encodeURIComponent(nome))}" class="esc-link">Ver plantel →</a>
+            </div>`;
+          }).join('');
         }
       }
     }
