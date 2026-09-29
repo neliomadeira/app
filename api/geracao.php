@@ -80,6 +80,75 @@ function jsc_blocos() {
             },
         ],
 
+        'agenda' => [
+            'ficheiro' => 'index.html',
+            'modelo'   => 'agenda-inicio.php',
+            'inicio'   => '<!-- JSC:agenda:inicio -->',
+            'fim'      => '<!-- JSC:agenda:fim -->',
+            'dados'    => function (array $conteudo) {
+                return [
+                    'eventos' => jsc_agenda_proximos($conteudo, null, jsc_agenda_previa()),
+                    'desde'   => jsc_hoje(),
+                ];
+            },
+            'validar'  => function ($meio, array $conteudo) {
+                $erros = [];
+                $esperados = count(jsc_agenda_proximos($conteudo, null, jsc_agenda_previa()));
+                $obtidos   = substr_count($meio, '<div class="agenda-card">');
+                if ($obtidos !== $esperados) {
+                    $erros[] = "gerou $obtidos cartões, esperava $esperados";
+                }
+                if (strpos($meio, 'id="agendaPublicGrid"') === false) {
+                    $erros[] = 'o bloco gerado não tem o contentor id="agendaPublicGrid"';
+                }
+                if ($esperados === 0 && strpos($meio, 'jsc-vazio') === false) {
+                    $erros[] = 'sem eventos, o bloco tem de manter a mensagem de lista vazia';
+                }
+                if (strpos($meio, 'data-desde="' . jsc_hoje() . '"') === false) {
+                    $erros[] = 'o data-desde não é o dia de hoje';
+                }
+                return $erros;
+            },
+        ],
+
+        'agenda-pagina' => [
+            'ficheiro' => 'agenda.html',
+            'modelo'   => 'agenda-pagina.php',
+            'inicio'   => '<!-- JSC:agenda-pagina:inicio -->',
+            'fim'      => '<!-- JSC:agenda-pagina:fim -->',
+            'dados'    => function (array $conteudo) {
+                return [
+                    'eventos' => jsc_agenda_proximos($conteudo),
+                    'desde'   => jsc_hoje(),
+                ];
+            },
+            'validar'  => function ($meio, array $conteudo) {
+                $erros = [];
+                $lista = jsc_agenda_proximos($conteudo);
+                $esperados = count($lista);
+                $obtidos = substr_count($meio, '<div class="agenda-pub-item"');
+                if ($obtidos !== $esperados) {
+                    $erros[] = "gerou $obtidos eventos, esperava $esperados";
+                }
+                if (strpos($meio, 'id="agendaList"') === false) {
+                    $erros[] = 'o bloco gerado não tem o contentor id="agendaList"';
+                }
+                if ($esperados === 0 && strpos($meio, 'agenda-pub-empty') === false) {
+                    $erros[] = 'sem eventos, o bloco tem de manter a mensagem de lista vazia';
+                }
+                // Um botão .ics por evento, e todos com a classe que o tira
+                // da página quando não há JavaScript.
+                $botoes = substr_count($meio, 'class="agenda-ics-btn jsc-so-com-js"');
+                if ($botoes !== $esperados) {
+                    $erros[] = "gerou $botoes botões de calendário, esperava $esperados";
+                }
+                if (strpos($meio, 'data-desde="' . jsc_hoje() . '"') === false) {
+                    $erros[] = 'o data-desde não é o dia de hoje';
+                }
+                return $erros;
+            },
+        ],
+
         'noticias-pagina' => [
             'ficheiro' => 'noticias.html',
             'modelo'   => 'noticias-pagina.php',
@@ -153,7 +222,9 @@ function jsc_blocos() {
 function jsc_alvos_permitidos() {
     $lista = ['data/db.json'];
     foreach (jsc_blocos() as $b) $lista[] = $b['ficheiro'];
-    return $lista;
+    // Um ficheiro com mais do que um bloco aparece uma vez só: senão o
+    // reverter restaurava-o duas vezes.
+    return array_values(array_unique($lista));
 }
 
 function jsc_nome_plano($relativo) {
@@ -225,24 +296,111 @@ function jsc_reparar_transacao(&$avisos) {
 // ---------------------------------------------------------------------
 // 2. Dividir pelas marcas
 // ---------------------------------------------------------------------
-// Devolve [prefixo, meio, sufixo]. O prefixo inclui a marca de início e o
-// sufixo a marca de fim: as marcas contam como HTML manual e também não
-// podem mudar.
-function jsc_dividir($html, array $b, &$erro) {
-    $ni = substr_count($html, $b['inicio']);
-    $nf = substr_count($html, $b['fim']);
-    if ($ni !== 1) { $erro = "a marca de início aparece $ni vez(es), tem de aparecer exatamente uma"; return false; }
-    if ($nf !== 1) { $erro = "a marca de fim aparece $nf vez(es), tem de aparecer exatamente uma"; return false; }
-    $pi = strpos($html, $b['inicio']) + strlen($b['inicio']);
-    $pf = strpos($html, $b['fim']);
-    if ($pf < $pi) { $erro = 'as marcas estão fora de ordem'; return false; }
-    return [substr($html, 0, $pi), substr($html, $pi, $pf - $pi), substr($html, $pf)];
+// Um ficheiro pode ter mais do que uma região gerada: a página inicial tem
+// as notícias e a agenda. Localizar todas de uma vez, e recusar antes de
+// gerar o que quer que seja, é o que garante que um bloco nunca escreve por
+// cima de outro.
+//
+// Devolve as regiões ordenadas pela posição no ficheiro, cada uma com:
+//   abre   onde começa a marca de início
+//   meio   onde começa o conteúdo gerado (logo depois dessa marca)
+//   fecha  onde começa a marca de fim
+//   fim    onde acaba a marca de fim
+// As marcas contam como HTML manual: ficam de fora do que é gerado.
+function jsc_regioes($html, array $blocos, &$erro) {
+    // (0) Configuração: duas marcas não podem ser iguais nem uma ser parte
+    //     da outra, senão as contagens de baixo mentiam.
+    $marcas = [];
+    foreach ($blocos as $nome => $b) {
+        $marcas[$nome . ' (início)'] = $b['inicio'];
+        $marcas[$nome . ' (fim)']    = $b['fim'];
+    }
+    foreach ($marcas as $ka => $a) {
+        foreach ($marcas as $kb => $bb) {
+            if ($ka === $kb) continue;
+            if (strpos($a, $bb) !== false) {
+                $erro = "a marca de $ka contém a marca de $kb: não é possível contá-las";
+                return false;
+            }
+        }
+    }
+
+    // (1) Cada marca aparece exatamente uma vez, e na ordem certa.
+    $regioes = [];
+    foreach ($blocos as $nome => $b) {
+        $ni = substr_count($html, $b['inicio']);
+        $nf = substr_count($html, $b['fim']);
+        if ($ni !== 1) { $erro = "$nome: a marca de início aparece $ni vez(es), tem de aparecer exatamente uma"; return false; }
+        if ($nf !== 1) { $erro = "$nome: a marca de fim aparece $nf vez(es), tem de aparecer exatamente uma"; return false; }
+        $abre  = strpos($html, $b['inicio']);
+        $meio  = $abre + strlen($b['inicio']);
+        $fecha = strpos($html, $b['fim']);
+        if ($fecha < $meio) { $erro = "$nome: as marcas estão fora de ordem"; return false; }
+        $regioes[] = [
+            'nome' => $nome, 'bloco' => $b,
+            'abre' => $abre, 'meio' => $meio,
+            'fecha' => $fecha, 'fim' => $fecha + strlen($b['fim']),
+            // A indentação da linha onde está a marca de fim. Como essa
+            // indentação faz parte do miolo, tem de ser reposta no fim do
+            // que se gera — senão a marca de fecho muda de coluna, e cada
+            // ficheiro tem a sua (o index.html usa seis espaços, a
+            // agenda.html quatro).
+            'indent' => jsc_indentacao($html, $fecha),
+        ];
+    }
+
+    usort($regioes, function ($x, $y) { return $x['abre'] - $y['abre']; });
+
+    // (2) Sem sobreposições nem encaixes: cada região acaba antes de a
+    //     seguinte começar.
+    for ($i = 1; $i < count($regioes); $i++) {
+        if ($regioes[$i]['abre'] < $regioes[$i - 1]['fim']) {
+            $erro = 'as marcas de ' . $regioes[$i - 1]['nome'] . ' e de ' . $regioes[$i]['nome']
+                  . ' sobrepõem-se ou estão encaixadas uma na outra';
+            return false;
+        }
+    }
+
+    return $regioes;
+}
+
+// A indentação da linha onde começa a posição dada, se for só espaços.
+function jsc_indentacao($html, $pos) {
+    $nl = strrpos(substr($html, 0, $pos), "\n");
+    $inicio = ($nl === false) ? 0 : $nl + 1;
+    $prefixo = substr($html, $inicio, $pos - $inicio);
+    return preg_match('/^[ \t]*$/', $prefixo) ? $prefixo : '';
+}
+
+// Monta o ficheiro numa única passagem sobre os bytes originais: para cada
+// região copia o que está antes (marca de início incluída), insere o miolo
+// novo e salta para a marca de fim. Nada é substituído no sítio, por isso
+// não há posições a invalidar. Com uma região só devolve, byte a byte,
+// prefixo . miolo . sufixo.
+function jsc_montar($html, array $regioes, array $meios) {
+    $saida  = '';
+    $cursor = 0;
+    foreach ($regioes as $r) {
+        $saida .= substr($html, $cursor, $r['meio'] - $cursor);
+        $saida .= isset($meios[$r['nome']]) ? $meios[$r['nome']] : '';
+        $cursor = $r['fecha'];
+    }
+    return $saida . substr($html, $cursor);
+}
+
+// O que fica fora de todas as regiões — o HTML escrito à mão. Cada miolo é
+// trocado por um separador, para que dois ficheiros com miolos diferentes mas
+// exterior igual dêem o mesmo hash.
+function jsc_fora_das_regioes($html, array $regioes) {
+    $separadores = [];
+    foreach ($regioes as $r) $separadores[$r['nome']] = "\0";
+    return jsc_montar($html, $regioes, $separadores);
 }
 
 // ---------------------------------------------------------------------
 // 3. Gerar o bloco
 // ---------------------------------------------------------------------
-function jsc_gerar_bloco($nome, array $b, array $conteudo, $gerado, &$erro) {
+function jsc_gerar_bloco($nome, array $b, array $conteudo, $gerado, &$erro, $indent = '') {
     $modelo = JSC_RAIZ . '/modelos/' . $b['modelo'];
     if (!is_file($modelo)) { $erro = 'o modelo modelos/' . $b['modelo'] . ' não existe'; return null; }
 
@@ -269,71 +427,84 @@ function jsc_gerar_bloco($nome, array $b, array $conteudo, $gerado, &$erro) {
         }
     }
 
-    // A marca de fim fica indentada como no ficheiro: o meio acaba com a
-    // indentação dessa linha.
-    return "\n" . rtrim($saida, "\n") . "\n      ";
+    // A marca de fim fica onde estava: o miolo acaba com a indentação da
+    // linha dela.
+    return "\n" . rtrim($saida, "\n") . "\n" . $indent;
 }
 
 // ---------------------------------------------------------------------
 // 4. Validar
 // ---------------------------------------------------------------------
 function jsc_validar_html(array $alvo, array $conteudo) {
-    $erros = [];
-    $b     = $alvo['bloco'];
-    $novo  = $alvo['bytes'];
-    $orig  = $alvo['original'];
-    $rel   = $alvo['relativo'];
+    $erros  = [];
+    $novo   = $alvo['bytes'];
+    $orig   = $alvo['original'];
+    $rel    = $alvo['relativo'];
+    $blocos = $alvo['blocos'];
 
-    // (a) Dividir outra vez o resultado e comparar o que está fora das
-    //     marcas com o original, por hash. É esta a garantia de que o HTML
-    //     manual não foi tocado.
-    $erroDiv = '';
-    $novoPartes = jsc_dividir($novo, $b, $erroDiv);
-    if (!$novoPartes) { $erros[] = "$rel: o ficheiro gerado não passa na divisão pelas marcas ($erroDiv)"; return $erros; }
-    $origPartes = jsc_dividir($orig, $b, $erroDiv);
-    if (!$origPartes) { $erros[] = "$rel: o ficheiro original deixou de passar na divisão ($erroDiv)"; return $erros; }
-    if (hash('sha256', $novoPartes[0]) !== hash('sha256', $origPartes[0])) {
-        $erros[] = "$rel: o HTML antes da marca de início mudou";
+    // (a) Ler outra vez as marcas, agora no resultado, e comparar o que
+    //     está fora de todas elas com o original, por hash. É esta a
+    //     garantia de que o HTML manual não foi tocado — e cobre um
+    //     ficheiro com uma região ou com várias, do mesmo modo.
+    $erro = '';
+    $novoRegioes = jsc_regioes($novo, $blocos, $erro);
+    if (!$novoRegioes) {
+        $erros[] = "$rel: o ficheiro gerado não passa na leitura das marcas ($erro)";
+        return $erros;
     }
-    if (hash('sha256', $novoPartes[2]) !== hash('sha256', $origPartes[2])) {
-        $erros[] = "$rel: o HTML depois da marca de fim mudou";
+    $origRegioes = $alvo['regioes'];
+    $foraOrig = jsc_fora_das_regioes($orig, $origRegioes);
+    if (hash('sha256', jsc_fora_das_regioes($novo, $novoRegioes)) !== hash('sha256', $foraOrig)) {
+        $erros[] = "$rel: o HTML fora das marcas mudou";
+    }
+    if (count($novoRegioes) !== count($origRegioes)) {
+        $erros[] = "$rel: o ficheiro gerado tem " . count($novoRegioes)
+                 . " regiões e o original tinha " . count($origRegioes);
+        return $erros;
     }
 
-    $meio = $novoPartes[1];
+    // Cada região é validada por si: um erro num bloco não passa por estar
+    // ao lado de outro que está bem.
+    foreach ($novoRegioes as $r) {
+        $nome = $r['nome'];
+        $meio = substr($novo, $r['meio'], $r['fecha'] - $r['meio']);
 
-    // (b) Validação própria do bloco.
-    foreach (call_user_func($b['validar'], $meio, $conteudo) as $e) $erros[] = "$rel: $e";
-
-    // (c) Etiquetas equilibradas no bloco gerado. Apanha uma geração
-    //     truncada, que o parser mais tolerante ainda aceitaria.
-    foreach (['article', 'div', 'p', 'h2', 'h3', 'time', 'a', 'span', 'button'] as $tag) {
-        $abre  = preg_match_all('/<' . $tag . '(\s|>)/i', $meio);
-        $fecha = preg_match_all('/<\/' . $tag . '\s*>/i', $meio);
-        if ($abre !== $fecha) {
-            $erros[] = "$rel: <$tag> abre $abre vez(es) e fecha $fecha no bloco gerado";
+        // (b) Validação própria do bloco.
+        foreach (call_user_func($r['bloco']['validar'], $meio, $conteudo) as $e) {
+            $erros[] = "$rel [$nome]: $e";
         }
-    }
 
-    // (d) O bloco gerado, e só ele, passado por um parser a sério.
-    $doc = new DOMDocument();
-    $anterior = libxml_use_internal_errors(true);
-    libxml_clear_errors();
-    $doc->loadHTML('<meta http-equiv="Content-Type" content="text/html; charset=utf-8">'
-                 . '<div id="jsc-fragmento">' . $meio . '</div>');
-    foreach (libxml_get_errors() as $e) {
-        // 801 = etiqueta desconhecida. O parser do libxml é de antes do
-        // HTML5 e não conhece <article> nem <time>: isso não é erro de
-        // estrutura, que é o que aqui interessa apanhar.
-        if ((int)$e->code === 801) continue;
-        if ($e->level >= LIBXML_ERR_ERROR) {
-            $erros[] = "$rel: HTML inválido no bloco gerado — " . trim($e->message);
+        // (c) Etiquetas equilibradas no bloco gerado. Apanha uma geração
+        //     truncada, que o parser mais tolerante ainda aceitaria.
+        foreach (['article', 'div', 'p', 'h2', 'h3', 'time', 'a', 'span', 'button'] as $tag) {
+            $abre  = preg_match_all('/<' . $tag . '(\s|>)/i', $meio);
+            $fecha = preg_match_all('/<\/' . $tag . '\s*>/i', $meio);
+            if ($abre !== $fecha) {
+                $erros[] = "$rel [$nome]: <$tag> abre $abre vez(es) e fecha $fecha no bloco gerado";
+            }
         }
+
+        // (d) O bloco gerado, e só ele, passado por um parser a sério.
+        $doc = new DOMDocument();
+        $anterior = libxml_use_internal_errors(true);
+        libxml_clear_errors();
+        $doc->loadHTML('<meta http-equiv="Content-Type" content="text/html; charset=utf-8">'
+                     . '<div id="jsc-fragmento">' . $meio . '</div>');
+        foreach (libxml_get_errors() as $e) {
+            // 801 = etiqueta desconhecida. O parser do libxml é de antes do
+            // HTML5 e não conhece <article> nem <time>: isso não é erro de
+            // estrutura, que é o que aqui interessa apanhar.
+            if ((int)$e->code === 801) continue;
+            if ($e->level >= LIBXML_ERR_ERROR) {
+                $erros[] = "$rel [$nome]: HTML inválido no bloco gerado — " . trim($e->message);
+            }
+        }
+        libxml_clear_errors();
+        libxml_use_internal_errors($anterior);
     }
-    libxml_clear_errors();
-    libxml_use_internal_errors($anterior);
 
     // (e) O ficheiro novo tem de continuar a ter o HTML manual todo.
-    $minimo = (int)((strlen($orig) - strlen($origPartes[1])) * 0.9);
+    $minimo = (int)(strlen($foraOrig) * 0.9);
     if (strlen($novo) < $minimo) {
         $erros[] = "$rel: ficou com " . strlen($novo) . " bytes, menos do que os $minimo mínimos — o HTML manual não sobreviveu";
     }
@@ -380,29 +551,52 @@ function jsc_publicar(array $conteudo, $jsonNovo = null, $porQuem = '') {
     $alvos  = [];
     $gerado = jsc_publicado_em($conteudo);
 
+    // Os blocos são agrupados por ficheiro: cada ficheiro é lido UMA vez, e
+    // todos os seus blocos são aplicados sobre a mesma versão em memória.
+    // Sem isto, dois blocos no mesmo ficheiro produziriam cada um a página
+    // inteira com só o seu bloco novo, e o último a ser promovido apagava o
+    // trabalho do primeiro.
+    $porFicheiro = [];
     foreach (jsc_blocos() as $nome => $b) {
-        $destino = JSC_RAIZ . '/' . $b['ficheiro'];
-        if (!is_file($destino)) { $erros[] = $b['ficheiro'] . ': não existe'; continue; }
+        $porFicheiro[$b['ficheiro']][$nome] = $b;
+    }
+
+    foreach ($porFicheiro as $relativo => $blocos) {
+        $destino = JSC_RAIZ . '/' . $relativo;
+        if (!is_file($destino)) { $erros[] = $relativo . ': não existe'; continue; }
         $orig = @file_get_contents($destino);
-        if ($orig === false) { $erros[] = $b['ficheiro'] . ': não foi possível ler'; continue; }
+        if ($orig === false) { $erros[] = $relativo . ': não foi possível ler'; continue; }
 
+        // Todas as marcas do ficheiro são localizadas e validadas antes de se
+        // gerar o que quer que seja.
         $erro = '';
-        $partes = jsc_dividir($orig, $b, $erro);
-        if (!$partes) { $erros[] = $b['ficheiro'] . ': ' . $erro; continue; }
+        $regioes = jsc_regioes($orig, $blocos, $erro);
+        if (!$regioes) { $erros[] = $relativo . ': ' . $erro; continue; }
 
-        $meio = jsc_gerar_bloco($nome, $b, $conteudo, $gerado, $erro);
-        if ($meio === null) { $erros[] = $b['ficheiro'] . ': ' . $erro; continue; }
+        $meios  = [];
+        $falhou = false;
+        foreach ($regioes as $r) {
+            $meio = jsc_gerar_bloco($r['nome'], $r['bloco'], $conteudo, $gerado, $erro, $r['indent']);
+            if ($meio === null) {
+                $erros[] = $relativo . ' [' . $r['nome'] . ']: ' . $erro;
+                $falhou = true;
+                break;
+            }
+            $meios[$r['nome']] = $meio;
+        }
+        if ($falhou) continue;
 
+        // Uma só versão final por ficheiro.
         $alvos[] = [
-            'tipo' => 'html', 'nome' => $nome, 'relativo' => $b['ficheiro'],
-            'destino' => $destino, 'bloco' => $b, 'original' => $orig,
-            'bytes' => $partes[0] . $meio . $partes[2],
+            'tipo' => 'html', 'relativo' => $relativo, 'destino' => $destino,
+            'blocos' => $blocos, 'regioes' => $regioes, 'original' => $orig,
+            'bytes' => jsc_montar($orig, $regioes, $meios),
         ];
     }
 
     if ($jsonNovo !== null) {
         $alvos[] = [
-            'tipo' => 'json', 'nome' => 'db', 'relativo' => 'data/db.json',
+            'tipo' => 'json', 'relativo' => 'data/db.json',
             'destino' => DATA_FILE, 'bytes' => $jsonNovo,
             'original' => is_file(DATA_FILE) ? (string)@file_get_contents(DATA_FILE) : null,
         ];

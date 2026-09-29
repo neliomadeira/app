@@ -30,9 +30,41 @@ const { carregarPlaywright, caminhoChromium, arrancarServidor, RAIZ_PROJETO } = 
 const FIXTURE = path.join(__dirname, 'teste', 'noticias-EXEMPLO-TESTE.json');
 
 // As regiões geradas, por ficheiro. Cada uma é um par de marcas.
+// Cada ficheiro pode ter mais do que uma região: a página inicial tem as
+// notícias e a agenda. A ordem aqui é a ordem em que aparecem no ficheiro.
 const BLOCOS = {
-  'index.html':    { ini: '<!-- JSC:noticias:inicio -->',        fim: '<!-- JSC:noticias:fim -->' },
-  'noticias.html': { ini: '<!-- JSC:noticias-pagina:inicio -->', fim: '<!-- JSC:noticias-pagina:fim -->' },
+  'index.html': [
+    { nome: 'agenda',   ini: '<!-- JSC:agenda:inicio -->',   fim: '<!-- JSC:agenda:fim -->' },
+    { nome: 'noticias', ini: '<!-- JSC:noticias:inicio -->', fim: '<!-- JSC:noticias:fim -->' },
+  ],
+  'noticias.html': [
+    { nome: 'noticias-pagina', ini: '<!-- JSC:noticias-pagina:inicio -->', fim: '<!-- JSC:noticias-pagina:fim -->' },
+  ],
+  'agenda.html': [
+    { nome: 'agenda-pagina', ini: '<!-- JSC:agenda-pagina:inicio -->', fim: '<!-- JSC:agenda-pagina:fim -->' },
+  ],
+};
+
+// Datas da agenda a partir dos offsets da fixture: 0 = hoje. Devolve uma
+// cópia, com o _offsetDias fora — o site nunca vê esse campo.
+function comDatas(dados) {
+  const d = JSON.parse(JSON.stringify(dados));
+  const base = new Date();
+  base.setHours(12, 0, 0, 0);
+  (d.agenda || []).forEach((e) => {
+    const dia = new Date(base.getTime() + (e._offsetDias || 0) * 86400000);
+    e.data = dia.getFullYear() + '-'
+      + String(dia.getMonth() + 1).padStart(2, '0') + '-'
+      + String(dia.getDate()).padStart(2, '0');
+    delete e._offsetDias;
+  });
+  return d;
+}
+
+const hojeISO = () => {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
+    + '-' + String(d.getDate()).padStart(2, '0');
 };
 
 // Ruído conhecido e inofensivo: os recursos externos que este teste corta de
@@ -55,17 +87,23 @@ const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
 // O que está fora das marcas — o HTML escrito à mão, que a geração não pode
 // tocar. Calculado aqui, sem passar pelo código que gera.
 function foraDasMarcas(html, ficheiro) {
-  const b = BLOCOS[ficheiro];
-  const pi = html.indexOf(b.ini);
-  const pf = html.indexOf(b.fim);
-  if (pi < 0 || pf < 0) return null;
-  return html.slice(0, pi + b.ini.length) + '\u0000' + html.slice(pf);
+  let saida = '';
+  let cursor = 0;
+  for (const b of BLOCOS[ficheiro]) {
+    const pi = html.indexOf(b.ini);
+    const pf = html.indexOf(b.fim);
+    if (pi < 0 || pf < 0 || pf < pi) return null;
+    saida += html.slice(cursor, pi + b.ini.length) + '\u0000';
+    cursor = pf;
+  }
+  return saida + html.slice(cursor);
 }
 
-// Só a região gerada, para contar o que lá está dentro sem apanhar o resto
-// da página.
-function dentroDasMarcas(html, ficheiro) {
-  const b = BLOCOS[ficheiro];
+// Só uma região, para contar o que lá está dentro sem apanhar o resto da
+// página. Sem nome, devolve a primeira região do ficheiro.
+function dentroDasMarcas(html, ficheiro, nome) {
+  const b = nome ? BLOCOS[ficheiro].find((x) => x.nome === nome) : BLOCOS[ficheiro][0];
+  if (!b) return '';
   const pi = html.indexOf(b.ini);
   const pf = html.indexOf(b.fim);
   if (pi < 0 || pf < 0) return '';
@@ -106,6 +144,7 @@ function gerar(raiz, argumentos = []) {
 function testesDeGeracao(raiz, dados) {
   const idx = path.join(raiz, 'index.html');
   const not = path.join(raiz, 'noticias.html');
+  const age = path.join(raiz, 'agenda.html');
   const db  = path.join(raiz, 'data', 'db.json');
 
   // Quantas notícias cada página deve mostrar, contado a partir da fixture e
@@ -120,22 +159,29 @@ function testesDeGeracao(raiz, dados) {
   // ---- 1. Geração com a fixture ----------------------------------
   const antesIdx = fs.readFileSync(idx, 'utf8');
   const antesNot = fs.readFileSync(not, 'utf8');
-  verificar('index.html tem as duas marcas', foraDasMarcas(antesIdx, 'index.html') !== null);
+  const antesAge = fs.readFileSync(age, 'utf8');
+  verificar('index.html tem as marcas das DUAS regiões — agenda e notícias',
+    foraDasMarcas(antesIdx, 'index.html') !== null
+    && antesIdx.indexOf(BLOCOS['index.html'][0].ini) < antesIdx.indexOf(BLOCOS['index.html'][1].ini));
   verificar('noticias.html tem as duas marcas', foraDasMarcas(antesNot, 'noticias.html') !== null);
+  verificar('agenda.html tem as duas marcas', foraDasMarcas(antesAge, 'agenda.html') !== null);
 
   escreverDados(raiz, dados);
   let g = gerar(raiz);
   verificar('geração corre sem erro', g.estado === 0, g.saida.trim());
-  verificar('a geração escreveu as duas páginas',
-    /index\.html/.test(g.saida) && /noticias\.html/.test(g.saida), g.saida.trim());
+  verificar('a geração escreveu as três páginas',
+    /index\.html/.test(g.saida) && /noticias\.html/.test(g.saida) && /agenda\.html/.test(g.saida),
+    g.saida.trim());
 
   const depoisHtml = fs.readFileSync(idx, 'utf8');
   const depoisNot  = fs.readFileSync(not, 'utf8');
+  const depoisAge  = fs.readFileSync(age, 'utf8');
 
-  // ---- 9. Comparação byte a byte do HTML exterior às marcas -------
+  // ---- 9 / E1-8. Comparação byte a byte do exterior a TODAS as marcas ----
   for (const [nome, antes, depois] of [
     ['index.html', antesIdx, depoisHtml],
     ['noticias.html', antesNot, depoisNot],
+    ['agenda.html', antesAge, depoisAge],
   ]) {
     const a = foraDasMarcas(antes, nome);
     const d = foraDasMarcas(depois, nome);
@@ -175,7 +221,7 @@ function testesDeGeracao(raiz, dados) {
   verificar('noticias.html: a notícia não publicada não aparece',
     !bloco.includes('TESTE D NAO PUBLICADA'));
   verificar('noticias.html: a agendada devida NÃO entra na página inicial',
-    !dentroDasMarcas(depoisHtml, 'index.html').includes('TESTE P AGENDADA PASSADO'));
+    !dentroDasMarcas(depoisHtml, 'index.html', 'noticias').includes('TESTE P AGENDADA PASSADO'));
   verificar('noticias.html: data-itens igual ao número de cartões',
     bloco.includes('data-itens="' + daPagina.length + '"'));
   verificar('noticias.html: data-gerado com a data da publicação',
@@ -197,31 +243,146 @@ function testesDeGeracao(raiz, dados) {
   verificar('noticias.html: partilha com o endereço público do canonical',
     bloco.includes('https%3A%2F%2Fcampinense.pt%2Fnoticias.html%3Fid%3D'));
   verificar('publicadas na fixture: ' + publicadas.length + ', na página inicial mostram-se 3',
-    (dentroDasMarcas(depoisHtml, 'index.html').match(/<article class="news-card/g) || []).length === 3);
+    (dentroDasMarcas(depoisHtml, 'index.html', 'noticias').match(/<article class="news-card/g) || []).length === 3);
+
+  // ---- agenda: as duas listas ------------------------------------
+  const futuros = dados.agenda.filter((e) => e.data >= hojeISO() && e.estado !== 'Cancelado');
+  const naInicial = Math.min(6, futuros.length);
+  const blocoAgI = dentroDasMarcas(depoisHtml, 'index.html', 'agenda');
+  const blocoAgP = dentroDasMarcas(depoisAge, 'agenda.html');
+
+  verificar(`agenda da página inicial: ${naInicial} cartões (máximo 6)`,
+    (blocoAgI.match(/<div class="agenda-card">/g) || []).length === naInicial,
+    'obtive ' + (blocoAgI.match(/<div class="agenda-card">/g) || []).length);
+  verificar(`agenda.html: ${futuros.length} eventos (todos os futuros)`,
+    (blocoAgP.match(/<div class="agenda-pub-item"/g) || []).length === futuros.length,
+    'obtive ' + (blocoAgP.match(/<div class="agenda-pub-item"/g) || []).length);
+  verificar('agenda: o evento de hoje aparece nas duas',
+    blocoAgI.includes('TESTE EVENTO HOJE') && blocoAgP.includes('TESTE EVENTO HOJE'));
+  verificar('agenda: os eventos passados não aparecem',
+    !blocoAgI.includes('ONTEM') && !blocoAgP.includes('ONTEM')
+    && !blocoAgI.includes('ANTEONTEM') && !blocoAgP.includes('ANTEONTEM'));
+  verificar('agenda: o evento cancelado não aparece',
+    !blocoAgI.includes('CANCELADO') && !blocoAgP.includes('CANCELADO'));
+  verificar('agenda: mesma data mantém a ordem original (B antes de A)',
+    blocoAgP.indexOf('TESTE EVENTO B MESMO DIA') < blocoAgP.indexOf('TESTE EVENTO A MESMO DIA'));
+  const titulosGerados = (blocoAgP.match(/<p class="agenda-pub-title">([^<]*)<\/p>/g) || [])
+    .map((m) => m.replace(/<[^>]+>/g, ''));
+  const titulosEsperados = futuros
+    .map((e, i) => ({ e, i }))
+    .sort((a, b) => (a.e.data < b.e.data ? -1 : a.e.data > b.e.data ? 1 : a.i - b.i))
+    .map((x) => x.e.titulo);
+  verificar('agenda: ordem por data ascendente, com a ordem original a desempatar',
+    titulosGerados.join(' | ') === titulosEsperados.join(' | '),
+    titulosGerados.join(' | '));
+  verificar('agenda: data-desde é hoje nas duas regiões',
+    blocoAgI.includes('data-desde="' + hojeISO() + '"')
+    && blocoAgP.includes('data-desde="' + hojeISO() + '"'));
+  verificar('agenda: data-itens igual ao número de eventos',
+    blocoAgI.includes('data-itens="' + naInicial + '"')
+    && blocoAgP.includes('data-itens="' + futuros.length + '"'));
+  verificar('agenda: sem hora não há o ícone da hora',
+    !/&#128337; *<\/span>/.test(blocoAgP) && !/&#128337; *&nbsp;/.test(blocoAgI));
+  verificar('agenda: sem hora nem local não há linha de meta vazia',
+    !/<p class="agenda-pub-meta">\s*<\/p>/.test(blocoAgP)
+    && !/<p class="agenda-card__meta">\s*<\/p>/.test(blocoAgI));
+  verificar('agenda: escalão "Todos" não produz linha',
+    !blocoAgP.includes('&#127942; Todos') && !blocoAgI.includes('&#127942; Todos'));
+  verificar('agenda: escalão real aparece',
+    blocoAgP.includes('&#127942; Sub-15') && blocoAgI.includes('&#127942; Sub-15'));
+  verificar('agenda: as cinco cores/classes por tipo',
+    blocoAgI.includes('agenda-card__tipo--jogo') && blocoAgI.includes('agenda-card__tipo--torneio')
+    && blocoAgI.includes('agenda-card__tipo--outro') && blocoAgI.includes('agenda-card__tipo--reuniao')
+    && blocoAgP.includes('background:#22a75e') && blocoAgP.includes('background:#3b82f6'));
+  verificar('agenda: um botão de calendário por evento, todos jsc-so-com-js',
+    (blocoAgP.match(/class="agenda-ics-btn jsc-so-com-js"/g) || []).length === futuros.length);
+  verificar('agenda: o data-ics traz o evento em JSON percent-encoded',
+    blocoAgP.includes('data-ics="%7B%22titulo%22%3A%22TESTE%20EVENTO%20HOJE%22'));
+
+  // ---- E1/1, E1/2 e E1/3: as duas regiões do index.html ----------
+  verificar('E1: as duas regiões do index.html vêm preenchidas',
+    blocoAgI.includes('agenda-card') && dentroDasMarcas(depoisHtml, 'index.html', 'noticias').includes('news-card'));
+
+  const regiaoNoticiasAntes = dentroDasMarcas(depoisHtml, 'index.html', 'noticias');
+  const regiaoAgendaAntes   = blocoAgI;
+
+  // Mexer só na agenda.
+  const soAgenda = JSON.parse(JSON.stringify(dados));
+  soAgenda.agenda = soAgenda.agenda.filter((e) => e.titulo !== 'TESTE EVENTO HOJE');
+  escreverDados(raiz, soAgenda);
+  g = gerar(raiz);
+  let idxAgora = fs.readFileSync(idx, 'utf8');
+  verificar('E1/2: alterar a agenda não toca na região das notícias',
+    g.estado === 0 && dentroDasMarcas(idxAgora, 'index.html', 'noticias') === regiaoNoticiasAntes,
+    g.saida.trim().slice(0, 160));
+  verificar('E1/2: e a região da agenda mudou de facto',
+    dentroDasMarcas(idxAgora, 'index.html', 'agenda') !== regiaoAgendaAntes);
+
+  // Mexer só nas notícias.
+  const soNoticias = JSON.parse(JSON.stringify(dados));
+  soNoticias.noticias = soNoticias.noticias.filter((n) => n.titulo !== 'TESTE A');
+  escreverDados(raiz, soNoticias);
+  g = gerar(raiz);
+  idxAgora = fs.readFileSync(idx, 'utf8');
+  verificar('E1/3: alterar as notícias não toca na região da agenda',
+    g.estado === 0 && dentroDasMarcas(idxAgora, 'index.html', 'agenda') === regiaoAgendaAntes,
+    g.saida.trim().slice(0, 160));
+  verificar('E1/3: e a região das notícias mudou de facto',
+    dentroDasMarcas(idxAgora, 'index.html', 'noticias') !== regiaoNoticiasAntes);
+
+  // Voltar ao estado bom para os ensaios de corrupção.
+  escreverDados(raiz, dados);
+  g = gerar(raiz);
+  verificar('E1: regeneração com os dados completos', g.estado === 0, g.saida.trim());
 
   // ---- 8a. Corrupção: o modelo rebenta ---------------------------
   // A transação cobre o conjunto: um erro num dos modelos não pode deixar a
   // outra página publicada. Por isso cada ensaio compara os TRÊS ficheiros.
   const modeloInicio = path.join(raiz, 'modelos', 'noticias-inicio.php');
   const modeloPagina = path.join(raiz, 'modelos', 'noticias-pagina.php');
+  const modeloAgenda = path.join(raiz, 'modelos', 'agenda-inicio.php');
+  const modeloAgPag  = path.join(raiz, 'modelos', 'agenda-pagina.php');
   const bomInicio = fs.readFileSync(modeloInicio, 'utf8');
   const bomPagina = fs.readFileSync(modeloPagina, 'utf8');
+  const bomAgenda = fs.readFileSync(modeloAgenda, 'utf8');
+  const bomAgPag  = fs.readFileSync(modeloAgPag, 'utf8');
   const htmlBom   = fs.readFileSync(idx, 'utf8');
   const notBom    = fs.readFileSync(not, 'utf8');
+  const ageBom    = fs.readFileSync(age, 'utf8');
   const dbBom     = fs.readFileSync(db, 'utf8');
+
+  // Quando é o próprio teste que estraga o index.html, o que se verifica é
+  // que a geração não escreveu NADA: o ficheiro fica como o teste o deixou, e
+  // os outros ficam intactos.
+  const naoEscreveuNada = (etiqueta, comoFicou) => {
+    verificar(etiqueta + ': a geração não escreveu no index.html',
+      fs.readFileSync(idx, 'utf8') === comoFicou);
+    verificar(etiqueta + ': noticias.html intacto byte a byte',
+      fs.readFileSync(not, 'utf8') === notBom);
+    verificar(etiqueta + ': agenda.html intacto byte a byte',
+      fs.readFileSync(age, 'utf8') === ageBom);
+    verificar(etiqueta + ': data/db.json intacto byte a byte',
+      fs.readFileSync(db, 'utf8') === dbBom);
+  };
 
   const nadaMudou = (etiqueta) => {
     verificar(etiqueta + ': index.html intacto byte a byte',
       fs.readFileSync(idx, 'utf8') === htmlBom);
     verificar(etiqueta + ': noticias.html intacto byte a byte',
       fs.readFileSync(not, 'utf8') === notBom);
+    verificar(etiqueta + ': agenda.html intacto byte a byte',
+      fs.readFileSync(age, 'utf8') === ageBom);
     verificar(etiqueta + ': data/db.json intacto byte a byte',
       fs.readFileSync(db, 'utf8') === dbBom);
   };
 
   for (const [etiqueta, ficheiro, bom] of [
-    ['modelo da página inicial que rebenta', modeloInicio, bomInicio],
+    ['modelo das notícias da página inicial que rebenta', modeloInicio, bomInicio],
     ['modelo da página de notícias que rebenta', modeloPagina, bomPagina],
+    // E1/4: o segundo bloco do index.html a falhar não pode deixar o
+    // primeiro publicado — nem a página inteira meio escrita.
+    ['modelo da agenda da página inicial que rebenta', modeloAgenda, bomAgenda],
+    ['modelo da lista da agenda que rebenta', modeloAgPag, bomAgPag],
   ]) {
     fs.writeFileSync(ficheiro, bom + "\n<?php throw new RuntimeException('corrupção de teste'); ?>\n");
     g = gerar(raiz);
@@ -249,54 +410,118 @@ function testesDeGeracao(raiz, dados) {
   nadaMudou('contagem errada');
   fs.writeFileSync(modeloPagina, bomPagina);
 
-  // ---- 8c. Corrupção: marca em falta no HTML ---------------------
-  for (const [etiqueta, ficheiro, bom, marca] of [
-    ['marca em falta na página inicial', idx, htmlBom, BLOCOS['index.html'].fim],
-    ['marca em falta na página de notícias', not, notBom, BLOCOS['noticias.html'].fim],
+  // ---- 8c. E1/7: marca em falta aborta ---------------------------
+  // Cada marca de cada região, uma a uma: quatro no total, duas delas na
+  // página inicial, que tem dois blocos.
+  for (const [nomeFich, ficheiro, bom] of [
+    ['index.html', idx, htmlBom],
+    ['noticias.html', not, notBom],
+    ['agenda.html', age, ageBom],
   ]) {
-    fs.writeFileSync(ficheiro, bom.replace(marca, '<!-- marca apagada de propósito -->'));
-    g = gerar(raiz);
-    verificar(etiqueta + ': a geração aborta', g.estado !== 0, g.saida.trim().slice(0, 200));
-    fs.writeFileSync(ficheiro, bom);
+    for (const b of BLOCOS[nomeFich]) {
+      for (const [qual, marca] of [['início', b.ini], ['fim', b.fim]]) {
+        fs.writeFileSync(ficheiro, bom.replace(marca, '<!-- marca apagada de propósito -->'));
+        g = gerar(raiz);
+        verificar(`marca de ${qual} de ${b.nome} em falta: a geração aborta`,
+          g.estado !== 0, g.saida.trim().slice(0, 200));
+        fs.writeFileSync(ficheiro, bom);
+      }
+    }
   }
+
+  // ---- 8c2. E1/5: marca duplicada aborta ------------------------
+  for (const b of BLOCOS['index.html']) {
+    const estragado = htmlBom.replace(b.ini, b.ini + '\n      ' + b.ini);
+    fs.writeFileSync(idx, estragado);
+    g = gerar(raiz);
+    verificar(`marca de ${b.nome} duplicada: a geração aborta`,
+      g.estado !== 0 && /aparece 2 vez/.test(g.saida), g.saida.trim().slice(0, 200));
+    naoEscreveuNada(`marca de ${b.nome} duplicada`, estragado);
+    fs.writeFileSync(idx, htmlBom);
+  }
+
+  // ---- 8c3. E1/6: marcas sobrepostas e encaixadas abortam -------
+  // Sobrepostas: o fim da agenda passa para depois do início das notícias,
+  // e as duas regiões ficam entrelaçadas.
+  const A = BLOCOS['index.html'].find((b) => b.nome === 'agenda');
+  const N = BLOCOS['index.html'].find((b) => b.nome === 'noticias');
+  const sobrepostas = htmlBom.replace(A.fim, '').replace(N.ini, N.ini + '\n      ' + A.fim);
+  fs.writeFileSync(idx, sobrepostas);
+  g = gerar(raiz);
+  verificar('marcas sobrepostas: a geração aborta',
+    g.estado !== 0 && /sobrep|encaix/.test(g.saida), g.saida.trim().slice(0, 200));
+  naoEscreveuNada('marcas sobrepostas', sobrepostas);
+
+  // Encaixadas: a região das notícias inteira dentro da região da agenda.
+  const encaixadas = htmlBom.replace(A.fim, '').replace('</body>', A.fim + '\n</body>');
+  fs.writeFileSync(idx, encaixadas);
+  g = gerar(raiz);
+  verificar('marcas encaixadas: a geração aborta',
+    g.estado !== 0 && /sobrep|encaix/.test(g.saida), g.saida.trim().slice(0, 200));
+  naoEscreveuNada('marcas encaixadas', encaixadas);
+  fs.writeFileSync(idx, htmlBom);
 
   // ---- 8d. Transação interrompida: o diário repara ---------------
   // Simula o que ficaria em disco se o processo morresse a meio da
   // promoção: um backup da versão anterior e um diário sem fechar.
   const ant = path.join(raiz, 'data', 'publicacao', 'anterior');
   fs.mkdirSync(ant, { recursive: true });
-  const versaoAnterior = htmlBom.replace(
-    /<!-- JSC:noticias:inicio -->[\s\S]*<!-- JSC:noticias:fim -->/,
-    BLOCOS['index.html'].ini
-      + '\n      <div class="news__grid" id="newsGrid" data-gerado="1999-01-01T00:00:00.000Z"></div>\n      '
-      + BLOCOS['index.html'].fim);
+  // A versão "anterior" do index.html é o ficheiro bom com uma marca de água
+  // que se reconhece — as marcas ficam todas de pé, senão a geração seguinte
+  // falhava por outra razão.
+  const versaoAnterior = htmlBom.replace('</body>', '<!-- versão anterior --></body>');
   fs.writeFileSync(path.join(ant, 'index.html'), versaoAnterior);
   fs.writeFileSync(path.join(ant, 'noticias.html'), notBom);
+  fs.writeFileSync(path.join(ant, 'agenda.html'), ageBom);
   fs.writeFileSync(path.join(raiz, 'data', 'publicacao', 'transacao.json'),
     JSON.stringify({ iniciada: '2020-01-01T00:00:00+00:00', por: 'teste',
-                     ficheiros: [{ destino: 'index.html' }, { destino: 'noticias.html' }] }));
+                     ficheiros: [{ destino: 'index.html' }, { destino: 'noticias.html' },
+                                 { destino: 'agenda.html' }] }));
   fs.writeFileSync(idx, htmlBom.replace('</body>', '<!-- estado a meio --></body>'));
   fs.writeFileSync(not, notBom.replace('</body>', '<!-- estado a meio --></body>'));
+  fs.writeFileSync(age, ageBom.replace('</body>', '<!-- estado a meio --></body>'));
   g = gerar(raiz);
   verificar('diário pendente: a publicação seguinte restaura e avisa',
     g.estado === 0 && /não tinha terminado/.test(g.saida), g.saida.trim().slice(0, 200));
-  verificar('diário pendente: as duas páginas foram repostas',
+  verificar('diário pendente: as três páginas foram repostas',
     !fs.readFileSync(idx, 'utf8').includes('estado a meio')
-    && !fs.readFileSync(not, 'utf8').includes('estado a meio'));
+    && !fs.readFileSync(not, 'utf8').includes('estado a meio')
+    && !fs.readFileSync(age, 'utf8').includes('estado a meio'));
   verificar('diário pendente: o diário foi fechado',
     !fs.existsSync(path.join(raiz, 'data', 'publicacao', 'transacao.json')));
 
-  // ---- Reverter a pedido ----------------------------------------
-  const antesReverter = fs.readFileSync(not, 'utf8');
+  // ---- E1/9. Reverter restaura o ficheiro completo ---------------
+  // Antes de reverter, deixa-se o index.html com as duas regiões geradas e
+  // uma marca de água: o que se exige é que o ficheiro INTEIRO volte ao
+  // backup, com as duas regiões, e não só uma delas.
+  escreverDados(raiz, dados);
+  g = gerar(raiz);
+  const idxGerado = fs.readFileSync(idx, 'utf8');
+  verificar('reverter: o ponto de partida tem as duas regiões preenchidas',
+    g.estado === 0
+    && dentroDasMarcas(idxGerado, 'index.html', 'agenda').includes('agenda-card')
+    && dentroDasMarcas(idxGerado, 'index.html', 'noticias').includes('news-card'));
+
+  fs.writeFileSync(idx, idxGerado.replace('</body>', '<!-- rabisco --></body>'));
+  fs.writeFileSync(not, notBom.replace('</body>', '<!-- rabisco --></body>'));
+  fs.writeFileSync(age, ageBom.replace('</body>', '<!-- rabisco --></body>'));
   g = gerar(raiz, ['--reverter']);
-  verificar('reverter: corre sem erro e nomeia as duas páginas',
-    g.estado === 0 && /noticias\.html/.test(g.saida), g.saida.trim().slice(0, 200));
-  verificar('reverter: a noticias.html voltou ao backup',
-    fs.readFileSync(not, 'utf8') !== antesReverter || antesReverter === notBom);
+  verificar('reverter: corre sem erro e nomeia as três páginas',
+    g.estado === 0 && /index\.html/.test(g.saida) && /noticias\.html/.test(g.saida)
+    && /agenda\.html/.test(g.saida), g.saida.trim().slice(0, 200));
+  const idxRevertido = fs.readFileSync(idx, 'utf8');
+  verificar('reverter: o index.html voltou inteiro, sem o rabisco',
+    !idxRevertido.includes('rabisco')
+    && !fs.readFileSync(not, 'utf8').includes('rabisco')
+    && !fs.readFileSync(age, 'utf8').includes('rabisco'));
+  verificar('reverter: e as duas regiões do index.html continuam de pé',
+    foraDasMarcas(idxRevertido, 'index.html') !== null
+    && BLOCOS['index.html'].every((b) => idxRevertido.includes(b.ini) && idxRevertido.includes(b.fim)));
 
   // ---- Deixar a cópia no estado bom, com a fixture gerada --------
   fs.writeFileSync(idx, htmlBom);
   fs.writeFileSync(not, notBom);
+  fs.writeFileSync(age, ageBom);
   escreverDados(raiz, dados);
   g = gerar(raiz);
   verificar('geração final para os testes de browser', g.estado === 0, g.saida.trim());
@@ -353,6 +578,12 @@ async function testarPagina(browser, url, comJs, largura) {
       transbordo: doc.scrollWidth - doc.clientWidth,
       temTagB: !!(grid && grid.querySelector('.news-card__title b')),
       textoBody: document.body.innerText.length,
+      agendaCartoes: document.querySelectorAll('#agendaPublicGrid .agenda-card').length,
+      agendaTitulos: Array.from(document.querySelectorAll('#agendaPublicGrid .agenda-card__title'))
+        .map((el) => el.textContent),
+      agendaVazio: !!document.querySelector('#agendaPublicGrid .jsc-vazio'),
+      agendaMetaVazio: Array.from(document.querySelectorAll('#agendaPublicGrid .agenda-card__meta'))
+        .filter((el) => !el.textContent.trim()).length,
     };
   });
   await ctx.close();
@@ -437,12 +668,81 @@ async function testarNoticias(browser, url, comJs, largura, opcoes = {}) {
   return { ...d, estado, inicioDoCorpo, erros };
 }
 
+// Sonda da agenda.html. O calendário e os filtros são controlos: existem só
+// com JavaScript, e é isso que se verifica.
+async function testarAgenda(browser, url, comJs, largura, opcoes = {}) {
+  const ctx = await browser.newContext({
+    javaScriptEnabled: comJs,
+    extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+    acceptDownloads: true,
+  });
+  const pg = await ctx.newPage();
+  await pg.setViewportSize({ width: largura, height: 900 });
+
+  const erros = [];
+  const ruido = (t) => RUIDO.some((r) => r.test(t));
+  pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+  pg.on('console', (m) => { if (m.type() === 'error' && !ruido(m.text())) erros.push(m.text()); });
+  pg.on('response', (r) => {
+    const t = r.status() + ' ' + r.url().replace(url, '');
+    if (r.status() >= 400 && !ruido(t)) erros.push(t);
+  });
+  await pg.route('**', (rota) => {
+    const alvo = rota.request().url();
+    if (alvo.startsWith(url) || alvo.startsWith('data:') || alvo.startsWith('blob:')) return rota.continue();
+    return rota.abort();
+  });
+
+  const resp = await pg.goto(url + '/agenda.html',
+    { waitUntil: comJs ? 'networkidle' : 'load', timeout: 20000 });
+  const estado = resp ? resp.status() : 0;
+
+  // Descarregar o .ics é a prova de que o botão gerado continua ligado ao
+  // js/ics.js, agora por um ouvinte no contentor.
+  let descarregou = '';
+  if (opcoes.descarregarIcs) {
+    const [download] = await Promise.all([
+      pg.waitForEvent('download', { timeout: 8000 }).catch(() => null),
+      pg.click('#agendaList .agenda-ics-btn'),
+    ]);
+    descarregou = download ? download.suggestedFilename() : '';
+  }
+  if (opcoes.clicar) await pg.click(opcoes.clicar);
+
+  const d = await pg.evaluate(() => {
+    const visivel = (el) => !!el && getComputedStyle(el).display !== 'none' && !el.hidden;
+    const itens = Array.from(document.querySelectorAll('#agendaList .agenda-pub-item'));
+    const doc = document.documentElement;
+    return {
+      eventos: itens.length,
+      visiveis: itens.filter(visivel).length,
+      titulos: itens.map((el) => (el.querySelector('.agenda-pub-title') || {}).textContent || ''),
+      vazio: !!document.querySelector('#agendaList .agenda-pub-empty'),
+      metaVazio: Array.from(document.querySelectorAll('#agendaList .agenda-pub-meta'))
+        .filter((el) => !el.textContent.trim()).length,
+      ics: document.querySelectorAll('#agendaList .agenda-ics-btn').length,
+      icsVisiveis: Array.from(document.querySelectorAll('#agendaList .agenda-ics-btn')).filter(visivel).length,
+      diasCalendario: document.querySelectorAll('#agendaCal .cal-day[data-date]').length,
+      pontosCalendario: document.querySelectorAll('#agendaCal .cal-dot').length,
+      calendarioTemTexto: (document.getElementById('agendaCal') || {}).textContent
+        ? document.getElementById('agendaCal').textContent.trim().length : 0,
+      filtros: document.querySelectorAll('#agendaFilters .news-filter-btn').length,
+      titulo: (document.querySelector('.agenda-list-title') || {}).textContent || '',
+      transbordo: doc.scrollWidth - doc.clientWidth,
+    };
+  });
+  const inicioDoCorpo = estado === 200 ? '' : (await pg.content()).slice(0, 300);
+  await ctx.close();
+  return { ...d, estado, inicioDoCorpo, descarregou, erros };
+}
+
 // ---------------------------------------------------------------------
 // Principal
 // ---------------------------------------------------------------------
 (async () => {
   if (!fs.existsSync(FIXTURE)) { console.error('fixture em falta: ' + FIXTURE); process.exit(2); }
-  const dados = JSON.parse(fs.readFileSync(FIXTURE, 'utf8'));
+  // As datas da agenda são resolvidas uma vez, aqui: 0 = hoje.
+  const dados = comDatas(JSON.parse(fs.readFileSync(FIXTURE, 'utf8')));
 
   const raiz = copiarProjeto();
   console.log('\ncópia de trabalho: ' + raiz);
@@ -508,6 +808,129 @@ async function testarNoticias(browser, url, comJs, largura, opcoes = {}) {
     r = await testarPagina(browser, srv.url, true, 320);
     verificar('3 cartões a 320px com JavaScript', r.cartoes === 3, 'obtive ' + r.cartoes);
     verificar('sem transbordo horizontal a 320px', r.transbordo <= 0, '+' + r.transbordo + 'px');
+
+    // ---- Agenda ------------------------------------------------
+    const futurosB = dados.agenda.filter((e) => e.data >= hojeISO() && e.estado !== 'Cancelado');
+    const NA = Math.min(6, futurosB.length);
+
+    console.log('\nagenda da página inicial');
+    let a = await testarPagina(browser, srv.url, false, 1440);
+    verificar(`SEM JavaScript: ${NA} cartões de agenda`, a.agendaCartoes === NA, 'obtive ' + a.agendaCartoes);
+    verificar('SEM JavaScript: o evento de hoje está lá',
+      a.agendaTitulos.includes('TESTE EVENTO HOJE'), a.agendaTitulos.join(' | '));
+    verificar('SEM JavaScript: nenhum passado e nenhum cancelado',
+      !a.agendaTitulos.some((t) => /ONTEM|CANCELADO/.test(t)), a.agendaTitulos.join(' | '));
+    verificar('SEM JavaScript: sem linha de meta vazia', a.agendaMetaVazio === 0);
+    verificar('SEM JavaScript: sem mensagem de lista vazia', !a.agendaVazio);
+    a = await testarPagina(browser, srv.url, false, 320);
+    verificar(`SEM JavaScript a 320px: ${NA} cartões`, a.agendaCartoes === NA, 'obtive ' + a.agendaCartoes);
+    verificar('SEM JavaScript a 320px: sem transbordo', a.transbordo <= 0, '+' + a.transbordo + 'px');
+    a = await testarPagina(browser, srv.url, true, 1440);
+    verificar(`COM JavaScript: continuam ${NA} cartões — sem duplicação`,
+      a.agendaCartoes === NA, 'obtive ' + a.agendaCartoes);
+    verificar('COM JavaScript: sem erros de consola', a.erros.length === 0, a.erros.join(' / '));
+    a = await testarPagina(browser, srv.url, true, 320);
+    verificar(`COM JavaScript a 320px: ${NA} cartões`, a.agendaCartoes === NA, 'obtive ' + a.agendaCartoes);
+    verificar('COM JavaScript a 320px: sem transbordo', a.transbordo <= 0, '+' + a.transbordo + 'px');
+
+    console.log('\nagenda.html SEM JavaScript');
+    let ag = await testarAgenda(browser, srv.url, false, 1440);
+    verificar('responde 200', ag.estado === 200,
+      'respondeu ' + ag.estado + ' — ' + ag.inicioDoCorpo.replace(/\s+/g, ' '));
+    verificar(`os ${futurosB.length} eventos futuros estão no HTML e visíveis`,
+      ag.eventos === futurosB.length && ag.visiveis === futurosB.length,
+      'no DOM ' + ag.eventos + ', visíveis ' + ag.visiveis);
+    verificar('ordem por data ascendente',
+      ag.titulos[0] === 'TESTE EVENTO HOJE', ag.titulos.slice(0, 3).join(' | '));
+    verificar('nenhum passado e nenhum cancelado',
+      !ag.titulos.some((t) => /ONTEM|CANCELADO/.test(t)));
+    verificar('sem linha de meta vazia', ag.metaVazio === 0);
+    verificar('o botão de calendário NÃO aparece sem JavaScript',
+      ag.icsVisiveis === 0, 'visíveis ' + ag.icsVisiveis);
+    verificar('o calendário fica vazio sem JavaScript', ag.calendarioTemTexto === 0);
+    verificar('a barra de filtros fica vazia sem JavaScript', ag.filtros === 0);
+    verificar('sem transbordo horizontal', ag.transbordo <= 0, '+' + ag.transbordo + 'px');
+
+    ag = await testarAgenda(browser, srv.url, false, 320);
+    verificar(`a 320px: os ${futurosB.length} eventos visíveis`,
+      ag.visiveis === futurosB.length, 'visíveis ' + ag.visiveis);
+    verificar('a 320px: sem transbordo', ag.transbordo <= 0, '+' + ag.transbordo + 'px');
+
+    console.log('\nagenda.html COM JavaScript');
+    ag = await testarAgenda(browser, srv.url, true, 1440);
+    verificar(`continuam ${futurosB.length} eventos — sem duplicação`,
+      ag.eventos === futurosB.length, 'obtive ' + ag.eventos);
+    verificar('o calendário mensal foi desenhado', ag.diasCalendario >= 28,
+      'dias ' + ag.diasCalendario);
+    verificar('o calendário tem pontos nos dias com eventos', ag.pontosCalendario > 0,
+      'pontos ' + ag.pontosCalendario);
+    verificar('a barra de filtros tem os seis tipos', ag.filtros === 6, 'botões ' + ag.filtros);
+    verificar('o botão de calendário aparece, um por evento',
+      ag.icsVisiveis === futurosB.length, 'visíveis ' + ag.icsVisiveis);
+    verificar('sem erros de consola', ag.erros.length === 0, ag.erros.join(' / '));
+    verificar('sem transbordo horizontal', ag.transbordo <= 0, '+' + ag.transbordo + 'px');
+
+    ag = await testarAgenda(browser, srv.url, true, 320);
+    verificar('a 320px com JavaScript: sem transbordo', ag.transbordo <= 0, '+' + ag.transbordo + 'px');
+
+    console.log('\nagenda.html: o que continua a ser do JavaScript');
+    const nJogos = futurosB.filter((e) => e.tipo === 'Jogo').length;
+    ag = await testarAgenda(browser, srv.url, true, 1440, { clicar: '[data-tipo="Jogo"]' });
+    verificar(`filtro por tipo: mostra os ${nJogos} do tipo Jogo`,
+      ag.eventos === nJogos, 'obtive ' + ag.eventos);
+
+    ag = await testarAgenda(browser, srv.url, true, 1440, { clicar: `.cal-day[data-date="${hojeISO()}"]` });
+    verificar('clicar no dia de hoje no calendário mostra o evento desse dia',
+      ag.eventos === 1 && ag.titulos[0] === 'TESTE EVENTO HOJE',
+      ag.eventos + ' evento(s): ' + ag.titulos.join(' | '));
+    verificar('e o título da lista muda para esse dia',
+      /Eventos — /.test(ag.titulo), ag.titulo);
+
+    ag = await testarAgenda(browser, srv.url, true, 1440, { descarregarIcs: true });
+    verificar('o botão gerado descarrega o .ics',
+      /\.ics$/.test(ag.descarregou), ag.descarregou || '(não descarregou)');
+
+    // ---- data-desde: a passagem de um dia ------------------------
+    // Para provar que o JavaScript redesenhou — e não que o bloco gerado já
+    // estava certo — põe-se uma marca de água no HTML gerado: se ela
+    // desaparecer, foi reescrito.
+    console.log('\nagenda: passagem de um dia depois da geração');
+    const agePath = path.join(raiz, 'agenda.html');
+    const ageGerado = fs.readFileSync(agePath, 'utf8');
+    const comMarca = ageGerado.replace('TESTE EVENTO HOJE', 'MARCA DE AGUA GERADA');
+
+    fs.writeFileSync(agePath, comMarca);
+    ag = await testarAgenda(browser, srv.url, true, 1440);
+    verificar('data-desde de hoje: o JavaScript NÃO mexe no que foi gerado',
+      ag.titulos.includes('MARCA DE AGUA GERADA'), ag.titulos.slice(0, 2).join(' | '));
+
+    fs.writeFileSync(agePath, comMarca.replace('data-desde="' + hojeISO() + '"', 'data-desde="2020-01-01"'));
+    ag = await testarAgenda(browser, srv.url, true, 1440);
+    verificar('data-desde de outro dia: o JavaScript volta a desenhar a lista',
+      !ag.titulos.includes('MARCA DE AGUA GERADA') && ag.eventos === futurosB.length,
+      'eventos ' + ag.eventos + ' | ' + ag.titulos.slice(0, 2).join(' | '));
+
+    fs.writeFileSync(agePath, comMarca.replace('data-itens="' + futurosB.length + '"', 'data-itens="999"'));
+    ag = await testarAgenda(browser, srv.url, true, 1440);
+    verificar('data-itens errado: o JavaScript volta a desenhar a lista',
+      !ag.titulos.includes('MARCA DE AGUA GERADA') && ag.eventos === futurosB.length,
+      'eventos ' + ag.eventos);
+    fs.writeFileSync(agePath, ageGerado);
+
+    // O mesmo par para a grelha da página inicial.
+    const idxPath = path.join(raiz, 'index.html');
+    const idxGeradoB = fs.readFileSync(idxPath, 'utf8');
+    const idxComMarca = idxGeradoB.replace('TESTE EVENTO HOJE', 'MARCA DE AGUA GERADA');
+    fs.writeFileSync(idxPath, idxComMarca);
+    a = await testarPagina(browser, srv.url, true, 1440);
+    verificar('página inicial, data-desde de hoje: o JavaScript não mexe na grelha',
+      a.agendaTitulos.includes('MARCA DE AGUA GERADA'), a.agendaTitulos.join(' | '));
+    fs.writeFileSync(idxPath, idxComMarca.replace('data-desde="' + hojeISO() + '"', 'data-desde="2020-01-01"'));
+    a = await testarPagina(browser, srv.url, true, 1440);
+    verificar('página inicial, data-desde de outro dia: o JavaScript redesenha',
+      !a.agendaTitulos.includes('MARCA DE AGUA GERADA') && a.agendaCartoes === NA,
+      a.agendaTitulos.join(' | '));
+    fs.writeFileSync(idxPath, idxGeradoB);
 
     // ---- Página de notícias -------------------------------------
     const agora = new Date().toISOString();
@@ -614,6 +1037,8 @@ async function testarNoticias(browser, url, comJs, largura, opcoes = {}) {
     for (const [caminho, esperado] of [
       ['/modelos/noticias-inicio.php', 403],
       ['/modelos/noticias-pagina.php', 403],
+      ['/modelos/agenda-inicio.php', 403],
+      ['/modelos/agenda-pagina.php', 403],
       ['/data/publicacao/anterior/index.html', 403],
       ['/data/publicacao/transacao.json', 403],
       ['/data/db.json', 403],
@@ -630,6 +1055,8 @@ async function testarNoticias(browser, url, comJs, largura, opcoes = {}) {
     // Nem publicadas nem agendadas: senão a agendada devida continuaria a
     // aparecer na página de notícias, que também as mostra.
     semNoticias.noticias.forEach((n) => { n.publicada = false; delete n.scheduledAt; });
+    // Sem eventos nenhuns: a agenda tem de mostrar a sua mensagem própria.
+    semNoticias.agenda = [];
     semNoticias.publicadoEm = '2020-02-01T10:00:00.000Z';
     escreverDados(raiz, semNoticias);
     const g = gerar(raiz);
@@ -645,6 +1072,15 @@ async function testarNoticias(browser, url, comJs, largura, opcoes = {}) {
     verificar('noticias.html sem notícias: sem barra de filtros', !pv.filtros);
     verificar('noticias.html sem notícias: sem botão "Ver mais"', !pv.mais);
     verificar('noticias.html sem notícias: sem transbordo', pv.transbordo <= 0, '+' + pv.transbordo + 'px');
+
+    const av = await testarAgenda(browser, srv.url, false, 1440);
+    verificar('agenda.html sem eventos: nenhum evento', av.eventos === 0, 'obtive ' + av.eventos);
+    verificar('agenda.html sem eventos: aparece a mensagem de lista vazia', av.vazio);
+    verificar('agenda.html sem eventos: sem botões de calendário', av.ics === 0);
+    verificar('agenda.html sem eventos: sem transbordo', av.transbordo <= 0, '+' + av.transbordo + 'px');
+    const ai = await testarPagina(browser, srv.url, false, 1440);
+    verificar('página inicial sem eventos: nenhum cartão de agenda', ai.agendaCartoes === 0);
+    verificar('página inicial sem eventos: aparece a mensagem de lista vazia', ai.agendaVazio);
 
     verificar('nenhum texto de teste na página', !(await (async () => {
       const ctx2 = await browser.newContext({ javaScriptEnabled: false });

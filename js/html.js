@@ -64,9 +64,45 @@
     return jscEscUrl(String(valor).replace(/['"()\\\s]/g, pctCss));
   }
 
+  // O dia de hoje em AAAA-MM-DD, na hora local de quem visita.
+  function jscHojeISO() {
+    var d = new Date();
+    return d.getFullYear() + '-'
+      + String(d.getMonth() + 1).padStart(2, '0') + '-'
+      + String(d.getDate()).padStart(2, '0');
+  }
+
+  // O bloco que o servidor escreveu neste contentor ainda serve?
+  //
+  // Três perguntas, e todas têm de dar sim:
+  //   data-gerado  o que está guardado não é mais recente do que o gerado;
+  //   data-itens   o gerador escreveu tantos itens quantos os que contamos
+  //                agora (trata das notícias agendadas que venceram depois
+  //                da publicação);
+  //   data-desde   a lista foi gerada a contar do dia de hoje (trata da
+  //                agenda, onde um evento passa a ser passado à meia-noite).
+  //
+  // Um atributo que não exista não é verificado: assim um bloco que não
+  // precise de contagem ou de data continua a funcionar.
+  function jscBlocoAtual(el, itens, desde) {
+    if (!el) return false;
+    var gerado = el.getAttribute('data-gerado') || '';
+    if (!gerado) return false;
+    var publicado = '';
+    try { publicado = localStorage.getItem('jsc_publicado_em') || ''; } catch (_) {}
+    if (publicado && publicado > gerado) return false;
+    var n = el.getAttribute('data-itens');
+    if (n !== null && itens !== undefined && Number(n) !== itens) return false;
+    var d = el.getAttribute('data-desde');
+    if (d !== null && desde !== undefined && d !== desde) return false;
+    return true;
+  }
+
   global.jscEsc = jscEsc;
   global.jscEscUrl = jscEscUrl;
   global.jscEscUrlCss = jscEscUrlCss;
+  global.jscHojeISO = jscHojeISO;
+  global.jscBlocoAtual = jscBlocoAtual;
 })(typeof window !== 'undefined' ? window : this);
 
 // =====================================================

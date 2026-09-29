@@ -915,7 +915,7 @@ maneiras de fazer a mesma coisa.
 |---|---|---|
 | — | Notícias da página inicial (piloto) | **feito** |
 | 1 | Notícias: página completa e arquivo | **feito** |
-| 2 | Agenda e próximos jogos | por fazer — **precisa da extensão E1** |
+| 2 | Agenda e próximos jogos | **feito** (com o E1) |
 | 3 | Equipa principal | por fazer |
 | 4 | Formação e escalões (grelha) | por fazer |
 | 5 | Patrocinadores | por fazer |
@@ -929,10 +929,9 @@ maneiras de fazer a mesma coisa.
 | 13 | Resultados e classificações | por fazer — depende do identificador da época |
 | 14 | Modo de manutenção sem JavaScript | por fazer |
 
-**Extensões do motor ainda não feitas:** **E1**, várias marcas no mesmo
-ficheiro — hoje dois blocos no mesmo ficheiro escreveriam um por cima do
-outro, e a página inicial vai precisar disto no Bloco 2. **E2**, gerar e
-apagar ficheiros por entidade, dentro da mesma transação.
+**Extensões do motor:** **E1**, várias marcas no mesmo ficheiro — **feito**,
+ver mais abaixo. **E2**, gerar e apagar ficheiros por entidade dentro da mesma
+transação — por fazer, é o Bloco 10.
 
 **Fora de âmbito por decisão tomada:** as fichas individuais de atleta
 (`atleta.html`) não são geradas — são dados pessoais de menores, e em HTML
@@ -1026,3 +1025,144 @@ Fase A verificada à mão outra vez, depois destas alterações: `405` fora do
 POST, `401` sem sessão, `403` num perfil sem a área `noticias`, `200` em
 Comunicação, `401` com palavra-passe errada, e o `api/save.php` a continuar a
 recusar por área. Nada da autenticação foi alterado.
+
+---
+
+# FASE C — E1: VÁRIOS BLOCOS NO MESMO FICHEIRO
+
+Até aqui cada ficheiro tinha uma região gerada. O `jsc_publicar()` percorria
+os blocos e criava um alvo por bloco; dois blocos no mesmo ficheiro leriam
+ambos a versão do disco, cada um produziria a página inteira com só o *seu*
+bloco novo, e o último a ser promovido apagava o trabalho do primeiro. A
+página inicial precisava das notícias **e** da agenda.
+
+## O que mudou
+
+O ciclo passou a ser **por ficheiro**, não por bloco:
+
+1. os blocos são agrupados por ficheiro antes de qualquer leitura;
+2. cada ficheiro é lido **uma vez**;
+3. `jsc_regioes()` localiza e valida **todas** as marcas desse ficheiro antes
+   de se gerar o que quer que seja;
+4. `jsc_montar()` faz **uma única passagem** sobre os bytes originais: para
+   cada região copia o que está antes (marca de início incluída), insere o
+   miolo novo e salta para a marca de fim. Nada é substituído no sítio, por
+   isso não há posições a invalidar;
+5. o resultado é **uma só versão temporária por ficheiro**, um backup, uma
+   entrada no diário e um `rename()`.
+
+Com uma região só, a montagem devolve byte a byte `prefixo . miolo . sufixo`
+— exatamente o que se obtinha antes. Foi assim que os testes dos blocos
+anteriores continuaram a passar sem uma linha alterada.
+
+## O que o motor recusa, antes de gerar
+
+- marca **em falta** ou **duplicada** (contagem diferente de uma);
+- marcas **fora de ordem** (fim antes do início);
+- regiões **sobrepostas ou encaixadas** uma na outra;
+- duas marcas configuradas de modo a confundirem-se (uma ser parte da outra),
+  que faria as contagens mentir.
+
+Em qualquer destes casos a publicação aborta **sem escrever nada**.
+
+## O que ficou garantido
+
+`jsc_fora_das_regioes()` produz o que está fora de **todas** as marcas, com um
+separador no lugar de cada miolo, e o sha256 do antes e do depois tem de ser
+igual. A validação própria de cada bloco corre sobre o **seu** miolo, e um
+erro em qualquer um aborta a publicação inteira. O backup, o diário, a
+promoção e o reverter continuam a trabalhar sobre o ficheiro completo.
+
+Pelo caminho, a indentação da marca de fecho deixou de estar fixa em seis
+espaços no motor e passa a ser a da linha onde a marca está — o `index.html`
+usa seis, a `agenda.html` quatro.
+
+**A consequência prática:** acrescentar um bloco novo à página inicial deixou
+de ser um problema de arquitetura. Patrocinadores, escalões e modalidades
+entram pelo mesmo mecanismo, na mesma publicação transacional.
+
+---
+
+# FASE C — BLOCO 2: AGENDA E PRÓXIMOS JOGOS
+
+## O que passou a existir no HTML
+
+**Página inicial:** os próximos **seis** eventos, com dia, mês, tipo, título,
+hora, local e escalão. **`agenda.html`:** **todos** os eventos de hoje em
+diante, com os mesmos campos e o botão "Adicionar ao calendário".
+
+Regras, iguais nos dois lados e iguais ao que o JavaScript já fazia: eventos
+de hoje em diante, ordenados pela data, com a **ordem original a desempatar**
+quando a data é a mesma. Eventos passados não aparecem. Eventos com
+`estado: 'Cancelado'` não aparecem — nem no HTML gerado, nem no calendário,
+nem na lista desenhada pelo JavaScript.
+
+Campo vazio não produz elemento: sem hora não há o ícone da hora, sem local
+não há o do local, sem nenhum dos dois não há a linha, e `escalão = Todos`
+não produz linha nenhuma. Antes escreviam-se os dois ícones sem nada ao lado.
+
+## O que continua a ser do JavaScript
+
+O **calendário mensal** e a **barra de filtros** são controlos, não conteúdo:
+constroem-se sempre e, sem JavaScript, simplesmente não existem — o que é
+melhor do que existirem sem funcionar. A **exportação `.ics`** continua no
+`js/ics.js`; o botão é gerado com a classe `.jsc-so-com-js`, que o
+`<noscript>` da página retira, e o clique é ouvido no contentor para funcionar
+igual sobre a lista gerada e sobre a desenhada.
+
+## A passagem do tempo
+
+Um bloco gerado congela no momento da publicação. Ao lado do `data-gerado` e
+do `data-itens`, a agenda escreve **`data-desde`**: o dia que serviu de
+"hoje". Se o JavaScript, ao correr, vir outro dia, redesenha — um evento que
+passou sai da lista à meia-noite.
+
+**Sem JavaScript isto não se resolve dentro do HTML**, e não vale a pena
+fingir o contrário: uma página gerada no dia D e não republicada mostra, no
+dia D+3, os eventos de D, D+1 e D+2 que já aconteceram. A data está bem
+visível em cada cartão. A solução verdadeira é regenerar todos os dias:
+
+> **Melhoria futura (alojamento):** um cron diário no cPanel a correr
+> `php api/gerar.php`. Não foi criado nem configurado neste bloco.
+
+Gerar a partir de um pedido público (`api/load.php`) foi recusado: seria uma
+escrita em ficheiros do site disparada por um GET.
+
+## Duas fontes para a mesma coisa: `db_agenda` e `db_jogos`
+
+Este bloco usa **exclusivamente `db_agenda`** — os eventos escritos na secção
+Agenda do painel. O `db_jogos` é outra fonte, com outro modelo de dados
+(`casa`, `fora`, `gcasa`, `gfora`), que alimenta a `resultados.html` e a
+`escalao.html`, e **não foi misturado**.
+
+**Elas são independentes, e nada as sincroniza.** O mesmo jogo pode existir
+nas duas, numa só, ou em nenhuma, e quem o escreve tem de o escrever duas
+vezes. Fica registado como trabalho a estudar: **uma fonte única para um
+jogo**, que apareça na agenda e nos resultados sem dupla introdução. É uma
+decisão de modelo de dados, não de apresentação, e deve ser tomada antes do
+Bloco 13 (Resultados) ou com ele.
+
+## Trabalho futuro do Admin
+
+**Cancelar e restaurar eventos.** O formulário do painel não tem campo de
+estado: o `salvarEvento()` escreve sempre `estado: 'Agendado'`, inclusive ao
+editar. Hoje um evento cancelado apaga-se, não se marca. O site já sabe
+esconder um evento cancelado — falta o painel saber cancelá-lo.
+
+## Como se verificou
+
+`node tools/testar-sem-js.js` — **231 verificações**, com dados de teste que
+nunca entram no site. Os eventos da fixture não têm data: têm `_offsetDias`,
+que o teste converte em data (0 = hoje) — uma agenda com datas fixas ficava no
+passado e os testes começavam a falhar sozinhos.
+
+Entre elas, os dez ensaios do E1: as duas regiões do `index.html` geradas na
+mesma publicação; alterar a agenda não toca na região das notícias e
+vice-versa, byte a byte; uma falha em qualquer dos quatro modelos deixa os
+quatro ficheiros intactos; marca duplicada, sobreposta, encaixada e em falta
+abortam sem escrever; o exterior a todas as marcas fica igual byte a byte; e
+o reverter devolve o ficheiro inteiro, com as duas regiões de pé.
+
+`node tools/validar.js --comparar` — sem problemas em 168 combinações,
+**novos: 0**. Fase A verificada à mão outra vez: `405`, `401`, `403` e `200`
+nos sítios certos, e o `api/save.php` a continuar a recusar por área.

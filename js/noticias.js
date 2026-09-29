@@ -355,20 +355,12 @@
   // (api/gerar.php). Quando vem e está atual, não se toca: o visitante já o
   // está a ver, e reescrevê-lo só arriscava mostrar uma versão mais antiga.
   //
-  // Duas condições, e ambas têm de se verificar:
-  //   data-gerado  o que está guardado não é mais recente do que o gerado;
-  //   data-itens   o gerador escreveu tantos cartões quantos os que agora
-  //                contamos. É isto que trata das notícias agendadas: uma
-  //                que tenha vencido depois da publicação faz a contagem
-  //                subir, e então desenhamos, para ela aparecer a horas.
+  // Quem responde é o jscBlocoAtual() do js/html.js, com a contagem: o
+  // data-itens é o que trata das notícias agendadas — uma que tenha vencido
+  // depois da publicação faz a contagem subir, e então desenhamos, para ela
+  // aparecer a horas.
   function blocoGeradoEstaAtual() {
-    const grade = document.getElementById('notGrid');
-    if (!grade) return false;
-    const gerado = grade.getAttribute('data-gerado') || '';
-    if (!gerado) return false;
-    const publicado = localStorage.getItem('jsc_publicado_em') || '';
-    if (publicado && publicado > gerado) return false;
-    return Number(grade.getAttribute('data-itens')) === _all.length;
+    return jscBlocoAtual(document.getElementById('notGrid'), _all.length);
   }
 
   // Só o primeiro desenho é que se pode dispensar. Tudo o que venha depois —

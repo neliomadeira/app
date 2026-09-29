@@ -46,6 +46,7 @@ const ROTAS_HTTP = [
   { caminho: '/data/db.json',   esperado: 403, porque: 'o conteúdo publicado não pode ser lido diretamente' },
   { caminho: '/api/schema.sql', esperado: 403, porque: 'ficheiros .sql estão bloqueados' },
   { caminho: '/modelos/noticias-inicio.php', esperado: 403, porque: 'os modelos são incluídos pelo PHP, não servidos' },
+  { caminho: '/modelos/agenda-pagina.php', esperado: 403, porque: 'os modelos são incluídos pelo PHP, não servidos' },
   { caminho: '/data/publicacao/anterior/index.html', esperado: 403, porque: 'o backup da publicação não pode ser lido' },
   { caminho: '/manifest.json',  esperado: 200, porque: 'o manifest tem de ficar público ou o service worker não instala' },
   { caminho: '/api/load.php',   esperado: 200, porque: 'as páginas leem daqui o conteúdo publicado' },

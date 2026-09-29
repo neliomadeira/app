@@ -212,16 +212,10 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderNoticias() {
     try {
       // O bloco das notícias pode já vir escrito no HTML pelo servidor
-      // (api/gerar.php). Quando vem, o visitante vê as notícias mesmo sem
-      // JavaScript, e reescrevê-las aqui só arriscava mostrar uma versão
-      // mais antiga do que a que está na página. Só se mexe no bloco se o
-      // que está guardado for mais recente do que o que foi gerado.
-      const grade  = document.getElementById('newsGrid');
-      const gerado = grade ? (grade.getAttribute('data-gerado') || '') : '';
-      if (gerado) {
-        const publicado = localStorage.getItem('jsc_publicado_em') || '';
-        if (!publicado || publicado <= gerado) return;
-      }
+      // (api/gerar.php). Quando vem e está atual, não se toca: o visitante
+      // já o está a ver, e reescrevê-lo só arriscava mostrar uma versão mais
+      // antiga. O jscBlocoAtual() vive no js/html.js.
+      if (jscBlocoAtual(document.getElementById('newsGrid'))) return;
       const raw = localStorage.getItem('jsc_noticias');
       if (!raw) return;
       const lista = JSON.parse(raw).filter(n => n.publicada)
@@ -458,33 +452,53 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Agenda pública
   try {
-    const raw = localStorage.getItem('db_agenda');
-    if (raw) {
+    const grid = document.getElementById('agendaPublicGrid');
+    if (grid) {
+      const raw = localStorage.getItem('db_agenda');
       const TIPO_CLS = { Jogo:'jogo', Torneio:'torneio', Treino:'treino', 'Reunião':'reuniao', Outro:'outro' };
       const hoje = new Date(); hoje.setHours(0,0,0,0);
-      const lista = JSON.parse(raw)
+      const lista = (raw ? JSON.parse(raw) : [])
+        // Um evento cancelado não aparece nas listas públicas. Mesma regra
+        // do jsc_agenda_proximos() do api/conteudo.php.
+        .filter(e => e && e.estado !== 'Cancelado')
         .filter(e => new Date(e.data + 'T00:00:00') >= hoje)
         .sort((a,b) => new Date(a.data) - new Date(b.data))
         .slice(0, 6);
-      if (lista.length) {
-        const grid = document.getElementById('agendaPublicGrid');
-        if (grid) {
+
+      // Se o servidor já escreveu esta grelha e ela continua a servir — a
+      // contagem bate e foi gerada hoje —, não se mexe. Ao virar da
+      // meia-noite o data-desde deixa de bater e o bloco é redesenhado, para
+      // um evento que passou não ficar na lista.
+      if (!jscBlocoAtual(grid, lista.length, jscHojeISO())) {
+        if (lista.length) {
           grid.innerHTML = lista.map(e => {
             const d = new Date(e.data + 'T00:00:00');
             const cls = TIPO_CLS[e.tipo] || 'outro';
+            // Campo vazio não produz elemento: sem hora e sem local não há
+            // linha nenhuma, em vez de dois ícones sem nada ao lado.
+            const hora  = (e.hora  || '').trim();
+            const local = (e.local || '').trim();
+            const meta  = [
+              hora  ? `&#128337; ${jscEsc(hora)}`  : '',
+              local ? `&#128205; ${jscEsc(local)}` : '',
+            ].filter(Boolean).join(' &nbsp;·&nbsp; ');
             return `<div class="agenda-card">
               <div class="agenda-card__date-box">
                 <span class="agenda-card__day">${jscEsc(d.getDate())}</span>
                 <span class="agenda-card__month">${jscEsc(MESES_CURTOS[d.getMonth()])}</span>
               </div>
               <div class="agenda-card__body">
-                <span class="agenda-card__tipo agenda-card__tipo--${jscEsc(cls)}">${jscEsc(e.tipo)}</span>
+                ${e.tipo ? `<span class="agenda-card__tipo agenda-card__tipo--${jscEsc(cls)}">${jscEsc(e.tipo)}</span>` : ''}
                 <h3 class="agenda-card__title">${jscEsc(e.titulo)}</h3>
-                <p class="agenda-card__meta">&#128337; ${jscEsc(e.hora)} &nbsp;·&nbsp; &#128205; ${jscEsc(e.local)}</p>
+                ${meta ? `<p class="agenda-card__meta">${meta}</p>` : ''}
                 ${e.escalao && e.escalao !== 'Todos' ? `<p class="agenda-card__meta">&#127942; ${jscEsc(e.escalao)}</p>` : ''}
               </div>
             </div>`;
           }).join('');
+        } else if (grid.getAttribute('data-gerado')) {
+          // Havia eventos gerados e já não há nenhum por vir: a grelha volta
+          // à mensagem de lista vazia em vez de manter cartões passados.
+          grid.innerHTML = '<p class="jsc-vazio">Ainda não existem eventos agendados.</p>';
         }
       }
     }

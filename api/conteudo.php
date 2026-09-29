@@ -91,6 +91,25 @@ function jsc_total_noticias(array $conteudo) {
     return count(jsc_noticias_publicadas($conteudo));
 }
 
+// Ordena por data, do mais recente para o mais antigo, com desempate pela
+// ordem original. O desempate não é um detalhe: o sort() do JavaScript é
+// estável e mantém a ordem do array para datas iguais, mas o usort() do PHP
+// só é estável a partir do PHP 8.0 — e o campinense.pt corre 7.4. Sem isto,
+// duas notícias no mesmo dia podiam sair em ordens diferentes no HTML gerado
+// e no HTML desenhado pelo browser.
+function jsc_ordenar_por_data(array $lista, $descendente = true) {
+    $indices = array_keys($lista);
+    usort($indices, function ($i, $j) use ($lista, $descendente) {
+        $a = isset($lista[$i]['data']) ? (string)$lista[$i]['data'] : '';
+        $b = isset($lista[$j]['data']) ? (string)$lista[$j]['data'] : '';
+        $cmp = $descendente ? strcmp($b, $a) : strcmp($a, $b);
+        return $cmp !== 0 ? $cmp : ($i - $j);
+    });
+    $fora = [];
+    foreach ($indices as $i) $fora[] = $lista[$i];
+    return $fora;
+}
+
 function jsc_noticias_publicadas(array $conteudo) {
     if (!isset($conteudo['noticias']) || !is_array($conteudo['noticias'])) return [];
     $lista = [];
@@ -101,12 +120,7 @@ function jsc_noticias_publicadas(array $conteudo) {
     }
     // Mesma ordenação do main.js: (b.data||'').localeCompare(a.data||'').
     // As datas são ISO (AAAA-MM-DD), por isso a comparação de texto basta.
-    usort($lista, function ($a, $b) {
-        $da = isset($a['data']) ? (string)$a['data'] : '';
-        $db = isset($b['data']) ? (string)$b['data'] : '';
-        return strcmp($db, $da);
-    });
-    return $lista;
+    return jsc_ordenar_por_data($lista, true);
 }
 
 // A lista pronta para o modelo: já filtrada, ordenada, cortada e com os
@@ -185,11 +199,7 @@ function jsc_noticias_pagina(array $conteudo, $agora = null) {
         if (!$publicada && !$agendada) continue;
         $lista[] = $n;
     }
-    usort($lista, function ($a, $b) {
-        $da = isset($a['data']) ? (string)$a['data'] : '';
-        $db = isset($b['data']) ? (string)$b['data'] : '';
-        return strcmp($db, $da);
-    });
+    $lista = jsc_ordenar_por_data($lista, true);
 
     $fora = [];
     foreach ($lista as $i => $n) {
@@ -262,4 +272,111 @@ function jsc_url_base($ficheiro) {
     if (empty($partes['scheme']) || empty($partes['host'])) return '';
     return $partes['scheme'] . '://' . $partes['host']
          . (isset($partes['port']) ? ':' . $partes['port'] : '');
+}
+
+// ---------------------------------------------------------------------
+// AGENDA (página inicial e agenda.html)
+// ---------------------------------------------------------------------
+// Fonte única deste bloco: db_agenda. O db_jogos é outra fonte, com outro
+// modelo de dados, e não é misturado aqui — ver o AUDITORIA.md.
+//
+// As regras são as do js/main.js (grelha da página inicial) e do
+// js/agenda.js (lista da agenda.html): eventos de hoje em diante, ordenados
+// pela data, com a ordem original a desempatar. A página inicial corta nos
+// primeiros seis; a agenda.html mostra todos.
+
+// O dia de hoje, na hora local do servidor. É este valor que vai para o
+// data-desde do bloco gerado, e é por ele que o JavaScript sabe se a lista
+// gerada ainda é a do dia de hoje.
+function jsc_hoje() {
+    return date('Y-m-d');
+}
+
+function jsc_agenda_previa() {
+    return 6;
+}
+
+// Cores e classes por tipo de evento. Mapa fixo do código, igual ao
+// TIPO_COR do js/agenda.js e ao TIPO_CLS do js/main.js — não são dados do
+// clube.
+function jsc_agenda_cor($tipo) {
+    $cores = [
+        'Jogo' => '#22a75e', 'Torneio' => '#f59e0b', 'Treino' => '#3b82f6',
+        'Reunião' => '#8b5cf6', 'Outro' => '#94a3b8',
+    ];
+    return isset($cores[$tipo]) ? $cores[$tipo] : $cores['Outro'];
+}
+
+function jsc_agenda_classe($tipo) {
+    $classes = [
+        'Jogo' => 'jogo', 'Torneio' => 'torneio', 'Treino' => 'treino',
+        'Reunião' => 'reuniao', 'Outro' => 'outro',
+    ];
+    return isset($classes[$tipo]) ? $classes[$tipo] : 'outro';
+}
+
+function jsc_mes_curto($mes) {
+    $meses = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN',
+              'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+    $i = (int)$mes - 1;
+    return ($i >= 0 && $i <= 11) ? $meses[$i] : '';
+}
+
+// O valor do data-ics, igual ao que o js/agenda.js escreve hoje:
+// encodeURIComponent(JSON.stringify({titulo, data, hora, local, descricao,
+// tipo})). A ordem das chaves é a da inserção, e uma chave que não exista na
+// origem não entra — como o JSON.stringify faz com undefined.
+function jsc_agenda_ics(array $e) {
+    $dados = [];
+    foreach (['titulo', 'data', 'hora', 'local', 'descricao', 'tipo'] as $campo) {
+        if (isset($e[$campo])) $dados[$campo] = (string)$e[$campo];
+    }
+    $json = json_encode($dados, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    return $json === false ? '' : jsc_enc_uri($json);
+}
+
+// Os eventos de hoje em diante, já preparados para os modelos.
+//   $hoje    o dia a partir do qual se conta, em AAAA-MM-DD (para os testes)
+//   $limite  quantos devolver, ou null para todos
+function jsc_agenda_proximos(array $conteudo, $hoje = null, $limite = null) {
+    if (!isset($conteudo['agenda']) || !is_array($conteudo['agenda'])) return [];
+    if ($hoje === null) $hoje = jsc_hoje();
+
+    $lista = [];
+    foreach ($conteudo['agenda'] as $e) {
+        if (!is_array($e)) continue;
+        $data = isset($e['data']) ? (string)$e['data'] : '';
+        if ($data === '' || strcmp($data, (string)$hoje) < 0) continue;   // já passou
+        // Cancelado não aparece nas listas públicas. O painel ainda não
+        // escreve este estado; quando escrever, isto já está certo.
+        if (isset($e['estado']) && $e['estado'] === 'Cancelado') continue;
+        $lista[] = $e;
+    }
+
+    $lista = jsc_ordenar_por_data($lista, false);   // data ascendente
+    if ($limite !== null) $lista = array_slice($lista, 0, $limite);
+
+    $fora = [];
+    foreach ($lista as $e) {
+        $data    = (string)$e['data'];
+        $tipo    = isset($e['tipo']) ? trim((string)$e['tipo']) : '';
+        $escalao = isset($e['escalao']) ? trim((string)$e['escalao']) : '';
+        $fora[] = [
+            'id'       => isset($e['id']) ? (string)$e['id'] : '',
+            'titulo'   => isset($e['titulo']) ? (string)$e['titulo'] : '',
+            'tipo'     => $tipo,
+            'data'     => $data,
+            'dia'      => (int)substr($data, 8, 2),
+            'mesCurto' => jsc_mes_curto(substr($data, 5, 2)),
+            'hora'     => isset($e['hora']) ? trim((string)$e['hora']) : '',
+            'local'    => isset($e['local']) ? trim((string)$e['local']) : '',
+            // "Todos" não é informação: não se mostra uma linha a dizer que
+            // o evento é para todos os escalões.
+            'escalao'  => ($escalao === 'Todos') ? '' : $escalao,
+            'classe'   => jsc_agenda_classe($tipo),
+            'cor'      => jsc_agenda_cor($tipo),
+            'ics'      => jsc_agenda_ics($e),
+        ];
+    }
+    return $fora;
 }

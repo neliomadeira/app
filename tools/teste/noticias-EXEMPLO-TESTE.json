@@ -1,5 +1,5 @@
 {
-  "_LEIA_ISTO": "DADOS DE TESTE. Nada aqui é conteúdo do Juventude Sport Campinense: nem notícias, nem datas, nem categorias. Existe só para os testes em tools/ poderem contar cartões e comparar textos. Nunca é copiado para o data/db.json do projeto nem do alojamento: os testes trabalham sempre sobre uma cópia temporária do site.",
+  "_LEIA_ISTO": "DADOS DE TESTE. Nada aqui é conteúdo do Juventude Sport Campinense: nem notícias, nem eventos, nem datas, nem locais. Existe só para os testes em tools/ poderem contar cartões e comparar textos. Nunca é copiado para o data/db.json do projeto nem do alojamento: os testes trabalham sempre sobre uma cópia temporária do site. Os eventos da agenda não têm data: têm _offsetDias, que o teste converte em data (0 = hoje) antes de escrever o db.json da cópia. Sem isso, uma agenda com datas fixas ficava no passado e os testes começavam a falhar sozinhos.",
   "publicadoEm": "2020-01-05T10:00:00.000Z",
   "siteConfig": {
     "homepageNewsCount": 3
@@ -170,6 +170,140 @@
       "resumo": "A imagem tem apóstrofo e parêntesis no endereço: sem percent-encode, o url(...) do CSS fecha a meio.",
       "imagem": "images/logo.png?x=a'b(1)",
       "publicada": true
+    }
+  ],
+  "agenda": [
+    {
+      "id": 2001,
+      "_offsetDias": -3,
+      "titulo": "TESTE EVENTO ANTEONTEM",
+      "tipo": "Jogo",
+      "escalao": "Todos",
+      "hora": "15:00",
+      "local": "Campo A",
+      "descricao": "",
+      "estado": "Agendado"
+    },
+    {
+      "id": 2002,
+      "_offsetDias": -1,
+      "titulo": "TESTE EVENTO ONTEM",
+      "tipo": "Treino",
+      "escalao": "Sub-13",
+      "hora": "18:00",
+      "local": "Campo B",
+      "descricao": "",
+      "estado": "Agendado"
+    },
+    {
+      "id": 2003,
+      "_offsetDias": 0,
+      "titulo": "TESTE EVENTO HOJE",
+      "tipo": "Jogo",
+      "escalao": "Sub-15",
+      "hora": "16:00",
+      "local": "Campo C",
+      "descricao": "",
+      "estado": "Agendado"
+    },
+    {
+      "id": 2004,
+      "_offsetDias": 1,
+      "titulo": "TESTE EVENTO CANCELADO",
+      "tipo": "Jogo",
+      "escalao": "Todos",
+      "hora": "10:00",
+      "local": "Campo D",
+      "descricao": "",
+      "estado": "Cancelado"
+    },
+    {
+      "id": 2005,
+      "_offsetDias": 2,
+      "titulo": "TESTE EVENTO B MESMO DIA",
+      "tipo": "Torneio",
+      "escalao": "Todos",
+      "hora": "11:00",
+      "local": "Pavilhao",
+      "descricao": "",
+      "estado": "Agendado"
+    },
+    {
+      "id": 2006,
+      "_offsetDias": 2,
+      "titulo": "TESTE EVENTO A MESMO DIA",
+      "tipo": "Outro",
+      "escalao": "Todos",
+      "hora": "12:00",
+      "local": "Sede",
+      "descricao": "",
+      "estado": "Agendado"
+    },
+    {
+      "id": 2007,
+      "_offsetDias": 3,
+      "titulo": "TESTE EVENTO SEM HORA",
+      "tipo": "Reunião",
+      "escalao": "Todos",
+      "hora": "",
+      "local": "Sede",
+      "descricao": "",
+      "estado": "Agendado"
+    },
+    {
+      "id": 2008,
+      "_offsetDias": 4,
+      "titulo": "TESTE EVENTO SEM LOCAL",
+      "tipo": "Treino",
+      "escalao": "Sub-11",
+      "hora": "19:00",
+      "local": "",
+      "descricao": "",
+      "estado": "Agendado"
+    },
+    {
+      "id": 2009,
+      "_offsetDias": 5,
+      "titulo": "TESTE EVENTO SEM HORA NEM LOCAL",
+      "tipo": "Outro",
+      "escalao": "Todos",
+      "hora": "",
+      "local": "",
+      "descricao": "",
+      "estado": "Agendado"
+    },
+    {
+      "id": 2010,
+      "_offsetDias": 6,
+      "titulo": "TESTE EVENTO F",
+      "tipo": "Jogo",
+      "escalao": "Todos",
+      "hora": "15:00",
+      "local": "Campo E",
+      "descricao": "",
+      "estado": "Agendado"
+    },
+    {
+      "id": 2011,
+      "_offsetDias": 7,
+      "titulo": "TESTE EVENTO G",
+      "tipo": "Torneio",
+      "escalao": "Todos",
+      "hora": "09:00",
+      "local": "Pavilhao",
+      "descricao": "",
+      "estado": "Agendado"
+    },
+    {
+      "id": 2012,
+      "_offsetDias": 8,
+      "titulo": "TESTE EVENTO H",
+      "tipo": "Treino",
+      "escalao": "Todos",
+      "hora": "18:00",
+      "local": "Campo F",
+      "descricao": "",
+      "estado": "Agendado"
     }
   ]
 }

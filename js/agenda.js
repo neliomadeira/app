@@ -38,7 +38,12 @@
       const raw = localStorage.getItem(AGENDA_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Um evento cancelado não aparece em lado nenhum do site público:
+          // nem na lista, nem no calendário. Mesma regra do
+          // jsc_agenda_proximos() do api/conteudo.php.
+          return parsed.filter(e => e && e.estado !== 'Cancelado');
+        }
       }
     } catch (e) { /* fallback */ }
     return DEFAULTS;
@@ -217,15 +222,25 @@
       const cor = TIPO_COR[e.tipo] || TIPO_COR['Outro'];
       const pastCls = past ? ' agenda-pub-item--past' : '';
 
-      const escalaoMeta = (e.escalao && e.escalao !== 'Todos')
-        ? `<span>&#127942; ${jscEsc(e.escalao)}</span>`
-        : '';
+      // Campo vazio não produz elemento: sem hora não há o ícone da hora,
+      // sem local não há o do local, e sem nenhum dos três não há a linha.
+      const hora  = (e.hora  || '').trim();
+      const local = (e.local || '').trim();
+      const esc   = (e.escalao && e.escalao !== 'Todos') ? e.escalao : '';
+      const metas = [
+        hora  ? `<span>&#128337; ${jscEsc(hora)}</span>`  : '',
+        local ? `<span>&#128205; ${jscEsc(local)}</span>` : '',
+        esc   ? `<span>&#127942; ${jscEsc(esc)}</span>`   : '',
+      ].filter(Boolean).join('\n              ');
 
-      const icsBtn = !past && window.JSC_ICS
-        ? `<button class="agenda-ics-btn" data-ics="${jscEsc(encodeURIComponent(JSON.stringify({
+      // O botão leva a classe jsc-so-com-js porque precisa do JavaScript
+      // para produzir o ficheiro; sem ele, o <noscript> da página tira-o.
+      // O clique é ouvido no contentor, não aqui — ver mais abaixo.
+      const icsBtn = past
+        ? ''
+        : `<button class="agenda-ics-btn jsc-so-com-js" data-ics="${jscEsc(encodeURIComponent(JSON.stringify({
              titulo: e.titulo, data: e.data, hora: e.hora, local: e.local, descricao: e.descricao, tipo: e.tipo,
-           })))}" title="Adicionar ao calendário">&#128197; Adicionar ao calendário</button>`
-        : '';
+           })))}" title="Adicionar ao calendário">&#128197; Adicionar ao calendário</button>`;
 
       return `
         <div class="agenda-pub-item${jscEsc(pastCls)}" style="border-left-color:${jscEsc(cor)}">
@@ -234,24 +249,17 @@
             <span class="agenda-pub-date__month">${jscEsc(MESES_CURTOS[m])}</span>
           </div>
           <div class="agenda-pub-body">
-            <span class="agenda-tipo-badge" style="background:${jscEsc(cor)}">${jscEsc(e.tipo)}</span>
+            ${e.tipo ? `<span class="agenda-tipo-badge" style="background:${jscEsc(cor)}">${jscEsc(e.tipo)}</span>` : ''}
             <p class="agenda-pub-title">${jscEsc(e.titulo)}</p>
-            <p class="agenda-pub-meta">
-              <span>&#128337; ${jscEsc(e.hora)}</span>
-              <span>&#128205; ${jscEsc(e.local)}</span>
-              ${escalaoMeta}
-            </p>
+            ${metas ? `<p class="agenda-pub-meta">
+              ${metas}
+            </p>` : ''}
             ${icsBtn}
           </div>
         </div>
       `;
     }).join('');
 
-    container.querySelectorAll('.agenda-ics-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        try { window.JSC_ICS.download(JSON.parse(decodeURIComponent(btn.dataset.ics))); } catch (_) {}
-      });
-    });
   }
 
   // ---- Render all ----
@@ -261,9 +269,38 @@
     renderList();
   }
 
+  // Quantos eventos é que a lista devia ter: de hoje em diante, sem os
+  // cancelados (o loadAgenda já os deixa de fora). Tem de dar o mesmo número
+  // que o jsc_agenda_proximos() do api/conteudo.php, senão o bloco gerado é
+  // redesenhado sem ser preciso.
+  function contarProximos() {
+    const hojeStr = isoDate(today.getFullYear(), today.getMonth(), today.getDate());
+    return loadAgenda().filter(e => e && (e.data || '') >= hojeStr).length;
+  }
+
   // ---- Init ----
   document.addEventListener('DOMContentLoaded', () => {
-    renderAll();
+    // Os filtros e o calendário são controlos, não conteúdo: constroem-se
+    // sempre, porque sem JavaScript não existem de qualquer maneira.
+    renderFilters();
+    renderCalendar();
+
+    // A lista é conteúdo, e pode já vir escrita no HTML pelo servidor. Nesse
+    // caso só se mexe se tiver deixado de servir: conteúdo mais recente
+    // guardado, contagem diferente, ou a lista ter sido gerada noutro dia —
+    // à meia-noite, um evento passa a ser passado.
+    if (!jscBlocoAtual(document.getElementById('agendaList'), contarProximos(), jscHojeISO())) {
+      renderList();
+    }
+
+    // O clique do "Adicionar ao calendário" é ouvido no contentor, e não em
+    // cada botão: assim funciona igual sobre a lista que o servidor gerou e
+    // sobre a que este ficheiro desenha.
+    document.getElementById('agendaList')?.addEventListener('click', (ev) => {
+      const btn = ev.target.closest('.agenda-ics-btn');
+      if (!btn || !window.JSC_ICS) return;
+      try { window.JSC_ICS.download(JSON.parse(decodeURIComponent(btn.dataset.ics))); } catch (_) {}
+    });
 
     // Listen for admin updates
     window.addEventListener('storage', e => {
