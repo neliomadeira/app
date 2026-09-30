@@ -1,188 +1,193 @@
 // =============================================
-// HISTÓRIA DO CLUBE — public page
+// HISTÓRIA DO CLUBE — cronologia e palmarés
 // =============================================
+// Fonte: db_historia e db_palmares. As duas zonas são escritas pela geração
+// (modelos/historia-cronologia.php e modelos/historia-palmares.php); este
+// ficheiro só as redesenha quando o que está na página deixou de servir, e
+// trata da revelação ao rolar.
+//
+// O que aqui estava e saiu:
+//   — DEFAULT_TIMELINE com 22 marcos e DEFAULT_PALMARES com 16 títulos,
+//     cópias completas dos factos históricos do clube. Havia três cópias
+//     iguais — esta, uma em admin/js/admin.js e uma em js/pesquisa.js. A
+//     semente única passou para admin/js/data.js, ao lado dos escalões e das
+//     modalidades. Nenhum facto foi perdido; o que saiu foram as cópias;
+//   — o fallback para essas cópias quando a base estava vazia. Base vazia
+//     passa a mostrar o estado vazio, em vez de história escrita no código;
+//   — a ordenação que só se aplicava quando havia dados publicados: sem eles,
+//     o palmarés saía pela ordem do array e começava em 1984, não em 2026;
+//   — <img src=""> quando o endereço da imagem era recusado.
+//
+// A revelação ao rolar fica como melhoria progressiva, e o CSS sozinho nunca
+// esconde: o estado invisível existe só com html.jsc-anima, marca que este
+// ficheiro põe. Na impressão e sem JavaScript, o que está escrito vê-se.
+// =============================================
+'use strict';
+
 (function () {
 
-  const DEFAULT_TIMELINE = [
-    { id: 1, ano: 1947, titulo: 'Fundação do Clube',
-      descricao: 'O Juventude Sport Campinense é fundado em Loulé a 12 de dezembro de 1947, ligado à juventude e à comunidade louletana. Pedro Correia Bota, jogador e fundador, orientou o clube nos primeiros anos.',
-      imagem: '', destaque: true },
-    { id: 2, ano: 1948, titulo: 'Filiação desportiva',
-      descricao: 'O clube é federado a 8 de janeiro, iniciando o seu percurso oficial na Associação de Futebol do Algarve.',
-      imagem: '', destaque: false },
-    { id: 3, ano: 1950, titulo: 'Crescimento e implantação local',
-      descricao: 'Ao longo das décadas de 1950 e 1960, o Campinense consolida a presença na vida desportiva de Loulé. O futebol torna-se a principal modalidade, com participação em competições regionais e distritais.',
-      imagem: '', destaque: false },
-    { id: 4, ano: 1978, titulo: 'Ascensão competitiva',
-      descricao: 'No final da década de 1970, o clube inicia uma das fases mais fortes da sua história no futebol sénior, afirmando-se nas competições nacionais.',
-      imagem: '', destaque: false },
-    { id: 5, ano: 1982, titulo: 'Melhor campanha na Taça de Portugal',
-      descricao: 'Na época de 1981/82, o clube alcança os 1/32 de final — a melhor campanha conhecida nas suas 12 participações na Taça de Portugal.',
-      imagem: '', destaque: true },
-    { id: 6, ano: 1984, titulo: 'Campeão da Série F da III Divisão Nacional',
-      descricao: 'Na época de 1983/84, o Campinense vence a Série F da III Divisão Nacional e conquista o acesso ao segundo escalão do futebol português.',
-      imagem: '', destaque: true },
-    { id: 7, ano: 1985, titulo: 'II Divisão Nacional — Zona Sul',
-      descricao: 'Em 1984/85, o clube disputa a II Divisão Nacional, o ponto competitivo mais elevado da sua história. No total: uma época na II Divisão, nove na III Divisão e doze presenças na Taça de Portugal.',
-      imagem: '', destaque: true },
-    { id: 9, ano: 1994, titulo: 'Criação da secção de boxe',
-      descricao: 'Nasce a secção de boxe, com atletas de formação, manutenção e competição — incluindo trabalho de inclusão através do boxe adaptado.',
-      imagem: '', destaque: false },
-    { id: 10, ano: 1995, titulo: 'Medalha Municipal de Mérito — Grau Prata',
-      descricao: 'A Câmara Municipal de Loulé distingue o clube pelo seu papel na promoção do desporto, na formação dos jovens e na vida social do concelho.',
-      imagem: '', destaque: true },
-    { id: 11, ano: 2001, titulo: 'Utilidade pública',
-      descricao: 'O clube é reconhecido como pessoa coletiva de utilidade pública, confirmando oficialmente a sua relevância social, associativa e desportiva.',
-      imagem: '', destaque: false },
-    { id: 12, ano: 2006, titulo: 'Campeão Distrital e Taça do Algarve',
-      descricao: 'Época dourada em 2005/06: conquista do Campeonato Distrital da 1.ª Divisão da AF Algarve e da Taça do Algarve, garantindo o regresso às competições nacionais.',
-      imagem: '', destaque: true },
-    { id: 13, ano: 2007, titulo: 'Regresso aos campeonatos nacionais',
-      descricao: 'O clube disputa três épocas consecutivas na III Divisão Nacional (2006/07 a 2008/09) e volta a marcar presença na Taça de Portugal.',
-      imagem: '', destaque: false },
-    { id: 14, ano: 2010, titulo: 'Aposta reforçada na formação',
-      descricao: 'Durante a década de 2010, a formação torna-se um dos pilares do projeto desportivo, com trabalho regular em vários escalões, dos mais jovens aos juniores.',
-      imagem: '', destaque: false },
-    { id: 15, ano: 2017, titulo: 'Iniciados Campeões do Algarve',
-      descricao: 'Na época de 2016/17, os Iniciados conquistam um título inédito de Campeões do Algarve e o acesso ao Campeonato Nacional de Iniciados.',
-      imagem: '', destaque: true },
-    { id: 16, ano: 2018, titulo: 'Torneios e futsal feminino',
-      descricao: 'Realiza-se o V Torneio Humberto «Laranjeira» Faísca e o clube promove o torneio e o Algarve Invitational de futsal feminino.',
-      imagem: '', destaque: false },
-    { id: 17, ano: 2019, titulo: 'Kickboxing e formação em destaque',
-      descricao: 'Atletas do clube conquistam títulos no kickboxing e os Traquinas A vencem a Mértola Cup.',
-      imagem: '', destaque: false },
-    { id: 18, ano: 2020, titulo: 'Resiliência e multidesporto',
-      descricao: 'O clube adapta-se às restrições da pandemia mantendo a ligação a atletas e famílias. Cristina Azevedo sagra-se vice-campeã nacional de ciclismo (Masters 40) em representação do Campinense.',
-      imagem: '', destaque: false },
-    { id: 19, ano: 2021, titulo: 'Entidade Formadora de Três Estrelas',
-      descricao: 'A FPF certifica o clube como Entidade Formadora de Três Estrelas. Nasce a Campinense Cup e o projeto de futsal feminino ganha novo impulso.',
-      imagem: '', destaque: true },
-    { id: 20, ano: 2022, titulo: 'Iniciados vencem a Challenge Cup',
-      descricao: 'Novo momento de destaque da formação, seguido do título distrital da 2.ª Divisão em 2022/23, com subida à 1.ª Divisão.',
-      imagem: '', destaque: false },
-    { id: 21, ano: 2024, titulo: 'Futsal feminino em força',
-      descricao: 'A equipa sénior feminina vence a Taça de Campeão de Inverno e o clube realiza a II Maratona de Futsal Feminino, dinamizando a modalidade no Algarve.',
-      imagem: '', destaque: false },
-    { id: 22, ano: 2025, titulo: 'Campeão da Liga Algarve de Futsal Feminino',
-      descricao: 'Título da Liga Algarve de Futsal Feminino em 2024/25, subida dos Juvenis (Sub-17) à 1.ª Divisão Distrital e quarta edição da Campinense Cup.',
-      imagem: '', destaque: true },
-    { id: 23, ano: 2026, titulo: 'Âmbito nacional e novos torneios',
-      descricao: 'A equipa sénior feminina participa na Taça Nacional de Futsal Feminino 2025/26. Realizam-se o IX Torneio Humberto Faísca e o II Torneio de Futebol Feminino.',
-      imagem: '', destaque: false },
-  ];
+  // ---- Leitura ------------------------------------------------------------
+  // Réplicas exactas do jsc_historia() e do jsc_palmares() do
+  // api/conteudo.php, incluindo a ordenação estável.
 
-  const DEFAULT_PALMARES = [
-    { id: 1, competicao: 'III Divisão Nacional — Série F', escalao: 'Seniores', ano: 1984, observacao: 'Campeão — subida histórica à II Divisão' },
-    { id: 2, competicao: 'Campeonato Distrital 1.ª Divisão AF Algarve', escalao: 'Seniores', ano: 2006, observacao: 'Campeão — dobradinha inédita' },
-    { id: 3, competicao: 'Taça do Algarve', escalao: 'Seniores', ano: 2006, observacao: 'Vencedor — dobradinha inédita' },
-    { id: 4, competicao: 'Campeonato do Algarve', escalao: 'Iniciados', ano: 2017, observacao: 'Campeão — acesso ao Nacional (feito inédito)' },
-    { id: 5, competicao: 'Liga 2 Algarve', escalao: 'Iniciados', ano: 2023, observacao: 'Campeão — subida à Liga 1' },
-    { id: 6, competicao: 'Challenge Cup', escalao: 'Iniciados', ano: 2022, observacao: 'Vencedor (torneio)' },
-    { id: 7, competicao: 'Mértola Cup', escalao: 'Traquinas A', ano: 2019, observacao: 'Vencedor (torneio)' },
-    { id: 8, competicao: 'Liga 2 Algarve', escalao: 'Juvenis (Sub-17)', ano: 2025, observacao: '2.º lugar — subida à Liga 1' },
-    { id: 9, competicao: 'Liga Algarve de Futsal Feminino', escalao: 'Sen. Femininos', ano: 2025, observacao: 'Campeã' },
-    { id: 10, competicao: 'Taça de Campeão de Inverno Feminina', escalao: 'Sen. Femininos', ano: 2024, observacao: 'Vencedora' },
-    { id: 11, competicao: 'Taça do Algarve (Futsal Feminino)', escalao: 'Sen. Femininos', ano: 2025, observacao: 'Finalista' },
-    { id: 12, competicao: 'Campeonato Nacional WKU (–73,5 kg)', escalao: 'Ângelo Cordeiro', ano: 2019, observacao: 'Campeão Nacional' },
-    { id: 13, competicao: 'Kick-Light (–55 kg)', escalao: 'Matilde Hervê', ano: 2019, observacao: 'Vitória em Almodôvar' },
-    { id: 16, competicao: 'Campeonato Nacional de Kickboxing — Kick Light', escalao: 'Thomas Almeida', ano: 2026, observacao: 'Vice-Campeão Nacional — Odivelas' },
-    { id: 14, competicao: 'Campeonato Nacional de Ciclismo — Masters 40', escalao: 'Cristina Azevedo', ano: 2020, observacao: 'Vice-campeã nacional' },
-    { id: 15, competicao: '2.ª Divisão Nacional de Ténis de Mesa', escalao: 'Equipa', ano: 2012, observacao: 'Subida de divisão (2011/12)' },
-  ];
-
-  function loadTimeline() {
-    try {
-      const raw = localStorage.getItem('db_historia');
-      if (raw) return JSON.parse(raw).sort((a, b) => (a.ano || 0) - (b.ano || 0));
-    } catch (e) {}
-    return DEFAULT_TIMELINE;
+  function lerBase(chave) {
+    var lista = [];
+    try { lista = JSON.parse(localStorage.getItem(chave) || '[]'); } catch (e) { lista = []; }
+    return Array.isArray(lista) ? lista : [];
   }
 
-  function loadPalmares() {
-    try {
-      const raw = localStorage.getItem('db_palmares');
-      if (raw) return JSON.parse(raw).sort((a, b) => (b.ano || 0) - (a.ano || 0));
-    } catch (e) {}
-    return DEFAULT_PALMARES;
+  function texto(o, chave) {
+    return typeof o[chave] === 'string' ? o[chave].trim() : '';
   }
 
-  function renderTimeline() {
-    const el = document.getElementById('historiaTimeline');
-    if (!el) return;
-    const lista = loadTimeline();
+  function lerMarcos() {
+    var fora = lerBase('db_historia')
+      .filter(function (h) { return h && typeof h === 'object' && jscAtivo(h.ativo); })
+      // Sem título não há <h3> nem nome acessível. O registo fica nos dados; o
+      // que não acontece é ir para a página incompleto.
+      .filter(function (h) { return texto(h, 'titulo') !== ''; })
+      .map(function (h) {
+        var ano = jscAnoHistorico(h.ano);
+        var imagem = texto(h, 'imagem');
+        // jscEscUrl() devolve '' para javascript:, vbscript: e data: que não
+        // seja de imagem. Endereço recusado conta como ausência: o marco sai
+        // sem imagem, nunca com src="".
+        if (imagem !== '' && jscEscUrl(imagem) === '') imagem = '';
+        return {
+          _ano:      ano === 0 ? Number.MAX_SAFE_INTEGER : ano,  // sem ano vai para o fim
+          ano:       ano === 0 ? '' : String(ano),
+          titulo:    texto(h, 'titulo'),
+          descricao: texto(h, 'descricao'),
+          imagem:    imagem,
+          destaque:  !!h.destaque,
+        };
+      });
+    return jscOrdenarPorAno(fora, true);
+  }
+
+  function lerTitulos() {
+    var fora = lerBase('db_palmares')
+      .filter(function (t) { return t && typeof t === 'object' && jscAtivo(t.ativo); })
+      .filter(function (t) { return texto(t, 'competicao') !== ''; })
+      .map(function (t) {
+        var ano = jscAnoHistorico(t.ano);
+        return {
+          _ano:       ano === 0 ? Number.MIN_SAFE_INTEGER : ano,  // sem ano vai para o fim
+          ano:        ano === 0 ? '' : String(ano),
+          competicao: texto(t, 'competicao'),
+          // Texto livre: guarda grupos etários, designações como 'Traquinas A'
+          // e nomes de atletas. Escreve-se o que lá estiver.
+          escalao:    texto(t, 'escalao'),
+          observacao: texto(t, 'observacao'),
+        };
+      });
+    return jscOrdenarPorAno(fora, false);
+  }
+
+  // ---- Desenho ------------------------------------------------------------
+  // Mesmo HTML que os modelos PHP escrevem.
+
+  function desenharMarcos(el, lista) {
     if (!lista.length) {
       el.innerHTML = '<p class="historia-empty">Sem marcos históricos registados.</p>';
       return;
     }
-    el.innerHTML = lista.map((item, i) => {
-      const cls   = item.destaque ? ' timeline-item--destaque' : '';
-      const side  = i % 2 === 0 ? 'left' : 'right';
-      const imgHtml = item.imagem
-        ? `<img src="${jscEscUrl(item.imagem)}" alt="${jscEsc(item.titulo)}" class="timeline-card__img" loading="lazy" />`
+    el.innerHTML = lista.map(function (m, i) {
+      var lado = i % 2 === 0 ? 'left' : 'right';
+      var classe = 'timeline-item timeline-item--' + lado
+                 + (m.destaque ? ' timeline-item--destaque' : '');
+      var ano = m.ano !== ''
+        ? '<div class="timeline-year-wrap"><span class="timeline-year">' + jscEsc(m.ano) + '</span></div>'
         : '';
-      return `
-        <div class="timeline-item timeline-item--${jscEsc(side)}${jscEsc(cls)}">
-          <div class="timeline-year-wrap">
-            <span class="timeline-year">${jscEsc(item.ano)}</span>
-          </div>
-          <div class="timeline-dot"></div>
-          <div class="timeline-card-wrap">
-            <div class="timeline-card">
-              <span class="timeline-card__year-mobile">${jscEsc(item.ano)}</span>
-              ${imgHtml}
-              <h3 class="timeline-card__title">${jscEsc(item.titulo)}</h3>
-              ${item.descricao ? `<p class="timeline-card__desc">${jscEsc(item.descricao)}</p>` : ''}
-            </div>
-          </div>
-        </div>`;
+      var anoMovel = m.ano !== ''
+        ? '<span class="timeline-card__year-mobile">' + jscEsc(m.ano) + '</span>'
+        : '';
+      // A imagem é decorativa: o título vem logo a seguir, no <h3>.
+      var img = m.imagem !== ''
+        ? '<img src="' + jscEscUrl(m.imagem) + '" alt="" aria-hidden="true" class="timeline-card__img" loading="lazy" />'
+        : '';
+      var desc = m.descricao !== ''
+        ? '<p class="timeline-card__desc">' + jscEsc(m.descricao) + '</p>'
+        : '';
+      return '<div class="' + classe + '">'
+           + ano
+           + '<div class="timeline-dot"></div>'
+           + '<div class="timeline-card-wrap"><div class="timeline-card">'
+           + anoMovel + img
+           + '<h3 class="timeline-card__title">' + jscEsc(m.titulo) + '</h3>'
+           + desc
+           + '</div></div>'
+           + '</div>';
     }).join('');
   }
 
-  function renderPalmares() {
-    const el = document.getElementById('historiaPalmares');
-    if (!el) return;
-    const lista = loadPalmares();
+  function desenharTitulos(el, lista) {
     if (!lista.length) {
       el.innerHTML = '<p class="historia-empty" style="grid-column:1/-1">Sem títulos registados.</p>';
       return;
     }
-    el.innerHTML = lista.map(t => `
-      <div class="palmares-card">
-        <div class="palmares-card__icon">&#127942;</div>
-        <div class="palmares-card__body">
-          <div class="palmares-card__title">${jscEsc(t.competicao)}</div>
-          <div class="palmares-card__meta">${jscEsc(t.ano)}${t.observacao ? ' &middot; ' + jscEsc(t.observacao) : ''}</div>
-          ${t.escalao ? `<span class="palmares-card__badge">${jscEsc(t.escalao)}</span>` : ''}
-        </div>
-      </div>`).join('');
+    el.innerHTML = lista.map(function (t) {
+      var meta = t.observacao !== ''
+        ? (t.ano !== '' ? jscEsc(t.ano) + ' &middot; ' + jscEsc(t.observacao) : jscEsc(t.observacao))
+        : jscEsc(t.ano);
+      return '<div class="palmares-card">'
+           + '<div class="palmares-card__icon" aria-hidden="true">&#127942;</div>'
+           + '<div class="palmares-card__body">'
+           + '<div class="palmares-card__title">' + jscEsc(t.competicao) + '</div>'
+           + (meta !== '' ? '<div class="palmares-card__meta">' + meta + '</div>' : '')
+           + (t.escalao !== '' ? '<span class="palmares-card__badge">' + jscEsc(t.escalao) + '</span>' : '')
+           + '</div></div>';
+    }).join('');
   }
 
-  renderTimeline();
-  renderPalmares();
-  initReveal();
+  // ---- Sincronização ------------------------------------------------------
+  // Se o bloco que o servidor escreveu continua a servir, não se toca nele:
+  // redesenhar o que já está certo só dava trabalho ao browser e podia perder
+  // o estado da revelação.
 
-  window.addEventListener('storage', e => {
-    if (e.key === 'db_historia') { renderTimeline(); initReveal(); }
-    if (e.key === 'db_palmares') { renderPalmares(); initReveal(); }
-  });
+  function sincronizar() {
+    var tl = document.getElementById('historiaTimeline');
+    var pm = document.getElementById('historiaPalmares');
+    var mudou = false;
 
-  function initReveal() {
+    if (tl) {
+      var marcos = lerMarcos();
+      if (!jscBlocoAtual(tl, marcos.length)) { desenharMarcos(tl, marcos); mudou = true; }
+    }
+    if (pm) {
+      var titulos = lerTitulos();
+      if (!jscBlocoAtual(pm, titulos.length)) { desenharTitulos(pm, titulos); mudou = true; }
+    }
+    if (mudou) revelar();
+  }
+
+  // ---- Revelação ao rolar -------------------------------------------------
+
+  function revelar() {
     if (!window.IntersectionObserver) return;
-    const items = document.querySelectorAll('.timeline-item:not(.tl-reveal), .palmares-card:not(.tl-reveal)');
-    if (!items.length) return;
-    const obs = new IntersectionObserver((entries) => {
-      entries.forEach(e => {
+    var itens = document.querySelectorAll('.timeline-item:not(.tl-reveal), .palmares-card:not(.tl-reveal)');
+    if (!itens.length) return;
+    var obs = new IntersectionObserver(function (entradas) {
+      entradas.forEach(function (e) {
         if (e.isIntersecting) {
           e.target.classList.add('tl-visible');
           obs.unobserve(e.target);
         }
       });
     }, { threshold: 0.12 });
-    // Só a partir daqui o CSS pode esconder: a marca no documento é o que
-    // liga a animação. Sem ela, o conteúdo construído fica visível.
+    // Só a partir daqui o CSS pode esconder: a marca no documento é o que liga
+    // a animação. Sem ela, o que está escrito fica visível.
     document.documentElement.classList.add('jsc-anima');
-    items.forEach(el => { el.classList.add('tl-reveal'); obs.observe(el); });
+    itens.forEach(function (el) { el.classList.add('tl-reveal'); obs.observe(el); });
   }
+
+  sincronizar();
+  revelar();
+
+  // Depois de publicar, o js/sync.js traz o conteúdo novo e avisa.
+  document.addEventListener('jsc:synced', sincronizar);
+  window.addEventListener('storage', function (e) {
+    if (e.key === 'db_historia' || e.key === 'db_palmares') sincronizar();
+  });
 
 })();

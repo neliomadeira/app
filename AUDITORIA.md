@@ -2091,3 +2091,267 @@ Comunicação a alterar `galeria` e `videos`, **`403` para a Comunicação a
 alterar `atletas`**, e **`403` para o Matchday a alterar `galeria` ou `videos`**
 — o perfil entra e não tem nenhuma das duas áreas. O `conteudo.php` continua
 sem escrever: nenhuma escrita provocada por GET público.
+
+---
+
+# FASE C — BLOCO 8: HISTÓRICO
+
+Duas regiões, uma fonte. A cronologia e o palmarés passam a ser escritos no
+servidor a partir do `db_historia` e do `db_palmares`. Saíram **dois "A
+carregar…" permanentes**, **três cópias completas** dos 38 factos históricos, e
+**uma faixa de quatro números sem fonte nenhuma**.
+
+Nenhum facto histórico foi perdido. Os três que mudaram, mudaram por
+confirmação do responsável do clube, e estão nomeados abaixo.
+
+## O pior caso da Fase C inteira
+
+Sem JavaScript, a página de História mostrava isto:
+
+    <div class="timeline" id="historiaTimeline">
+      <p ...>A carregar...</p>
+    </div>
+
+E o mesmo no palmarés. **22 marcos de 1947 a 2026 e 16 títulos ficavam
+invisíveis**, atrás de uma promessa que nunca se cumpria. Era o único conteúdo
+público que continuava a depender inteiramente do JavaScript.
+
+## Três cópias dos mesmos 38 factos
+
+A cronologia e o palmarés estavam escritos, por inteiro, em **três** ficheiros:
+`js/historia.js` (`DEFAULT_TIMELINE`/`DEFAULT_PALMARES`), `admin/js/admin.js`
+(`HISTORIA_SEED`/`PALMARES_SEED`) e `js/pesquisa.js`
+(`DEFAULT_HISTORIA`/`DEFAULT_PALMARES`). Comparei-as campo a campo antes de
+tocar em nada: **ano, título e descrição eram idênticos nas três**. Não havia
+contradição — havia três sítios para manter um facto, e dois deles serviam de
+fallback quando a base estava vazia.
+
+Saíram as três. A semente única passou para `admin/js/data.js`, ao lado dos
+escalões, das modalidades e da época dos seniores — onde a configuração
+verdadeira do clube já vive. **A semente foi gerada a partir dos dados
+existentes por um guião, não reescrita à mão**, precisamente para não alterar
+um facto por distração; as duas correcções autorizadas foram aplicadas depois,
+e verificadas uma a uma.
+
+## A faixa de quatro números sem fonte
+
+A `historia.html` tinha uma faixa com `1947`, `75+ Anos de História`,
+`80+ Títulos Conquistados` e `300+ Atletas Formados`. Os quatro estavam
+escritos no HTML, e os **oito ids** que os identificavam — `hStat1Num` a
+`hStat4Label` — **não eram escritos por ficheiro nenhum do projeto**. Verifiquei
+os oito.
+
+O clube não confirma os 80+ títulos nem os 300+ atletas. A faixa saiu inteira,
+e **não foi substituída por números calculados nem por outros números**. Em
+particular, não se usou a contagem do palmarés para afirmar que o clube tem 16
+títulos.
+
+## 1923: conteúdo de demonstração que sobreviveu a todas as limpezas
+
+Quatro campos do painel sugeriam um **ano de fundação que não é o do clube**:
+
+    admin/index.html  placeholder="Ex: Formando Campeões desde 1923"
+    admin/index.html  placeholder="100+"        (rótulo: Anos de história)
+    admin/index.html  placeholder="EST. 1923"
+    admin/index.html  placeholder="1923"        (rótulo: Ano de fundação)
+
+Um clube de 1923 teria mais de um século — que é exactamente o que o herói da
+página afirmava. Os quatro passaram a exemplos neutros, **sem ano e sem
+substituir por outro facto**. Pelo mesmo critério, os exemplos que sugeriam
+`300+`, `80+` e um título histórico real também deixaram de o fazer: um exemplo
+que afirma um facto não é um exemplo.
+
+## Factos alterados, por confirmação do clube
+
+| Antes | Agora | Onde |
+|---|---|---|
+| `V Torneio Humberto «Laranjeira» Faísca` | `V Torneio Humberto Faísca` | cronologia, 2018 |
+| `2.º lugar — subida à Liga 1` | `2.º lugar — subida à 1.ª Divisão Distrital` | palmarés, Juvenis 2025 |
+| `Mais de um século a formar campeões` | `Mais de sete décadas a formar campeões` | herói da `historia.html` |
+| `80+ Títulos` · `300+ Atletas Formados` | retirados, sem substituição | faixa da `historia.html` |
+
+Cada uma foi aplicada **uma vez**, e o guião abortava se encontrasse a frase
+mais ou menos do que uma vez.
+
+## Factos preservados por falta de confirmação
+
+Nada disto foi tocado, reinterpretado ou completado:
+
+- **Boxe (1994)** e **Ténis de Mesa (2012)**, confirmados como factos a manter.
+  Não existirem hoje em `db_modalidades` não é motivo para apagar história.
+- **O `id 8` em falta** na cronologia. Os ids vão de 1 a 23 sem o 8. Não se
+  reconstruiu nem se inventou acontecimento para tapar o buraco.
+- **Os totais da Taça de Portugal e das divisões** — "12 participações" e "nove
+  épocas na III Divisão" dentro de entradas de 1982 e 1985, quando há
+  participações e épocas depois. Ficam como estão.
+- **2022 vs 2023** para o título distrital da 2.ª Divisão: cronologia sob 2022,
+  palmarés sob 2023. Não se unificou.
+- **A numeração V (2018) → IX (2026)** do torneio.
+- **1950, 1978 e 2010**, que descrevem décadas presas a um único ano. Não se
+  criou campo de período.
+- **`Campeão — subida à Liga 1`** no título dos Iniciados de 2023 — é outro
+  acontecimento, e a uniformização autorizada era só a dos Juvenis de 2025.
+  A divergência de nomenclatura entre os dois fica registada aqui.
+
+Não se consultou nenhuma fonte externa.
+
+## Defeitos corrigidos
+
+**O palmarés estava publicado na ordem errada — agora.** O código ordenava por
+ano decrescente só quando havia dados publicados; sem eles devolvia o array, que
+começava em 1984 e não em 2026. Sem dados publicados — o estado actual — a
+página mostrava a ordem errada, e publicar mudava-a sozinha. A ordem passa a ser
+a mesma com e sem dados, nos dois lados.
+
+**Editar qualquer título apagava-lhe o escalão.** O `<select>` tinha 14 opções
+fixas e **nenhum** dos 16 títulos usava uma delas: `Seniores`, `Iniciados`,
+`Traquinas A`, `Juvenis (Sub-17)`, `Sen. Femininos`, `Equipa` e quatro nomes de
+atletas não existiam na lista. Abrir e gravar punha o campo a vazio — em todos
+os 16. Passa a ser texto livre, com os valores em uso oferecidos por um
+`<datalist>`: sugerir não apaga nada, ao contrário de escolher.
+
+**A observação entrava no painel sem escape.** Era o único furo:
+`' … · ' + t.observacao + '</span>'` dentro de `innerHTML`. A versão pública já
+escapava. Corrigido.
+
+**Uma imagem recusada produzia `src=""`.** `item.imagem ? <img src="${jscEscUrl(...)}">` —
+um `javascript:` é truthy, o escapador devolve vazio, e fica `src=""`, que em
+vários browsers reemite o pedido do próprio documento. Endereço recusado passa a
+contar como ausência: o marco sai sem `<img>`.
+
+**Nenhum refresco depois de publicar.** A História era a única zona sem
+`jsc:synced` e sem `jscBlocoAtual()`.
+
+**A imagem do marco repetia o título.** O `alt` era o próprio título, que
+aparece no `<h3>` logo abaixo: um leitor de ecrã lia a mesma frase duas vezes.
+A imagem é decorativa — `alt=""` e `aria-hidden="true"`.
+
+## Ordenação estável, e porque é que isso é preciso
+
+A cronologia sai por ano **crescente**, o palmarés por ano **decrescente**. Nos
+dois casos o desempate entre anos repetidos é o **índice de entrada**, e não a
+ordem que a linguagem der.
+
+Isto não é zelo: o `usort()` do PHP **só é estável desde o 8.0**, e o alojamento
+de `campinense.pt` corre **PHP 7.4**. O `Array.prototype.sort()` do JavaScript é
+estável desde o ES2019. Sem o índice como critério, três títulos de 2025
+podiam sair numa ordem em 7.4, noutra em 8.3, e noutra no JavaScript — e a
+comparação byte a byte entre o bloco gerado e o redesenhado acusava a diferença.
+A paridade foi provada com os 16 anos reais do palmarés, nos dois sentidos.
+
+## O campo `ativo`, sem migração
+
+`db_historia` e `db_palmares` passam a ter `ativo`. **Campo ausente = ativo**:
+nenhum registo foi reescrito, nenhum desapareceu, e não houve migração. Um
+registo inativo não aparece na página de História **nem na pesquisa**. No painel
+há um interruptor por linha e uma caixa em cada modal, marcada por omissão.
+
+A regra do "está publicado?" existia em três funções iguais
+(`jsc_media_ativo`, `jscMediaAtivo`, e a das modalidades). Passa a viver numa
+só, `jsc_ativo()` / `jscAtivo()`, e a do Bloco 7 delega — comportamento
+idêntico, provado em dez casos, sem duas cópias da mesma regra.
+
+## O ano de fundação: uma fonte administrável
+
+`dados_clube.ano` era administrável e **nunca publicado em sítio nenhum** —
+verifiquei `site-config.js`, `seo.js`, todos os modelos e `conteudo.php`. Passa
+a alimentar o `foundingDate` do JSON-LD, que tinha `'1947'` escrito à mão. **Com
+o campo vazio não há `foundingDate`**: 1947 não volta como valor por omissão,
+porque uma data estruturada errada é pior do que uma ausente — os motores de
+busca citam-na como se fosse do clube.
+
+**O que fica em aberto, e está fora deste bloco:** a `historia.html` continua a
+ter `1947` escrito à mão em três sítios de prosa — o herói ("Desde 1947"), a
+intro ("fundado a 12 de dezembro de 1947") e o selo ("Est. 1947") — e a página
+inicial tem o ano dentro de duas frases administráveis
+(`siteConfig.heroTag`, `siteConfig.aboutEst`). Fechar isto exigia uma terceira
+região na `historia.html`, que não foi autorizada, e a data completa de fundação
+não cabe num campo que só guarda o ano. Fica registado, não resolvido.
+
+## Fora deste bloco, por decisão
+
+Os **cinco parágrafos** de `index.html #aboutMore` continuam escritos no HTML,
+com `style="display:none"` e um `onclick` inline: sem JavaScript o botão "Ler
+mais" é um controlo morto e os cinco parágrafos — que contêm afirmações
+históricas sobre a Taça de Portugal, os campeonatos nacionais e o futebol
+feminino — são inalcançáveis. Foi decidido deixar como está e apenas documentar.
+
+A página inicial continua a publicar `80+ Títulos` e `300+ Atletas` na sua
+própria faixa de estatísticas, que é administrável via `siteConfig`. A decisão
+autorizada nomeava a `historia.html`; as guardas de regressão medem essa página
+e os dados da História. **A duplicação fica em aberto e precisa de decisão.**
+
+## Acessibilidade
+
+O que já estava certo e não se mexeu: um `h1`, um `h2` por secção, um `h3` por
+marco; a ordem de leitura é a ordem cronológica do DOM; o ano não é lido duas
+vezes (o `.timeline-card__year-mobile` é `display:none` por omissão e só aparece
+≤768px, onde o `.timeline-year-wrap` passa a `display:none`); o contraste do ano
+em destaque já foi resolvido na Fase B; o `@media print` e o
+`prefers-reduced-motion` já desligavam a revelação; e o CSS sozinho nunca
+esconde — o estado invisível existe só com `html.jsc-anima`, marca que o
+JavaScript põe.
+
+O que mudou: a imagem do marco é decorativa, e as duas zonas passam a existir
+sem JavaScript.
+
+## Guardas de regressão
+
+Vinte e quatro verificações. As `historia-base:` e `palmares-base:` olham **só**
+para dentro das regiões, antes de qualquer geração, e exigem que lá esteja
+apenas o contentor com o estado vazio: sem marco nem título escrito à mão, sem
+"A carregar", e com o texto do estado vazio como único texto. As `fonte única:`
+varrem o código público **sem comentários** e exigem que as três cópias não
+voltem, que nenhum marco exista em código público, que a semente esteja no
+`admin/js/data.js`, e que a regra do `ativo` continue a viver num sítio só. As
+`admin-base:` exigem que 1923 não volte a nenhum exemplo e que nenhum exemplo
+sugira um número não confirmado. E as do painel exigem que o Boxe de 1994, o
+Ténis de Mesa de 2012 e a ausência do `id 8` continuem exactamente como estão.
+
+Provadas ao contrário: com o "A carregar" e um marco de volta na região, a faixa
+de estatísticas e o "Mais de um século" de volta, o 1923 de volta em dois
+exemplos, duas das três cópias de volta, o `1947` de volta no JSON-LD, a semente
+fora do `data.js`, o `<select>` fechado de volta e o escape da observação
+outra vez em falta — **as 24 falham**, nomeando os ficheiros — e as outras 848
+continuam a passar. Os sete ficheiros foram depois confirmados **byte-idênticos**
+aos backups.
+
+## Como se verificou
+
+`node tools/testar-sem-js.js` — **872 verificações**. Deste bloco: 11 marcos de
+14 registos e 8 títulos de 10 (inativos, sem título e sem competição
+descartados); ordem crescente na cronologia e **decrescente** no palmarés, nos
+dois casos igual com e sem JavaScript; **dois marcos e dois títulos do mesmo ano
+mantêm a ordem do array**; os registos sem ano utilizável ficam no fim, sem
+elemento de ano; marco mínimo só com ano e título; descrição vazia não produz
+parágrafo; escalão vazio não produz etiqueta; título com `&` e `<b>` e
+observação com `&` e `<i>` a aparecerem **como texto**; imagem com apóstrofo e
+parêntesis a resolver **no browser**; `javascript:` e `data:text/html` a saírem
+**sem `<img>`** e **nenhuma imagem com `src=""`**; `ativo` ausente publicado e
+`ativo:false` ausente da página e da pesquisa; escalão `Traquinas A`,
+`Sen. Femininos` e um nome de atleta preservados; o bloco gerado e atual não
+redesenhado, e um `data-itens` errado a forçar o redesenho para o **mesmo**
+resultado, byte a byte; **na impressão e com `prefers-reduced-motion` nada fica
+invisível**; **as sete larguras** (320, 375, 390, 430, 768, 1024, 1440) sem
+transbordo; base vazia e tudo inativo com os dois estados vazios e **nenhum dos
+38 factos de volta**; `/modelos/historia-cronologia.php` e
+`/modelos/historia-palmares.php` → **403**; o reverter a nomear e devolver as
+**nove** páginas.
+
+Do painel: a semente vem do `DB` e tem 22 marcos e 16 títulos; a designação do
+torneio uniformizada; os Juvenis de 2025 com "1.ª Divisão Distrital"; o Boxe de
+1994 e o Ténis de Mesa de 2012 preservados; nenhum acontecimento inventado para
+o `id 8`; caixa de publicado marcada por omissão nos dois modais; o escalão é um
+`<input>`, e abrir um título com `Traquinas A` **devolve `Traquinas A`**.
+
+`node tools/validar.js --comparar` — sem problemas em 168 combinações,
+**novos: 0**.
+
+Fase A reverificada ponta-a-ponta, com perfis de teste numa cópia do projeto e
+credenciais descartáveis que nunca entraram no repositório: `400` a um GET ao
+`auth.php`, `400` sem o cabeçalho do painel, `401` com password errada, `401` a
+escrever sem sessão, `405` a um GET ao `save.php`, `200` para a Comunicação a
+alterar `historia` e `palmares`, **`403` para a Comunicação a alterar
+`atletas`**, e **`403` para o Futebol a alterar `historia` ou `palmares`** — a
+área é `institucional`, que aquele perfil não tem. O `conteudo.php` continua sem
+escrever: nenhuma escrita provocada por GET público.

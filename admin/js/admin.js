@@ -7101,104 +7101,22 @@ window.deleteFormacaoAtleta = function(id) {
 const HISTORIA_KEY  = 'db_historia';
 const PALMARES_KEY  = 'db_palmares';
 
-// Cronologia e palmarés oficiais do clube — carregados na primeira
-// utilização para poderem ser editados no admin (iguais aos padrões
-// que o site público mostra em js/historia.js)
-const HISTORIA_SEED = [
-    { id: 1, ano: 1947, titulo: 'Fundação do Clube',
-      descricao: 'O Juventude Sport Campinense é fundado em Loulé a 12 de dezembro de 1947, ligado à juventude e à comunidade louletana. Pedro Correia Bota, jogador e fundador, orientou o clube nos primeiros anos.',
-      imagem: '', destaque: true },
-    { id: 2, ano: 1948, titulo: 'Filiação desportiva',
-      descricao: 'O clube é federado a 8 de janeiro, iniciando o seu percurso oficial na Associação de Futebol do Algarve.',
-      imagem: '', destaque: false },
-    { id: 3, ano: 1950, titulo: 'Crescimento e implantação local',
-      descricao: 'Ao longo das décadas de 1950 e 1960, o Campinense consolida a presença na vida desportiva de Loulé. O futebol torna-se a principal modalidade, com participação em competições regionais e distritais.',
-      imagem: '', destaque: false },
-    { id: 4, ano: 1978, titulo: 'Ascensão competitiva',
-      descricao: 'No final da década de 1970, o clube inicia uma das fases mais fortes da sua história no futebol sénior, afirmando-se nas competições nacionais.',
-      imagem: '', destaque: false },
-    { id: 5, ano: 1982, titulo: 'Melhor campanha na Taça de Portugal',
-      descricao: 'Na época de 1981/82, o clube alcança os 1/32 de final — a melhor campanha conhecida nas suas 12 participações na Taça de Portugal.',
-      imagem: '', destaque: true },
-    { id: 6, ano: 1984, titulo: 'Campeão da Série F da III Divisão Nacional',
-      descricao: 'Na época de 1983/84, o Campinense vence a Série F da III Divisão Nacional e conquista o acesso ao segundo escalão do futebol português.',
-      imagem: '', destaque: true },
-    { id: 7, ano: 1985, titulo: 'II Divisão Nacional — Zona Sul',
-      descricao: 'Em 1984/85, o clube disputa a II Divisão Nacional, o ponto competitivo mais elevado da sua história. No total: uma época na II Divisão, nove na III Divisão e doze presenças na Taça de Portugal.',
-      imagem: '', destaque: true },
-    { id: 9, ano: 1994, titulo: 'Criação da secção de boxe',
-      descricao: 'Nasce a secção de boxe, com atletas de formação, manutenção e competição — incluindo trabalho de inclusão através do boxe adaptado.',
-      imagem: '', destaque: false },
-    { id: 10, ano: 1995, titulo: 'Medalha Municipal de Mérito — Grau Prata',
-      descricao: 'A Câmara Municipal de Loulé distingue o clube pelo seu papel na promoção do desporto, na formação dos jovens e na vida social do concelho.',
-      imagem: '', destaque: true },
-    { id: 11, ano: 2001, titulo: 'Utilidade pública',
-      descricao: 'O clube é reconhecido como pessoa coletiva de utilidade pública, confirmando oficialmente a sua relevância social, associativa e desportiva.',
-      imagem: '', destaque: false },
-    { id: 12, ano: 2006, titulo: 'Campeão Distrital e Taça do Algarve',
-      descricao: 'Época dourada em 2005/06: conquista do Campeonato Distrital da 1.ª Divisão da AF Algarve e da Taça do Algarve, garantindo o regresso às competições nacionais.',
-      imagem: '', destaque: true },
-    { id: 13, ano: 2007, titulo: 'Regresso aos campeonatos nacionais',
-      descricao: 'O clube disputa três épocas consecutivas na III Divisão Nacional (2006/07 a 2008/09) e volta a marcar presença na Taça de Portugal.',
-      imagem: '', destaque: false },
-    { id: 14, ano: 2010, titulo: 'Aposta reforçada na formação',
-      descricao: 'Durante a década de 2010, a formação torna-se um dos pilares do projeto desportivo, com trabalho regular em vários escalões, dos mais jovens aos juniores.',
-      imagem: '', destaque: false },
-    { id: 15, ano: 2017, titulo: 'Iniciados Campeões do Algarve',
-      descricao: 'Na época de 2016/17, os Iniciados conquistam um título inédito de Campeões do Algarve e o acesso ao Campeonato Nacional de Iniciados.',
-      imagem: '', destaque: true },
-    { id: 16, ano: 2018, titulo: 'Torneios e futsal feminino',
-      descricao: 'Realiza-se o V Torneio Humberto «Laranjeira» Faísca e o clube promove o torneio e o Algarve Invitational de futsal feminino.',
-      imagem: '', destaque: false },
-    { id: 17, ano: 2019, titulo: 'Kickboxing e formação em destaque',
-      descricao: 'Atletas do clube conquistam títulos no kickboxing e os Traquinas A vencem a Mértola Cup.',
-      imagem: '', destaque: false },
-    { id: 18, ano: 2020, titulo: 'Resiliência e multidesporto',
-      descricao: 'O clube adapta-se às restrições da pandemia mantendo a ligação a atletas e famílias. Cristina Azevedo sagra-se vice-campeã nacional de ciclismo (Masters 40) em representação do Campinense.',
-      imagem: '', destaque: false },
-    { id: 19, ano: 2021, titulo: 'Entidade Formadora de Três Estrelas',
-      descricao: 'A FPF certifica o clube como Entidade Formadora de Três Estrelas. Nasce a Campinense Cup e o projeto de futsal feminino ganha novo impulso.',
-      imagem: '', destaque: true },
-    { id: 20, ano: 2022, titulo: 'Iniciados vencem a Challenge Cup',
-      descricao: 'Novo momento de destaque da formação, seguido do título distrital da 2.ª Divisão em 2022/23, com subida à 1.ª Divisão.',
-      imagem: '', destaque: false },
-    { id: 21, ano: 2024, titulo: 'Futsal feminino em força',
-      descricao: 'A equipa sénior feminina vence a Taça de Campeão de Inverno e o clube realiza a II Maratona de Futsal Feminino, dinamizando a modalidade no Algarve.',
-      imagem: '', destaque: false },
-    { id: 22, ano: 2025, titulo: 'Campeão da Liga Algarve de Futsal Feminino',
-      descricao: 'Título da Liga Algarve de Futsal Feminino em 2024/25, subida dos Juvenis (Sub-17) à 1.ª Divisão Distrital e quarta edição da Campinense Cup.',
-      imagem: '', destaque: true },
-    { id: 23, ano: 2026, titulo: 'Âmbito nacional e novos torneios',
-      descricao: 'A equipa sénior feminina participa na Taça Nacional de Futsal Feminino 2025/26. Realizam-se o IX Torneio Humberto Faísca e o II Torneio de Futebol Feminino.',
-      imagem: '', destaque: false },
-  ];
-
-const PALMARES_SEED = [
-    { id: 1, competicao: 'III Divisão Nacional — Série F', escalao: 'Seniores', ano: 1984, observacao: 'Campeão — subida histórica à II Divisão' },
-    { id: 2, competicao: 'Campeonato Distrital 1.ª Divisão AF Algarve', escalao: 'Seniores', ano: 2006, observacao: 'Campeão — dobradinha inédita' },
-    { id: 3, competicao: 'Taça do Algarve', escalao: 'Seniores', ano: 2006, observacao: 'Vencedor — dobradinha inédita' },
-    { id: 4, competicao: 'Campeonato do Algarve', escalao: 'Iniciados', ano: 2017, observacao: 'Campeão — acesso ao Nacional (feito inédito)' },
-    { id: 5, competicao: 'Liga 2 Algarve', escalao: 'Iniciados', ano: 2023, observacao: 'Campeão — subida à Liga 1' },
-    { id: 6, competicao: 'Challenge Cup', escalao: 'Iniciados', ano: 2022, observacao: 'Vencedor (torneio)' },
-    { id: 7, competicao: 'Mértola Cup', escalao: 'Traquinas A', ano: 2019, observacao: 'Vencedor (torneio)' },
-    { id: 8, competicao: 'Liga 2 Algarve', escalao: 'Juvenis (Sub-17)', ano: 2025, observacao: '2.º lugar — subida à Liga 1' },
-    { id: 9, competicao: 'Liga Algarve de Futsal Feminino', escalao: 'Sen. Femininos', ano: 2025, observacao: 'Campeã' },
-    { id: 10, competicao: 'Taça de Campeão de Inverno Feminina', escalao: 'Sen. Femininos', ano: 2024, observacao: 'Vencedora' },
-    { id: 11, competicao: 'Taça do Algarve (Futsal Feminino)', escalao: 'Sen. Femininos', ano: 2025, observacao: 'Finalista' },
-    { id: 12, competicao: 'Campeonato Nacional WKU (–73,5 kg)', escalao: 'Ângelo Cordeiro', ano: 2019, observacao: 'Campeão Nacional' },
-    { id: 13, competicao: 'Kick-Light (–55 kg)', escalao: 'Matilde Hervê', ano: 2019, observacao: 'Vitória em Almodôvar' },
-    { id: 16, competicao: 'Campeonato Nacional de Kickboxing — Kick Light', escalao: 'Thomas Almeida', ano: 2026, observacao: 'Vice-Campeão Nacional — Odivelas' },
-    { id: 14, competicao: 'Campeonato Nacional de Ciclismo — Masters 40', escalao: 'Cristina Azevedo', ano: 2020, observacao: 'Vice-campeã nacional' },
-    { id: 15, competicao: '2.ª Divisão Nacional de Ténis de Mesa', escalao: 'Equipa', ano: 2012, observacao: 'Subida de divisão (2011/12)' },
-  ];
+// A cronologia e o palmarés são factos históricos do clube, e a sua semente
+// única está em admin/js/data.js (DB.historia e DB.palmares), ao lado dos
+// escalões e das modalidades.
+//
+// Estavam aqui cópias completas dos 22 marcos e dos 16 títulos — as segundas,
+// iguais às de js/historia.js e de js/pesquisa.js. Saíram as três. Nenhum
+// facto foi perdido: mudaram de sítio para um só.
 
 function loadHistoria()  {
   try {
     const raw = localStorage.getItem(HISTORIA_KEY);
     if (raw) { const l = JSON.parse(raw); if (Array.isArray(l) && l.length) return l; }
   } catch(e) {}
-  saveHistoria(HISTORIA_SEED);
-  return JSON.parse(JSON.stringify(HISTORIA_SEED));
+  const semente = (typeof DB !== 'undefined' && Array.isArray(DB.historia)) ? DB.historia : [];
+  if (semente.length) saveHistoria(semente);
+  return JSON.parse(JSON.stringify(semente));
 }
 function saveHistoria(a) { localStorage.setItem(HISTORIA_KEY,  JSON.stringify(a)); }
 function loadPalmares()  {
@@ -7206,8 +7124,9 @@ function loadPalmares()  {
     const raw = localStorage.getItem(PALMARES_KEY);
     if (raw) { const l = JSON.parse(raw); if (Array.isArray(l) && l.length) return l; }
   } catch(e) {}
-  savePalmares(PALMARES_SEED);
-  return JSON.parse(JSON.stringify(PALMARES_SEED));
+  const semente = (typeof DB !== 'undefined' && Array.isArray(DB.palmares)) ? DB.palmares : [];
+  if (semente.length) savePalmares(semente);
+  return JSON.parse(JSON.stringify(semente));
 }
 function savePalmares(a) { localStorage.setItem(PALMARES_KEY,  JSON.stringify(a)); }
 
@@ -7229,6 +7148,7 @@ function renderHistoriaList() {
       <th style="padding:10px 12px;text-align:left">Ano</th>
       <th style="padding:10px 12px;text-align:left">Título</th>
       <th style="padding:10px 12px;text-align:center">Destaque</th>
+      <th style="padding:10px 12px;text-align:center">Publicado</th>
       <th style="padding:10px 12px;text-align:right">Ações</th>
     </tr></thead>
     <tbody>
@@ -7237,7 +7157,10 @@ function renderHistoriaList() {
           <td style="padding:12px;font-weight:700;color:var(--blue);font-size:1.05rem">${jscEsc(h.ano)}</td>
           <td style="padding:12px;font-size:0.9rem">${jscEsc(h.titulo)}</td>
           <td style="padding:12px;text-align:center">${jscEsc(h.destaque ? '⭐' : '—')}</td>
+          <td style="padding:12px;text-align:center">${h.ativo === false
+            ? '<span class="galeria-card__estado">Não publicado</span>' : '✅'}</td>
           <td style="padding:12px;text-align:right;white-space:nowrap">
+            <button class="btn-icon" onclick="toggleHistoria(${h.id})" title="${h.ativo === false ? 'Publicar' : 'Despublicar'}">${h.ativo === false ? '&#9989;' : '&#9940;'}</button>
             <button class="btn-icon" onclick="editHistoria(${h.id})" title="Editar">&#9998;</button>
             <button class="btn-icon btn-icon--red" onclick="deleteHistoria(${h.id})" title="Eliminar">&#128465;</button>
           </td>
@@ -7257,16 +7180,20 @@ function renderPalmaresList() {
     <thead><tr style="background:#f4f6fb;font-size:0.8rem;color:#64748b;text-transform:uppercase;letter-spacing:1px">
       <th style="padding:10px 12px;text-align:left">Ano</th>
       <th style="padding:10px 12px;text-align:left">Competição</th>
-      <th style="padding:10px 12px;text-align:left">Escalão</th>
+      <th style="padding:10px 12px;text-align:left">Escalão / atleta</th>
+      <th style="padding:10px 12px;text-align:center">Publicado</th>
       <th style="padding:10px 12px;text-align:right">Ações</th>
     </tr></thead>
     <tbody>
       ${lista.map(t => `
         <tr style="border-bottom:1px solid #f1f5f9">
           <td style="padding:12px;font-weight:700;color:var(--blue)">${jscEsc(t.ano)}</td>
-          <td style="padding:12px;font-size:0.9rem">${jscEsc(t.competicao)}${t.observacao ? ' <span style="color:#888;font-size:0.8rem">· ' + t.observacao + '</span>' : ''}</td>
+          <td style="padding:12px;font-size:0.9rem">${jscEsc(t.competicao)}${t.observacao ? ' <span style="color:#888;font-size:0.8rem">· ' + jscEsc(t.observacao) + '</span>' : ''}</td>
           <td style="padding:12px"><span style="background:var(--yellow);color:var(--blue-dark);font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:10px">${jscEsc(t.escalao || '—')}</span></td>
+          <td style="padding:12px;text-align:center">${t.ativo === false
+            ? '<span class="galeria-card__estado">Não publicado</span>' : '✅'}</td>
           <td style="padding:12px;text-align:right;white-space:nowrap">
+            <button class="btn-icon" onclick="togglePalmares(${t.id})" title="${t.ativo === false ? 'Publicar' : 'Despublicar'}">${t.ativo === false ? '&#9989;' : '&#9940;'}</button>
             <button class="btn-icon" onclick="editPalmares(${t.id})" title="Editar">&#9998;</button>
             <button class="btn-icon btn-icon--red" onclick="deletePalmares(${t.id})" title="Eliminar">&#128465;</button>
           </td>
@@ -7284,14 +7211,21 @@ window.abrirModalHistoria = function(h) {
       </div>
       <div class="modal-field">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding-top:26px">
-          <input type="checkbox" id="hDestaque" ${jscEsc(h?.destaque ? 'checked' : '')} />
+          <input type="checkbox" id="hDestaque" ${h?.destaque ? 'checked' : ''} />
           Destaque (evento marcante)
         </label>
       </div>
     </div>
     <div class="modal-field">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="hAtivo" ${h && h.ativo === false ? '' : 'checked'} />
+        Publicado no site
+      </label>
+      <small style="color:#888;font-size:11px">Despublicar retira o marco da página de História e da pesquisa, sem o eliminar.</small>
+    </div>
+    <div class="modal-field">
       <label>Título *</label>
-      <input type="text" class="form-input" id="hTitulo" value="${jscEsc(h?.titulo || '')}" placeholder="Ex: Fundação do Clube" />
+      <input type="text" class="form-input" id="hTitulo" value="${jscEsc(h?.titulo || '')}" placeholder="Título curto do acontecimento" />
     </div>
     <div class="modal-field">
       <label>Descrição</label>
@@ -7323,6 +7257,7 @@ window.saveHistoriaEntry = function(id) {
     descricao: document.getElementById('hDescricao')?.value.trim() || '',
     imagem:    document.getElementById('hImagem')?.value.trim()    || '',
     destaque:  document.getElementById('hDestaque')?.checked       || false,
+    ativo:     document.getElementById('hAtivo')?.checked !== false,
   };
 
   const lista = loadHistoria();
@@ -7338,6 +7273,19 @@ window.saveHistoriaEntry = function(id) {
   renderHistoriaList();
 };
 
+// Publicar / despublicar sem eliminar. Um registo sem o campo conta como
+// publicado, e é por isso que o interruptor escreve sempre um booleano
+// explícito em vez de apagar o campo.
+window.toggleHistoria = function(id) {
+  const lista = loadHistoria();
+  const h = lista.find(x => x.id === id);
+  if (!h) return;
+  h.ativo = h.ativo === false;
+  saveHistoria(lista);
+  showToast(h.ativo ? 'Marco publicado.' : 'Marco despublicado.', 'green');
+  renderHistoriaList();
+};
+
 window.deleteHistoria = function(id) {
   if (!confirm('Eliminar esta entrada da linha do tempo?')) return;
   saveHistoria(loadHistoria().filter(x => x.id !== id));
@@ -7346,7 +7294,14 @@ window.deleteHistoria = function(id) {
 
 window.abrirModalPalmares = function(t) {
   const isNew = !t;
-  const escaloes = ['Sub-5','Sub-7','Sub-9','Sub-11','Sub-13','Sub-15','Sub-17','Sub-19','Sub-21','Sénior','Futsal','Kickboxing','Judo','Geral'];
+  // O escalão era um <select> com 14 opções fixas. Nenhum dos 16 títulos do
+  // clube usava uma delas: 'Seniores', 'Iniciados', 'Traquinas A', 'Juvenis
+  // (Sub-17)', 'Sen. Femininos', 'Equipa' e quatro nomes de atletas não
+  // existiam na lista. Abrir e gravar qualquer título apagava-lhe o escalão.
+  //
+  // Passa a ser texto livre, com os valores em uso oferecidos como sugestão
+  // por um <datalist>: sugerir não apaga nada, ao contrário de escolher.
+  const sugestoes = ['Sub-5','Sub-7','Sub-9','Sub-11','Sub-13','Sub-15','Sub-17','Sub-19','Sub-21','Sénior','Seniores','Futsal','Kickboxing','Judo','Geral'];
   openModal(isNew ? 'Novo Título / Conquista' : 'Editar Título', `
     <div class="modal-field">
       <label>Competição / Torneio *</label>
@@ -7358,16 +7313,24 @@ window.abrirModalPalmares = function(t) {
         <input type="number" class="form-input" id="pAno" value="${jscEsc(t?.ano || new Date().getFullYear())}" min="1900" max="2100" />
       </div>
       <div class="modal-field">
-        <label>Escalão</label>
-        <select class="form-input" id="pEscalao">
-          <option value="">— Geral —</option>
-          ${escaloes.map(e => `<option${jscEsc(e === (t?.escalao || '') ? ' selected' : '')}>${jscEsc(e)}</option>`).join('')}
-        </select>
+        <label>Escalão / atleta</label>
+        <input type="text" class="form-input" id="pEscalao" list="pEscalaoSugestoes"
+               value="${jscEsc(t?.escalao || '')}" placeholder="Ex: Sub-17, Seniores, Traquinas A" />
+        <datalist id="pEscalaoSugestoes">
+          ${sugestoes.map(e => `<option value="${jscEsc(e)}"></option>`).join('')}
+        </datalist>
       </div>
     </div>
     <div class="modal-field">
       <label>Observação (opcional)</label>
       <input type="text" class="form-input" id="pObs" value="${jscEsc(t?.observacao || '')}" placeholder="Ex: 1.º lugar, Campeão..." />
+    </div>
+    <div class="modal-field">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="pAtivo" ${t && t.ativo === false ? '' : 'checked'} />
+        Publicado no site
+      </label>
+      <small style="color:#888;font-size:11px">Despublicar retira o título do palmarés e da pesquisa, sem o eliminar.</small>
     </div>`,
     `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
      <button class="btn-save" onclick="savePalmaresEntry(${isNew ? 'null' : t.id})">Guardar</button>`
@@ -7388,8 +7351,9 @@ window.savePalmaresEntry = function(id) {
   const dados = {
     competicao,
     ano,
-    escalao:    document.getElementById('pEscalao')?.value || '',
+    escalao:    document.getElementById('pEscalao')?.value.trim() || '',
     observacao: document.getElementById('pObs')?.value.trim()    || '',
+    ativo:      document.getElementById('pAtivo')?.checked !== false,
   };
 
   const lista = loadPalmares();
@@ -7402,6 +7366,16 @@ window.savePalmaresEntry = function(id) {
   savePalmares(lista);
   showToast(id === null ? 'Título adicionado!' : 'Título actualizado!', 'green');
   closeModal();
+  renderPalmaresList();
+};
+
+window.togglePalmares = function(id) {
+  const lista = loadPalmares();
+  const t = lista.find(x => x.id === id);
+  if (!t) return;
+  t.ativo = t.ativo === false;
+  savePalmares(lista);
+  showToast(t.ativo ? 'Título publicado.' : 'Título despublicado.', 'green');
   renderPalmaresList();
 };
 

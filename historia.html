@@ -30,6 +30,11 @@
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png" />
   <link rel="canonical" href="https://campinense.pt/historia.html" />
+  <!-- Sem JavaScript, o que só funciona com JavaScript sai da página em vez de
+       ficar lá a não fazer nada. A cronologia e o palmarés já vêm escritos. -->
+  <noscript><style>
+    .jsc-so-com-js { display: none !important; }
+  </style></noscript>
 </head>
 <body>
 <a href="#main-content" class="skip-link">Saltar para o conteúdo</a>
@@ -95,31 +100,16 @@
     <div class="container page-hero__content">
       <p class="page-hero__tag">Desde 1947</p>
       <h1 class="page-hero__title">História do Clube</h1>
-      <p class="page-hero__desc">Mais de um século a formar campeões dentro e fora do campo, em Loulé, Algarve.</p>
+      <p class="page-hero__desc">Mais de sete décadas a formar campeões dentro e fora do campo, em Loulé, Algarve.</p>
     </div>
   </div>
 
-  <!-- STATS STRIP -->
-  <div class="historia-strip">
-    <div class="container historia-strip__inner">
-      <div class="historia-strip__item">
-        <div class="historia-strip__num" id="hStat1Num">1947</div>
-        <div class="historia-strip__label" id="hStat1Label">Fundação</div>
-      </div>
-      <div class="historia-strip__item">
-        <div class="historia-strip__num" id="hStat2Num">75+</div>
-        <div class="historia-strip__label" id="hStat2Label">Anos de História</div>
-      </div>
-      <div class="historia-strip__item">
-        <div class="historia-strip__num" id="hStat3Num">80+</div>
-        <div class="historia-strip__label" id="hStat3Label">Títulos Conquistados</div>
-      </div>
-      <div class="historia-strip__item">
-        <div class="historia-strip__num" id="hStat4Num">300+</div>
-        <div class="historia-strip__label" id="hStat4Label">Atletas Formados</div>
-      </div>
-    </div>
-  </div>
+  <!-- Estava aqui uma faixa com quatro números: 1947, 75+ anos, 80+ títulos e
+       300+ atletas formados. Nenhum tinha fonte — os quatro estavam escritos
+       no HTML, e os oito ids que os identificavam (hStat1Num a hStat4Label)
+       não eram escritos por ficheiro nenhum do projeto. O clube não confirma
+       os 80+ títulos nem os 300+ atletas, e por isso a faixa saiu inteira.
+       Não foram substituídos por números calculados nem por outros números. -->
 
   <!-- INTRO -->
   <section class="section" style="padding:48px 0 0">
@@ -145,9 +135,15 @@
         <span class="section__tag">Marcos históricos</span>
         <h2 class="section__title">Linha do Tempo</h2>
       </div>
+      <!-- A cronologia é escrita no servidor a partir do db_historia. Estava
+           aqui um "A carregar..." que sem JavaScript nunca carregava, e os 22
+           marcos da história do clube ficavam invisíveis. Não voltar a pôr
+           esqueletos nem marcos escritos à mão aqui. -->
+      <!-- JSC:historia:inicio -->
       <div class="timeline" id="historiaTimeline">
-        <p style="text-align:center;color:#aaa;padding:40px 0">A carregar...</p>
+        <p class="historia-empty">Sem marcos históricos registados.</p>
       </div>
+      <!-- JSC:historia:fim -->
     </div>
   </section>
 
@@ -158,9 +154,14 @@
         <span class="section__tag">Conquistas</span>
         <h2 class="section__title">Palmarés</h2>
       </div>
+      <!-- O palmarés é escrito no servidor a partir do db_palmares, por ano
+           decrescente. Não voltar a pôr esqueletos nem títulos escritos à
+           mão aqui. -->
+      <!-- JSC:palmares:inicio -->
       <div class="palmares__grid" id="historiaPalmares">
-        <p style="text-align:center;color:#aaa;grid-column:1/-1;padding:40px 0">A carregar...</p>
+        <p class="historia-empty" style="grid-column:1/-1">Sem títulos registados.</p>
       </div>
+      <!-- JSC:palmares:fim -->
     </div>
   </section>
 

@@ -98,11 +98,47 @@
     return m ? m[1] : '';
   }
 
-  // Um registo da galeria ou de vídeos está publicado? Sem o campo conta como
-  // publicado, para não esconder o que já esteja lá. Réplica exacta do
-  // jsc_media_ativo() do api/conteudo.php.
-  function jscMediaAtivo(valor) {
+  // Está publicado? Sem o campo conta como publicado, para não esconder o que
+  // já esteja lá. Vale para fotografias, vídeos, marcos históricos e títulos
+  // do palmarés, e por isso vive num sítio só. Réplica exacta do jsc_ativo()
+  // do api/conteudo.php.
+  function jscAtivo(valor) {
     return valor !== false;
+  }
+
+  // O nome que os blocos do Bloco 7 usam. Delega, em vez de repetir a regra.
+  // Réplica exacta do jsc_media_ativo() do api/conteudo.php.
+  function jscMediaAtivo(valor) {
+    return jscAtivo(valor);
+  }
+
+  // O ano de um registo histórico, como número, ou 0 quando não há nenhum
+  // utilizável. Um ano com texto ('mil novecentos') dá 0: não se adivinha.
+  // Réplica exacta do jsc_ano_historico() do api/conteudo.php.
+  function jscAnoHistorico(valor) {
+    if (typeof valor === 'number' && isFinite(valor) && Math.floor(valor) === valor) return valor;
+    var s = String(valor === null || valor === undefined ? '' : valor).trim();
+    if (s === '' || !/^-?\d+$/.test(s)) return 0;
+    return parseInt(s, 10);
+  }
+
+  // Ordenação estável por ano. O sort() do JavaScript é estável desde o
+  // ES2019, mas o usort() do PHP só passou a ser no 8.0 — e o alojamento de
+  // campinense.pt corre 7.4. Para os dois lados darem a MESMA ordem quando há
+  // anos repetidos, ambos desempatam pelo índice de entrada. Sem isto, dois
+  // títulos do mesmo ano podiam trocar de lugar entre o PHP e o JavaScript, e
+  // a página gerada e a redesenhada deixavam de ser iguais.
+  //
+  // Réplica exacta do jsc_ordenar_por_ano() do api/conteudo.php.
+  function jscOrdenarPorAno(lista, crescente) {
+    return lista
+      .map(function (item, i) { return { i: i, item: item }; })
+      .sort(function (a, b) {
+        var aa = a.item._ano || 0, bb = b.item._ano || 0;
+        if (aa !== bb) return crescente ? (aa < bb ? -1 : 1) : (aa > bb ? -1 : 1);
+        return a.i < b.i ? -1 : (a.i > b.i ? 1 : 0);
+      })
+      .map(function (e) { return e.item; });
   }
 
   // Uma modalidade está ativa? Uma modalidade sem o campo conta como ativa —
@@ -212,6 +248,9 @@
   global.jscPatrocinadorUrl = jscPatrocinadorUrl;
   global.jscPatrocinadorSector = jscPatrocinadorSector;
   global.jscPatrocinadorDesde = jscPatrocinadorDesde;
+  global.jscAtivo = jscAtivo;
+  global.jscAnoHistorico = jscAnoHistorico;
+  global.jscOrdenarPorAno = jscOrdenarPorAno;
 })(typeof window !== 'undefined' ? window : this);
 
 // =====================================================

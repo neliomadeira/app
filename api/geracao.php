@@ -169,6 +169,77 @@ function jsc_validar_media($meio, $cartao, array $lista, $contentor, $itens = nu
     return $erros;
 }
 
+// Validação partilhada pelas duas zonas da História. A regra que as distingue
+// de todas as outras da Fase C: aqui não se descarta nada por causa de campos
+// opcionais, porque um marco histórico perdido não se recupera. O que se
+// verifica é o contrário — que nada de fictício aparece, e que nenhuma das três
+// cópias antigas volta como fallback.
+function jsc_validar_historia($meio, $cartao, array $lista, $contentor) {
+    $erros = [];
+    $esperados = count($lista);
+
+    $obtidos = preg_match_all('/<div class="' . preg_quote($cartao, '/') . '[ "]/', $meio);
+    if ($obtidos !== $esperados) {
+        $erros[] = "gerou $obtidos cartões, esperava $esperados";
+    }
+    if (strpos($meio, 'id="' . $contentor . '"') === false) {
+        $erros[] = 'o bloco gerado não tem o contentor id="' . $contentor . '"';
+    }
+    if (strpos($meio, 'data-itens="' . $esperados . '"') === false) {
+        $erros[] = 'o data-itens não corresponde ao número de itens gerados';
+    }
+    // Sem itens fica o estado vazio, e nada mais.
+    if ($esperados === 0 && strpos($meio, 'class="historia-empty"') === false) {
+        $erros[] = 'sem itens o estado vazio tem de aparecer';
+    }
+    if ($esperados > 0 && strpos($meio, 'class="historia-empty"') !== false) {
+        $erros[] = 'com itens o estado vazio não pode aparecer';
+    }
+    // O "A carregar..." permanente não volta, em nenhuma das duas zonas. Os
+    // comentários saem primeiro: um comentário que explique o que foi retirado
+    // não é conteúdo da página, e é aqui que se escreve porque é que a zona
+    // vazia ficou vazia.
+    $visivel = preg_replace('/<!--[\s\S]*?-->/', '', $meio);
+    if (stripos($visivel, 'a carregar') !== false) {
+        $erros[] = 'o bloco não pode conter um estado "A carregar..."';
+    }
+    if (strpos($meio, 'class="skeleton') !== false) {
+        $erros[] = 'o bloco não pode conter esqueletos de carregamento';
+    }
+    // Campo vazio não produz elemento vazio. O <div class="timeline-dot"> fica
+    // de fora: é o ponto da linha do tempo, desenhado só por CSS, e sempre
+    // vazio de propósito — como em todos os outros validadores, a verificação
+    // olha para os elementos que carregam texto.
+    if (preg_match('/<(span|p|h3)[^>]*>\s*<\/\1>/', $meio)) {
+        $erros[] = 'o bloco gerado não pode ter elementos vazios';
+    }
+    // Um endereço de imagem recusado sai como ausência de <img>, nunca como
+    // src="" — que em vários browsers reemite o pedido do próprio documento.
+    if (strpos($meio, 'src=""') !== false) {
+        $erros[] = 'uma imagem recusada não pode produzir src=""';
+    }
+    // Os números que o clube não confirma não voltam a ser publicados.
+    foreach (['80+ Títulos', '300+ Atletas Formados', 'Atletas Formados',
+              'Mais de um século'] as $proibido) {
+        if (strpos($visivel, $proibido) !== false) {
+            $erros[] = "o bloco não pode conter \"$proibido\"";
+        }
+    }
+    // A designação do torneio foi uniformizada por decisão do clube.
+    if (strpos($visivel, '«Laranjeira»') !== false) {
+        $erros[] = 'a designação do torneio não pode voltar a incluir «Laranjeira»';
+    }
+    // Nenhum campo pessoal novo. O escalão do palmarés guarda nomes de atletas
+    // que já são história publicada, mas nada de data de nascimento, contacto
+    // ou encarregado de educação entra aqui.
+    foreach (['dataNascimento', 'nascimento', 'telefone', 'encarregado'] as $proibido) {
+        if (stripos($meio, $proibido) !== false) {
+            $erros[] = "o bloco da História não pode conter \"$proibido\"";
+        }
+    }
+    return $erros;
+}
+
 function jsc_blocos() {
     return [
         'noticias' => [
@@ -741,6 +812,84 @@ function jsc_blocos() {
                 return $erros;
             },
         ],
+
+        'historia' => [
+            'ficheiro' => 'historia.html',
+            'modelo'   => 'historia-cronologia.php',
+            'inicio'   => '<!-- JSC:historia:inicio -->',
+            'fim'      => '<!-- JSC:historia:fim -->',
+            'dados'    => function (array $conteudo) {
+                return ['marcos' => jsc_historia($conteudo)];
+            },
+            'validar'  => function ($meio, array $conteudo) {
+                $marcos = jsc_historia($conteudo);
+                $erros = jsc_validar_historia($meio, 'timeline-item', $marcos,
+                                              'historiaTimeline');
+                // A ordem tem de ser exactamente a que o jsc_historia() decidiu:
+                // ano crescente, com o índice a desempatar anos repetidos.
+                if ($marcos) {
+                    preg_match_all('/<span class="timeline-year">([^<]*)<\/span>/', $meio, $m);
+                    $esperados = [];
+                    foreach ($marcos as $x) if ($x['ano'] !== '') $esperados[] = $x['ano'];
+                    if ($m[1] !== $esperados) {
+                        $erros[] = 'a cronologia não saiu por ano crescente';
+                    }
+                    // Um marco por <h3>, e nenhum título em falta.
+                    $titulos = preg_match_all('/<h3 class="timeline-card__title">/', $meio);
+                    if ($titulos !== count($marcos)) {
+                        $erros[] = "gerou $titulos títulos, esperava " . count($marcos);
+                    }
+                }
+                // A imagem do marco é decorativa: o título vem logo a seguir.
+                if (preg_match_all('/<img\b[^>]*class="timeline-card__img"[^>]*>/', $meio, $imgs)) {
+                    foreach ($imgs[0] as $img) {
+                        if (strpos($img, 'alt=""') === false
+                            || strpos($img, 'aria-hidden="true"') === false) {
+                            $erros[] = 'a imagem do marco tem de ser decorativa: alt="" e aria-hidden="true"';
+                            break;
+                        }
+                    }
+                }
+                return $erros;
+            },
+        ],
+
+        'palmares' => [
+            'ficheiro' => 'historia.html',
+            'modelo'   => 'historia-palmares.php',
+            'inicio'   => '<!-- JSC:palmares:inicio -->',
+            'fim'      => '<!-- JSC:palmares:fim -->',
+            'dados'    => function (array $conteudo) {
+                return ['titulos' => jsc_palmares($conteudo)];
+            },
+            'validar'  => function ($meio, array $conteudo) {
+                $titulos = jsc_palmares($conteudo);
+                $erros = jsc_validar_historia($meio, 'palmares-card', $titulos,
+                                              'historiaPalmares');
+                // Ano decrescente, com o índice a desempatar. Era esta a
+                // intenção do código antigo, que só se cumpria quando havia
+                // dados publicados.
+                if ($titulos) {
+                    $anos = [];
+                    foreach ($titulos as $t) if ($t['ano'] !== '') $anos[] = (int)$t['ano'];
+                    $ordenado = $anos;
+                    rsort($ordenado);
+                    if ($anos !== $ordenado) {
+                        $erros[] = 'o palmarés não saiu por ano decrescente';
+                    }
+                    // O escalão não se perde: cada título que o tenha nos dados
+                    // tem de o ter na página.
+                    $comEscalao = 0;
+                    foreach ($titulos as $t) if ($t['escalao'] !== '') $comEscalao++;
+                    $badges = preg_match_all('/<span class="palmares-card__badge">/', $meio);
+                    if ($badges !== $comEscalao) {
+                        $erros[] = "gerou $badges escalões, esperava $comEscalao";
+                    }
+                }
+                return $erros;
+            },
+        ],
+
     ];
 }
 

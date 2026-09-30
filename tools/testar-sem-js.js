@@ -63,6 +63,10 @@ const BLOCOS = {
   'videos.html': [
     { nome: 'videos', ini: '<!-- JSC:videos:inicio -->', fim: '<!-- JSC:videos:fim -->' },
   ],
+  'historia.html': [
+    { nome: 'historia', ini: '<!-- JSC:historia:inicio -->', fim: '<!-- JSC:historia:fim -->' },
+    { nome: 'palmares', ini: '<!-- JSC:palmares:inicio -->', fim: '<!-- JSC:palmares:fim -->' },
+  ],
 };
 
 // Datas da agenda a partir dos offsets da fixture: 0 = hoje. Devolve uma
@@ -170,6 +174,7 @@ function testesDeGeracao(raiz, dados) {
   const pat = path.join(raiz, 'patrocinadores.html');
   const gal = path.join(raiz, 'galeria.html');
   const vid = path.join(raiz, 'videos.html');
+  const his = path.join(raiz, 'historia.html');
   const db  = path.join(raiz, 'data', 'db.json');
 
   // Quantas notícias cada página deve mostrar, contado a partir da fixture e
@@ -190,6 +195,7 @@ function testesDeGeracao(raiz, dados) {
   const antesPat = fs.readFileSync(pat, 'utf8');
   const antesGal = fs.readFileSync(gal, 'utf8');
   const antesVid = fs.readFileSync(vid, 'utf8');
+  const antesHis = fs.readFileSync(his, 'utf8');
   // A ordem declarada no BLOCOS tem de ser a ordem em que as marcas aparecem
   // no ficheiro: é dela que o foraDasMarcas() depende para cortar o HTML.
   verificar('index.html tem as marcas das CINCO regiões, pela ordem do ficheiro',
@@ -293,6 +299,98 @@ function testesDeGeracao(raiz, dados) {
     verificar('fonte única: a extração do id do YouTube está centralizada',
       comYt.length === 0 && /function jscVideoId/.test(
         fs.readFileSync(path.join(RAIZ_PROJETO, 'js/html.js'), 'utf8')));
+  }
+
+
+  // ---- Guardas da História -----------------------------------------
+  // As duas zonas mostravam "A carregar..." para sempre sem JavaScript, e os
+  // 22 marcos e 16 títulos da história do clube ficavam invisíveis. E havia
+  // TRÊS cópias completas desses 38 factos no código. Estas verificações
+  // existem para nenhuma das duas coisas voltar.
+  {
+    const base = dentroDasMarcas(antesHis, 'historia.html', 'historia')
+      .replace(/<!--[\s\S]*?-->/g, '');
+    const texto = base.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+    verificar('historia-base: a região da cronologia é só o contentor com o estado vazio',
+      /^\s*<div class="timeline" id="historiaTimeline">\s*<p class="historia-empty">[^<]*<\/p>\s*<\/div>\s*$/.test(base),
+      'obtive: ' + JSON.stringify(base.trim().slice(0, 200)));
+    verificar('historia-base: nenhum marco escrito à mão na região',
+      !base.includes('timeline-item') && !base.includes('timeline-card'),
+      'os marcos vêm dos dados, nunca do HTML');
+    verificar('historia-base: nenhum "A carregar" na região',
+      !/A carregar/i.test(base), 'era uma promessa que sem JavaScript nunca se cumpria');
+    verificar('historia-base: o único texto da região é o do estado vazio',
+      texto === 'Sem marcos históricos registados.', 'texto: ' + JSON.stringify(texto.slice(0, 200)));
+  }
+  {
+    const base = dentroDasMarcas(antesHis, 'historia.html', 'palmares')
+      .replace(/<!--[\s\S]*?-->/g, '');
+    const texto = base.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+    verificar('palmares-base: a região do palmarés é só o contentor com o estado vazio',
+      /^\s*<div class="palmares__grid" id="historiaPalmares">\s*<p class="historia-empty"[^>]*>[^<]*<\/p>\s*<\/div>\s*$/.test(base),
+      'obtive: ' + JSON.stringify(base.trim().slice(0, 200)));
+    verificar('palmares-base: nenhum título escrito à mão na região',
+      !base.includes('palmares-card'), 'os títulos vêm dos dados');
+    verificar('palmares-base: nenhum "A carregar" na região',
+      !/A carregar/i.test(base));
+    verificar('palmares-base: o único texto da região é o do estado vazio',
+      texto === 'Sem títulos registados.', 'texto: ' + JSON.stringify(texto.slice(0, 200)));
+  }
+  // Os 38 factos não podem voltar a existir escritos no código público nem no
+  // painel. A semente única é o admin/js/data.js.
+  {
+    const semComentarios = (rel) => fs.readFileSync(path.join(RAIZ_PROJETO, rel), 'utf8')
+      .replace(/<!--[\s\S]*?-->/g, '').replace(/^\s*\/\/.*$/gm, '');
+    const copias = ['js/historia.js', 'admin/js/admin.js', 'js/pesquisa.js'].filter((rel) =>
+      /DEFAULT_TIMELINE|DEFAULT_PALMARES|DEFAULT_HISTORIA|HISTORIA_SEED|PALMARES_SEED/.test(semComentarios(rel)));
+    verificar('fonte única: as três cópias da história desapareceram',
+      copias.length === 0, 'ficheiros: ' + copias.join(', '));
+    // Nem os factos em si, fora da semente.
+    const comFactos = ['js/historia.js', 'admin/js/admin.js', 'js/pesquisa.js',
+                       'historia.html', 'index.html'].filter((rel) =>
+      /Fundação do Clube|Pedro Correia Bota|Medalha Municipal de Mérito|Entidade Formadora/.test(semComentarios(rel)));
+    verificar('fonte única: nenhum marco histórico escrito em código público',
+      comFactos.length === 0, 'ficheiros: ' + comFactos.join(', '));
+    // A semente existe, e está onde deve estar.
+    const semente = fs.readFileSync(path.join(RAIZ_PROJETO, 'admin/js/data.js'), 'utf8');
+    verificar('fonte única: a semente da história está no admin/js/data.js',
+      /historia:\s*DEMO_DB\.historia/.test(semente) && /palmares:\s*DEMO_DB\.palmares/.test(semente));
+    // E a regra do "ativo" vive num sítio só, nos dois lados.
+    const html = fs.readFileSync(path.join(RAIZ_PROJETO, 'js/html.js'), 'utf8');
+    const php  = fs.readFileSync(path.join(RAIZ_PROJETO, 'api/conteudo.php'), 'utf8');
+    verificar('fonte única: jscMediaAtivo delega em jscAtivo, sem repetir a regra',
+      /function jscMediaAtivo\(valor\) \{\s*return jscAtivo\(valor\);/.test(html)
+      && /function jsc_media_ativo\(\$valor\) \{\s*return jsc_ativo\(\$valor\);/.test(php));
+  }
+  // Os números que o clube não confirma, e a frase do século, não voltam à
+  // página de História. A faixa de estatísticas saiu inteira.
+  {
+    const semComentarios = antesHis.replace(/<!--[\s\S]*?-->/g, '');
+    verificar('historia-base: a faixa de estatísticas sem fonte saiu',
+      !semComentarios.includes('historia-strip') && !/hStat\d/.test(semComentarios),
+      'os oito ids não eram escritos por ficheiro nenhum');
+    const proibidos = ['80+', '300+', 'Mais de um século', 'Atletas Formados',
+                       'Títulos Conquistados'].filter((t) => semComentarios.includes(t));
+    verificar('historia-base: nenhum número sem fonte na historia.html',
+      proibidos.length === 0, 'encontrados: ' + proibidos.join(', '));
+    verificar('historia-base: a frase da idade do clube é "mais de sete décadas"',
+      semComentarios.includes('Mais de sete décadas a formar campeões dentro e fora do campo'));
+  }
+  // Os exemplos do painel deixam de sugerir 1923 — um ano de fundação que não
+  // é o do clube — e deixam de sugerir os números que o clube não confirma.
+  {
+    const adm = fs.readFileSync(path.join(RAIZ_PROJETO, 'admin/index.html'), 'utf8');
+    verificar('admin-base: nenhum exemplo com 1923',
+      !adm.includes('1923'), 'estava em quatro campos, um deles o do ano de fundação');
+    const sugestoes = [/placeholder="300\+"/, /placeholder="80\+"/, /placeholder="100\+"/]
+      .filter((r) => r.test(adm));
+    verificar('admin-base: nenhum exemplo sugere um número não confirmado',
+      sugestoes.length === 0);
+    // O ano de fundação tem uma fonte única, e o JSON-LD lê-a de lá.
+    const seo = fs.readFileSync(path.join(RAIZ_PROJETO, 'js/seo.js'), 'utf8');
+    verificar('fonte única: o foundingDate vem do dados_clube.ano, sem 1947 escrito à mão',
+      !/'foundingDate': '1947'/.test(seo) && /dados_clube/.test(seo)
+      && /organizacao\.foundingDate = _ano/.test(seo));
   }
 
   // ---- Guarda da fonte única das modalidades -----------------------
@@ -1268,12 +1366,20 @@ function testesDeGeracao(raiz, dados) {
   fs.writeFileSync(gal, galGerado.replace('</body>', '<!-- rabisco --></body>'));
   const vidGerado = fs.readFileSync(vid, 'utf8');
   fs.writeFileSync(vid, vidGerado.replace('</body>', '<!-- rabisco --></body>'));
+  const hisGerado = fs.readFileSync(his, 'utf8');
+  fs.writeFileSync(his, hisGerado.replace('</body>', '<!-- rabisco --></body>'));
   g = gerar(raiz, ['--reverter']);
-  verificar('reverter: corre sem erro e nomeia as oito páginas',
+  verificar('reverter: corre sem erro e nomeia as nove páginas',
     g.estado === 0 && ['index.html', 'noticias.html', 'agenda.html',
       'equipa-principal.html', 'formacao.html', 'patrocinadores.html',
-      'galeria.html', 'videos.html'].every((f) => g.saida.includes(f)),
+      'galeria.html', 'videos.html', 'historia.html'].every((f) => g.saida.includes(f)),
     g.saida.trim().slice(0, 200));
+  verificar('reverter: a historia.html voltou inteira, com as duas regiões',
+    !fs.readFileSync(his, 'utf8').includes('rabisco')
+    && BLOCOS['historia.html'].every((b) => {
+      const c = fs.readFileSync(his, 'utf8');
+      return c.includes(b.ini) && c.includes(b.fim);
+    }));
   verificar('reverter: a galeria.html e a videos.html voltaram inteiras',
     !fs.readFileSync(gal, 'utf8').includes('rabisco')
     && !fs.readFileSync(vid, 'utf8').includes('rabisco')
@@ -2136,6 +2242,196 @@ async function testarAdminMedia(browser, url) {
   return { ...d, limiteReal: m ? m[1] : '?', erros };
 }
 
+
+// ---------------------------------------------------------------------
+// BLOCO 8 — História: cronologia e palmarés
+// ---------------------------------------------------------------------
+async function testarHistoria(browser, url, comJs, largura, opcoes = {}) {
+  const ctx = await browser.newContext({
+    javaScriptEnabled: comJs,
+    extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+    reducedMotion: opcoes.movimentoReduzido ? 'reduce' : 'no-preference',
+  });
+  const pg = await ctx.newPage();
+  await pg.setViewportSize({ width: largura, height: 900 });
+
+  const erros = [];
+  const ruido = (t) => RUIDO.some((r) => r.test(t));
+  pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+  pg.on('console', (m) => { if (m.type() === 'error' && !ruido(m.text())) erros.push(m.text()); });
+  pg.on('response', (r) => {
+    const t = r.status() + ' ' + r.url().replace(url, '');
+    if (r.status() >= 400 && !ruido(t)) erros.push(t);
+  });
+  await pg.route('**', (rota) => {
+    const alvo = rota.request().url();
+    if (alvo.startsWith(url) || alvo.startsWith('data:') || alvo.startsWith('blob:')) return rota.continue();
+    return rota.abort();
+  });
+  if (opcoes.imprimir) await pg.emulateMedia({ media: 'print' });
+
+  await pg.goto(url + '/historia.html', { waitUntil: comJs ? 'networkidle' : 'load', timeout: 20000 });
+
+  // Rolar até ao fim, para que a revelação tenha oportunidade de correr. O
+  // IntersectionObserver só dispara entre fotogramas: um ciclo inteiro dentro
+  // de um único evaluate() não lhe dá nenhum, e mediria zero revelados sempre.
+  if (comJs && !opcoes.semRolar) {
+    const altura = await pg.evaluate(() => document.body.scrollHeight);
+    for (let y = 0; y < altura + 900; y += 600) {
+      await pg.evaluate((v) => window.scrollTo(0, v), y);
+      await pg.waitForTimeout(90);
+    }
+    await pg.evaluate(() => window.scrollTo(0, 0));
+    // A transição da revelação dura 0,55 s: esperar menos do que isso mede
+    // itens a meio caminho e acusaria um defeito que não existe.
+    await pg.waitForTimeout(750);
+  }
+
+  const d = await pg.evaluate(() => {
+    const vis = (el) => !!el && el.getClientRects().length > 0;
+    const tl = document.getElementById('historiaTimeline');
+    const pm = document.getElementById('historiaPalmares');
+    const marcos = Array.from(document.querySelectorAll('.timeline-item'));
+    const cartoes = Array.from(document.querySelectorAll('.palmares-card'));
+    const doc = document.documentElement;
+    const texto = document.body.textContent || '';
+    const semComentarios = (document.body.innerHTML || '');
+
+    return {
+      // Cronologia
+      marcos: marcos.length,
+      marcosVisiveis: marcos.filter(vis).length,
+      anos: Array.from(document.querySelectorAll('.timeline-year')).map((e) => e.textContent.trim()),
+      anosMovel: Array.from(document.querySelectorAll('.timeline-card__year-mobile')).map((e) => e.textContent.trim()),
+      titulos: Array.from(document.querySelectorAll('.timeline-card__title')).map((e) => e.textContent.trim()),
+      descricoes: document.querySelectorAll('.timeline-card__desc').length,
+      destaques: document.querySelectorAll('.timeline-item--destaque').length,
+      tlGerado: tl ? tl.getAttribute('data-gerado') : null,
+      tlItens: tl ? tl.getAttribute('data-itens') : null,
+      tlVazio: !!(tl && tl.querySelector('.historia-empty')),
+
+      // Palmarés
+      cartoes: cartoes.length,
+      cartoesVisiveis: cartoes.filter(vis).length,
+      competicoes: Array.from(document.querySelectorAll('.palmares-card__title')).map((e) => e.textContent.trim()),
+      metas: Array.from(document.querySelectorAll('.palmares-card__meta')).map((e) => e.textContent.trim()),
+      escaloes: Array.from(document.querySelectorAll('.palmares-card__badge')).map((e) => e.textContent.trim()),
+      pmGerado: pm ? pm.getAttribute('data-gerado') : null,
+      pmItens: pm ? pm.getAttribute('data-itens') : null,
+      pmVazio: !!(pm && pm.querySelector('.historia-empty')),
+
+      // Imagens dos marcos: decorativas, e resolvidas pelo browser.
+      imagens: Array.from(document.querySelectorAll('.timeline-card__img')).map((i) => ({
+        src: i.getAttribute('src'),
+        alt: i.getAttribute('alt'),
+        ariaHidden: i.getAttribute('aria-hidden'),
+        resolvida: i.currentSrc || '',
+        completa: i.complete && i.naturalWidth > 0,
+      })),
+      imgSemSrc: Array.from(document.images).filter((i) => (i.getAttribute('src') || '') === '').length,
+
+      // Acessibilidade e estrutura
+      h1: Array.from(document.querySelectorAll('h1')).map((e) => e.textContent.trim()),
+      h2: Array.from(document.querySelectorAll('main h2')).map((e) => e.textContent.trim()),
+      h3: document.querySelectorAll('h3').length,
+      anima: doc.classList.contains('jsc-anima'),
+      naoRevelados: document.querySelectorAll('.tl-reveal:not(.tl-visible)').length,
+      // O que está no ecrã não pode estar invisível: é esta a garantia que
+      // interessa. Quantos itens estão dentro da janela e com opacidade 0?
+      detalheInvisiveis: Array.from(document.querySelectorAll('.timeline-item, .palmares-card'))
+        .map((el) => {
+          const r = el.getBoundingClientRect();
+          return { top: Math.round(r.top), op: getComputedStyle(el).opacity,
+                   rev: el.classList.contains('tl-reveal'),
+                   vis: el.classList.contains('tl-visible') };
+        })
+        .filter((x) => x.top < window.innerHeight && x.top > -200 && parseFloat(x.op) < 0.9)
+        .slice(0, 5),
+      invisiveisNoEcra: Array.from(document.querySelectorAll('.timeline-item, .palmares-card'))
+        .filter((el) => {
+          const r = el.getBoundingClientRect();
+          if (r.bottom < 0 || r.top > window.innerHeight) return false;
+          return parseFloat(getComputedStyle(el).opacity) < 0.9;
+        }).length,
+      opacidades: marcos.slice(0, 3).map((m) => getComputedStyle(m).opacity),
+      transbordo: doc.scrollWidth - doc.clientWidth,
+
+      // O que não pode voltar
+      temCarregar: /A carregar/i.test(texto),
+      temFaixa: !!document.querySelector('.historia-strip'),
+      temHStat: /hStat\d/.test(semComentarios.replace(/<!--[\s\S]*?-->/g, '')),
+      temSeculo: /Mais de um século/.test(texto),
+      temTitulos80: /80\+/.test(texto),
+      temAtletas300: /300\+/.test(texto),
+      temLaranjeira: /Laranjeira/.test(texto),
+
+      // Factos que têm de continuar lá
+      textoTodo: texto.replace(/\s+/g, ' '),
+    };
+  });
+  await ctx.close();
+  return { ...d, erros };
+}
+
+async function testarAdminHistoria(browser, url) {
+  const ctx = await browser.newContext({ extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' } });
+  const pg = await ctx.newPage();
+  const erros = [];
+  pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+  await pg.route('**', (rota) => {
+    const alvo = rota.request().url();
+    if (alvo.startsWith(url) || alvo.startsWith('data:') || alvo.startsWith('blob:')) return rota.continue();
+    return rota.abort();
+  });
+  await pg.goto(url + '/admin/index.html', { waitUntil: 'networkidle', timeout: 20000 });
+
+  const d = await pg.evaluate(() => {
+    const fora = {};
+    // A semente do painel vem do DB (admin/js/data.js), e é a única.
+    fora.sementeDoDB = typeof DB !== 'undefined'
+      && Array.isArray(DB.historia) && Array.isArray(DB.palmares);
+    fora.sementeMarcos  = fora.sementeDoDB ? DB.historia.length : 0;
+    fora.sementeTitulos = fora.sementeDoDB ? DB.palmares.length : 0;
+    fora.sementeSemLaranjeira = fora.sementeDoDB
+      && !JSON.stringify(DB.historia).includes('Laranjeira');
+    fora.sementeComFaisca = fora.sementeDoDB
+      && JSON.stringify(DB.historia).includes('Torneio Humberto Faísca');
+    fora.sementeBoxe1994 = fora.sementeDoDB
+      && DB.historia.some((h) => h.ano === 1994 && /boxe/i.test(h.titulo));
+    fora.sementeTenisMesa2012 = fora.sementeDoDB
+      && DB.palmares.some((t) => t.ano === 2012 && /Ténis de Mesa/.test(t.competicao));
+    fora.sementeSemId8 = fora.sementeDoDB && !DB.historia.some((h) => h.id === 8);
+    fora.sementeJuvenis2025 = fora.sementeDoDB
+      && DB.palmares.some((t) => t.ano === 2025 && /Juvenis/.test(t.escalao || '')
+                                 && /1\.ª Divisão Distrital/.test(t.observacao || ''));
+
+    // Modal do marco: caixa de publicação marcada por omissão.
+    if (typeof abrirModalHistoria === 'function') {
+      abrirModalHistoria();
+      fora.marcoAtivo = !!document.getElementById('hAtivo');
+      fora.marcoAtivoMarcado = !!(document.getElementById('hAtivo') || {}).checked;
+      if (typeof closeModal === 'function') closeModal();
+    }
+    // Modal do título: o escalão é texto livre, não um <select>.
+    if (typeof abrirModalPalmares === 'function') {
+      // Um título com um escalão que nenhuma lista fechada teria.
+      abrirModalPalmares({ id: 1, competicao: 'X', escalao: 'Traquinas A', ano: 2019, observacao: '' });
+      const campo = document.getElementById('pEscalao');
+      fora.escalaoEtiqueta = campo ? campo.tagName : null;
+      fora.escalaoPreservado = campo ? campo.value : null;
+      fora.escalaoTemSugestoes = !!document.getElementById('pEscalaoSugestoes');
+      fora.tituloAtivo = !!document.getElementById('pAtivo');
+      fora.tituloAtivoMarcado = !!(document.getElementById('pAtivo') || {}).checked;
+      if (typeof closeModal === 'function') closeModal();
+    }
+    // Os dois interruptores existem.
+    fora.temToggles = typeof toggleHistoria === 'function' && typeof togglePalmares === 'function';
+    return fora;
+  });
+  await ctx.close();
+  return { ...d, erros };
+}
+
 // ---------------------------------------------------------------------
 // Principal
 // ---------------------------------------------------------------------
@@ -2842,6 +3138,275 @@ async function testarAdminMedia(browser, url) {
       adm7.ytPartilhado === true);
     verificar('painel: sem exceções', adm7.erros.length === 0, adm7.erros.join(' | '));
 
+
+    // ---- 6e. Bloco 8: História ----------------------------------
+    // Os 22 marcos e os 16 títulos da história do clube desapareciam sem
+    // JavaScript, atrás de dois "A carregar..." permanentes. A fixture tem 14
+    // marcos e 10 títulos, feitos para medir cada regra.
+    console.log('\nhistória: cronologia e palmarés sem JavaScript');
+    {
+      const h = await testarHistoria(browser, srv.url, false, 1440);
+
+      // Publicáveis: 14 marcos menos o inativo, os dois sem título = 11.
+      verificar('cronologia: 11 marcos dos 14 registos',
+        h.marcos === 11, 'obtive ' + h.marcos);
+      verificar('cronologia: os marcos vêem-se sem JavaScript',
+        h.marcosVisiveis === 11, 'visíveis: ' + h.marcosVisiveis);
+      verificar('cronologia: nenhum "A carregar" ficou na página',
+        h.temCarregar === false);
+      verificar('cronologia: um <h3> por marco',
+        h.h3 === 11, 'obtive ' + h.h3);
+      verificar('cronologia: o data-itens declara os marcos gerados',
+        h.tlItens === '11', String(h.tlItens));
+      verificar('cronologia: sem estado vazio quando há marcos',
+        h.tlVazio === false);
+
+      // Ordenação crescente, com o desempate estável nos dois de 1990, e os
+      // dois sem ano utilizável no fim, sem elemento de ano.
+      verificar('cronologia: ano crescente, apesar de o array vir desordenado',
+        h.anos.join(' ') === '1947 1990 1990 2001 2002 2003 2004 2005 2009',
+        'anos: ' + h.anos.join(' '));
+      verificar('cronologia: dois marcos do mesmo ano mantêm a ordem do array',
+        h.titulos.indexOf('TESTE MARCO A MESMO ANO') < h.titulos.indexOf('TESTE MARCO B MESMO ANO'));
+      verificar('cronologia: os marcos sem ano utilizável ficam no fim, sem ano',
+        h.titulos[h.titulos.length - 2] === 'TESTE MARCO SEM ANO'
+        && h.titulos[h.titulos.length - 1] === 'TESTE MARCO ANO EM TEXTO'
+        && h.anos.length === 9,
+        'últimos: ' + h.titulos.slice(-2).join(' | ') + ' · anos: ' + h.anos.length);
+      verificar('cronologia: o ano do telemóvel acompanha o ano do ecrã grande',
+        h.anosMovel.join(' ') === h.anos.join(' '));
+
+      // Campos opcionais vazios não produzem elementos vazios.
+      verificar('cronologia: marco mínimo aparece só com ano e título',
+        h.titulos.includes('TESTE MARCO MINIMO'));
+      // Dos 11 publicados, quatro não têm descrição: três com o campo vazio e
+      // o marco mínimo, que não tem o campo.
+      verificar('cronologia: descrição vazia não produz parágrafo',
+        h.descricoes === 7, 'obtive ' + h.descricoes);
+      verificar('cronologia: só o marco em destaque leva a marca de destaque',
+        h.destaques === 1, 'obtive ' + h.destaques);
+
+      // ativo
+      verificar('cronologia: o marco sem o campo ativo é publicado',
+        h.titulos.includes('TESTE MARCO SEM CAMPO ATIVO'));
+      verificar('cronologia: o marco inativo não aparece',
+        !h.textoTodo.includes('TESTE MARCO NAO PUBLICADO'));
+      verificar('cronologia: o marco sem título não aparece',
+        !h.textoTodo.includes('Sem título, não vai para a página')
+        && !h.textoTodo.includes('Só espaços no título'));
+
+      // Imagens: decorativas, sem src="" e a resolver no browser.
+      verificar('cronologia: uma imagem, e é decorativa',
+        h.imagens.length === 1 && h.imagens[0].alt === ''
+        && h.imagens[0].ariaHidden === 'true',
+        JSON.stringify(h.imagens));
+      verificar('cronologia: a imagem com apóstrofo e parêntesis resolve no browser',
+        h.imagens[0] && h.imagens[0].completa === true,
+        'resolvida: ' + (h.imagens[0] || {}).resolvida);
+      verificar('cronologia: nenhuma imagem recusada produz src=""',
+        h.imgSemSrc === 0, 'obtive ' + h.imgSemSrc + ' imagens sem src');
+      verificar('cronologia: os dois marcos de imagem recusada saem sem <img>',
+        h.titulos.includes('TESTE MARCO IMAGEM JAVASCRIPT')
+        && h.titulos.includes('TESTE MARCO IMAGEM DATA')
+        && h.imagens.length === 1);
+
+      // Escape
+      verificar('cronologia: o título com & e <b> aparece como texto',
+        h.titulos.includes('TESTE MARCO C & <b>escape</b>'),
+        JSON.stringify(h.titulos.filter((t) => t.includes('escape'))));
+
+      // ---- Palmarés ----
+      // Publicáveis: 10 menos o inativo e o sem competição = 8.
+      verificar('palmarés: 8 títulos dos 10 registos',
+        h.cartoes === 8, 'obtive ' + h.cartoes);
+      verificar('palmarés: os cartões vêem-se sem JavaScript',
+        h.cartoesVisiveis === 8, 'visíveis: ' + h.cartoesVisiveis);
+      verificar('palmarés: o data-itens declara os títulos gerados',
+        h.pmItens === '8', String(h.pmItens));
+      verificar('palmarés: ano DECRESCENTE, e não a ordem do array',
+        h.competicoes[0] === 'TESTE TITULO MAIS RECENTE'
+        && h.competicoes[h.competicoes.length - 2] === 'TESTE TITULO MAIS ANTIGO',
+        'primeiro: ' + h.competicoes[0] + ' · penúltimo: ' + h.competicoes[h.competicoes.length - 2]);
+      verificar('palmarés: dois títulos do mesmo ano mantêm a ordem do array',
+        h.competicoes.indexOf('TESTE TITULO A MESMO ANO') < h.competicoes.indexOf('TESTE TITULO B MESMO ANO'));
+      verificar('palmarés: o título sem ano fica no fim',
+        h.competicoes[h.competicoes.length - 1] === 'TESTE TITULO SEM ANO',
+        'último: ' + h.competicoes[h.competicoes.length - 1]);
+      verificar('palmarés: o título sem o campo ativo é publicado',
+        h.competicoes.includes('TESTE TITULO SEM CAMPO ATIVO'));
+      verificar('palmarés: o título inativo não aparece',
+        !h.textoTodo.includes('TESTE TITULO NAO PUBLICADO'));
+      verificar('palmarés: o título sem competição não aparece',
+        h.escaloes.indexOf('Sub-13') === -1, 'escalões: ' + h.escaloes.join(' | '));
+      verificar('palmarés: o escalão de texto livre não se perde',
+        h.escaloes.includes('Traquinas A') && h.escaloes.includes('Sen. Femininos')
+        && h.escaloes.includes('Nome Do Atleta Teste'),
+        'escalões: ' + h.escaloes.join(' | '));
+      verificar('palmarés: escalão vazio não produz etiqueta vazia',
+        h.escaloes.every((e) => e !== ''), 'escalões: ' + JSON.stringify(h.escaloes));
+      verificar('palmarés: a observação com & e <b> aparece como texto',
+        h.metas.some((m) => m.includes('Observação com & e <i>etiquetas</i>')),
+        JSON.stringify(h.metas));
+      verificar('palmarés: sem observação a meta é só o ano',
+        h.metas.includes('2020') || h.metas.includes('2022'),
+        JSON.stringify(h.metas));
+
+      // Estrutura e acessibilidade
+      verificar('história: um h1 e os dois h2 das secções',
+        h.h1.length === 1 && h.h2.includes('Linha do Tempo') && h.h2.includes('Palmarés'));
+      verificar('história: sem JavaScript o CSS não esconde nada',
+        h.anima === false && h.naoRevelados === 0
+        && h.opacidades.every((o) => o === '1'), 'opacidades: ' + h.opacidades.join(' '));
+      verificar('história: a faixa de estatísticas sem fonte não existe',
+        h.temFaixa === false && h.temHStat === false);
+      verificar('história: nenhum número sem fonte na página',
+        h.temTitulos80 === false && h.temAtletas300 === false && h.temSeculo === false);
+      verificar('história: sem transbordo', h.transbordo <= 0, h.transbordo + 'px');
+      verificar('história: sem erros de consola', h.erros.length === 0, h.erros.join(' | '));
+    }
+
+    console.log('\nhistória: com JavaScript');
+    {
+      const h = await testarHistoria(browser, srv.url, true, 1440);
+      verificar('história: com JavaScript o número de itens é o mesmo',
+        h.marcos === 11 && h.cartoes === 8, h.marcos + ' marcos, ' + h.cartoes + ' títulos');
+      verificar('história: com JavaScript a ordem é a mesma',
+        h.anos.join(' ') === '1947 1990 1990 2001 2002 2003 2004 2005 2009'
+        && h.competicoes[0] === 'TESTE TITULO MAIS RECENTE',
+        'anos: ' + h.anos.join(' '));
+      // A revelação liga-se (html.jsc-anima) e revela o que entra no ecrã. O
+      // que se exige não é que todos os 19 itens fiquem marcados — isso
+      // depende da cadência do IntersectionObserver — mas que nada fique
+      // invisível estando visível na janela. É essa a falha que o visitante
+      // notaria.
+      verificar('história: a revelação liga-se e nada fica invisível estando no ecrã',
+        h.anima === true && h.invisiveisNoEcra === 0,
+        'anima=' + h.anima + ', invisíveis no ecrã: ' + h.invisiveisNoEcra
+        + ', detalhe: ' + JSON.stringify(h.detalheInvisiveis));
+      verificar('história: a revelação chegou a marcar itens como revelados',
+        h.naoRevelados < h.marcos + h.cartoes,
+        'nenhum dos ' + (h.marcos + h.cartoes) + ' foi revelado');
+      verificar('história: com JavaScript continua sem números sem fonte',
+        h.temTitulos80 === false && h.temAtletas300 === false);
+      verificar('história: com JavaScript sem erros de consola',
+        h.erros.length === 0, h.erros.join(' | '));
+    }
+
+    // O bloco gerado e atual não é redesenhado; um data-itens errado força o
+    // redesenho, e o que sai é o MESMO.
+    {
+      const his = path.join(raiz, 'historia.html');
+      const geradoTl = dentroDasMarcas(fs.readFileSync(his, 'utf8'), 'historia.html', 'historia');
+      const geradoPm = dentroDasMarcas(fs.readFileSync(his, 'utf8'), 'historia.html', 'palmares');
+      fs.writeFileSync(his, fs.readFileSync(his, 'utf8')
+        .replace(/(id="historiaTimeline"[^>]*data-itens=")\d+/, '$199')
+        .replace(/(id="historiaPalmares"[^>]*data-itens=")\d+/, '$199'));
+      const h = await testarHistoria(browser, srv.url, true, 1440);
+      verificar('história: data-itens errado força o redesenho e dá o mesmo resultado',
+        h.marcos === 11 && h.cartoes === 8
+        && h.anos.join(' ') === '1947 1990 1990 2001 2002 2003 2004 2005 2009'
+        && h.competicoes[0] === 'TESTE TITULO MAIS RECENTE',
+        h.marcos + ' marcos, ' + h.cartoes + ' títulos');
+      fs.writeFileSync(his, fs.readFileSync(his, 'utf8')
+        .replace(/(id="historiaTimeline"[^>]*data-itens=")99/, '$111')
+        .replace(/(id="historiaPalmares"[^>]*data-itens=")99/, '$18'));
+      // Byte a byte: o que o JavaScript desenha não pode diferir do gerado.
+      verificar('história: as regiões voltaram ao que o servidor gerou',
+        dentroDasMarcas(fs.readFileSync(his, 'utf8'), 'historia.html', 'historia') === geradoTl
+        && dentroDasMarcas(fs.readFileSync(his, 'utf8'), 'historia.html', 'palmares') === geradoPm);
+    }
+
+    // Impressão: o que está escrito sai no papel. Era o pior caso da
+    // revelação — o que o visitante não tivesse percorrido saía em branco.
+    {
+      const h = await testarHistoria(browser, srv.url, true, 1024,
+        { imprimir: true, semRolar: true });
+      verificar('história: na impressão nenhum marco fica escondido pela animação',
+        h.marcos === 11 && h.invisiveisNoEcra === 0
+        && h.opacidades.every((o) => o === '1'),
+        'opacidades: ' + h.opacidades.join(' ') + ', invisíveis: ' + h.invisiveisNoEcra);
+    }
+    // prefers-reduced-motion: a revelação deixa de esconder.
+    {
+      const h = await testarHistoria(browser, srv.url, true, 1024,
+        { movimentoReduzido: true, semRolar: true });
+      verificar('história: com movimento reduzido nada fica invisível',
+        h.marcos === 11 && h.invisiveisNoEcra === 0
+        && h.opacidades.every((o) => o === '1'),
+        'opacidades: ' + h.opacidades.join(' ') + ', invisíveis: ' + h.invisiveisNoEcra);
+    }
+
+    // As sete larguras, nas duas zonas.
+    console.log('\nhistória: sete larguras');
+    for (const largura of [320, 375, 390, 430, 768, 1024, 1440]) {
+      const h = await testarHistoria(browser, srv.url, true, largura);
+      verificar(`história a ${largura}px: sem transbordo e com tudo lá`,
+        h.transbordo <= 0 && h.marcos === 11 && h.cartoes === 8,
+        `transbordo ${h.transbordo}px, ${h.marcos} marcos, ${h.cartoes} títulos`);
+    }
+
+    // Base vazia: estado vazio honesto, e nenhuma das três cópias de volta.
+    console.log('\nhistória: base vazia');
+    {
+      escreverDados(raiz, { ...dados, historia: [], palmares: [] });
+      gerar(raiz);
+      for (const comJs of [false, true]) {
+        const h = await testarHistoria(browser, srv.url, comJs, 1024);
+        verificar(`história sem dados (${comJs ? 'com' : 'sem'} JS): nenhum marco nem título`,
+          h.marcos === 0 && h.cartoes === 0, h.marcos + ' / ' + h.cartoes);
+        verificar(`história sem dados (${comJs ? 'com' : 'sem'} JS): os dois estados vazios aparecem`,
+          h.tlVazio === true && h.pmVazio === true);
+        verificar(`história sem dados (${comJs ? 'com' : 'sem'} JS): nenhum dos 38 factos volta`,
+          !/Fundação do Clube|Pedro Correia Bota|III Divisão Nacional|Medalha Municipal/.test(h.textoTodo),
+          'as três cópias antigas não podem reaparecer como fallback');
+        verificar(`história sem dados (${comJs ? 'com' : 'sem'} JS): sem transbordo`,
+          h.transbordo <= 0, h.transbordo + 'px');
+      }
+      // Todos inativos dá o mesmo que base vazia.
+      escreverDados(raiz, {
+        ...dados,
+        historia: (dados.historia || []).map((h) => ({ ...h, ativo: false })),
+        palmares: (dados.palmares || []).map((t) => ({ ...t, ativo: false })),
+      });
+      gerar(raiz);
+      const h = await testarHistoria(browser, srv.url, false, 1024);
+      verificar('história com tudo inativo: nada publicado e os estados vazios visíveis',
+        h.marcos === 0 && h.cartoes === 0 && h.tlVazio === true && h.pmVazio === true);
+      escreverDados(raiz, dados);
+      gerar(raiz);
+    }
+
+    console.log('\nhistória: painel');
+    {
+      const a8 = await testarAdminHistoria(browser, srv.url);
+      verificar('painel: a semente da história vem do DB, e é a única',
+        a8.sementeDoDB === true && a8.sementeMarcos === 22 && a8.sementeTitulos === 16,
+        a8.sementeMarcos + ' marcos, ' + a8.sementeTitulos + ' títulos');
+      verificar('painel: a designação do torneio foi uniformizada',
+        a8.sementeSemLaranjeira === true && a8.sementeComFaisca === true);
+      verificar('painel: a subida dos Juvenis de 2025 diz 1.ª Divisão Distrital',
+        a8.sementeJuvenis2025 === true);
+      verificar('painel: o Boxe de 1994 continua na história',
+        a8.sementeBoxe1994 === true);
+      verificar('painel: o Ténis de Mesa de 2012 continua no palmarés',
+        a8.sementeTenisMesa2012 === true);
+      verificar('painel: nenhum acontecimento foi inventado para o id 8',
+        a8.sementeSemId8 === true, 'o buraco fica como está');
+      verificar('painel: o marco tem caixa de publicado, marcada por omissão',
+        a8.marcoAtivo === true && a8.marcoAtivoMarcado === true);
+      verificar('painel: o título tem caixa de publicado, marcada por omissão',
+        a8.tituloAtivo === true && a8.tituloAtivoMarcado === true);
+      verificar('painel: o escalão do palmarés é texto livre, não um <select>',
+        a8.escalaoEtiqueta === 'INPUT', String(a8.escalaoEtiqueta));
+      verificar('painel: editar um título NÃO perde o escalão "Traquinas A"',
+        a8.escalaoPreservado === 'Traquinas A', String(a8.escalaoPreservado));
+      verificar('painel: os valores em uso ficam como sugestão, não como imposição',
+        a8.escalaoTemSugestoes === true);
+      verificar('painel: existem os dois interruptores de publicar/despublicar',
+        a8.temToggles === true);
+      verificar('painel: sem exceções', a8.erros.length === 0, a8.erros.join(' | '));
+    }
+
     // ---- 6c. Bloco 6: modalidades -------------------------------
     console.log('\nmodalidades: fonte única');
     const modAtivas = dados.modalidades.filter((m) => m.ativo !== false
@@ -3108,6 +3673,8 @@ async function testarAdminMedia(browser, url) {
       ['/modelos/galeria-inicio.php', 403],
       ['/modelos/galeria-pagina.php', 403],
       ['/modelos/videos.php', 403],
+      ['/modelos/historia-cronologia.php', 403],
+      ['/modelos/historia-palmares.php', 403],
       ['/data/publicacao/anterior/index.html', 403],
       ['/data/publicacao/transacao.json', 403],
       ['/data/db.json', 403],

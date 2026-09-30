@@ -785,10 +785,14 @@ function jsc_modalidades(array $conteudo) {
 // título e a descrição são texto livre de quem publica.
 
 // Está publicado? Um registo sem o campo conta como publicado, para não
-// esconder o que já esteja lá. Réplica exacta do jscMediaAtivo() do
-// js/html.js.
+// esconder o que já esteja lá.
+//
+// A regra é a mesma para fotografias, vídeos, marcos históricos e títulos do
+// palmarés, e por isso vive num sítio só — o jsc_ativo() mais abaixo. Este
+// nome fica porque é o que os blocos do Bloco 7 usam; o comportamento é, à
+// letra, o mesmo de antes. Réplica exacta do jscMediaAtivo() do js/html.js.
 function jsc_media_ativo($valor) {
-    return $valor !== false;
+    return jsc_ativo($valor);
 }
 
 // O id de um vídeo do YouTube, a partir de qualquer dos endereços que o painel
@@ -929,5 +933,153 @@ function jsc_videos(array $conteudo) {
             'embed'     => 'https://www.youtube.com/embed/' . $id . '?autoplay=1&rel=0',
         ];
     }
+    return $fora;
+}
+
+// =====================================================
+// HISTÓRIA DO CLUBE — cronologia e palmarés
+// =====================================================
+// Estes dois blocos são factos históricos do clube. A regra que os governa é
+// diferente de todas as outras da Fase C: onde uma notícia mal preenchida se
+// descarta sem perda, um marco histórico perdido não se recupera. Por isso
+// aqui não se descarta por falta de campos opcionais — só o que não tem nome
+// não pode ser publicado, porque não haveria título nem nome acessível.
+//
+// Não existe fallback. Havia três cópias completas dos 38 registos no código
+// — js/historia.js, admin/js/admin.js e js/pesquisa.js — e saíram as três. A
+// semente única está em admin/js/data.js, ao lado dos escalões e das
+// modalidades. Base vazia mostra o estado vazio; nunca reaparece história
+// escrita no código.
+
+// Está publicado? Campo ausente conta como publicado, para não esconder
+// registos que nunca o tiveram. É a mesma regra do jsc_media_ativo() do
+// Bloco 7, que agora delega aqui em vez de a repetir.
+// Réplica exacta do jscAtivo() do js/html.js.
+function jsc_ativo($valor) {
+    return $valor !== false;
+}
+
+// Ordenação estável por ano, sem depender da estabilidade do sort da
+// linguagem. O alojamento de campinense.pt corre PHP 7.4, onde o usort() NÃO
+// é estável — só passou a ser no PHP 8.0. Sem o índice como critério de
+// desempate, dois títulos do mesmo ano podiam sair em ordens diferentes em
+// 7.4 e em 8.3, e a comparação byte a byte do gerador acusava a diferença.
+// O Array.prototype.sort() do JavaScript é estável desde o ES2019, logo é o
+// índice que garante a paridade entre os dois lados.
+//
+// Réplica exacta do jscOrdenarPorAno() do js/html.js.
+function jsc_ordenar_por_ano(array $lista, $crescente) {
+    $com_indice = [];
+    foreach ($lista as $i => $item) {
+        $com_indice[] = ['i' => $i, 'item' => $item];
+    }
+    usort($com_indice, function ($a, $b) use ($crescente) {
+        $aa = isset($a['item']['_ano']) ? $a['item']['_ano'] : 0;
+        $bb = isset($b['item']['_ano']) ? $b['item']['_ano'] : 0;
+        if ($aa !== $bb) return $crescente ? ($aa < $bb ? -1 : 1) : ($aa > $bb ? -1 : 1);
+        return $a['i'] < $b['i'] ? -1 : ($a['i'] > $b['i'] ? 1 : 0);
+    });
+    $fora = [];
+    foreach ($com_indice as $e) $fora[] = $e['item'];
+    return $fora;
+}
+
+// O ano de um registo histórico, como número, ou 0 quando não há nenhum
+// utilizável. Um ano com texto ('mil novecentos') dá 0: não se adivinha.
+// Réplica exacta do jscAnoHistorico() do js/html.js.
+function jsc_ano_historico($valor) {
+    if (is_int($valor)) return $valor;
+    $s = trim((string)$valor);
+    if ($s === '' || !preg_match('/^-?\d+$/', $s)) return 0;
+    return (int)$s;
+}
+
+// Os marcos publicáveis, por ano CRESCENTE — a cronologia lê-se do início
+// para o presente. Mesma ordem que o painel mostra.
+//
+// Um marco sem ano utilizável não é descartado: fica no fim, sem o elemento
+// do ano. Perder um facto por causa de um campo mal preenchido seria pior do
+// que publicá-lo sem a data.
+function jsc_historia(array $conteudo) {
+    $lista = (isset($conteudo['historia']) && is_array($conteudo['historia']))
+           ? $conteudo['historia'] : [];
+
+    $texto = function ($h, $chave) {
+        return (isset($h[$chave]) && is_string($h[$chave])) ? trim($h[$chave]) : '';
+    };
+
+    $fora = [];
+    foreach ($lista as $h) {
+        if (!is_array($h)) continue;
+        if (!jsc_ativo(isset($h['ativo']) ? $h['ativo'] : null)) continue;
+
+        // Sem título não há <h3> nem nome acessível: o registo fica nos dados,
+        // mas não vai para a página.
+        $titulo = $texto($h, 'titulo');
+        if ($titulo === '') continue;
+
+        $ano = jsc_ano_historico(isset($h['ano']) ? $h['ano'] : null);
+
+        // jsc_esc_url() recusa javascript:, vbscript: e data: que não seja de
+        // imagem. Um endereço recusado conta como ausente: o marco sai sem
+        // imagem, em vez de produzir <img src="">, que em vários browsers
+        // reemite o pedido do próprio documento.
+        $imagem = $texto($h, 'imagem');
+        if ($imagem !== '' && jsc_esc_url($imagem) === '') $imagem = '';
+
+        $fora[] = [
+            '_ano'      => $ano === 0 ? PHP_INT_MAX : $ano,  // sem ano vai para o fim
+            'ano'       => $ano === 0 ? '' : (string)$ano,
+            'titulo'    => $titulo,
+            'descricao' => $texto($h, 'descricao'),
+            'imagem'    => $imagem,
+            'destaque'  => !empty($h['destaque']),
+        ];
+    }
+
+    $fora = jsc_ordenar_por_ano($fora, true);
+    foreach ($fora as &$e) unset($e['_ano']);
+    unset($e);
+    return $fora;
+}
+
+// Os títulos publicáveis, por ano DECRESCENTE — o palmarés lê-se do mais
+// recente para trás. Mesma ordem que o painel mostra.
+//
+// Sem competição não é publicado: é o nome do título, e sem ele o cartão não
+// diz nada. Um título sem ano fica no fim, sem o ano.
+function jsc_palmares(array $conteudo) {
+    $lista = (isset($conteudo['palmares']) && is_array($conteudo['palmares']))
+           ? $conteudo['palmares'] : [];
+
+    $texto = function ($t, $chave) {
+        return (isset($t[$chave]) && is_string($t[$chave])) ? trim($t[$chave]) : '';
+    };
+
+    $fora = [];
+    foreach ($lista as $t) {
+        if (!is_array($t)) continue;
+        if (!jsc_ativo(isset($t['ativo']) ? $t['ativo'] : null)) continue;
+
+        $competicao = $texto($t, 'competicao');
+        if ($competicao === '') continue;
+
+        $ano = jsc_ano_historico(isset($t['ano']) ? $t['ano'] : null);
+
+        $fora[] = [
+            '_ano'       => $ano === 0 ? PHP_INT_MIN : $ano,  // sem ano vai para o fim
+            'ano'        => $ano === 0 ? '' : (string)$ano,
+            'competicao' => $competicao,
+            // O escalão guarda hoje grupos etários ('Sub-17'), designações
+            // ('Traquinas A', 'Sen. Femininos') e nomes de atletas. É texto
+            // livre de propósito: um <select> fechado apagava-os ao editar.
+            'escalao'    => $texto($t, 'escalao'),
+            'observacao' => $texto($t, 'observacao'),
+        ];
+    }
+
+    $fora = jsc_ordenar_por_ano($fora, false);
+    foreach ($fora as &$e) unset($e['_ano']);
+    unset($e);
     return $fora;
 }

@@ -1171,5 +1171,200 @@
       "descricao": "TESTE VIDEO SEM TITULO NAO APARECE",
       "ativo": true
     }
+  ],
+  "historia": [
+    {
+      "id": 1,
+      "ano": 1990,
+      "titulo": "TESTE MARCO A MESMO ANO",
+      "descricao": "Primeiro do array em 1990.",
+      "imagem": "",
+      "destaque": false,
+      "ativo": true
+    },
+    {
+      "id": 2,
+      "ano": 1990,
+      "titulo": "TESTE MARCO B MESMO ANO",
+      "descricao": "Segundo do array em 1990.",
+      "imagem": "",
+      "destaque": false,
+      "ativo": true
+    },
+    {
+      "id": 3,
+      "ano": 1947,
+      "titulo": "TESTE MARCO FUNDACAO",
+      "descricao": "O mais antigo, escrito em terceiro lugar no array.",
+      "imagem": "",
+      "destaque": true,
+      "ativo": true
+    },
+    {
+      "id": 4,
+      "ano": 2001,
+      "titulo": "TESTE MARCO COM IMAGEM",
+      "descricao": "",
+      "imagem": "images/logo.png?x=a'b(1)&y=2",
+      "destaque": false,
+      "ativo": true
+    },
+    {
+      "id": 5,
+      "ano": 2002,
+      "titulo": "TESTE MARCO IMAGEM JAVASCRIPT",
+      "descricao": "",
+      "imagem": "javascript:alert(1)",
+      "destaque": false,
+      "ativo": true
+    },
+    {
+      "id": 6,
+      "ano": 2003,
+      "titulo": "TESTE MARCO IMAGEM DATA",
+      "descricao": "",
+      "imagem": "data:text/html,<script>alert(1)</script>",
+      "destaque": false,
+      "ativo": true
+    },
+    {
+      "id": 7,
+      "ano": 2004,
+      "titulo": "TESTE MARCO C & <b>escape</b>",
+      "descricao": "Descrição com & e <i>etiquetas</i> e 'apóstrofo'.",
+      "imagem": "",
+      "destaque": false,
+      "ativo": true
+    },
+    {
+      "id": 8,
+      "ano": 2005,
+      "titulo": "TESTE MARCO SEM CAMPO ATIVO",
+      "descricao": "Sem o campo ativo.",
+      "imagem": ""
+    },
+    {
+      "id": 9,
+      "ano": 2006,
+      "titulo": "TESTE MARCO NAO PUBLICADO",
+      "descricao": "",
+      "imagem": "",
+      "destaque": false,
+      "ativo": false
+    },
+    {
+      "id": 10,
+      "ano": 2007,
+      "titulo": "",
+      "descricao": "Sem título, não vai para a página.",
+      "imagem": "",
+      "ativo": true
+    },
+    {
+      "id": 11,
+      "ano": 2008,
+      "titulo": "   ",
+      "descricao": "Só espaços no título.",
+      "imagem": "",
+      "ativo": true
+    },
+    {
+      "id": 12,
+      "ano": "",
+      "titulo": "TESTE MARCO SEM ANO",
+      "descricao": "Sem ano, vai para o fim.",
+      "imagem": "",
+      "ativo": true
+    },
+    {
+      "id": 13,
+      "ano": "mil novecentos",
+      "titulo": "TESTE MARCO ANO EM TEXTO",
+      "descricao": "Ano em texto, tratado como ausente.",
+      "imagem": "",
+      "ativo": true
+    },
+    {
+      "id": 14,
+      "ano": 2009,
+      "titulo": "TESTE MARCO MINIMO"
+    }
+  ],
+  "palmares": [
+    {
+      "id": 1,
+      "competicao": "TESTE TITULO MAIS ANTIGO",
+      "escalao": "Seniores",
+      "ano": 1984,
+      "observacao": "O primeiro do array.",
+      "ativo": true
+    },
+    {
+      "id": 2,
+      "competicao": "TESTE TITULO A MESMO ANO",
+      "escalao": "Traquinas A",
+      "ano": 2019,
+      "observacao": "Primeiro de 2019 no array.",
+      "ativo": true
+    },
+    {
+      "id": 3,
+      "competicao": "TESTE TITULO B MESMO ANO",
+      "escalao": "Sen. Femininos",
+      "ano": 2019,
+      "observacao": "Segundo de 2019 no array.",
+      "ativo": true
+    },
+    {
+      "id": 4,
+      "competicao": "TESTE TITULO MAIS RECENTE",
+      "escalao": "Juvenis (Sub-17)",
+      "ano": 2026,
+      "observacao": "O último do array.",
+      "ativo": true
+    },
+    {
+      "id": 5,
+      "competicao": "TESTE TITULO COM NOME",
+      "escalao": "Nome Do Atleta Teste",
+      "ano": 2020,
+      "observacao": "",
+      "ativo": true
+    },
+    {
+      "id": 6,
+      "competicao": "TESTE TITULO C & <b>escape</b>",
+      "escalao": "Sub-15",
+      "ano": 2021,
+      "observacao": "Observação com & e <i>etiquetas</i>.",
+      "ativo": true
+    },
+    {
+      "id": 7,
+      "competicao": "TESTE TITULO SEM CAMPO ATIVO",
+      "escalao": "",
+      "ano": 2022
+    },
+    {
+      "id": 8,
+      "competicao": "TESTE TITULO NAO PUBLICADO",
+      "escalao": "Sub-19",
+      "ano": 2023,
+      "ativo": false
+    },
+    {
+      "id": 9,
+      "competicao": "",
+      "escalao": "Sub-13",
+      "ano": 2024,
+      "ativo": true
+    },
+    {
+      "id": 10,
+      "competicao": "TESTE TITULO SEM ANO",
+      "escalao": "Geral",
+      "ano": "",
+      "ativo": true
+    }
   ]
 }
