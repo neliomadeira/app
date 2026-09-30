@@ -700,3 +700,75 @@ function jsc_patrocinadores(array $conteudo) {
     }
     return $fora;
 }
+
+// ---- Modalidades ----------------------------------------------------
+//
+// Fonte única: o db_modalidades do painel. A página inicial tinha três
+// cartões escritos à mão — Kickboxing, Judo e Futsal, com as descrições —,
+// e ficavam lá sempre que a base estivesse vazia. Saíram. As modalidades
+// continuam nos dados persistentes; o que saiu foi a cópia no código.
+//
+// Nenhum horário, local ou responsável escrito aqui. Os três estão vazios
+// nos dados, e é esse o estado certo: não foram confirmados.
+
+// Está ativa? Uma modalidade sem o campo conta como ativa — é a regra que o
+// site já usa (ativo !== false), e apertá-la esconderia modalidades que hoje
+// aparecem. Réplica exacta do jscModalidadeAtiva() do js/html.js.
+function jsc_modalidade_ativa($valor) {
+    return $valor !== false;
+}
+
+// As modalidades publicáveis, pela ordem do array — a ordem em que o painel
+// as mostra. Não há campo de ordenação nem forma de reordenar; não se inventa
+// aqui uma ordem que ninguém pode controlar.
+//
+// Inativa não aparece. Sem nome é descartada: sem nome não há título nem
+// identificação nenhuma do cartão.
+function jsc_modalidades(array $conteudo) {
+    $lista = (isset($conteudo['modalidades']) && is_array($conteudo['modalidades']))
+           ? $conteudo['modalidades'] : [];
+
+    $texto = function ($m, $chave) {
+        return (isset($m[$chave]) && is_string($m[$chave])) ? trim($m[$chave]) : '';
+    };
+
+    $fora = [];
+    foreach ($lista as $m) {
+        if (!is_array($m)) continue;
+        if (!jsc_modalidade_ativa(isset($m['ativo']) ? $m['ativo'] : null)) continue;
+
+        $nome = $texto($m, 'nome');
+        if ($nome === '') continue;
+
+        // Os itens da barra do cartão, pela ordem em que aparecem. Só entram
+        // os que têm valor; sem nenhum, não há a caixa — que desenha um traço
+        // e 14px de espaço mesmo quando está vazia.
+        $itens = [];
+        foreach ([
+            ['chave' => 'treinos',     'icone' => '&#128337;'],
+            ['chave' => 'local',       'icone' => '&#128205;'],
+            ['chave' => 'responsavel', 'icone' => '&#128100;'],
+        ] as $campo) {
+            $valor = $texto($m, $campo['chave']);
+            if ($valor === '') continue;
+            $itens[] = ['icone' => $campo['icone'], 'valor' => $valor];
+        }
+
+        $pos = $texto($m, 'imagemPos');
+
+        $fora[] = [
+            'nome'      => $nome,
+            // O ícone é um emoji escrito no painel. Vai escapado: era o único
+            // campo desta zona que entrava em innerHTML sem escape.
+            'icone'     => $texto($m, 'icone') !== '' ? $texto($m, 'icone') : '🏅',
+            'descricao' => $texto($m, 'descricao'),
+            'itens'     => $itens,
+            'imagem'    => $texto($m, 'imagem'),
+            'imagemPos' => $pos !== '' ? $pos : 'center',
+            // O id vai no valor de um parâmetro, por isso é percent-encoded
+            // antes de ser escapado como atributo.
+            'url'       => 'modalidade.html?id=' . jsc_enc_uri(isset($m['id']) ? $m['id'] : ''),
+        ];
+    }
+    return $fora;
+}

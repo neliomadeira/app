@@ -1,11 +1,9 @@
 (function () {
-  // Hamburger menu
-  const hamburger = document.getElementById('hamburger');
-  const nav       = document.getElementById('nav');
-  hamburger?.addEventListener('click', () => {
-    hamburger.classList.toggle('open');
-    nav.classList.toggle('open');
-  });
+  // Havia aqui um segundo ouvinte do hamburger, igual ao do js/nav.js, que
+  // esta página também carrega. Os dois alternavam as mesmas classes no mesmo
+  // clique: o menu abria e fechava no mesmo instante, e nunca chegava a
+  // aparecer. O aria-expanded que o nav.js escreve ficava também
+  // dessincronizado do estado visível. Ficou só o do js/nav.js.
 
   const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   function ptDate(str) {
@@ -14,11 +12,11 @@
     return `${d.getDate()} de ${MESES[d.getMonth()]}, ${d.getFullYear()}`;
   }
 
-  var DEFAULT_MODALIDADES = [
-    { id:1, nome:'Kickboxing', icone:'🥊', descricao:'Artes marciais de impacto que combinam técnicas de boxe e karaté. Aberto a todas as idades e níveis, com grupos adaptados.', treinos:'', local:'', responsavel:'', ativo:true, imagem:'', imagemPos:'center' },
-    { id:2, nome:'Judo',       icone:'🥋', descricao:'Arte marcial japonesa focada em técnicas de projeção e imobilização. Desenvolve disciplina, respeito e autoconfiança desde criança.', treinos:'', local:'', responsavel:'', ativo:true, imagem:'', imagemPos:'center' },
-    { id:3, nome:'Futsal',     icone:'⚽', descricao:'Futebol em espaço reduzido que potencia a técnica e velocidade de decisão. Escalões de formação com competição distrital.', treinos:'', local:'', responsavel:'', ativo:true, imagem:'', imagemPos:'center' },
-  ];
+  // Havia aqui um DEFAULT_MODALIDADES com três modalidades e as respectivas
+  // descrições, usado quando o db_modalidades não existisse. Saiu: sem dados
+  // publicados, a página diz que a modalidade não existe, em vez de mostrar
+  // uma que talvez já não exista. As modalidades continuam nos dados
+  // persistentes do painel — o que saiu foi a cópia no código.
 
   let posts = []; // partilhado com openPost
 
@@ -27,8 +25,17 @@
     const params = new URLSearchParams(window.location.search);
     const modId  = parseInt(params.get('id'));
     var rawMod   = localStorage.getItem('db_modalidades');
-    const lista  = rawMod ? JSON.parse(rawMod) : DEFAULT_MODALIDADES;
-    const m      = lista.find(x => x.id == modId);
+    var lista    = [];
+    try { lista = rawMod ? JSON.parse(rawMod) : []; } catch (e) { lista = []; }
+    // Uma modalidade desativada no painel deixa de estar publicada também por
+    // endereço directo: antes saía da página inicial e continuava aqui,
+    // completa, para quem tivesse a ligação.
+    //
+    // E sem nome é tratada como inexistente, pela mesma razão: a grelha
+    // descarta-a, e por endereço directo abria com um título vazio.
+    const m = lista.find(x => x && x.id == modId
+      && jscModalidadeAtiva(x.ativo)
+      && String(x.nome || '').trim() !== '');
 
     if (!m) {
       document.getElementById('modNome').textContent = 'Modalidade não encontrada';
@@ -47,9 +54,15 @@
     document.getElementById('modDesc').textContent  = m.descricao || '';
 
     // Hero background
-    if (m.imagem) {
+    // jscUrlCss() e não o endereço cru: isto vai dentro de um url('...') de
+    // CSS, e um apóstrofo no endereço fechava a função — o resto do valor
+    // passava a ser CSS. Aqui usa-se a versão sem escape de HTML, porque o
+    // valor é atribuído a style.backgroundImage e não passa por um parser de
+    // HTML: escapá-lo transformaria um & legítimo da query em &amp;.
+    const endereco = jscUrlCss(m.imagem);
+    if (endereco) {
       const hero = document.getElementById('modHero');
-      hero.style.backgroundImage    = `linear-gradient(rgba(0,27,77,0.72),rgba(0,27,77,0.72)),url('${m.imagem}')`;
+      hero.style.backgroundImage    = `linear-gradient(rgba(0,27,77,0.72),rgba(0,27,77,0.72)),url('${endereco}')`;
       hero.style.backgroundSize     = 'cover';
       hero.style.backgroundPosition = m.imagemPos || 'center';
     }

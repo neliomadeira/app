@@ -51,17 +51,44 @@
       .join('');
   }
 
-  // Para URLs que vão dentro de url('...') numa folha de estilo. Além do
-  // escape de HTML e da recusa de esquemas perigosos, os caracteres que
-  // fechariam a função ou a string são percent-encoded: sem isso, um
-  // apóstrofo no nome do ficheiro fecha o url(...) e o resto do valor passa
-  // a ser CSS.
+  // Para URLs atribuídos DIRECTAMENTE a uma propriedade de style — o
+  // element.style.backgroundImage de um url('...'). Recusa esquemas
+  // perigosos e percent-encode os caracteres que fechariam a função ou a
+  // string: sem isso, um apóstrofo no nome do ficheiro fecha o url(...) e o
+  // resto do valor passa a ser CSS.
+  //
+  // Aqui NÃO se escapa HTML. O valor não passa por um parser de HTML, e
+  // escapá-lo transformaria um & legítimo da query em &amp; — a imagem
+  // deixava de carregar. Para um style="..." dentro de innerHTML é o
+  // jscEscUrlCss() abaixo que serve.
+  // A ordem é a mesma do jsc_esc_url_css() do api/conteudo.php: primeiro o
+  // percent-encoding, depois o trim e a recusa de esquemas. Trocá-la fazia
+  // os dois divergirem num endereço com espaços à volta — o PHP encodava-os
+  // e o JavaScript cortava-os.
+  function jscUrlCss(valor) {
+    if (valor === null || valor === undefined) return '';
+    var s = String(valor).replace(/['"()\\\s]/g, pctCss).trim();
+    if (/^\s*(javascript|vbscript)\s*:/i.test(s)) return '';
+    if (/^\s*data\s*:/i.test(s) && !/^\s*data:image\//i.test(s)) return '';
+    return s;
+  }
+
+  // Para URLs que vão dentro de url('...') num style="..." escrito em
+  // innerHTML: o mesmo que o jscUrlCss(), mais o escape de HTML que esse
+  // contexto exige. Construído sobre ele, para não haver duas versões da
+  // mesma regra.
   //
   // Tem de dar exatamente o mesmo resultado que o jsc_esc_url_css() do
   // api/conteudo.php: o mesmo cartão é desenhado aqui e gerado lá.
   function jscEscUrlCss(valor) {
-    if (valor === null || valor === undefined) return '';
-    return jscEscUrl(String(valor).replace(/['"()\\\s]/g, pctCss));
+    return jscEsc(jscUrlCss(valor));
+  }
+
+  // Uma modalidade está ativa? Uma modalidade sem o campo conta como ativa —
+  // é a regra que o site já usa, e apertá-la esconderia modalidades que hoje
+  // aparecem. Réplica exacta do jsc_modalidade_ativa() do api/conteudo.php.
+  function jscModalidadeAtiva(valor) {
+    return valor !== false;
   }
 
   // O dia de hoje em AAAA-MM-DD, na hora local de quem visita.
@@ -152,7 +179,9 @@
 
   global.jscEsc = jscEsc;
   global.jscEscUrl = jscEscUrl;
+  global.jscUrlCss = jscUrlCss;
   global.jscEscUrlCss = jscEscUrlCss;
+  global.jscModalidadeAtiva = jscModalidadeAtiva;
   global.jscHojeISO = jscHojeISO;
   global.jscBlocoAtual = jscBlocoAtual;
   global.jscIniciais = jscIniciais;

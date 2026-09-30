@@ -209,44 +209,20 @@
         <h2 class="section__title">Modalidades</h2>
       </div>
       <p class="section__subtitle">Para além do futebol, o clube oferece outras atividades desportivas para todas as idades e níveis.</p>
+      <!-- Os cartões das modalidades são escritos pela geração
+           (modelos/modalidades.php) e, com JavaScript, pelo js/main.js. A
+           fonte é o db_modalidades do painel.
+           Estavam aqui três cartões escritos à mão, com nome, ícone e
+           descrição iguais aos dados de arranque do painel, e ficavam na
+           página sempre que a base estivesse vazia — podendo já não
+           corresponder ao que o painel tinha. As modalidades continuam nos
+           dados persistentes; o que saiu foi a cópia no código.
+           Não voltar a pôr cartões nesta região. -->
+      <!-- JSC:modalidades:inicio -->
       <div class="modalities__grid" id="modalidadesGrid">
-        <div class="modality-card">
-          <div class="modality-card__icon-wrap">
-            <span class="modality-card__icon">🥊</span>
-          </div>
-          <div class="modality-card__body">
-            <h3 class="modality-card__name">Kickboxing</h3>
-            <p class="modality-card__desc">Artes marciais de impacto que combinam técnicas de boxe e karaté. Aberto a todas as idades e níveis, com grupos adaptados.</p>
-            <div class="modality-card__info">
-            </div>
-            <a href="modalidade.html?id=1" class="modality-card__link">Ver mais &rarr;</a>
-          </div>
-        </div>
-        <div class="modality-card">
-          <div class="modality-card__icon-wrap">
-            <span class="modality-card__icon">🥋</span>
-          </div>
-          <div class="modality-card__body">
-            <h3 class="modality-card__name">Judo</h3>
-            <p class="modality-card__desc">Arte marcial japonesa focada em técnicas de projeção e imobilização. Desenvolve disciplina, respeito e autoconfiança desde criança.</p>
-            <div class="modality-card__info">
-            </div>
-            <a href="modalidade.html?id=2" class="modality-card__link">Ver mais &rarr;</a>
-          </div>
-        </div>
-        <div class="modality-card">
-          <div class="modality-card__icon-wrap">
-            <span class="modality-card__icon">⚽</span>
-          </div>
-          <div class="modality-card__body">
-            <h3 class="modality-card__name">Futsal</h3>
-            <p class="modality-card__desc">Futebol em espaço reduzido que potencia a técnica e velocidade de decisão. Escalões de formação com competição distrital.</p>
-            <div class="modality-card__info">
-            </div>
-            <a href="modalidade.html?id=3" class="modality-card__link">Ver mais &rarr;</a>
-          </div>
-        </div>
+        <p class="jsc-vazio">Modalidades a atualizar.</p>
       </div>
+      <!-- JSC:modalidades:fim -->
     </div>
   </section>
 

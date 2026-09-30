@@ -798,5 +798,174 @@
       "logo": "",
       "ativo": true
     }
+  ],
+  "modalidades": [
+    {
+      "id": 601,
+      "nome": "TESTE MODALIDADE COMPLETA",
+      "icone": "🥊",
+      "descricao": "TESTE DESCRICAO DA MODALIDADE",
+      "treinos": "TESTE HORARIO",
+      "local": "TESTE LOCAL",
+      "responsavel": "TESTE RESPONSAVEL",
+      "imagem": "images/logo.png?x=a'b(1)",
+      "imagemPos": "top",
+      "ativo": true
+    },
+    {
+      "id": 602,
+      "nome": "TESTE SO NOME",
+      "icone": "",
+      "descricao": "",
+      "treinos": "",
+      "local": "",
+      "responsavel": "",
+      "imagem": "",
+      "imagemPos": "",
+      "ativo": true
+    },
+    {
+      "id": 603,
+      "nome": "TESTE SO TREINOS",
+      "icone": "🥋",
+      "descricao": "",
+      "treinos": "TESTE SO O HORARIO",
+      "local": "",
+      "responsavel": "",
+      "imagem": "",
+      "imagemPos": "center",
+      "ativo": true
+    },
+    {
+      "id": 604,
+      "nome": "TESTE SO LOCAL",
+      "icone": "⚽",
+      "descricao": "",
+      "treinos": "",
+      "local": "TESTE SO O LOCAL",
+      "responsavel": "",
+      "imagem": "",
+      "imagemPos": "",
+      "ativo": true
+    },
+    {
+      "id": 605,
+      "nome": "TESTE SO RESPONSAVEL",
+      "icone": "",
+      "descricao": "",
+      "treinos": "",
+      "local": "",
+      "responsavel": "TESTE SO O RESPONSAVEL",
+      "imagem": "",
+      "imagemPos": "",
+      "ativo": true
+    },
+    {
+      "id": 606,
+      "nome": "TESTE IMAGEM SIMPLES",
+      "icone": "",
+      "descricao": "",
+      "treinos": "",
+      "local": "",
+      "responsavel": "",
+      "imagem": "images/logo.png",
+      "imagemPos": "bottom",
+      "ativo": true
+    },
+    {
+      "id": 607,
+      "nome": "TESTE ICONE COM HTML",
+      "icone": "<b>&x</b>",
+      "descricao": "",
+      "treinos": "",
+      "local": "",
+      "responsavel": "",
+      "imagem": "",
+      "imagemPos": "",
+      "ativo": true
+    },
+    {
+      "id": 608,
+      "nome": "TESTE ATIVO AUSENTE",
+      "icone": "",
+      "descricao": "",
+      "treinos": "",
+      "local": "",
+      "responsavel": "",
+      "imagem": "",
+      "imagemPos": ""
+    },
+    {
+      "id": "609 a&b/c",
+      "nome": "TESTE ID DIFICIL",
+      "icone": "",
+      "descricao": "",
+      "treinos": "",
+      "local": "",
+      "responsavel": "",
+      "imagem": "",
+      "imagemPos": "",
+      "ativo": true
+    },
+    {
+      "id": 610,
+      "nome": "TESTE INATIVA NAO APARECE",
+      "icone": "",
+      "descricao": "TESTE DESC INATIVA",
+      "treinos": "",
+      "local": "",
+      "responsavel": "",
+      "imagem": "",
+      "imagemPos": "",
+      "ativo": false
+    },
+    {
+      "id": 611,
+      "nome": "",
+      "icone": "",
+      "descricao": "TESTE SEM NOME NAO APARECE",
+      "treinos": "",
+      "local": "",
+      "responsavel": "",
+      "imagem": "",
+      "imagemPos": "",
+      "ativo": true
+    },
+    {
+      "id": 612,
+      "nome": "   ",
+      "icone": "",
+      "descricao": "TESTE NOME SO ESPACOS NAO APARECE",
+      "treinos": "",
+      "local": "",
+      "responsavel": "",
+      "imagem": "",
+      "imagemPos": "",
+      "ativo": true
+    }
+  ],
+  "modPosts": [
+    {
+      "id": 651,
+      "modalidadeId": 601,
+      "titulo": "TESTE POST DA COMPLETA",
+      "texto": "TESTE TEXTO DO POST",
+      "data": "2026-03-01",
+      "imagem": "",
+      "imagemSize": "cover",
+      "imagemPos": "center",
+      "publicada": true
+    },
+    {
+      "id": 652,
+      "modalidadeId": 610,
+      "titulo": "TESTE POST DA INATIVA NAO APARECE",
+      "texto": "",
+      "data": "2026-03-02",
+      "imagem": "",
+      "imagemSize": "cover",
+      "imagemPos": "center",
+      "publicada": true
+    }
   ]
 }

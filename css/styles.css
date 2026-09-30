@@ -4503,8 +4503,10 @@ html[data-theme="dark"] .agenda-cal {
   background: #1e293b;
   border-color: rgba(255,255,255,0.08);
 }
-html[data-theme="dark"] .staff-card__name,
-html[data-theme="dark"] .modality-card__title { color: #e2e8f0; }
+/* Havia aqui um segundo selector, .modality-card__title, que não existe em
+   página nenhuma — a classe real é __name, e essa já é tratada mais abaixo,
+   com a mesma cor. Era CSS morto, não um defeito visível. */
+html[data-theme="dark"] .staff-card__name { color: #e2e8f0; }
 html[data-theme="dark"] .staff-card__role,
 html[data-theme="dark"] .modality-card__desc { color: #94a3b8; }
 html[data-theme="dark"] .staff-card__team { background: #0f172a; color: #cbd5e1; }

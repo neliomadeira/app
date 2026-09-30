@@ -506,6 +506,75 @@ function jsc_blocos() {
                 return $erros;
             },
         ],
+
+        'modalidades' => [
+            'ficheiro' => 'index.html',
+            'modelo'   => 'modalidades.php',
+            'inicio'   => '<!-- JSC:modalidades:inicio -->',
+            'fim'      => '<!-- JSC:modalidades:fim -->',
+            'dados'    => function (array $conteudo) {
+                return ['modalidades' => jsc_modalidades($conteudo)];
+            },
+            'validar'  => function ($meio, array $conteudo) {
+                $erros = [];
+                $lista     = jsc_modalidades($conteudo);
+                $esperados = count($lista);
+
+                $obtidos = substr_count($meio, '<div class="modality-card">');
+                if ($obtidos !== $esperados) {
+                    $erros[] = "gerou $obtidos cartões, esperava $esperados";
+                }
+                if (strpos($meio, 'id="modalidadesGrid"') === false) {
+                    $erros[] = 'o bloco gerado não tem o contentor id="modalidadesGrid"';
+                }
+                if ($esperados === 0 && strpos($meio, 'jsc-vazio') === false) {
+                    $erros[] = 'sem modalidades, o bloco tem de manter o estado vazio';
+                }
+                if (strpos($meio, 'data-itens="' . $esperados . '"') === false) {
+                    $erros[] = 'o data-itens não corresponde ao número de modalidades geradas';
+                }
+
+                // Uma ligação por cartão, e todas para a página da modalidade.
+                $ligacoes = substr_count($meio, '<a href="modalidade.html?id=');
+                if ($ligacoes !== $esperados) {
+                    $erros[] = "gerou $ligacoes ligações para modalidades, esperava $esperados";
+                }
+
+                // A caixa de informação só existe quando tem itens: vazia,
+                // desenha um traço e 14px de espaço por nada.
+                $comItens = 0;
+                foreach ($lista as $m) { if ($m['itens']) $comItens++; }
+                $caixas = substr_count($meio, '<div class="modality-card__info">');
+                if ($caixas !== $comItens) {
+                    $erros[] = "gerou $caixas caixas de informação, esperava $comItens (sem itens não há caixa)";
+                }
+                if (preg_match('/<div class="modality-card__info">\s*<\/div>/', $meio)) {
+                    $erros[] = 'a caixa de informação não pode ser escrita vazia';
+                }
+
+                // O ícone é decoração e tem de o dizer.
+                $icones = substr_count($meio, 'class="modality-card__icon" aria-hidden="true"');
+                if ($icones !== $esperados) {
+                    $erros[] = "marcou $icones ícones como decorativos, esperava $esperados";
+                }
+
+                // Campo vazio não produz elemento vazio.
+                if (preg_match('/<(h3|p|span)[^>]*>\s*<\/\1>/', $meio)) {
+                    $erros[] = 'o bloco gerado não pode ter elementos vazios';
+                }
+
+                // Rede de segurança, não expectativa: este bloco lê o
+                // db_modalidades e nunca chega perto de um contacto. O
+                // responsável é um nome, e só.
+                foreach (['telefone', 'email', 'contacto', 'dataNascimento'] as $proibido) {
+                    if (stripos($meio, $proibido) !== false) {
+                        $erros[] = "o cartão de modalidade não pode conter \"$proibido\"";
+                    }
+                }
+
+                return $erros;
+            },
+        ],
     ];
 }
 

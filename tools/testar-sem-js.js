@@ -34,6 +34,7 @@ const FIXTURE = path.join(__dirname, 'teste', 'noticias-EXEMPLO-TESTE.json');
 // notícias e a agenda. A ordem aqui é a ordem em que aparecem no ficheiro.
 const BLOCOS = {
   'index.html': [
+    { nome: 'modalidades',    ini: '<!-- JSC:modalidades:inicio -->',    fim: '<!-- JSC:modalidades:fim -->' },
     { nome: 'agenda',         ini: '<!-- JSC:agenda:inicio -->',         fim: '<!-- JSC:agenda:fim -->' },
     { nome: 'noticias',       ini: '<!-- JSC:noticias:inicio -->',       fim: '<!-- JSC:noticias:fim -->' },
     { nome: 'patrocinadores', ini: '<!-- JSC:patrocinadores:inicio -->', fim: '<!-- JSC:patrocinadores:fim -->' },
@@ -178,9 +179,12 @@ function testesDeGeracao(raiz, dados) {
   const antesEqp = fs.readFileSync(eqp, 'utf8');
   const antesFmc = fs.readFileSync(fmc, 'utf8');
   const antesPat = fs.readFileSync(pat, 'utf8');
-  verificar('index.html tem as marcas das DUAS regiões — agenda e notícias',
+  // A ordem declarada no BLOCOS tem de ser a ordem em que as marcas aparecem
+  // no ficheiro: é dela que o foraDasMarcas() depende para cortar o HTML.
+  verificar('index.html tem as marcas das QUATRO regiões, pela ordem do ficheiro',
     foraDasMarcas(antesIdx, 'index.html') !== null
-    && antesIdx.indexOf(BLOCOS['index.html'][0].ini) < antesIdx.indexOf(BLOCOS['index.html'][1].ini));
+    && BLOCOS['index.html'].every((b, i, todos) => i === 0
+      || antesIdx.indexOf(todos[i - 1].ini) < antesIdx.indexOf(b.ini)));
   verificar('noticias.html tem as duas marcas', foraDasMarcas(antesNot, 'noticias.html') !== null);
   verificar('agenda.html tem as duas marcas', foraDasMarcas(antesAge, 'agenda.html') !== null);
   verificar('equipa-principal.html tem as marcas das TRÊS regiões',
@@ -221,6 +225,42 @@ function testesDeGeracao(raiz, dados) {
       !base.includes('escalao.html'));
     verificar('grelha-base: o único texto é o do estado vazio',
       texto === 'Escalões a atualizar.', 'texto encontrado: ' + JSON.stringify(texto.slice(0, 200)));
+  }
+
+  // ---- Guarda da fonte única das modalidades -----------------------
+  // A página inicial tinha três cartões escritos à mão — Kickboxing, Judo e
+  // Futsal, com as descrições — e ficavam lá sempre que a base estivesse
+  // vazia. Esta verificação existe para não voltarem: nem eles, nem quaisquer
+  // outros. Procura a forma, não os nomes: as classes de cartão, a ligação e
+  // qualquer texto que não seja o do estado vazio.
+  {
+    const base = dentroDasMarcas(antesIdx, 'index.html', 'modalidades')
+      .replace(/<!--[\s\S]*?-->/g, '');
+    const texto = base.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+    const classes = ['modality-card', 'modality-card__name', 'modality-card__desc',
+                     'modality-card__info', 'modality-card__icon', 'modality-card__link']
+      .filter((c) => base.includes(c));
+
+    verificar('grelha-base: a região das modalidades é só a grelha com o estado vazio',
+      /^\s*<div class="modalities__grid" id="modalidadesGrid">\s*<p class="jsc-vazio">[^<]*<\/p>\s*<\/div>\s*$/.test(base),
+      'obtive: ' + JSON.stringify(base.trim().slice(0, 200)));
+    verificar('grelha-base: nenhum cartão de modalidade escrito à mão',
+      classes.length === 0, 'classes encontradas: ' + classes.join(', '));
+    verificar('grelha-base: nenhuma ligação para modalidade.html escrita à mão',
+      !base.includes('modalidade.html'));
+    verificar('grelha-base: o único texto da região é o do estado vazio',
+      texto === 'Modalidades a atualizar.', 'texto: ' + JSON.stringify(texto.slice(0, 200)));
+  }
+  // As três modalidades não podem voltar a existir escritas no código. Nos
+  // dados persistentes continuam, e é lá que devem estar.
+  {
+    const fontes = ['index.html', 'js/main.js', 'js/modalidade.js'].filter((rel) => {
+      const c = fs.readFileSync(path.join(RAIZ_PROJETO, rel), 'utf8')
+        .replace(/<!--[\s\S]*?-->/g, '').replace(/^\s*\/\/.*$/gm, '');
+      return /Kickboxing|Judo|Futsal/.test(c);
+    });
+    verificar('fonte única: nenhuma modalidade escrita no código público',
+      fontes.length === 0, 'ficheiros: ' + fontes.join(', '));
   }
 
   // ---- Guardas da zona única dos patrocinadores --------------------
@@ -575,6 +615,84 @@ function testesDeGeracao(raiz, dados) {
      'TESTE ENCARREGADO', '000000000'].every((x) => !bEsc.toLowerCase().includes(x.toLowerCase())));
   verificar('escalões: nenhum atleta em toda a formacao.html gerada',
     !depoisFmc.includes('TESTE ATLETA') && !depoisFmc.includes('TESTE ENCARREGADO'));
+
+  // ---- Bloco 6: modalidades ---------------------------------------
+  const bMod = dentroDasMarcas(depoisHtml, 'index.html', 'modalidades');
+  // Contado a partir da fixture: ativa (ausente conta como ativa) e com nome.
+  const modFix = dados.modalidades.filter((m) => m.ativo !== false
+    && String(m.nome || '').trim() !== '');
+  const nomesMod = modFix.map((m) => m.nome.trim());
+  const comItensMod = modFix.filter((m) => String(m.treinos || '').trim()
+    || String(m.local || '').trim() || String(m.responsavel || '').trim()).length;
+
+  verificar(`modalidades: ${modFix.length} cartões (inativa e sem nome descartadas)`,
+    (bMod.match(/<div class="modality-card">/g) || []).length === modFix.length,
+    'obtive ' + (bMod.match(/<div class="modality-card">/g) || []).length);
+  verificar('modalidades: a inativa não foi escrita',
+    !bMod.includes('TESTE INATIVA NAO APARECE') && !bMod.includes('TESTE DESC INATIVA'));
+  verificar('modalidades: a modalidade sem nome e a de espaços foram descartadas',
+    !bMod.includes('TESTE SEM NOME NAO APARECE') && !bMod.includes('TESTE NOME SO ESPACOS'));
+  verificar('modalidades: a modalidade completa tem os três itens, nesta ordem',
+    /TESTE HORARIO[\s\S]*TESTE LOCAL[\s\S]*TESTE RESPONSAVEL/.test(bMod));
+  verificar('modalidades: campo vazio não produz elemento',
+    !/<p class="modality-card__desc"><\/p>/.test(bMod)
+    && !/<h3 class="modality-card__name"><\/h3>/.test(bMod));
+  verificar(`modalidades: ${comItensMod} caixas de informação (sem itens não há caixa)`,
+    (bMod.match(/<div class="modality-card__info">/g) || []).length === comItensMod,
+    'obtive ' + (bMod.match(/<div class="modality-card__info">/g) || []).length);
+  verificar('modalidades: nenhuma caixa de informação vazia',
+    !/<div class="modality-card__info">\s*<\/div>/.test(bMod));
+  verificar('modalidades: o ícone é escapado e marcado como decorativo',
+    bMod.includes('aria-hidden="true">&lt;b&gt;&amp;x&lt;/b&gt;<')
+    && (bMod.match(/class="modality-card__icon" aria-hidden="true"/g) || []).length === modFix.length);
+  verificar('modalidades: sem ícone fica o de omissão',
+    bMod.includes('aria-hidden="true">🏅<'));
+  verificar('modalidades: a imagem com apóstrofo e parêntesis é percent-encoded',
+    bMod.includes("url('images/logo.png?x=a%27b%281%29')"));
+  verificar('modalidades: a imagemPos é respeitada',
+    bMod.includes('background-position:top') && bMod.includes('background-position:bottom'));
+  verificar('modalidades: sem imagem não há atributo style',
+    (bMod.match(/<div class="modality-card__icon-wrap" style=/g) || []).length
+      === modFix.filter((m) => String(m.imagem || '').trim() !== '').length);
+  verificar('modalidades: uma ligação por cartão',
+    (bMod.match(/<a href="modalidade\.html\?id=/g) || []).length === modFix.length);
+  verificar('modalidades: o id com espaço, & e / é percent-encoded na ligação',
+    bMod.includes('href="modalidade.html?id=609%20a%26b%2Fc"'));
+  verificar('modalidades: o data-itens corresponde aos cartões',
+    bMod.includes('data-itens="' + modFix.length + '"'));
+  verificar('modalidades: nenhum contacto no bloco gerado',
+    ['telefone', 'email', 'contacto'].every((x) => !bMod.toLowerCase().includes(x)));
+  verificar('modalidades: a ordem publicada é a ordem dos dados',
+    JSON.stringify((bMod.match(/<h3 class="modality-card__name">([^<]*)<\/h3>/g) || [])
+      .map((m) => m.replace(/<[^>]*>/g, ''))) === JSON.stringify(nomesMod));
+
+  // Com o db_modalidades vazio a grelha volta ao estado vazio, e nenhuma das
+  // três modalidades pode reaparecer de um fallback.
+  const semMod = JSON.parse(JSON.stringify(dados));
+  semMod.modalidades = [];
+  escreverDados(raiz, semMod);
+  g = gerar(raiz);
+  const modVazio = dentroDasMarcas(fs.readFileSync(idx, 'utf8'), 'index.html', 'modalidades');
+  verificar('modalidades: sem modalidades há estado vazio e nenhum cartão',
+    g.estado === 0 && modVazio.includes('jsc-vazio') && !modVazio.includes('modality-card'),
+    g.saida.trim().slice(0, 160));
+  verificar('modalidades: sem modalidades nenhuma das três reaparece',
+    !/Kickboxing|Judo|Futsal/.test(modVazio));
+  verificar('modalidades: sem modalidades o data-itens é 0',
+    modVazio.includes('data-itens="0"'));
+  // Todas inativas: o mesmo que nenhuma.
+  const modInativas = JSON.parse(JSON.stringify(dados));
+  modInativas.modalidades.forEach((m) => { m.ativo = false; });
+  escreverDados(raiz, modInativas);
+  g = gerar(raiz);
+  verificar('modalidades: todas inativas dá o mesmo que nenhuma',
+    g.estado === 0
+    && dentroDasMarcas(fs.readFileSync(idx, 'utf8'), 'index.html', 'modalidades').includes('jsc-vazio'),
+    g.saida.trim().slice(0, 160));
+  escreverDados(raiz, dados);
+  g = gerar(raiz);
+  verificar('modalidades: a fixture completa volta a gerar sem erro', g.estado === 0,
+    g.saida.trim().slice(0, 160));
 
   // ---- Bloco 5: patrocinadores ------------------------------------
   const bPatI = dentroDasMarcas(depoisHtml, 'index.html', 'patrocinadores');
@@ -1497,6 +1615,143 @@ async function testarAdminPatrocinadores(browser, url) {
   return { ...d, erros };
 }
 
+// Modalidades: a grelha da página inicial.
+async function testarModalidades(browser, url, comJs, largura) {
+  const ctx = await browser.newContext({
+    javaScriptEnabled: comJs,
+    extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+  });
+  const pg = await ctx.newPage();
+  await pg.setViewportSize({ width: largura, height: 900 });
+
+  const erros = [];
+  const ruido = (t) => RUIDO.some((r) => r.test(t));
+  pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+  pg.on('console', (m) => { if (m.type() === 'error' && !ruido(m.text())) erros.push(m.text()); });
+  pg.on('response', (r) => {
+    const t = r.status() + ' ' + r.url().replace(url, '');
+    if (r.status() >= 400 && !ruido(t)) erros.push(t);
+  });
+  await pg.route('**', (rota) => {
+    const alvo = rota.request().url();
+    if (alvo.startsWith(url) || alvo.startsWith('data:') || alvo.startsWith('blob:')) return rota.continue();
+    return rota.abort();
+  });
+
+  await pg.goto(url + '/index.html',
+    { waitUntil: comJs ? 'networkidle' : 'load', timeout: 20000 });
+
+  const d = await pg.evaluate(() => {
+    const visivel = (el) => !!el && getComputedStyle(el).display !== 'none' && !el.hidden;
+    const grelha = document.getElementById('modalidadesGrid');
+    const cartoes = Array.from(document.querySelectorAll('#modalidadesGrid .modality-card'));
+    const doc = document.documentElement;
+    const lido = (c) => {
+      const capa = c.querySelector('.modality-card__icon-wrap');
+      const icone = c.querySelector('.modality-card__icon');
+      const caixa = c.querySelector('.modality-card__info');
+      const lig = c.querySelector('.modality-card__link');
+      return {
+        nome: (c.querySelector('.modality-card__name') || {}).textContent || '',
+        // null quando o elemento não existe; '' nunca deve acontecer.
+        descricao: c.querySelector('.modality-card__desc')
+          ? c.querySelector('.modality-card__desc').textContent : null,
+        // null quando não há caixa de informação; [] nunca deve acontecer.
+        itens: caixa
+          ? Array.from(caixa.querySelectorAll('.modality-card__info-item')).map((i) => i.textContent.trim())
+          : null,
+        // O ícone como o visitante o lê: um <b> no valor tem de aparecer como
+        // texto, não como negrito.
+        icone: icone ? icone.textContent : null,
+        iconeHtml: icone ? icone.innerHTML : null,
+        iconeEscondido: icone ? icone.getAttribute('aria-hidden') : null,
+        // A imagem resolvida pelo browser: se o url('...') tivesse sido
+        // fechado por um apóstrofo, não haveria imagem nenhuma.
+        fundo: capa ? getComputedStyle(capa).backgroundImage : '',
+        fundoPos: capa ? getComputedStyle(capa).backgroundPosition : '',
+        temStyle: capa ? capa.hasAttribute('style') : false,
+        href: lig ? lig.getAttribute('href') : null,
+        ligacaoTag: lig ? lig.tagName : null,
+        // O id que o URLSearchParams devolve a partir do href: é este que o
+        // js/modalidade.js compara com o db_modalidades.
+        idDoUrl: (function () {
+          if (!lig) return null;
+          try { return new URL(lig.href).searchParams.get('id'); } catch (_) { return null; }
+        })(),
+        classes: c.className,
+      };
+    };
+    return {
+      cartoes: cartoes.length,
+      cartoesVisiveis: cartoes.filter(visivel).length,
+      lidos: cartoes.map(lido),
+      caixasVazias: cartoes.filter((c) => {
+        const caixa = c.querySelector('.modality-card__info');
+        return caixa && caixa.querySelectorAll('.modality-card__info-item').length === 0;
+      }).length,
+      ligacoes: document.querySelectorAll('#modalidadesGrid a[href]').length,
+      vazioVisivel: visivel(grelha && grelha.querySelector('.jsc-vazio')),
+      itens: grelha ? grelha.getAttribute('data-itens') : null,
+      texto: grelha ? (grelha.textContent || '') : '',
+      transbordo: doc.scrollWidth - doc.clientWidth,
+    };
+  });
+  await ctx.close();
+  return { ...d, erros };
+}
+
+// A modalidade.html — continua em JavaScript neste bloco. A sonda serve para
+// as cinco correcções pontuais: o menu móvel, a imagem do herói, a modalidade
+// inativa e a ausência de fallback.
+async function testarPaginaModalidade(browser, url, id, opcoes = {}) {
+  const ctx = await browser.newContext({
+    javaScriptEnabled: opcoes.comJs !== false,
+    extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+  });
+  const pg = await ctx.newPage();
+  await pg.setViewportSize({ width: opcoes.largura || 1440, height: 900 });
+
+  const erros = [];
+  const ruido = (t) => RUIDO.some((r) => r.test(t));
+  pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+  pg.on('console', (m) => { if (m.type() === 'error' && !ruido(m.text())) erros.push(m.text()); });
+  await pg.route('**', (rota) => {
+    const alvo = rota.request().url();
+    if (alvo.startsWith(url) || alvo.startsWith('data:') || alvo.startsWith('blob:')) return rota.continue();
+    return rota.abort();
+  });
+
+  await pg.goto(url + '/modalidade.html?id=' + encodeURIComponent(id),
+    { waitUntil: opcoes.comJs === false ? 'load' : 'networkidle', timeout: 20000 });
+
+  if (opcoes.tema) await pg.evaluate((t) => document.documentElement.setAttribute('data-theme', t), opcoes.tema);
+  // Um clique só no hamburger: com o ouvinte duplicado, o menu abria e
+  // fechava no mesmo instante e nunca aparecia.
+  if (opcoes.hamburger) { await pg.click('#hamburger'); await pg.waitForTimeout(120); }
+
+  const d = await pg.evaluate(() => {
+    const visivel = (el) => !!el && getComputedStyle(el).display !== 'none' && !el.hidden;
+    const hero = document.getElementById('modHero');
+    const nav = document.getElementById('nav');
+    const ham = document.getElementById('hamburger');
+    return {
+      nome: (document.getElementById('modNome') || {}).textContent || '',
+      desc: (document.getElementById('modDesc') || {}).textContent || '',
+      infoVisivel: visivel(document.getElementById('modInfoSection')),
+      postsVisivel: visivel(document.getElementById('modPostsSection')),
+      posts: document.querySelectorAll('.mod-post-card').length,
+      heroFundo: hero ? getComputedStyle(hero).backgroundImage : '',
+      menuAberto: !!(nav && nav.classList.contains('open')),
+      menuAria: ham ? ham.getAttribute('aria-expanded') : null,
+      corDoNome: document.getElementById('modNome')
+        ? getComputedStyle(document.getElementById('modNome')).color : '',
+      texto: document.body.textContent || '',
+    };
+  });
+  await ctx.close();
+  return { ...d, erros };
+}
+
 // ---------------------------------------------------------------------
 // Principal
 // ---------------------------------------------------------------------
@@ -2025,6 +2280,150 @@ async function testarAdminPatrocinadores(browser, url) {
       JSON.stringify(esc.staffEstilos) + ' | ' + JSON.stringify(esc.staffImagens));
     verificar('escalão: sem erros de consola', esc.erros.length === 0, esc.erros.join(' | '));
 
+    // ---- 6c. Bloco 6: modalidades -------------------------------
+    console.log('\nmodalidades: fonte única');
+    const modAtivas = dados.modalidades.filter((m) => m.ativo !== false
+      && String(m.nome || '').trim() !== '');
+
+    for (const largura of [320, 375, 390, 430, 768, 1024, 1440]) {
+      const x = await testarModalidades(browser, srv.url, false, largura);
+      verificar(`sem JS a ${largura} px: ${modAtivas.length} cartões, todos visíveis`,
+        x.cartoes === modAtivas.length && x.cartoesVisiveis === modAtivas.length,
+        'cartões ' + x.cartoes + ', visíveis ' + x.cartoesVisiveis);
+      verificar(`sem JS a ${largura} px: sem transbordo`, x.transbordo <= 0, '+' + x.transbordo + 'px');
+    }
+
+    let mm = await testarModalidades(browser, srv.url, false, 1440);
+    verificar('sem JS: os nomes são os do painel, pela mesma ordem',
+      JSON.stringify(mm.lidos.map((c) => c.nome)) === JSON.stringify(modAtivas.map((m) => m.nome.trim())),
+      JSON.stringify(mm.lidos.map((c) => c.nome).slice(0, 4)));
+    verificar('sem JS: a inativa e as sem nome não estão na página',
+      !mm.texto.includes('NAO APARECE'));
+    verificar('sem JS: nenhuma das três modalidades vem de um fallback',
+      !/Kickboxing|Judo|Futsal/.test(mm.texto));
+    verificar('sem JS: campo vazio não produz elemento',
+      (function () {
+        const c = mm.lidos.find((x) => x.nome === 'TESTE SO NOME');
+        return c && c.descricao === null && c.itens === null && c.temStyle === false;
+      })(), JSON.stringify(mm.lidos.find((x) => x.nome === 'TESTE SO NOME')));
+    verificar('sem JS: nenhuma caixa de informação vazia', mm.caixasVazias === 0);
+    verificar('sem JS: a modalidade completa tem os três itens, nesta ordem',
+      (function () {
+        const c = mm.lidos.find((x) => x.nome === 'TESTE MODALIDADE COMPLETA');
+        return c && c.itens && c.itens.length === 3
+          && /TESTE HORARIO/.test(c.itens[0]) && /TESTE LOCAL/.test(c.itens[1])
+          && /TESTE RESPONSAVEL/.test(c.itens[2]);
+      })(), JSON.stringify((mm.lidos.find((x) => x.nome === 'TESTE MODALIDADE COMPLETA') || {}).itens));
+    verificar('sem JS: treinos, local e responsável sozinhos dão uma caixa de um item',
+      ['TESTE SO TREINOS', 'TESTE SO LOCAL', 'TESTE SO RESPONSAVEL']
+        .every((n) => ((mm.lidos.find((x) => x.nome === n) || {}).itens || []).length === 1));
+    verificar('sem JS: o ícone aparece como texto, não como HTML',
+      (function () {
+        const c = mm.lidos.find((x) => x.nome === 'TESTE ICONE COM HTML');
+        return c && c.icone === '<b>&x</b>' && !/<b>/.test(c.iconeHtml);
+      })(), JSON.stringify(mm.lidos.find((x) => x.nome === 'TESTE ICONE COM HTML')));
+    verificar('sem JS: todos os ícones são decorativos',
+      mm.lidos.every((c) => c.iconeEscondido === 'true'));
+    verificar('sem JS: a imagem problemática resolve no browser',
+      (function () {
+        const c = mm.lidos.find((x) => x.nome === 'TESTE MODALIDADE COMPLETA');
+        return c && /^url\(/.test(c.fundo) && /%27/.test(c.fundo) && /%28/.test(c.fundo);
+      })(), JSON.stringify((mm.lidos.find((x) => x.nome === 'TESTE MODALIDADE COMPLETA') || {}).fundo));
+    verificar('sem JS: a imagem simples resolve',
+      (function () {
+        const c = mm.lidos.find((x) => x.nome === 'TESTE IMAGEM SIMPLES');
+        return c && /logo\.png/.test(c.fundo);
+      })());
+    // Sem imagem fica o gradiente do CSS, que é o fundo de omissão da capa.
+    // O que não pode existir é um url(...): não há imagem para carregar.
+    verificar('sem JS: sem imagem não há url() no fundo, só o gradiente do CSS',
+      (function () {
+        const c = mm.lidos.find((x) => x.nome === 'TESTE SO NOME');
+        return c && !/url\(/.test(c.fundo) && /gradient/.test(c.fundo);
+      })(), JSON.stringify((mm.lidos.find((x) => x.nome === 'TESTE SO NOME') || {}).fundo));
+    // O browser devolve a posição resolvida: top é 50% 0%, bottom é 50% 100%.
+    verificar('sem JS: a imagemPos é respeitada pelo browser',
+      (function () {
+        const a = mm.lidos.find((x) => x.nome === 'TESTE MODALIDADE COMPLETA');
+        const b = mm.lidos.find((x) => x.nome === 'TESTE IMAGEM SIMPLES');
+        return a && b && a.fundoPos === '50% 0%' && b.fundoPos === '50% 100%';
+      })(), JSON.stringify([(mm.lidos[0] || {}).fundoPos, (mm.lidos.find((x) => x.nome === 'TESTE IMAGEM SIMPLES') || {}).fundoPos]));
+    verificar('sem JS: cada cartão tem uma ligação <a> a sério',
+      mm.ligacoes === modAtivas.length
+      && mm.lidos.every((c) => c.ligacaoTag === 'A' && /^modalidade\.html\?id=/.test(c.href)));
+    verificar('sem JS: a ligação do id difícil volta a dar o id exacto',
+      (function () {
+        const c = mm.lidos.find((x) => x.nome === 'TESTE ID DIFICIL');
+        return c && c.href === 'modalidade.html?id=609%20a%26b%2Fc' && c.idDoUrl === '609 a&b/c';
+      })(), JSON.stringify(mm.lidos.find((x) => x.nome === 'TESTE ID DIFICIL')));
+    verificar('sem JS: o URLSearchParams recupera todos os ids',
+      mm.lidos.every((c) => c.idDoUrl !== null && c.idDoUrl !== ''));
+    verificar('sem JS: nenhum contacto na grelha',
+      !/telefone|email|contacto/i.test(mm.texto));
+    verificar('sem JS: sem erros de rede', mm.erros.length === 0, mm.erros.join(' | '));
+
+    // Com JavaScript: o bloco gerado e atual não é redesenhado, e quando é
+    // redesenhado dá o mesmo cartão.
+    {
+      const fich = path.join(raiz, 'index.html');
+      const antes = fs.readFileSync(fich, 'utf8');
+      const ancora = '<h3 class="modality-card__name">TESTE SO NOME</h3>';
+      fs.writeFileSync(fich, antes.replace(ancora, ancora + '<!--MARCA-->'));
+      let y = await testarModalidades(browser, srv.url, true, 1440);
+      verificar('com JS: o bloco gerado e atual não é redesenhado',
+        fs.readFileSync(fich, 'utf8').includes('<!--MARCA-->') && y.cartoes === modAtivas.length);
+      verificar('com JS: sem erros de consola', y.erros.length === 0, y.erros.join(' | '));
+      const gerados = JSON.stringify(y.lidos);
+
+      fs.writeFileSync(fich, fs.readFileSync(fich, 'utf8')
+        .replace('data-itens="' + modAtivas.length + '"', 'data-itens="99"'));
+      y = await testarModalidades(browser, srv.url, true, 1440);
+      verificar('com JS: data-itens errado força o redesenho',
+        y.cartoes === modAtivas.length && y.itens === '99');
+      verificar('com JS: o cartão desenhado é o mesmo que o gerado',
+        JSON.stringify(y.lidos) === gerados,
+        'desenhado: ' + JSON.stringify(y.lidos).slice(0, 300));
+      verificar('com JS: o ícone continua escapado depois do redesenho',
+        (y.lidos.find((x) => x.nome === 'TESTE ICONE COM HTML') || {}).icone === '<b>&x</b>');
+      verificar('com JS: nenhuma caixa de informação vazia depois do redesenho',
+        y.caixasVazias === 0);
+      fs.writeFileSync(fich, antes);
+    }
+
+    console.log('\nmodalidade.html: correcções pontuais');
+    let pm = await testarPaginaModalidade(browser, srv.url, 601);
+    verificar('modalidade: a modalidade ativa abre com o nome e a descrição',
+      pm.nome === 'TESTE MODALIDADE COMPLETA' && pm.desc === 'TESTE DESCRICAO DA MODALIDADE');
+    verificar('modalidade: a barra de informação e as publicações aparecem',
+      pm.infoVisivel && pm.postsVisivel && pm.posts === 1);
+    verificar('modalidade: a imagem do herói com \' e ( ) resolve percent-encoded',
+      /%27/.test(pm.heroFundo) && /%28/.test(pm.heroFundo) && /url\(/.test(pm.heroFundo),
+      pm.heroFundo.slice(0, 160));
+    verificar('modalidade: sem erros de consola', pm.erros.length === 0, pm.erros.join(' | '));
+
+    pm = await testarPaginaModalidade(browser, srv.url, 610);
+    verificar('modalidade: uma modalidade inativa não é publicada por endereço directo',
+      pm.nome === 'Modalidade não encontrada' && !pm.infoVisivel && !pm.postsVisivel);
+    verificar('modalidade: a publicação da inativa não aparece',
+      !pm.texto.includes('TESTE POST DA INATIVA NAO APARECE'));
+
+    pm = await testarPaginaModalidade(browser, srv.url, 611);
+    verificar('modalidade: uma modalidade sem nome é tratada como inexistente',
+      pm.nome === 'Modalidade não encontrada' && !pm.infoVisivel);
+    pm = await testarPaginaModalidade(browser, srv.url, 99999);
+    verificar('modalidade: um id inexistente continua a dar não encontrada',
+      pm.nome === 'Modalidade não encontrada' && !pm.infoVisivel && !pm.postsVisivel);
+
+    pm = await testarPaginaModalidade(browser, srv.url, 601, { hamburger: true, largura: 375 });
+    verificar('modalidade: o menu móvel abre com um clique',
+      pm.menuAberto, 'o ouvinte duplicado abria e fechava no mesmo clique');
+    verificar('modalidade: o aria-expanded acompanha o estado visível',
+      pm.menuAria === 'true', 'aria-expanded=' + pm.menuAria);
+
+    pm = await testarPaginaModalidade(browser, srv.url, 601, { tema: 'dark' });
+    verificar('modalidade: em tema escuro o nome não fica com a cor do tema claro',
+      pm.corDoNome !== 'rgb(0, 31, 77)' && pm.corDoNome !== '', pm.corDoNome);
+
     // ---- 6b. Bloco 5: patrocinadores ----------------------------
     console.log('\npatrocinadores: zona única');
     const patAtivos = dados.patrocinadores.filter((p) => (p.ativo === true || p.ativo === 1
@@ -2143,6 +2542,7 @@ async function testarAdminPatrocinadores(browser, url) {
       ['/modelos/escaloes.php', 403],
       ['/modelos/patrocinadores-inicio.php', 403],
       ['/modelos/patrocinadores-pagina.php', 403],
+      ['/modelos/modalidades.php', 403],
       ['/data/publicacao/anterior/index.html', 403],
       ['/data/publicacao/transacao.json', 403],
       ['/data/db.json', 403],
@@ -2223,6 +2623,9 @@ async function testarAdminPatrocinadores(browser, url) {
       fv.erros.length === 0, fv.erros.join(' / '));
 
     semNoticias.patrocinadores = [];
+    // E sem modalidades: a grelha tem de voltar ao estado vazio, sem
+    // Kickboxing, Judo ou Futsal a reaparecerem de um fallback.
+    semNoticias.modalidades = [];
     escreverDados(raiz, semNoticias);
     gerar(raiz);
     for (const pagina of ['index.html', 'patrocinadores.html']) {
@@ -2238,6 +2641,21 @@ async function testarAdminPatrocinadores(browser, url) {
     }
     verificar('patrocinadores: sem patrocinadores o convite final continua lá',
       (await testarPatrocinadores(browser, srv.url, 'patrocinadores.html', false, 1440)).cta);
+
+    let mv = await testarModalidades(browser, srv.url, false, 1440);
+    verificar('modalidades: sem modalidades nenhum cartão e o vazio visível',
+      mv.cartoes === 0 && mv.vazioVisivel, 'cartões ' + mv.cartoes + ', vazio=' + mv.vazioVisivel);
+    verificar('modalidades: sem modalidades nenhuma das três reaparece',
+      !/Kickboxing|Judo|Futsal/.test(mv.texto), mv.texto.slice(0, 120));
+    verificar('modalidades: sem modalidades nenhuma ligação para modalidade.html',
+      mv.ligacoes === 0);
+    verificar('modalidades: sem transbordo no estado vazio', mv.transbordo <= 0, '+' + mv.transbordo + 'px');
+    mv = await testarModalidades(browser, srv.url, true, 1440);
+    verificar('modalidades: com JavaScript o estado vazio mantém-se, sem duplicar',
+      mv.cartoes === 0 && mv.vazioVisivel && mv.itens === '0',
+      'cartões ' + mv.cartoes + ', data-itens ' + mv.itens);
+    verificar('modalidades: sem erros de consola no estado vazio',
+      mv.erros.length === 0, mv.erros.join(' / '));
 
     // Nenhum dado de teste nos ficheiros públicos do repositório. A
     // verificação abaixo olha para a cópia gerada; esta olha para a fonte,

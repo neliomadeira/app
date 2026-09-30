@@ -781,32 +781,59 @@ ${jogadores.map(j => `            <div class="player-card">
   } catch(e) {}
 
   // Modalidades
+  //
+  // Mesmo cartão que o modelos/modalidades.php gera. Inativa não aparece, e
+  // sem nome é descartada: sem nome não há título nem identificação nenhuma.
+  //
+  // Três correcções em relação à versão anterior: o ícone passa a ser
+  // escapado (era o único campo desta zona que entrava em innerHTML sem
+  // escape); a imagem passa pelo jscEscUrlCss(), e não pelo jscEscUrl(), que
+  // não percent-encode e deixava um apóstrofo fechar o url(...); e o id da
+  // ligação vai percent-encoded, porque vai no valor de um parâmetro.
   try {
     const raw = localStorage.getItem('db_modalidades');
-    if (raw) {
-      const lista = JSON.parse(raw).filter(m => m.ativo !== false);
-      if (lista.length) {
-        const grid = document.getElementById('modalidadesGrid');
-        if (grid) {
-          grid.innerHTML = lista.map(m => {
-            const bgStyle = m.imagem
-              ? `style="background-image:url('${jscEscUrl(m.imagem)}');background-size:cover;background-position:${jscEsc(m.imagemPos||'center')}"` : '';
+    const grelha = document.getElementById('modalidadesGrid');
+    if (grelha && raw) {
+      const lista = JSON.parse(raw)
+        .filter(m => m && jscModalidadeAtiva(m.ativo))
+        .filter(m => (m.nome || '').toString().trim() !== '');
+
+      // Se o servidor já escreveu esta grelha e ela continua a servir, não se
+      // lhe toca: o visitante já a está a ver, sem JavaScript nenhum.
+      if (!jscBlocoAtual(grelha, lista.length)) {
+        if (!lista.length) {
+          grelha.innerHTML = '\n        <p class="jsc-vazio">Modalidades a atualizar.</p>\n      ';
+        } else {
+          grelha.innerHTML = lista.map(m => {
+            const nome      = (m.nome || '').toString().trim();
+            const icone     = (m.icone || '').toString().trim() || '🏅';
+            const descricao = (m.descricao || '').toString().trim();
+            const imagem    = (m.imagem || '').toString().trim();
+            const imagemPos = (m.imagemPos || '').toString().trim() || 'center';
+            // Os itens da caixa, pela ordem em que aparecem. Sem nenhum, não
+            // há caixa: vazia, desenha um traço e 14px de espaço por nada.
+            const itens = [
+              { icone: '&#128337;', valor: (m.treinos || '').toString().trim() },
+              { icone: '&#128205;', valor: (m.local || '').toString().trim() },
+              { icone: '&#128100;', valor: (m.responsavel || '').toString().trim() },
+            ].filter(i => i.valor !== '');
+            const fundo = imagem
+              ? ` style="background-image:url('${jscEscUrlCss(imagem)}');background-size:cover;background-position:${jscEsc(imagemPos)}"`
+              : '';
             return `
-              <div class="modality-card">
-                <div class="modality-card__icon-wrap" ${bgStyle}>
-                  <span class="modality-card__icon">${m.icone || '🏅'}</span>
-                </div>
-                <div class="modality-card__body">
-                  <h3 class="modality-card__name">${jscEsc(m.nome)}</h3>
-                  ${m.descricao ? `<p class="modality-card__desc">${jscEsc(m.descricao)}</p>` : ''}
-                  <div class="modality-card__info">
-                    ${m.treinos   ? `<span class="modality-card__info-item">&#128337; ${jscEsc(m.treinos)}</span>` : ''}
-                    ${m.local     ? `<span class="modality-card__info-item">&#128205; ${jscEsc(m.local)}</span>` : ''}
-                    ${m.responsavel ? `<span class="modality-card__info-item">&#128100; ${jscEsc(m.responsavel)}</span>` : ''}
-                  </div>
-                  <a href="modalidade.html?id=${jscEscUrl(m.id)}" class="modality-card__link">Ver mais &rarr;</a>
-                </div>
-              </div>`;
+        <div class="modality-card">
+          <div class="modality-card__icon-wrap"${fundo}>
+            <span class="modality-card__icon" aria-hidden="true">${jscEsc(icone)}</span>
+          </div>
+          <div class="modality-card__body">
+            <h3 class="modality-card__name">${jscEsc(nome)}</h3>
+            ${descricao ? `<p class="modality-card__desc">${jscEsc(descricao)}</p>` : ''}
+            ${itens.length ? `<div class="modality-card__info">
+              ${itens.map(i => `<span class="modality-card__info-item">${i.icone} ${jscEsc(i.valor)}</span>`).join('\n              ')}
+            </div>` : ''}
+            <a href="modalidade.html?id=${jscEsc(encodeURIComponent(m.id === undefined || m.id === null ? '' : m.id))}" class="modality-card__link">Ver mais &rarr;</a>
+          </div>
+        </div>`;
           }).join('');
         }
       }

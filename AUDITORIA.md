@@ -1658,3 +1658,214 @@ a byte nos **sete** ficheiros; o reverter a devolver os sete.
 `400` sem o cabeçalho do painel, `401` com password errada, `200` para a
 Comunicação a alterar notícias **e patrocinadores** (é área dela), e `403` a
 alterar `escaloes`.
+
+---
+
+# FASE C — BLOCO 6: MODALIDADES
+
+Uma região, uma fonte. A grelha da página inicial passa a ser escrita a partir
+do `db_modalidades`, e as três modalidades deixam de existir escritas no
+código. **Continuam nos dados persistentes** — o que saiu foi a cópia.
+
+## As modalidades que existem
+
+Três, em `db_modalidades`: **Kickboxing**, **Judo** e **Futsal**, com ícone e
+descrição de arranque. **Horários, locais e responsáveis estão todos vazios**,
+e é esse o estado certo: foram esvaziados por não estarem confirmados. Nenhum
+valor antigo foi recuperado e nenhum fallback foi criado.
+
+O `data.js` classifica-as como configuração verdadeira do clube, ao lado dos
+escalões e da época dos seniores — por isso o painel arranca com elas.
+
+## Achados
+
+**Três cartões escritos à mão na página inicial.** Nome, ícone e descrição,
+iguais aos dados de arranque. O `js/main.js` só substituía a grelha
+`if (lista.length)`: com a base vazia **os três ficavam**, com ou sem
+JavaScript, e podiam já não corresponder ao painel.
+
+**A lista estava em quatro sítios:** `admin/js/data.js` (a semente legítima),
+`index.html` (3 cartões), `js/modalidade.js` (`DEFAULT_MODALIDADES`) e
+`inscricao.html` (3 opções de rádio). Os três primeiros passam a ser um.
+
+**Uma caixa vazia que desenhava um traço.** O `.modality-card__info` tem
+`padding-top:14px; border-top:1px solid #eee`. Os três cartões fixos traziam-na
+**vazia**, e o renderizador escrevia-a sempre: a página mostrava um traço
+horizontal e 14 px de espaço debaixo da descrição, sem nada a seguir. Agora só
+existe quando tem itens.
+
+**O ícone entrava em `innerHTML` sem escape.** `${m.icone || '🏅'}` — o único
+campo desta zona sem `jscEsc`. O ícone vem do painel.
+
+**A imagem do herói de `modalidade.html` não tinha escape nenhum:**
+`url('${m.imagem}')` cru, atribuído a `style.backgroundImage`. Um apóstrofo
+fechava o `url(...)` e o resto passava a ser CSS.
+
+**A imagem do cartão usava o escaper errado:** `jscEscUrl` dentro de um
+`url('…')`, que escapa HTML mas não percent-encode. Mesmo defeito dos cartões
+de notícia, da foto do treinador e do logótipo do patrocinador.
+
+**A ligação usava `jscEscUrl(m.id)`** num valor de parâmetro, sem
+percent-encoding. Mesmo defeito da ligação do escalão.
+
+**O menu móvel de `modalidade.html` estava partido.** O `js/nav.js` e o
+`js/modalidade.js` registavam **cada um** um ouvinte de clique no hamburger,
+com as mesmas duas alternâncias de classe. Cada clique alternava duas vezes: o
+menu abria e fechava no mesmo instante e nunca aparecia, e o `aria-expanded`
+ficava dessincronizado do estado visível. Ficou só o do `js/nav.js`.
+
+**Uma modalidade inativa continuava publicada por endereço directo.** O
+`find` por id não olhava a `ativo`: desativar no painel tirava-a da página
+inicial e deixava-a completa em `modalidade.html?id=N`. E **também não olhava
+ao nome**: uma modalidade sem nome abria com um título vazio. As duas passam a
+ser tratadas como inexistentes.
+
+**Correcção de um achado meu que estava errado.** O plano dizia que a regra
+`html[data-theme="dark"] .modality-card__title` deixava o nome da modalidade
+com a cor do tema claro no escuro. **Não deixava:** existe, mais abaixo no
+mesmo ficheiro, uma regra da Fase B que trata `.modality-card__name` com a
+mesma cor. O `__title` era apenas CSS morto. A correcção certa era **apagar o
+selector morto**, e não acrescentar uma regra duplicada — foi isso que se fez.
+
+## Sem dados fictícios e sem hardcodes operacionais
+
+Ao contrário do Bloco 4 (12 textos operacionais sem fonte) e do Bloco 5 (12
+patrocinadores falsos), aqui **não havia nenhum horário, local, responsável,
+imagem de demonstração, estatística inventada nem modalidade fictícia**. O
+único hardcode operacional eram as descrições, e essas têm campo no painel.
+
+## O mapa dos campos: sem órfãos
+
+Os nove campos de `db_modalidades` — `nome`, `icone`, `descricao`, `treinos`,
+`local`, `responsavel`, `imagem`, `imagemPos`, `ativo` — são **todos
+administráveis e todos publicados**. Não foi preciso acrescentar nada ao
+painel, ao contrário dos escalões (`competicao`/`local` invisíveis) e dos
+patrocinadores (`logo` inexistente). **O Admin não foi tocado.**
+
+## Privacidade
+
+O único campo relativo a uma pessoa é `responsavel` — **um nome, em texto
+livre**. Não existe campo de telefone, e-mail ou qualquer contacto para
+modalidades, nem foi criado. Os três estão vazios nos dados. O validador do
+gerador recusa a publicação se encontrar `telefone`, `email`, `contacto` ou
+`dataNascimento` no bloco — rede de segurança, não expectativa.
+
+## `jscUrlCss()` e `jscEscUrlCss()`: dois contextos, uma regra
+
+Um URL dentro de um `url('…')` de CSS precisa de percent-encoding. Se esse CSS
+for um `style="…"` escrito em `innerHTML`, precisa **também** de escape de
+HTML; se for atribuído a `element.style.backgroundImage`, **não** — o valor não
+passa por um parser de HTML, e escapá-lo transformaria um `&` legítimo da query
+em `&amp;`, com a imagem a deixar de carregar.
+
+Passam a existir os dois, um construído sobre o outro:
+
+```js
+jscUrlCss(v)     // percent-encoding + recusa de esquemas — para style.*
+jscEscUrlCss(v)  // jscEsc(jscUrlCss(v))                  — para style="..."
+```
+
+A ordem das operações é a mesma do `jsc_esc_url_css()` do PHP — percent-encode,
+depois trim, depois recusa de esquemas. Trocá-la fazia os dois divergirem num
+endereço com espaços à volta. **Verificado: `jsc_esc_url_css()` e
+`jscEscUrlCss()` dão resultados idênticos nos nove casos testados**, incluindo
+`javascript:`, `data:`, apóstrofos, parêntesis, `&` e espaços.
+
+## Tratamento de cada caso
+
+| Caso | Resultado |
+|---|---|
+| `nome` vazio ou só espaços | modalidade **descartada** na grelha **e** por endereço directo |
+| `ativo === false` | não aparece na grelha **nem** por endereço directo |
+| `ativo` ausente | conta como ativa — é a regra que o site já usava |
+| `descricao` vazia | sem `<p>` |
+| `treinos`, `local`, `responsavel` vazios | sem `<span>` cada um |
+| **os três vazios** | **sem `<div class="modality-card__info">`** — o traço desaparece |
+| `imagem` vazia | sem atributo `style`; fica o gradiente do CSS |
+| `imagem` presente | `jsc_esc_url_css()` no cartão, `jscUrlCss()` no herói |
+| `imagemPos` vazio | `center` |
+| `icone` vazio | `🏅`, **escapado** |
+| `db_modalidades` vazio, ou todas inativas | `<p class="jsc-vazio">` e nenhuma das três a reaparecer |
+| Ordem | ordem do array |
+| Dupla renderização | `data-gerado` + `data-itens` + `jscBlocoAtual()`, sem `data-desde` |
+
+O ícone leva `aria-hidden="true"`: é decoração, e quem identifica o cartão é o
+`<h3>`. A imagem **continua a ser fundo CSS** e não `<img>` — é uma textura
+atrás do ícone e de um gradiente opaco, não um logótipo, e um `alt` com o nome
+repetiria o título para quem usa leitor de ecrã.
+
+## O que fica para o E2
+
+A `modalidade.html` é parametrizada por `?id=` e **fica fora da geração**.
+Adiado: herói, barra de informação, publicações, estado "não encontrada", e uma
+ligação real para cada publicação — hoje o cartão de post é um `<div
+role="button" onclick>` e **sem JavaScript não há como abrir uma publicação**,
+porque ela vive dentro da página parametrizada e não há destino possível.
+
+Sem JavaScript, a página mostra o herói com `🏅` e o título `Modalidade`
+escritos à mão, e três secções vazias. Registado, não corrigido.
+
+## Divergência registada para um bloco de Inscrições
+
+O `inscricao.html` tem as opções de modalidade **escritas à mão**: `Futebol`,
+`Kickboxing` e `Judo` — **oferece Futebol**, que não é uma modalidade de
+`db_modalidades`, e **não oferece Futsal**, que é. O `js/inscricao.js` tem
+ainda `|| 'Futebol'` como valor por omissão, e escreve num
+`db_inscricoes_modalidades` que não foi auditado. Acrescentar uma modalidade no
+painel **não a acrescenta ao formulário**.
+
+Não foi tocado neste bloco: o formulário tem validação própria, envio de e-mail
+e uma chave de dados própria, e decidir o lugar de "Futebol" é uma decisão de
+modelo de dados. **Fica para um bloco próprio de Inscrições.**
+
+## Melhoria futura do painel, registada e não construída
+
+Não existe ordenação administrável das modalidades: nem campo de ordem, nem
+arrastar, nem setas. A ordem publicada é a ordem do array, que é a ordem de
+criação. Quem quiser uma modalidade primeiro não tem como o dizer pelo painel.
+
+## Guardas de regressão
+
+Cinco verificações. Quatro `grelha-base:` olham **só** para dentro da região
+`modalidades` do `index.html`, antes de qualquer geração, e exigem que lá esteja
+apenas a grelha com o estado vazio: sem classes de cartão, sem ligação para
+`modalidade.html`, sem outro texto. A quinta, `fonte única:`, varre
+`index.html`, `js/main.js` e `js/modalidade.js` — **sem comentários** — e exige
+que os nomes das três modalidades não existam em código público nenhum.
+
+Provadas ao contrário: com um cartão de Kickboxing de volta na região e um
+`DEFAULT_MODALIDADES` com Futsal de volta no JavaScript, as cinco falham — a
+última a nomear os dois ficheiros — e as outras 612 continuam a passar.
+
+## Como se verificou
+
+`node tools/testar-sem-js.js` — **617 verificações**. Deste bloco: 9 cartões a
+partir de 12 registos (inativa, sem nome e só-espaços descartadas); ordem igual
+à dos dados; caixa de informação só quando tem itens, e **zero vazias**; os três
+itens pela ordem certa, e cada um sozinho a dar uma caixa de um item; ícone com
+`<b>&x</b>` a aparecer **como texto** e marcado como decorativo; ícone de
+omissão quando vazio; imagem com apóstrofo e parêntesis percent-encoded **e a
+resolver no browser**; sem imagem, sem `url()` e só o gradiente; `imagemPos`
+resolvida pelo browser (`50% 0%` e `50% 100%`); uma ligação `<a>` real por
+cartão, com o id `609 a&b/c` percent-encoded e **recuperado exacto** pelo
+`URLSearchParams`; nenhum contacto na grelha; **as sete larguras** (320, 375,
+390, 430, 768, 1024, 1440) sem transbordo; base vazia e todas inativas com
+estado vazio e **nenhuma das três a reaparecer**; o bloco gerado e atual não
+redesenhado; `data-itens` errado a forçar o redesenho e o cartão desenhado a ser
+**o mesmo** que o gerado; `/modelos/modalidades.php` → 403; o exterior às
+**quatro** regiões do `index.html` igual byte a byte; o reverter a devolver os
+sete ficheiros.
+
+Da `modalidade.html`: a modalidade ativa abre com nome, descrição, barra e
+publicação; a imagem do herói com `'` e `( )` resolve percent-encoded; **a
+inativa dá "Modalidade não encontrada"** e a sua publicação não aparece; a sem
+nome também; um id inexistente também; **o menu móvel abre com um clique** e o
+`aria-expanded` fica `true`; em tema escuro o nome não fica com a cor do tema
+claro.
+
+`node tools/validar.js --comparar` — sem problemas em 168 combinações,
+**novos: 0**. Fase A verificada à mão: `405` a não-POST, `401` sem sessão,
+`400` sem o cabeçalho do painel, `401` com password errada, `200` para o
+super-admin a alterar `modalidades`, **`403` para a Comunicação a alterar
+`modalidades`** e **`403` a alterar `modPosts`** — a área é `modalidades`, que
+aquele perfil não tem —, e `200` para a Comunicação a alterar notícias.
