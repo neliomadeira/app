@@ -98,11 +98,68 @@
     return true;
   }
 
+  // As iniciais que aparecem quando não há logótipo. Réplica exacta do
+  // jsc_iniciais() do api/conteudo.php, e tolerante: um nome ausente devolve
+  // '' em vez de estourar. A versão que vivia dentro do patrocinadores.html
+  // fazia nome.trim() sem guarda, e um registo sem nome lançava um TypeError
+  // que deixava a página inteira em branco.
+  function jscIniciais(nome) {
+    return String(nome === null || nome === undefined ? '' : nome)
+      .trim().split(/\s+/).slice(0, 2)
+      .map(function (w) { return w.charAt(0); })
+      .join('').toUpperCase();
+  }
+
+  // Um patrocinador está ativo? Réplica exacta do jsc_patrocinador_ativo() do
+  // api/conteudo.php. As duas páginas discordavam: a inicial aceitava
+  // qualquer valor verdadeiro, a de patrocinadores exigia exactamente true, e
+  // um "ativo": 1 aparecia numa e não na outra.
+  function jscPatrocinadorAtivo(valor) {
+    if (valor === true) return true;
+    if (typeof valor === 'number') return valor === 1;
+    if (typeof valor === 'string') {
+      var v = valor.trim().toLowerCase();
+      return v === 'true' || v === '1';
+    }
+    return false;
+  }
+
+  // O endereço do site de um patrocinador. Só http e https — lista de
+  // permitidos, não de proibidos. Sem esquema assume-se https. Réplica
+  // exacta do jsc_patrocinador_url() do api/conteudo.php.
+  function jscPatrocinadorUrl(website) {
+    var s = String(website === null || website === undefined ? '' : website).trim();
+    if (s === '') return '';
+    if (!/^[a-z][a-z0-9+.-]*:/i.test(s)) s = 'https://' + s.replace(/^\/+/, '');
+    if (!/^https?:\/\/[^\s/?#]/i.test(s)) return '';
+    return s;
+  }
+
+  // O sector. Um travessão é a marca de um campo não preenchido, não um
+  // sector. Réplica exacta do jsc_patrocinador_sector().
+  function jscPatrocinadorSector(valor) {
+    var s = String(valor === null || valor === undefined ? '' : valor).trim();
+    return (s === '-' || s === '\u2014' || s === '\u2013') ? '' : s;
+  }
+
+  // O ano de "Parceiro desde". Réplica exacta do jsc_patrocinador_desde().
+  function jscPatrocinadorDesde(valor) {
+    var m = String(valor === null || valor === undefined ? '' : valor).match(/(\d{4})/);
+    if (!m) return '';
+    var ano = parseInt(m[1], 10);
+    return (ano >= 1900 && ano <= 2100) ? String(ano) : '';
+  }
+
   global.jscEsc = jscEsc;
   global.jscEscUrl = jscEscUrl;
   global.jscEscUrlCss = jscEscUrlCss;
   global.jscHojeISO = jscHojeISO;
   global.jscBlocoAtual = jscBlocoAtual;
+  global.jscIniciais = jscIniciais;
+  global.jscPatrocinadorAtivo = jscPatrocinadorAtivo;
+  global.jscPatrocinadorUrl = jscPatrocinadorUrl;
+  global.jscPatrocinadorSector = jscPatrocinadorSector;
+  global.jscPatrocinadorDesde = jscPatrocinadorDesde;
 })(typeof window !== 'undefined' ? window : this);
 
 // =====================================================

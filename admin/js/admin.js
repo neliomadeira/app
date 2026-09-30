@@ -2644,24 +2644,33 @@ window.removeJogo = function (id) {
 // ==================================================
 // PATROCINADORES
 // ==================================================
+// Uma grelha só, pela ordem dos dados — a mesma ordem em que aparecem no
+// site. Havia três grupos, um por nível de patrocínio, e a divisão saiu do
+// site e daqui: nenhum patrocinador tem tratamento diferente de outro.
+//
+// O campo tier continua nos registos já guardados, por compatibilidade
+// histórica, e não é lido em sítio nenhum. Os registos novos não o levam — e
+// era por isso que esta função tinha de mudar ao mesmo tempo que o selector:
+// agrupava por p.tier.toLowerCase(), que num registo novo não existe e
+// deixaria a lista do painel a lançar um erro em vez de aparecer.
 function renderPatrocinadores() {
   const wrap = document.getElementById('sponsorsAdminTiers');
-  const tiers = ['Ouro', 'Prata', 'Bronze'];
-  wrap.innerHTML = tiers.map(tier => {
-    const lista = DB.patrocinadores.filter(p => p.tier === tier);
-    return `
+  if (!wrap) return;
+  const lista = DB.patrocinadores || [];
+  const activos = lista.filter(p => p.ativo).length;
+  wrap.innerHTML = `
       <div class="sponsors-admin-tier">
         <div class="sponsors-admin-tier__header">
-          <span class="tier-label tier-label--${jscEsc(tier.toLowerCase())}">&#9733; ${jscEsc(tier)}</span>
-          <span style="font-size:0.8rem;color:var(--gray-text)">${jscEsc(lista.filter(p=>p.ativo).length)} activos · ${jscEsc(lista.filter(p=>!p.ativo).length)} inactivos</span>
+          <span style="font-size:0.9rem;font-weight:700">Patrocinadores</span>
+          <span style="font-size:0.8rem;color:var(--gray-text)">${jscEsc(activos)} activos · ${jscEsc(lista.length - activos)} inactivos</span>
         </div>
         <div class="sponsors-admin-grid">
-          ${lista.map(p => `
+          ${lista.length ? lista.map(p => `
             <div class="sponsor-admin-card ${jscEsc(p.ativo ? '' : 'sponsor-admin-card--inactive')}">
-              <span class="sponsor-admin-card__tier-dot dot--${jscEsc(p.tier.toLowerCase())}"></span>
-              <div class="sponsor-admin-logo">${jscEsc(p.nome)}</div>
+              ${p.logo ? `<img src="${jscEscUrl(p.logo)}" alt="" class="sponsor-admin-logo-img" />`
+                       : `<div class="sponsor-admin-logo">${jscEsc(p.nome)}</div>`}
               <div class="sponsor-admin-name">${jscEsc(p.nome)}</div>
-              <div class="sponsor-admin-sector">${jscEsc(p.sector)} · Desde ${jscEsc(p.desde)}</div>
+              <div class="sponsor-admin-sector">${jscEsc([p.sector, p.desde ? 'Desde ' + p.desde : ''].filter(Boolean).join(' · '))}</div>
               <div class="sponsor-admin-actions">
                 <button class="btn-icon" onclick="editPatrocinador(${p.id})" title="Editar">&#9998;</button>
                 <button class="btn-icon ${p.ativo ? 'btn-icon--red' : 'btn-icon--green'}"
@@ -2669,10 +2678,10 @@ function renderPatrocinadores() {
                   title="${jscEsc(p.ativo ? 'Desactivar' : 'Activar')}">${p.ativo ? '&#9940;' : '&#9989;'}</button>
                 <button class="btn-icon btn-icon--red" onclick="removePatrocinador(${p.id})" title="Eliminar">&#128465;</button>
               </div>
-            </div>`).join('')}
+            </div>`).join('')
+            : '<p style="color:var(--gray-text);font-size:0.85rem;padding:8px 0">Nenhum patrocinador registado.</p>'}
         </div>
       </div>`;
-  }).join('');
 }
 
 document.getElementById('btnNovoPatrocinador')?.addEventListener('click', () => {
@@ -2684,30 +2693,39 @@ document.getElementById('btnNovoPatrocinador')?.addEventListener('click', () => 
         <input type="text" id="mPSector" placeholder="Ex: Construção, Saúde..." /></div>
     </div>
     <div class="modal-row">
-      <div class="modal-field"><label>Nível de patrocínio</label>
-        <select id="mPTier">
-          <option>Ouro</option><option>Prata</option><option>Bronze</option>
-        </select>
-      </div>
       <div class="modal-field"><label>Ano de início</label>
         <input type="number" id="mPDesde" value="2026" min="2000" max="2099" /></div>
+      <div class="modal-field"><label>Website (opcional)</label>
+        <input type="url" id="mPWebsite" placeholder="https://empresa.pt" /></div>
     </div>
-    <div class="modal-field"><label>Website (opcional)</label>
-      <input type="url" id="mPWebsite" placeholder="https://empresa.pt" /></div>`,
+    <div class="modal-field"><label>Logótipo (URL ou upload)</label>
+      <input class="form-input" type="text" id="mPLogo" value="" placeholder="https://... ou carregar ficheiro" />
+      <input type="file" id="mPLogoFile" accept="image/*" style="display:none" />
+      <button type="button" class="btn-sm" style="margin-top:6px" onclick="document.getElementById('mPLogoFile').click()">&#128190; Carregar logótipo</button>
+      <div id="mPLogoPreview" style="display:none;margin-top:8px">
+        <img src="" style="max-width:120px;max-height:64px;object-fit:contain;border:1px solid #e0e0e0;border-radius:6px;padding:4px;background:#fff" />
+      </div>
+    </div>`,
     `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
      <button class="btn-save" onclick="saveNovoPatrocinador()">Guardar</button>`
   );
+  setupImageUpload('mPLogoFile', 'mPLogo', 'mPLogoPreview');
 });
 
 window.saveNovoPatrocinador = function () {
   const nome = document.getElementById('mPNome').value.trim();
   if (!nome) { showToast('Introduza o nome.', 'red'); return; }
+  // Sem tier: a divisão por níveis deixou de existir no site e aqui. O campo
+  // fica nos registos antigos por compatibilidade histórica e não é lido.
+  //
+  // Sector em branco fica em branco. Gravava-se aqui um travessão, e o site
+  // publicava-o como se fosse o sector da empresa.
   DB.patrocinadores.push({
     id: Date.now(), nome,
-    sector:  document.getElementById('mPSector').value || '—',
-    tier:    document.getElementById('mPTier').value,
+    sector:  document.getElementById('mPSector').value.trim(),
     desde:   String(document.getElementById('mPDesde').value),
-    website: document.getElementById('mPWebsite').value,
+    website: document.getElementById('mPWebsite').value.trim(),
+    logo:    document.getElementById('mPLogo').value.trim(),
     ativo:   true,
   });
   saveDB();
@@ -2727,30 +2745,35 @@ window.editPatrocinador = function (id) {
         <input type="text" id="mPSector" value="${jscEsc(p.sector)}" /></div>
     </div>
     <div class="modal-row">
-      <div class="modal-field"><label>Nível</label>
-        <select id="mPTier">
-          ${['Ouro','Prata','Bronze'].map(t =>
-            `<option ${jscEsc(t===p.tier?'selected':'')}>${jscEsc(t)}</option>`).join('')}
-        </select>
-      </div>
       <div class="modal-field"><label>Desde</label>
         <input type="number" id="mPDesde" value="${jscEsc(p.desde)}" /></div>
+      <div class="modal-field"><label>Website</label>
+        <input type="url" id="mPWebsite" value="${jscEsc(p.website || '')}" /></div>
     </div>
-    <div class="modal-field"><label>Website</label>
-      <input type="url" id="mPWebsite" value="${jscEsc(p.website)}" /></div>`,
+    <div class="modal-field"><label>Logótipo (URL ou upload)</label>
+      <input class="form-input" type="text" id="mPLogo" value="${jscEsc(p.logo || '')}" placeholder="https://... ou carregar ficheiro" />
+      <input type="file" id="mPLogoFile" accept="image/*" style="display:none" />
+      <button type="button" class="btn-sm" style="margin-top:6px" onclick="document.getElementById('mPLogoFile').click()">&#128190; Carregar logótipo</button>
+      <div id="mPLogoPreview" style="${jscEsc(p.logo ? '' : 'display:none')};margin-top:8px">
+        <img src="${jscEscUrl(p.logo || '')}" style="max-width:120px;max-height:64px;object-fit:contain;border:1px solid #e0e0e0;border-radius:6px;padding:4px;background:#fff" />
+      </div>
+    </div>`,
     `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
      <button class="btn-save" onclick="saveEditPatrocinador(${id})">Guardar</button>`
   );
+  setupImageUpload('mPLogoFile', 'mPLogo', 'mPLogoPreview');
 };
 
 window.saveEditPatrocinador = function (id) {
   const p = DB.patrocinadores.find(x => x.id === id);
   if (!p) return;
   p.nome    = document.getElementById('mPNome').value.trim() || p.nome;
-  p.sector  = document.getElementById('mPSector').value;
-  p.tier    = document.getElementById('mPTier').value;
+  p.sector  = document.getElementById('mPSector').value.trim();
   p.desde   = String(document.getElementById('mPDesde').value);
-  p.website = document.getElementById('mPWebsite').value;
+  p.website = document.getElementById('mPWebsite').value.trim();
+  p.logo    = document.getElementById('mPLogo').value.trim();
+  // O tier que o registo já tivesse fica como está: não se apaga nem se
+  // migra. Deixou apenas de ter efeito na publicação.
   saveDB();
   renderPatrocinadores();
   closeModal();

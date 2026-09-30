@@ -533,61 +533,18 @@
       </div>
       <p class="section__subtitle">Empresas e entidades que acreditam no futuro do desporto jovem em Loulé e apoiam o nosso projeto.</p>
 
-      <div class="sponsors-tier">
-        <div class="sponsors-tier__label sponsors-tier__label--ouro">
-          <span>&#9733; Ouro</span>
-        </div>
-        <div class="sponsors-row sponsors-row--ouro" id="sponsorsRowOuro">
-          <div class="sponsor-card sponsor-card--ouro">
-            <div class="sponsor-card__logo" style="font-size:2rem;opacity:0.3">🤝</div>
-            <span class="sponsor-card__name">Parceiro Principal</span>
-          </div>
-          <div class="sponsor-card sponsor-card--ouro">
-            <div class="sponsor-card__logo" style="font-size:2rem;opacity:0.3">🤝</div>
-            <span class="sponsor-card__name">Patrocinador Oficial</span>
-          </div>
-        </div>
+      <!-- Os cartões dos patrocinadores são escritos pela geração
+           (modelos/patrocinadores-inicio.php) e, com JavaScript, pelo
+           js/main.js. A fonte é o db_patrocinadores do painel.
+           Estavam aqui doze cartões escritos à mão, com nomes de empresas que
+           não existem, divididos por três níveis de patrocínio. Apareciam
+           sempre que a base estivesse vazia ou que um nível ficasse sem
+           ninguém. Não voltar a pôr cartões nem níveis nesta região. -->
+      <!-- JSC:patrocinadores:inicio -->
+      <div class="sponsors-row" id="sponsorsGrid">
+        <p class="jsc-vazio">Patrocinadores a atualizar.</p>
       </div>
-
-      <div class="sponsors-tier">
-        <div class="sponsors-tier__label sponsors-tier__label--prata">
-          <span>&#9733; Prata</span>
-        </div>
-        <div class="sponsors-row sponsors-row--prata" id="sponsorsRowPrata">
-          <div class="sponsor-card sponsor-card--prata">
-            <div class="sponsor-card__logo" style="font-size:1.6rem;opacity:0.25">🏆</div>
-            <span class="sponsor-card__name">Apoiante Prata</span>
-          </div>
-          <div class="sponsor-card sponsor-card--prata">
-            <div class="sponsor-card__logo" style="font-size:1.6rem;opacity:0.25">🏆</div>
-            <span class="sponsor-card__name">Apoiante Prata</span>
-          </div>
-          <div class="sponsor-card sponsor-card--prata">
-            <div class="sponsor-card__logo" style="font-size:1.6rem;opacity:0.25">🏆</div>
-            <span class="sponsor-card__name">Apoiante Prata</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="sponsors-tier">
-        <div class="sponsors-tier__label sponsors-tier__label--bronze">
-          <span>&#9733; Bronze</span>
-        </div>
-        <div class="sponsors-row sponsors-row--bronze" id="sponsorsRowBronze">
-          <div class="sponsor-card sponsor-card--bronze">
-            <div class="sponsor-card__logo" style="opacity:0.2">⭐</div>
-          </div>
-          <div class="sponsor-card sponsor-card--bronze">
-            <div class="sponsor-card__logo" style="opacity:0.2">⭐</div>
-          </div>
-          <div class="sponsor-card sponsor-card--bronze">
-            <div class="sponsor-card__logo" style="opacity:0.2">⭐</div>
-          </div>
-          <div class="sponsor-card sponsor-card--bronze">
-            <div class="sponsor-card__logo" style="opacity:0.2">⭐</div>
-          </div>
-        </div>
-      </div>
+      <!-- JSC:patrocinadores:fim -->
 
       <div class="sponsors-cta">
         <p>Quer fazer parte da nossa família?</p>

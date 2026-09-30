@@ -613,3 +613,90 @@ function jsc_escaloes(array $conteudo) {
     }
     return $fora;
 }
+
+// ---- Patrocinadores -------------------------------------------------
+//
+// Zona única: todos os patrocinadores ativos numa grelha só, pela ordem do
+// array. Havia uma divisão por Ouro, Prata e Bronze, escrita em seis sítios
+// diferentes, e era ela a causa de metade dos defeitos desta zona — entre
+// eles um patrocinador ativo com nível desconhecido desaparecer enquanto a
+// página anunciava que não havia patrocinadores. Saiu.
+//
+// O campo tier continua nos dados já guardados, por compatibilidade
+// histórica, e é aqui completamente ignorado: antigo, desconhecido, vazio,
+// ausente ou de outro tipo, dá tudo no mesmo. Os registos novos não o levam.
+
+// Um patrocinador está ativo? Réplica exacta do jscPatrocinadorAtivo() do
+// js/html.js. As duas páginas discordavam: a inicial aceitava qualquer valor
+// verdadeiro, a de patrocinadores exigia exactamente true, e um "ativo": 1
+// aparecia numa e não na outra.
+function jsc_patrocinador_ativo($valor) {
+    if ($valor === true) return true;
+    if (is_int($valor) || is_float($valor)) return (int)$valor === 1;
+    if (is_string($valor)) {
+        $v = strtolower(trim($valor));
+        return $v === 'true' || $v === '1';
+    }
+    return false;
+}
+
+// O endereço do site de um patrocinador. Só http e https — lista de
+// permitidos, e não de proibidos: o que não é um dos dois não produz ligação.
+// Sem esquema assume-se https, que é o que a página de patrocinadores já
+// fazia; a página inicial não o fazia, e por isso "empresa.pt" ficava uma
+// ligação relativa quebrada. Passa a ser a mesma regra nas duas.
+function jsc_patrocinador_url($website) {
+    $s = trim((string)$website);
+    if ($s === '') return '';
+    if (!preg_match('~^[a-z][a-z0-9+.-]*:~i', $s)) $s = 'https://' . ltrim($s, '/');
+    if (!preg_match('~^https?://[^\s/?#]~i', $s)) return '';
+    return $s;
+}
+
+// O sector. O painel gravava um travessão quando o campo ficava em branco, e
+// o travessão era publicado como se fosse o sector da empresa. Um travessão
+// não é um sector: é a marca de um campo não preenchido, e conta como vazio.
+// O painel deixou de o gravar.
+function jsc_patrocinador_sector($valor) {
+    $s = trim((string)$valor);
+    return ($s === '-' || $s === '—' || $s === '–') ? '' : $s;
+}
+
+// O ano de "Parceiro desde". Só um ano de quatro algarismos plausível conta;
+// o resto não produz elemento nenhum, em vez de escrever "Parceiro desde ab".
+function jsc_patrocinador_desde($valor) {
+    if (!preg_match('/(\d{4})/', (string)$valor, $m)) return '';
+    $ano = (int)$m[1];
+    return ($ano >= 1900 && $ano <= 2100) ? (string)$ano : '';
+}
+
+// Os patrocinadores publicáveis, numa lista plana e pela ordem do array — que
+// é a ordem em que o painel os acrescenta. Não há campo de ordenação nem
+// forma de reordenar no painel; não se inventa aqui uma ordem que ninguém
+// pode controlar.
+//
+// Inativo não aparece. Sem nome é descartado: sem nome não há título, não há
+// texto alternativo para o logótipo e não há iniciais.
+function jsc_patrocinadores(array $conteudo) {
+    $lista = (isset($conteudo['patrocinadores']) && is_array($conteudo['patrocinadores']))
+           ? $conteudo['patrocinadores'] : [];
+
+    $fora = [];
+    foreach ($lista as $p) {
+        if (!is_array($p)) continue;
+        if (!jsc_patrocinador_ativo(isset($p['ativo']) ? $p['ativo'] : null)) continue;
+
+        $nome = isset($p['nome']) && is_string($p['nome']) ? trim($p['nome']) : '';
+        if ($nome === '') continue;
+
+        $fora[] = [
+            'nome'     => $nome,
+            'sector'   => jsc_patrocinador_sector(isset($p['sector']) ? $p['sector'] : ''),
+            'desde'    => jsc_patrocinador_desde(isset($p['desde']) ? $p['desde'] : ''),
+            'url'      => jsc_patrocinador_url(isset($p['website']) ? $p['website'] : ''),
+            'logo'     => isset($p['logo']) && is_string($p['logo']) ? trim($p['logo']) : '',
+            'iniciais' => jsc_iniciais($nome),
+        ];
+    }
+    return $fora;
+}

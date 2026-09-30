@@ -32,44 +32,14 @@
   <style>
     /* ── Sponsors page styles ── */
 
-    /* Tier section wrapper */
-    .sp-tier {
-      margin-bottom: 56px;
-    }
-    .sp-tier:last-of-type {
-      margin-bottom: 0;
-    }
-
-    /* Tier heading */
-    .sp-tier__heading {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 1.6rem;
-      letter-spacing: 0.06em;
-      color: #001f4d;
-      margin-bottom: 24px;
-      padding-bottom: 12px;
-      border-bottom: 2px solid #e5e7eb;
-    }
-    .sp-tier__heading--ouro  { border-color: #FFD700; color: #92400e; }
-    .sp-tier__heading--prata { border-color: #C0C0C0; color: #374151; }
-    .sp-tier__heading--bronze{ border-color: #CD7F32; color: #78350f; }
-
-    .sp-tier__icon {
-      font-size: 1.8rem;
-      line-height: 1;
-    }
-
-    /* Grids */
+    /* Zona única: uma grelha só, sem cabeçalhos de nível. Havia três
+       grelhas, uma por nível de patrocínio, com larguras diferentes e um
+       cabeçalho cada. Ficou a do meio, para todos. */
     .sp-grid {
       display: grid;
       gap: 20px;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
     }
-    .sp-grid--ouro  { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
-    .sp-grid--prata { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
-    .sp-grid--bronze{ grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
 
     /* Sponsor card */
     .sp-card {
@@ -86,10 +56,9 @@
       box-shadow: 0 8px 24px rgba(0,0,0,.14);
     }
 
-    /* Tier accent bar at top */
-    .sp-card--ouro  { border-top: 4px solid #FFD700; }
-    .sp-card--prata { border-top: 4px solid #C0C0C0; }
-    .sp-card--bronze{ border-top: 4px solid #CD7F32; }
+    /* O acento do clube, em vez das cores de medalha de cada nível.
+       Nenhum patrocinador tem tratamento visual diferente de outro. */
+    .sp-card { border-top: 4px solid #FFD100; }
 
     /* Logo area */
     .sp-card__logo-wrap {
@@ -98,17 +67,13 @@
       justify-content: center;
       padding: 24px 20px 16px;
     }
-    .sp-card--ouro  .sp-card__logo-wrap { min-height: 120px; background: #fffbeb; }
-    .sp-card--prata .sp-card__logo-wrap { min-height: 96px;  background: #f9fafb; }
-    .sp-card--bronze .sp-card__logo-wrap { min-height: 80px; background: #fef3c7; }
+    .sp-card__logo-wrap { min-height: 96px; background: #f9fafb; }
 
     .sp-card__logo-img {
       max-width: 100%;
       max-height: 90px;
       object-fit: contain;
     }
-    .sp-card--ouro  .sp-card__logo-img { max-height: 100px; }
-    .sp-card--bronze .sp-card__logo-img { max-height: 70px; }
 
     /* Initials fallback box */
     .sp-card__initials {
@@ -125,9 +90,7 @@
       letter-spacing: .04em;
       flex-shrink: 0;
     }
-    .sp-card--ouro  .sp-card__initials { background: #b45309; width: 100px; height: 100px; font-size: 1.9rem; }
-    .sp-card--prata .sp-card__initials { background: #6b7280; }
-    .sp-card--bronze .sp-card__initials { background: #92400e; width: 66px; height: 66px; font-size: 1.2rem; }
+    .sp-card__initials { background: #6b7280; }
 
     /* Card body */
     .sp-card__body {
@@ -146,7 +109,6 @@
       margin: 0;
       line-height: 1.2;
     }
-    .sp-card--bronze .sp-card__name { font-size: 1rem; }
 
     .sp-card__sector {
       font-size: .8rem;
@@ -328,7 +290,28 @@
         <h2 class="section__title">Quem nos apoia</h2>
       </div>
 
-      <div id="sponsorsContent"></div>
+      <!-- Os cartões e o convite final são escritos pela geração
+           (modelos/patrocinadores-pagina.php) e, com JavaScript, pelo
+           js/patrocinadores.js. A fonte é o db_patrocinadores do painel.
+           Esta zona era construída por um <script> inline: sem JavaScript não
+           havia nada aqui — nem cartões, nem estado vazio, nem convite.
+           Não voltar a pôr cartões, níveis ou <script> nesta região. -->
+      <!-- JSC:patrocinadores-pagina:inicio -->
+      <div id="sponsorsContent">
+        <div class="sp-empty">
+          <div class="sp-empty__icon">&#129309;</div>
+          <p class="sp-empty__title">Seja o primeiro patrocinador</p>
+          <p class="sp-empty__text">Ainda não temos patrocinadores registados. Se a sua empresa quer apoiar o desenvolvimento do futebol jovem em Loulé, entre em contacto connosco.</p>
+          <a href="contacto.html" class="btn btn--primary">Torne-se patrocinador &rarr;</a>
+        </div>
+        <div class="sp-cta">
+          <span class="sp-cta__tag">Junte-se a nós</span>
+          <h2 class="sp-cta__title">Quer ser patrocinador?</h2>
+          <p class="sp-cta__desc">Associe a sua marca a um clube com mais de 100 anos de história e faça parte do futuro do desporto jovem algarvio.</p>
+          <a href="contacto.html" class="btn btn--primary">Contacte-nos</a>
+        </div>
+      </div>
+      <!-- JSC:patrocinadores-pagina:fim -->
 
     </div>
   </section>
@@ -397,140 +380,7 @@
   <script src="js/site-config.js" defer></script>
   <script src="js/main.js" defer></script>
   <script src="/js/pwa.js" defer></script>
-  <script>
-  (function () {
-    var sponsors = [];
-    try {
-      sponsors = JSON.parse(localStorage.getItem('db_patrocinadores') || '[]')
-        .filter(function (p) { return p.ativo === true; });
-    } catch (e) { sponsors = []; }
-
-    var tiers = [
-      { key: 'Ouro',   icon: '🥇', color: '#FFD700', bg: '#fffbeb' },
-      { key: 'Prata',  icon: '🥈', color: '#9ca3af', bg: '#f9fafb' },
-      { key: 'Bronze', icon: '🥉', color: '#92400e', bg: '#fef3c7' },
-    ];
-
-    var container = document.getElementById('sponsorsContent');
-    if (!container) return;
-
-    /* ── helpers ── */
-
-    function esc(str) {
-      return String(str || '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-    }
-
-    function initials(nome) {
-      return nome.trim().split(/\s+/).slice(0, 2)
-        .map(function (w) { return w[0]; }).join('').toUpperCase();
-    }
-
-    function logoHtml(sp, tierKey) {
-      if (sp.logo) {
-        // jscEscUrl (js/html.js) recusa esquemas perigosos como javascript:;
-        // o esc() local só escapa HTML e deixava passar um src executável.
-        var src = jscEscUrl(sp.logo);
-        if (!src) return '<div class="sp-card__initials">' + esc(initials(sp.nome)) + '</div>';
-        return '<img src="' + src + '" alt="' + esc(sp.nome) + '" class="sp-card__logo-img" loading="lazy" />';
-      }
-      return '<div class="sp-card__initials">' + esc(initials(sp.nome)) + '</div>';
-    }
-
-    function cardHtml(sp, tierKey) {
-      var slug = tierKey.toLowerCase();
-      var sinceYear = sp.desde ? String(sp.desde).slice(0, 4) : null;
-
-      var websiteBtn = '';
-      if (sp.website) {
-        var href = /^https?:\/\//i.test(sp.website) ? sp.website : 'https://' + sp.website;
-        websiteBtn = '<a href="' + jscEscUrl(href) + '" target="_blank" rel="noopener noreferrer" class="sp-card__website">Visitar site &#8599;</a>';
-      }
-
-      return [
-        '<div class="sp-card sp-card--' + slug + '">',
-          '<div class="sp-card__logo-wrap">',
-            logoHtml(sp, tierKey),
-          '</div>',
-          '<div class="sp-card__body">',
-            '<h3 class="sp-card__name">' + esc(sp.nome) + '</h3>',
-            sp.sector ? '<span class="sp-card__sector">' + esc(sp.sector) + '</span>' : '',
-            sinceYear ? '<span class="sp-card__since">Parceiro desde ' + esc(sinceYear) + '</span>' : '',
-            websiteBtn,
-          '</div>',
-        '</div>',
-      ].join('');
-    }
-
-    function tierHtml(tier, items) {
-      var slug = tier.key.toLowerCase();
-      var cards = items.map(function (sp) { return cardHtml(sp, tier.key); }).join('');
-      return [
-        '<div class="sp-tier">',
-          '<h3 class="sp-tier__heading sp-tier__heading--' + slug + '">',
-            '<span class="sp-tier__icon">' + tier.icon + '</span>',
-            esc(tier.key),
-          '</h3>',
-          '<div class="sp-grid sp-grid--' + slug + '">',
-            cards,
-          '</div>',
-        '</div>',
-      ].join('');
-    }
-
-    /* ── CTA block (always rendered at the very bottom) ── */
-    var ctaHtml = [
-      '<div class="sp-cta">',
-        '<span class="sp-cta__tag">Junte-se a nós</span>',
-        '<h2 class="sp-cta__title">Quer ser patrocinador?</h2>',
-        '<p class="sp-cta__desc">Associe a sua marca a um clube com mais de 100 anos de história e faça parte do futuro do desporto jovem algarvio.</p>',
-        '<a href="contacto.html" class="btn btn--primary">Contacte-nos</a>',
-      '</div>',
-    ].join('');
-
-    /* ── No active sponsors ── */
-    if (sponsors.length === 0) {
-      container.innerHTML = [
-        '<div class="sp-empty">',
-          '<div class="sp-empty__icon">🤝</div>',
-          '<p class="sp-empty__title">Seja o primeiro patrocinador</p>',
-          '<p class="sp-empty__text">Ainda não temos patrocinadores registados. Se a sua empresa quer apoiar o desenvolvimento do futebol jovem em Loulé, entre em contacto connosco.</p>',
-          '<a href="contacto.html" class="btn btn--primary">Torne-se patrocinador &rarr;</a>',
-        '</div>',
-        ctaHtml,
-      ].join('');
-      return;
-    }
-
-    /* ── Render tiers (Ouro → Prata → Bronze) ── */
-    var html = '';
-    tiers.forEach(function (tier) {
-      var items = sponsors.filter(function (sp) { return sp.tier === tier.key; });
-      if (items.length > 0) {
-        html += tierHtml(tier, items);
-      }
-    });
-
-    /* Fallback: active sponsors exist but none matched a known tier */
-    if (!html.trim()) {
-      container.innerHTML = [
-        '<div class="sp-empty">',
-          '<div class="sp-empty__icon">🤝</div>',
-          '<p class="sp-empty__title">Seja o primeiro patrocinador</p>',
-          '<p class="sp-empty__text">Ainda não temos patrocinadores registados. Se a sua empresa quer apoiar o desenvolvimento do futebol jovem em Loulé, entre em contacto connosco.</p>',
-          '<a href="contacto.html" class="btn btn--primary">Torne-se patrocinador &rarr;</a>',
-        '</div>',
-        ctaHtml,
-      ].join('');
-      return;
-    }
-
-    container.innerHTML = html + ctaHtml;
-  })();
-  </script>
+  <script src="js/patrocinadores.js" defer></script>
   <script src="js/cookie-consent.js" defer></script>
   <script src="js/scroll-top.js" defer></script>
   <script src="js/dark-mode.js" defer></script>

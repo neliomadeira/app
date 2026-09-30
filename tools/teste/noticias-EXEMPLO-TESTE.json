@@ -593,5 +593,210 @@
       "foto": "images/logo.png?x=a'b(1)",
       "ativo": true
     }
+  ],
+  "patrocinadores": [
+    {
+      "id": 801,
+      "nome": "TESTE PATROCINADOR COMPLETO",
+      "sector": "TESTE SECTOR",
+      "desde": "2019",
+      "website": "https://exemplo.invalido/a",
+      "logo": "images/logo.png?x=a'b(1)",
+      "ativo": true,
+      "tier": "Ouro"
+    },
+    {
+      "id": 802,
+      "nome": "TESTE SO NOME",
+      "sector": "",
+      "desde": "",
+      "website": "",
+      "logo": "",
+      "ativo": true
+    },
+    {
+      "id": 803,
+      "nome": "TESTE SECTOR TRAVESSAO",
+      "sector": "—",
+      "desde": "2020",
+      "website": "",
+      "logo": "",
+      "ativo": true
+    },
+    {
+      "id": 804,
+      "nome": "TESTE WEBSITE SEM ESQUEMA",
+      "sector": "",
+      "desde": "",
+      "website": "exemplo.invalido",
+      "logo": "",
+      "ativo": true
+    },
+    {
+      "id": 805,
+      "nome": "TESTE WEBSITE JAVASCRIPT",
+      "sector": "",
+      "desde": "",
+      "website": "javascript:alert(1)",
+      "logo": "",
+      "ativo": true
+    },
+    {
+      "id": 806,
+      "nome": "TESTE WEBSITE DATA",
+      "sector": "",
+      "desde": "",
+      "website": "data:text/html,<b>x</b>",
+      "logo": "",
+      "ativo": true
+    },
+    {
+      "id": 807,
+      "nome": "TESTE ANO INVALIDO",
+      "sector": "",
+      "desde": "abc",
+      "website": "",
+      "logo": "",
+      "ativo": true
+    },
+    {
+      "id": 808,
+      "nome": "TESTE ANO CURTO",
+      "sector": "",
+      "desde": "26",
+      "website": "",
+      "logo": "",
+      "ativo": true
+    },
+    {
+      "id": 809,
+      "nome": "TESTE ANO COM MES",
+      "sector": "",
+      "desde": "2019-05",
+      "website": "",
+      "logo": "",
+      "ativo": true
+    },
+    {
+      "id": 810,
+      "nome": "TESTE TIER DESCONHECIDO",
+      "sector": "",
+      "desde": "",
+      "website": "",
+      "logo": "",
+      "ativo": true,
+      "tier": "Platina"
+    },
+    {
+      "id": 811,
+      "nome": "TESTE TIER VAZIO",
+      "sector": "",
+      "desde": "",
+      "website": "",
+      "logo": "",
+      "ativo": true,
+      "tier": ""
+    },
+    {
+      "id": 812,
+      "nome": "TESTE TIER NULO",
+      "sector": "",
+      "desde": "",
+      "website": "",
+      "logo": "",
+      "ativo": true,
+      "tier": null
+    },
+    {
+      "id": 813,
+      "nome": "TESTE TIER NUMERO",
+      "sector": "",
+      "desde": "",
+      "website": "",
+      "logo": "",
+      "ativo": true,
+      "tier": 7
+    },
+    {
+      "id": 814,
+      "nome": "TESTE TIER BRONZE ANTIGO",
+      "sector": "",
+      "desde": "",
+      "website": "",
+      "logo": "",
+      "ativo": true,
+      "tier": "Bronze"
+    },
+    {
+      "id": 815,
+      "nome": "TESTE ATIVO UM",
+      "sector": "",
+      "desde": "",
+      "website": "",
+      "logo": "",
+      "ativo": 1
+    },
+    {
+      "id": 816,
+      "nome": "TESTE ATIVO TEXTO",
+      "sector": "",
+      "desde": "",
+      "website": "",
+      "logo": "",
+      "ativo": "true"
+    },
+    {
+      "id": 817,
+      "nome": "TESTE INATIVO FALSO NAO APARECE",
+      "sector": "",
+      "desde": "",
+      "website": "",
+      "logo": "",
+      "ativo": false
+    },
+    {
+      "id": 818,
+      "nome": "TESTE INATIVO ZERO NAO APARECE",
+      "sector": "",
+      "desde": "",
+      "website": "",
+      "logo": "",
+      "ativo": 0
+    },
+    {
+      "id": 819,
+      "nome": "TESTE INATIVO TEXTO NAO APARECE",
+      "sector": "",
+      "desde": "",
+      "website": "",
+      "logo": "",
+      "ativo": "false"
+    },
+    {
+      "id": 820,
+      "nome": "TESTE INATIVO AUSENTE NAO APARECE",
+      "sector": "",
+      "desde": "",
+      "website": "",
+      "logo": ""
+    },
+    {
+      "id": 821,
+      "nome": "",
+      "sector": "TESTE SEM NOME NAO APARECE",
+      "desde": "2020",
+      "website": "",
+      "logo": "",
+      "ativo": true
+    },
+    {
+      "id": 822,
+      "nome": "TESTE ESCAPE & <b>B</b>",
+      "sector": "",
+      "desde": "",
+      "website": "",
+      "logo": "",
+      "ativo": true
+    }
   ]
 }

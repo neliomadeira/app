@@ -34,8 +34,9 @@ const FIXTURE = path.join(__dirname, 'teste', 'noticias-EXEMPLO-TESTE.json');
 // notícias e a agenda. A ordem aqui é a ordem em que aparecem no ficheiro.
 const BLOCOS = {
   'index.html': [
-    { nome: 'agenda',   ini: '<!-- JSC:agenda:inicio -->',   fim: '<!-- JSC:agenda:fim -->' },
-    { nome: 'noticias', ini: '<!-- JSC:noticias:inicio -->', fim: '<!-- JSC:noticias:fim -->' },
+    { nome: 'agenda',         ini: '<!-- JSC:agenda:inicio -->',         fim: '<!-- JSC:agenda:fim -->' },
+    { nome: 'noticias',       ini: '<!-- JSC:noticias:inicio -->',       fim: '<!-- JSC:noticias:fim -->' },
+    { nome: 'patrocinadores', ini: '<!-- JSC:patrocinadores:inicio -->', fim: '<!-- JSC:patrocinadores:fim -->' },
   ],
   'noticias.html': [
     { nome: 'noticias-pagina', ini: '<!-- JSC:noticias-pagina:inicio -->', fim: '<!-- JSC:noticias-pagina:fim -->' },
@@ -50,6 +51,9 @@ const BLOCOS = {
   ],
   'formacao.html': [
     { nome: 'escaloes', ini: '<!-- JSC:escaloes:inicio -->', fim: '<!-- JSC:escaloes:fim -->' },
+  ],
+  'patrocinadores.html': [
+    { nome: 'patrocinadores-pagina', ini: '<!-- JSC:patrocinadores-pagina:inicio -->', fim: '<!-- JSC:patrocinadores-pagina:fim -->' },
   ],
 };
 
@@ -155,6 +159,7 @@ function testesDeGeracao(raiz, dados) {
   const age = path.join(raiz, 'agenda.html');
   const eqp = path.join(raiz, 'equipa-principal.html');
   const fmc = path.join(raiz, 'formacao.html');
+  const pat = path.join(raiz, 'patrocinadores.html');
   const db  = path.join(raiz, 'data', 'db.json');
 
   // Quantas notícias cada página deve mostrar, contado a partir da fixture e
@@ -172,6 +177,7 @@ function testesDeGeracao(raiz, dados) {
   const antesAge = fs.readFileSync(age, 'utf8');
   const antesEqp = fs.readFileSync(eqp, 'utf8');
   const antesFmc = fs.readFileSync(fmc, 'utf8');
+  const antesPat = fs.readFileSync(pat, 'utf8');
   verificar('index.html tem as marcas das DUAS regiões — agenda e notícias',
     foraDasMarcas(antesIdx, 'index.html') !== null
     && antesIdx.indexOf(BLOCOS['index.html'][0].ini) < antesIdx.indexOf(BLOCOS['index.html'][1].ini));
@@ -217,6 +223,57 @@ function testesDeGeracao(raiz, dados) {
       texto === 'Escalões a atualizar.', 'texto encontrado: ' + JSON.stringify(texto.slice(0, 200)));
   }
 
+  // ---- Guardas da zona única dos patrocinadores --------------------
+  // A página inicial tinha doze cartões escritos à mão, com nomes de empresas
+  // que não existem, divididos por três níveis, e apareciam sempre que a base
+  // estivesse vazia ou que um nível ficasse sem ninguém. A patrocinadores.html
+  // não tinha nada: a zona era construída por um <script> inline, e sem
+  // JavaScript a página ficava em branco. Estas verificações existem para
+  // nenhuma das duas coisas voltar.
+  //
+  // Procuram a forma, não textos concretos: as classes de cartão, as classes
+  // de nível, as ligações externas e o <script>. Um patrocinador cujo nome
+  // contenha "Bronze" é conteúdo legítimo e não é o que se proíbe aqui.
+  {
+    const base = dentroDasMarcas(antesIdx, 'index.html', 'patrocinadores')
+      .replace(/<!--[\s\S]*?-->/g, '');
+    const texto = base.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+    const niveis = ['sponsors-tier', 'sponsor-card--', 'tier-label', '--ouro', '--prata', '--bronze']
+      .filter((c) => base.includes(c));
+
+    verificar('zona-base: a região do index.html é só a grelha com o estado vazio',
+      /^\s*<div class="sponsors-row" id="sponsorsGrid">\s*<p class="jsc-vazio">[^<]*<\/p>\s*<\/div>\s*$/.test(base),
+      'obtive: ' + JSON.stringify(base.trim().slice(0, 200)));
+    verificar('zona-base: nenhum cartão de patrocinador escrito à mão',
+      !base.includes('sponsor-card'), 'a região não pode trazer cartões');
+    verificar('zona-base: nenhuma classe de nível na região do index.html',
+      niveis.length === 0, 'classes de nível encontradas: ' + niveis.join(', '));
+    verificar('zona-base: o único texto da região do index.html é o do estado vazio',
+      texto === 'Patrocinadores a atualizar.', 'texto: ' + JSON.stringify(texto.slice(0, 200)));
+  }
+  {
+    const base = dentroDasMarcas(antesPat, 'patrocinadores.html', 'patrocinadores-pagina')
+      .replace(/<!--[\s\S]*?-->/g, '');
+    const niveis = ['sp-tier', 'sp-card--', 'tier-label', '--ouro', '--prata', '--bronze']
+      .filter((c) => base.includes(c));
+    // Sem os comentários: um comentário que explique o que saiu não é código.
+    const patSemComentarios = antesPat.replace(/<!--[\s\S]*?-->/g, '');
+
+    verificar('zona-base: a região da patrocinadores.html não tem cartões',
+      !base.includes('class="sp-card"') && !base.includes('sp-grid'));
+    verificar('zona-base: nenhuma classe de nível na região da patrocinadores.html',
+      niveis.length === 0, 'classes de nível encontradas: ' + niveis.join(', '));
+    verificar('zona-base: nenhuma ligação externa escrita à mão na região',
+      !/href="https?:\/\//i.test(base));
+    verificar('zona-base: nenhum <script> dentro da região', !/<script/i.test(base));
+    verificar('zona-base: a região traz o estado vazio e o convite final',
+      base.includes('sp-empty') && base.includes('sp-cta'));
+    verificar('a patrocinadores.html deixou de ter <script> inline',
+      !/<script>[\s\S]*db_patrocinadores/.test(patSemComentarios)
+      && !/getElementById\(.sponsorsContent.\)/.test(patSemComentarios)
+      && antesPat.includes('js/patrocinadores.js'));
+  }
+
   // ---- Guarda da fonte única da barra de informação ----------------
   // Competição, temporada, treinos e local vêm só do db_seniores_info. Em
   // 7d38e40 saíram do HTML os valores que lá estavam escritos à mão, e esta
@@ -258,15 +315,17 @@ function testesDeGeracao(raiz, dados) {
   escreverDados(raiz, dados);
   let g = gerar(raiz);
   verificar('geração corre sem erro', g.estado === 0, g.saida.trim());
-  verificar('a geração escreveu as cinco páginas',
+  verificar('a geração escreveu as seis páginas',
     /index\.html/.test(g.saida) && /noticias\.html/.test(g.saida) && /agenda\.html/.test(g.saida)
-    && /equipa-principal\.html/.test(g.saida) && /formacao\.html/.test(g.saida), g.saida.trim());
+    && /equipa-principal\.html/.test(g.saida) && /formacao\.html/.test(g.saida)
+    && /patrocinadores\.html/.test(g.saida), g.saida.trim());
 
   const depoisHtml = fs.readFileSync(idx, 'utf8');
   const depoisNot  = fs.readFileSync(not, 'utf8');
   const depoisAge  = fs.readFileSync(age, 'utf8');
   const depoisEqp  = fs.readFileSync(eqp, 'utf8');
   const depoisFmc  = fs.readFileSync(fmc, 'utf8');
+  const depoisPat  = fs.readFileSync(pat, 'utf8');
 
   // ---- 9 / E1-8. Comparação byte a byte do exterior a TODAS as marcas ----
   for (const [nome, antes, depois] of [
@@ -275,6 +334,7 @@ function testesDeGeracao(raiz, dados) {
     ['agenda.html', antesAge, depoisAge],
     ['equipa-principal.html', antesEqp, depoisEqp],
     ['formacao.html', antesFmc, depoisFmc],
+    ['patrocinadores.html', antesPat, depoisPat],
   ]) {
     const a = foraDasMarcas(antes, nome);
     const d = foraDasMarcas(depois, nome);
@@ -515,6 +575,111 @@ function testesDeGeracao(raiz, dados) {
      'TESTE ENCARREGADO', '000000000'].every((x) => !bEsc.toLowerCase().includes(x.toLowerCase())));
   verificar('escalões: nenhum atleta em toda a formacao.html gerada',
     !depoisFmc.includes('TESTE ATLETA') && !depoisFmc.includes('TESTE ENCARREGADO'));
+
+  // ---- Bloco 5: patrocinadores ------------------------------------
+  const bPatI = dentroDasMarcas(depoisHtml, 'index.html', 'patrocinadores');
+  const bPatP = dentroDasMarcas(depoisPat, 'patrocinadores.html', 'patrocinadores-pagina');
+  // Contado a partir da fixture: ativo em qualquer das formas verdadeiras, e
+  // com nome. O tier não entra na conta — não entra em nada.
+  const ativoFix = (v) => v === true || v === 1
+    || (typeof v === 'string' && ['true', '1'].indexOf(v.trim().toLowerCase()) !== -1);
+  const patFix = dados.patrocinadores.filter((p) => ativoFix(p.ativo)
+    && String(p.nome || '').trim() !== '');
+  const nomesPat = patFix.map((p) => p.nome.trim());
+  const escapado = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  for (const [pagina, bloco, cartao] of [
+    ['index.html', bPatI, 'sponsor-card'],
+    ['patrocinadores.html', bPatP, 'sp-card'],
+  ]) {
+    const re = new RegExp('<(?:a|div) class="' + cartao + '[ "]', 'g');
+    verificar(`patrocinadores (${pagina}): ${patFix.length} cartões numa grelha só`,
+      (bloco.match(re) || []).length === patFix.length,
+      'obtive ' + (bloco.match(re) || []).length);
+    verificar(`patrocinadores (${pagina}): os inativos não foram escritos`,
+      !bloco.includes('NAO APARECE'));
+    verificar(`patrocinadores (${pagina}): nenhuma classe de nível`,
+      ['--ouro', '--prata', '--bronze', 'sponsors-tier', 'sp-tier', 'tier-label']
+        .every((c) => !bloco.includes(c)));
+    verificar(`patrocinadores (${pagina}): o tier não saiu para o HTML`,
+      !/\stier=|data-tier|"tier"/.test(bloco));
+    verificar(`patrocinadores (${pagina}): o travessão do sector não é publicado`,
+      !/>\s*[-—–]\s*</.test(bloco));
+    verificar(`patrocinadores (${pagina}): o website sem esquema fica https`,
+      bloco.includes('href="https://exemplo.invalido"'));
+    verificar(`patrocinadores (${pagina}): javascript: e data: não produzem ligação`,
+      !/javascript:/i.test(bloco) && !/href="data:/i.test(bloco));
+    verificar(`patrocinadores (${pagina}): nenhum <a> de cartão sem href`,
+      !new RegExp('<a class="' + cartao + '[^"]*"\\s*>').test(bloco));
+    verificar(`patrocinadores (${pagina}): o logótipo tem alt com o nome`,
+      /<img[^>]+alt="TESTE PATROCINADOR COMPLETO"/.test(bloco));
+    verificar(`patrocinadores (${pagina}): o URL do logótipo com apóstrofo é escapado`,
+      bloco.includes("images/logo.png?x=a&#039;b(1)"));
+    verificar(`patrocinadores (${pagina}): o nome com & e <b> foi escapado`,
+      bloco.includes(escapado('TESTE ESCAPE & <b>B</b>')));
+    verificar(`patrocinadores (${pagina}): nenhum elemento vazio`,
+      !/<(span|h3)[^>]*>\s*<\/(span|h3)>/.test(bloco));
+    verificar(`patrocinadores (${pagina}): o data-itens corresponde aos cartões`,
+      bloco.includes('data-itens="' + patFix.length + '"'));
+  }
+
+  verificar('patrocinadores: a página completa mostra sector, ano e botão do site',
+    bPatP.includes('TESTE SECTOR') && bPatP.includes('Parceiro desde 2019')
+    && bPatP.includes('class="sp-card__website"'));
+  verificar('patrocinadores: ano inválido e curto não produzem linha',
+    !bPatP.includes('Parceiro desde abc') && !bPatP.includes('Parceiro desde 26'));
+  verificar('patrocinadores: "2019-05" dá o ano 2019',
+    (bPatP.match(/Parceiro desde 2019/g) || []).length === 2);
+  verificar('patrocinadores: iniciais quando não há logótipo',
+    bPatP.includes('class="sp-card__initials">TS<'));
+  verificar('patrocinadores: uma grelha só na página completa',
+    (bPatP.match(/<div class="sp-grid">/g) || []).length === 1);
+  verificar('patrocinadores: o convite final é gerado',
+    bPatP.includes('class="sp-cta"') && bPatP.includes('Quer ser patrocinador?'));
+  // Sem os comentários: o que conta é o que o visitante lê.
+  const idxSemComentarios = depoisHtml.replace(/<!--[\s\S]*?-->/g, '');
+  verificar('patrocinadores: os doze cartões fictícios saíram do index.html',
+    !idxSemComentarios.includes('Parceiro Principal')
+    && !idxSemComentarios.includes('Patrocinador Oficial')
+    && !idxSemComentarios.includes('Apoiante Prata'));
+  verificar('patrocinadores: o index.html não tem rótulos de nível em sítio nenhum',
+    !idxSemComentarios.includes('sponsors-tier'));
+  verificar('patrocinadores: a ordem publicada é a ordem dos dados',
+    JSON.stringify((bPatP.match(/<h3 class="sp-card__name">([^<]*)<\/h3>/g) || [])
+      .map((m) => m.replace(/<[^>]*>/g, ''))) === JSON.stringify(nomesPat.map(escapado)),
+    'obtive: ' + JSON.stringify((bPatP.match(/<h3 class="sp-card__name">([^<]*)<\/h3>/g) || []).slice(0, 4)));
+  verificar('patrocinadores: um nome que contém "Bronze" é conteúdo e é publicado',
+    bPatP.includes('TESTE TIER BRONZE ANTIGO'));
+
+  // Com o db_patrocinadores vazio as duas zonas voltam ao estado vazio.
+  const semPatroc = JSON.parse(JSON.stringify(dados));
+  semPatroc.patrocinadores = [];
+  escreverDados(raiz, semPatroc);
+  g = gerar(raiz);
+  const vazioI = dentroDasMarcas(fs.readFileSync(idx, 'utf8'), 'index.html', 'patrocinadores');
+  const vazioP = dentroDasMarcas(fs.readFileSync(pat, 'utf8'), 'patrocinadores.html', 'patrocinadores-pagina');
+  verificar('patrocinadores: sem patrocinadores o index.html mostra o estado vazio',
+    g.estado === 0 && vazioI.includes('jsc-vazio') && !vazioI.includes('sponsor-card'),
+    g.saida.trim().slice(0, 160));
+  verificar('patrocinadores: sem patrocinadores a página mostra o vazio e mantém o convite',
+    vazioP.includes('sp-empty') && vazioP.includes('sp-cta')
+    && !vazioP.includes('class="sp-card"'));
+  verificar('patrocinadores: sem patrocinadores o data-itens é 0 nas duas',
+    vazioI.includes('data-itens="0"') && vazioP.includes('data-itens="0"'));
+  // Todos inativos: o mesmo que nenhum.
+  const todosInativos = JSON.parse(JSON.stringify(dados));
+  todosInativos.patrocinadores.forEach((p) => { p.ativo = false; });
+  escreverDados(raiz, todosInativos);
+  g = gerar(raiz);
+  verificar('patrocinadores: todos inativos dá o mesmo que nenhum',
+    g.estado === 0
+    && dentroDasMarcas(fs.readFileSync(idx, 'utf8'), 'index.html', 'patrocinadores').includes('jsc-vazio')
+    && !dentroDasMarcas(fs.readFileSync(pat, 'utf8'), 'patrocinadores.html', 'patrocinadores-pagina').includes('class="sp-card"'),
+    g.saida.trim().slice(0, 160));
+  escreverDados(raiz, dados);
+  g = gerar(raiz);
+  verificar('patrocinadores: a fixture completa volta a gerar sem erro', g.estado === 0,
+    g.saida.trim().slice(0, 160));
 
   // Com o db_escaloes vazio a grelha volta ao estado vazio.
   const semEscaloes = JSON.parse(JSON.stringify(dados));
@@ -764,12 +929,20 @@ function testesDeGeracao(raiz, dados) {
   fs.writeFileSync(eqp, eqpGerado.replace('</body>', '<!-- rabisco --></body>'));
   const fmcGerado = fs.readFileSync(fmc, 'utf8');
   fs.writeFileSync(fmc, fmcGerado.replace('</body>', '<!-- rabisco --></body>'));
+  const patGerado = fs.readFileSync(pat, 'utf8');
+  fs.writeFileSync(pat, patGerado.replace('</body>', '<!-- rabisco --></body>'));
   g = gerar(raiz, ['--reverter']);
-  verificar('reverter: corre sem erro e nomeia as cinco páginas',
+  verificar('reverter: corre sem erro e nomeia as seis páginas',
     g.estado === 0 && /index\.html/.test(g.saida) && /noticias\.html/.test(g.saida)
     && /agenda\.html/.test(g.saida) && /equipa-principal\.html/.test(g.saida)
-    && /formacao\.html/.test(g.saida),
+    && /formacao\.html/.test(g.saida) && /patrocinadores\.html/.test(g.saida),
     g.saida.trim().slice(0, 200));
+  verificar('reverter: a patrocinadores.html voltou inteira, com a sua região',
+    !fs.readFileSync(pat, 'utf8').includes('rabisco')
+    && BLOCOS['patrocinadores.html'].every((b) => {
+      const c = fs.readFileSync(pat, 'utf8');
+      return c.includes(b.ini) && c.includes(b.fim);
+    }));
   verificar('reverter: a formacao.html voltou inteira, com a região dos escalões',
     !fs.readFileSync(fmc, 'utf8').includes('rabisco')
     && BLOCOS['formacao.html'].every((b) => {
@@ -1212,6 +1385,112 @@ async function testarEscalao(browser, url, escalao, comJs) {
       staffImagens: Array.from(document.querySelectorAll('#escTechnical .esc-staff__avatar'))
         .map((el) => getComputedStyle(el).backgroundImage),
       texto: document.body.textContent || '',
+    };
+  });
+  await ctx.close();
+  return { ...d, erros };
+}
+
+// Patrocinadores: a zona da página inicial e a página completa. Uma sonda para
+// as duas, porque o que interessa é o mesmo — os cartões, as ligações e a
+// ausência de níveis.
+async function testarPatrocinadores(browser, url, pagina, comJs, largura) {
+  const ctx = await browser.newContext({
+    javaScriptEnabled: comJs,
+    extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+  });
+  const pg = await ctx.newPage();
+  await pg.setViewportSize({ width: largura, height: 900 });
+
+  const erros = [];
+  const ruido = (t) => RUIDO.some((r) => r.test(t));
+  pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+  pg.on('console', (m) => { if (m.type() === 'error' && !ruido(m.text())) erros.push(m.text()); });
+  pg.on('response', (r) => {
+    const t = r.status() + ' ' + r.url().replace(url, '');
+    if (r.status() >= 400 && !ruido(t)) erros.push(t);
+  });
+  await pg.route('**', (rota) => {
+    const alvo = rota.request().url();
+    if (alvo.startsWith(url) || alvo.startsWith('data:') || alvo.startsWith('blob:')) return rota.continue();
+    return rota.abort();
+  });
+
+  await pg.goto(url + '/' + pagina,
+    { waitUntil: comJs ? 'networkidle' : 'load', timeout: 20000 });
+
+  const d = await pg.evaluate(() => {
+    const visivel = (el) => !!el && getComputedStyle(el).display !== 'none' && !el.hidden;
+    const naInicial = !!document.getElementById('sponsorsGrid');
+    const caixa = document.getElementById(naInicial ? 'sponsorsGrid' : 'sponsorsContent');
+    const cartoes = Array.from(document.querySelectorAll('.sponsor-card, .sp-card'));
+    const doc = document.documentElement;
+    const lido = (c) => ({
+      etiqueta: c.tagName,
+      href: c.tagName === 'A' ? c.getAttribute('href') : (c.querySelector('.sp-card__website')
+        ? c.querySelector('.sp-card__website').getAttribute('href') : null),
+      // O nome como o visitante o lê, venha do <h3>, do título ou do logótipo.
+      nome: (c.querySelector('.sp-card__name, .sponsor-card__title, .sponsor-card__logo') || {}).textContent || '',
+      sector: c.querySelector('.sp-card__sector, .sponsor-card__name')
+        ? c.querySelector('.sp-card__sector, .sponsor-card__name').textContent : null,
+      desde: c.querySelector('.sp-card__since') ? c.querySelector('.sp-card__since').textContent : null,
+      alt: c.querySelector('img') ? c.querySelector('img').getAttribute('alt') : null,
+      // A imagem resolveu? Se o src tivesse ficado mal escapado, não havia.
+      imagemOk: c.querySelector('img') ? c.querySelector('img').complete : null,
+      classes: c.className,
+    });
+    return {
+      cartoes: cartoes.length,
+      cartoesVisiveis: cartoes.filter(visivel).length,
+      lidos: cartoes.map(lido),
+      grelhas: document.querySelectorAll('.sp-grid').length,
+      // Um <a> de cartão sem href não recebe foco nem é anunciado como
+      // ligação. Não pode existir nenhum.
+      ancorasSemHref: Array.from(document.querySelectorAll('a.sponsor-card, a.sp-card'))
+        .filter((a) => !a.getAttribute('href')).length,
+      focaveis: Array.from(document.querySelectorAll(
+        '#sponsorsGrid a[href], #sponsorsContent a.sp-card__website[href]')).length,
+      vazioVisivel: visivel(caixa && caixa.querySelector('.jsc-vazio, .sp-empty')),
+      cta: !!document.querySelector('.sp-cta'),
+      itens: caixa ? caixa.getAttribute('data-itens') : null,
+      texto: caixa ? (caixa.textContent || '') : '',
+      // Nenhum vestígio de nível na zona pública, nem em classes nem em
+      // cabeçalhos. O nome de um patrocinador não conta: é conteúdo.
+      classesDeNivel: Array.from(document.querySelectorAll('[class]'))
+        .map((el) => (typeof el.className === 'string' ? el.className : '')).join(' ')
+        .split(/\s+/).filter((c) => /(--ouro|--prata|--bronze|tier)/i.test(c)),
+      transbordo: doc.scrollWidth - doc.clientWidth,
+    };
+  });
+  await ctx.close();
+  return { ...d, erros };
+}
+
+// O painel: o modal de patrocinador não pode voltar a ter selector de nível, e
+// a lista não pode voltar a agrupar por nível.
+async function testarAdminPatrocinadores(browser, url) {
+  const ctx = await browser.newContext({ extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' } });
+  const pg = await ctx.newPage();
+  const erros = [];
+  pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+  await pg.route('**', (rota) => {
+    const alvo = rota.request().url();
+    if (alvo.startsWith(url) || alvo.startsWith('data:') || alvo.startsWith('blob:')) return rota.continue();
+    return rota.abort();
+  });
+  await pg.goto(url + '/admin/index.html', { waitUntil: 'networkidle', timeout: 20000 });
+
+  const d = await pg.evaluate(() => {
+    // Abre o modal de "Novo Patrocinador": o que se verifica é o HTML do
+    // modal, não o acesso ao painel.
+    const abre = document.getElementById('btnNovoPatrocinador');
+    if (abre) abre.click();
+    return {
+      abriu: !!abre,
+      temSelectorNivel: !!document.getElementById('mPTier'),
+      temCampoLogotipo: !!document.getElementById('mPLogo'),
+      opcoesDeNivel: /<option[^>]*>\s*(Ouro|Prata|Bronze)\s*<\/option>/i.test(document.body.innerHTML),
+      listaComNiveis: /tier-label|sponsor-admin-card__tier-dot|dot--ouro/.test(document.body.innerHTML),
     };
   });
   await ctx.close();
@@ -1746,6 +2025,110 @@ async function testarEscalao(browser, url, escalao, comJs) {
       JSON.stringify(esc.staffEstilos) + ' | ' + JSON.stringify(esc.staffImagens));
     verificar('escalão: sem erros de consola', esc.erros.length === 0, esc.erros.join(' | '));
 
+    // ---- 6b. Bloco 5: patrocinadores ----------------------------
+    console.log('\npatrocinadores: zona única');
+    const patAtivos = dados.patrocinadores.filter((p) => (p.ativo === true || p.ativo === 1
+      || (typeof p.ativo === 'string' && ['true', '1'].indexOf(p.ativo.trim().toLowerCase()) !== -1))
+      && String(p.nome || '').trim() !== '');
+    const comSite = patAtivos.filter((p) => {
+      const w = String(p.website || '').trim();
+      return w !== '' && !/^javascript:/i.test(w) && !/^data:/i.test(w);
+    }).length;
+
+    for (const pagina of ['index.html', 'patrocinadores.html']) {
+      let x = await testarPatrocinadores(browser, srv.url, pagina, false, 1440);
+      verificar(`sem JS (${pagina}): ${patAtivos.length} cartões, todos visíveis`,
+        x.cartoes === patAtivos.length && x.cartoesVisiveis === patAtivos.length,
+        'cartões ' + x.cartoes + ', visíveis ' + x.cartoesVisiveis);
+      verificar(`sem JS (${pagina}): uma grelha só`,
+        pagina === 'index.html' ? x.grelhas === 0 : x.grelhas === 1, 'grelhas ' + x.grelhas);
+      verificar(`sem JS (${pagina}): nenhuma classe de nível na zona pública`,
+        x.classesDeNivel.length === 0, x.classesDeNivel.join(', '));
+      verificar(`sem JS (${pagina}): todos os cartões têm as mesmas classes`,
+        new Set(x.lidos.map((c) => c.classes)).size === 1,
+        JSON.stringify(Array.from(new Set(x.lidos.map((c) => c.classes)))));
+      verificar(`sem JS (${pagina}): nenhum inativo na página`,
+        !x.texto.includes('NAO APARECE'));
+      verificar(`sem JS (${pagina}): nenhum <a> de cartão sem href`,
+        x.ancorasSemHref === 0, 'encontrei ' + x.ancorasSemHref);
+      verificar(`sem JS (${pagina}): ${comSite} ligações externas, alcançáveis por teclado`,
+        x.focaveis === comSite, 'focáveis ' + x.focaveis);
+      verificar(`sem JS (${pagina}): o website sem esquema resolve para https`,
+        x.lidos.some((c) => c.href === 'https://exemplo.invalido'),
+        JSON.stringify(x.lidos.map((c) => c.href).filter(Boolean)));
+      verificar(`sem JS (${pagina}): javascript: e data: não deram ligação`,
+        x.lidos.every((c) => !c.href || /^https?:\/\//.test(c.href)));
+      verificar(`sem JS (${pagina}): o logótipo tem alt e a imagem resolveu`,
+        x.lidos.some((c) => c.alt === 'TESTE PATROCINADOR COMPLETO' && c.imagemOk === true),
+        JSON.stringify(x.lidos.filter((c) => c.alt !== null)));
+      verificar(`sem JS (${pagina}): o nome com & e <b> aparece como texto`,
+        x.texto.includes('TESTE ESCAPE & <b>B</b>'));
+      verificar(`sem JS (${pagina}): o travessão do sector não aparece`,
+        x.lidos.every((c) => c.sector !== '—' && c.sector !== '-'));
+      verificar(`sem JS (${pagina}): a ordem é a ordem dos dados`,
+        JSON.stringify(x.lidos.map((c) => c.nome)) === JSON.stringify(patAtivos.map((p) => p.nome.trim())),
+        JSON.stringify(x.lidos.map((c) => c.nome).slice(0, 4)));
+      verificar(`sem JS (${pagina}): sem transbordo a 1440 px`, x.transbordo <= 0, '+' + x.transbordo + 'px');
+      verificar(`sem JS (${pagina}): sem erros de rede`, x.erros.length === 0, x.erros.join(' | '));
+
+      x = await testarPatrocinadores(browser, srv.url, pagina, false, 320);
+      verificar(`sem JS a 320 px (${pagina}): os cartões continuam todos`,
+        x.cartoes === patAtivos.length);
+      verificar(`sem JS a 320 px (${pagina}): sem transbordo`, x.transbordo <= 0, '+' + x.transbordo + 'px');
+    }
+    const xp = await testarPatrocinadores(browser, srv.url, 'patrocinadores.html', false, 1440);
+    verificar('sem JS: o convite final existe sem JavaScript',
+      xp.cta, 'era o bloco que desaparecia com a página');
+    verificar('sem JS: sector, ano e botão do site aparecem quando existem',
+      xp.lidos.some((c) => c.sector === 'TESTE SECTOR')
+      && xp.lidos.some((c) => c.desde === 'Parceiro desde 2019'));
+    verificar('sem JS: quem não tem sector nem ano não produz esses elementos',
+      xp.lidos.some((c) => c.nome === 'TESTE SO NOME' && c.sector === null && c.desde === null));
+
+    // Com JavaScript: o bloco gerado e atual não é redesenhado, e quando é
+    // redesenhado dá o mesmo cartão.
+    for (const [pagina, ficheiro, ancora] of [
+      ['index.html', path.join(raiz, 'index.html'), '<div class="sponsor-card__logo">TESTE SO NOME</div>'],
+      ['patrocinadores.html', path.join(raiz, 'patrocinadores.html'), '<h3 class="sp-card__name">TESTE SO NOME</h3>'],
+    ]) {
+      const antes = fs.readFileSync(ficheiro, 'utf8');
+      fs.writeFileSync(ficheiro, antes.replace(ancora, ancora + '<!--MARCA-->'));
+      let y = await testarPatrocinadores(browser, srv.url, pagina, true, 1440);
+      verificar(`com JS (${pagina}): o bloco gerado e atual não é redesenhado`,
+        fs.readFileSync(ficheiro, 'utf8').includes('<!--MARCA-->')
+        && y.cartoes === patAtivos.length);
+      verificar(`com JS (${pagina}): sem erros de consola`, y.erros.length === 0, y.erros.join(' | '));
+      const gerados = JSON.stringify(y.lidos);
+
+      fs.writeFileSync(ficheiro, fs.readFileSync(ficheiro, 'utf8')
+        .replace('data-itens="' + patAtivos.length + '"', 'data-itens="99"'));
+      y = await testarPatrocinadores(browser, srv.url, pagina, true, 1440);
+      verificar(`com JS (${pagina}): data-itens errado força o redesenho`,
+        y.cartoes === patAtivos.length && y.itens === '99');
+      verificar(`com JS (${pagina}): o cartão desenhado é o mesmo que o gerado`,
+        JSON.stringify(y.lidos) === gerados,
+        'desenhado: ' + JSON.stringify(y.lidos).slice(0, 300));
+      verificar(`com JS (${pagina}): nenhuma classe de nível depois do redesenho`,
+        y.classesDeNivel.length === 0, y.classesDeNivel.join(', '));
+      verificar(`com JS (${pagina}): nenhum <a> sem href depois do redesenho`,
+        y.ancorasSemHref === 0);
+      fs.writeFileSync(ficheiro, antes);
+    }
+
+    // O registo sem nome não pode apagar a página: era o que fazia o
+    // initials() do script inline, que estourava e deixava tudo em branco.
+    verificar('com JS: um registo sem nome não apaga a página',
+      (await testarPatrocinadores(browser, srv.url, 'patrocinadores.html', true, 1440)).cta);
+
+    console.log('\npatrocinadores: painel');
+    const adm = await testarAdminPatrocinadores(browser, srv.url);
+    verificar('painel: o botão de novo patrocinador existe', adm.abriu);
+    verificar('painel: o selector de nível desapareceu', !adm.temSelectorNivel);
+    verificar('painel: não há opções de nível no modal', !adm.opcoesDeNivel);
+    verificar('painel: o campo de logótipo existe', adm.temCampoLogotipo);
+    verificar('painel: a lista deixou de agrupar por nível', !adm.listaComNiveis);
+    verificar('painel: sem exceções', adm.erros.length === 0, adm.erros.join(' | '));
+
     // ---- 7. Bloqueios do .htaccess ------------------------------
     console.log('\nproteções');
     const ctx = await browser.newContext({ extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' } });
@@ -1758,6 +2141,8 @@ async function testarEscalao(browser, url, escalao, comJs) {
       ['/modelos/seniores-plantel.php', 403],
       ['/modelos/seniores-posts.php', 403],
       ['/modelos/escaloes.php', 403],
+      ['/modelos/patrocinadores-inicio.php', 403],
+      ['/modelos/patrocinadores-pagina.php', 403],
       ['/data/publicacao/anterior/index.html', 403],
       ['/data/publicacao/transacao.json', 403],
       ['/data/db.json', 403],
@@ -1836,6 +2221,37 @@ async function testarEscalao(browser, url, escalao, comJs) {
       'cartões ' + fv.cartoes + ', data-itens ' + fv.itens);
     verificar('formação: sem erros de consola no estado vazio',
       fv.erros.length === 0, fv.erros.join(' / '));
+
+    semNoticias.patrocinadores = [];
+    escreverDados(raiz, semNoticias);
+    gerar(raiz);
+    for (const pagina of ['index.html', 'patrocinadores.html']) {
+      const pv = await testarPatrocinadores(browser, srv.url, pagina, false, 1440);
+      verificar(`patrocinadores (${pagina}): sem patrocinadores, nenhum cartão e o vazio visível`,
+        pv.cartoes === 0 && pv.vazioVisivel, 'cartões ' + pv.cartoes + ', vazio=' + pv.vazioVisivel);
+      const pvJs = await testarPatrocinadores(browser, srv.url, pagina, true, 1440);
+      verificar(`patrocinadores (${pagina}): com JavaScript o vazio mantém-se, sem duplicar`,
+        pvJs.cartoes === 0 && pvJs.vazioVisivel && pvJs.itens === '0',
+        'cartões ' + pvJs.cartoes + ', data-itens ' + pvJs.itens);
+      verificar(`patrocinadores (${pagina}): sem erros de consola no estado vazio`,
+        pvJs.erros.length === 0, pvJs.erros.join(' / '));
+    }
+    verificar('patrocinadores: sem patrocinadores o convite final continua lá',
+      (await testarPatrocinadores(browser, srv.url, 'patrocinadores.html', false, 1440)).cta);
+
+    // Nenhum dado de teste nos ficheiros públicos do repositório. A
+    // verificação abaixo olha para a cópia gerada; esta olha para a fonte,
+    // que é onde nunca pode haver dados de teste. Comentários não contam —
+    // podem explicar o que um teste faz.
+    {
+      const publicos = fs.readdirSync(RAIZ_PROJETO).filter((f) => f.endsWith('.html'))
+        .concat(fs.readdirSync(path.join(RAIZ_PROJETO, 'js')).map((f) => 'js/' + f))
+        .concat(fs.readdirSync(path.join(RAIZ_PROJETO, 'modelos')).map((f) => 'modelos/' + f));
+      const comTeste = publicos.filter((rel) => /\bTESTE[ -]/.test(
+        fs.readFileSync(path.join(RAIZ_PROJETO, rel), 'utf8').replace(/<!--[\s\S]*?-->/g, '')));
+      verificar('nenhum dado de teste nos ficheiros públicos do repositório',
+        comTeste.length === 0, 'ficheiros: ' + comTeste.join(', '));
+    }
 
     verificar('nenhum texto de teste na página', !(await (async () => {
       const ctx2 = await browser.newContext({ javaScriptEnabled: false });

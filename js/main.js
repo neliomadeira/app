@@ -729,29 +729,53 @@ ${jogadores.map(j => `            <div class="player-card">
     }
   } catch(e) {}
 
-  // Patrocinadores dinâmicos
+  // Patrocinadores
+  //
+  // Zona única: todos os ativos numa grelha só, pela ordem do array. Havia uma
+  // divisão por três níveis, e com ela três filas separadas: uma fila sem
+  // ninguém mantinha os cartões escritos à mão que estavam no HTML.
+  //
+  // O campo tier continua nos dados já guardados, por compatibilidade
+  // histórica, e é aqui completamente ignorado. Mesmo cartão que o
+  // modelos/patrocinadores-inicio.php gera.
   try {
     const raw = localStorage.getItem('db_patrocinadores');
-    if (raw) {
-      const lista = JSON.parse(raw).filter(p => p.ativo);
-      if (lista.length) {
-        const tiers = ['Ouro','Prata','Bronze'];
-        tiers.forEach(tier => {
-          const grupo = lista.filter(p => p.tier === tier);
-          const row = document.getElementById(`sponsorsRow${tier}`);
-          if (row && grupo.length) {
-            row.innerHTML = grupo.map(p => {
-              const logo = p.logo
-                ? `<div class="sponsor-card__logo" style="background-image:url('${jscEscUrl(p.logo)}');background-size:contain;background-repeat:no-repeat;background-position:center"></div>`
-                : `<div class="sponsor-card__logo">${jscEsc(p.nome)}</div>`;
-              const link = p.website ? `href="${jscEscUrl(p.website)}" target="_blank" rel="noopener"` : '';
-              return `<a class="sponsor-card sponsor-card--${jscEsc(tier.toLowerCase())}" ${link} style="${jscEsc(link?'cursor:pointer':'')}">
-                ${logo}
-                <span class="sponsor-card__name">${jscEsc(p.sector || '')}</span>
-              </a>`;
-            }).join('');
-          }
-        });
+    const grelha = document.getElementById('sponsorsGrid');
+    if (grelha && raw) {
+      const lista = JSON.parse(raw)
+        .filter(p => p && jscPatrocinadorAtivo(p.ativo))
+        .filter(p => (p.nome || '').toString().trim() !== '');
+
+      // Se o servidor já escreveu esta grelha e ela continua a servir, não se
+      // lhe toca: o visitante já a está a ver, sem JavaScript nenhum.
+      if (!jscBlocoAtual(grelha, lista.length)) {
+        if (!lista.length) {
+          grelha.innerHTML = '\n        <p class="jsc-vazio">Patrocinadores a atualizar.</p>\n      ';
+        } else {
+          grelha.innerHTML = lista.map(p => {
+            const nome   = (p.nome || '').toString().trim();
+            const sector = jscPatrocinadorSector(p.sector);
+            const logo   = (p.logo || '').toString().trim();
+            const url    = jscPatrocinadorUrl(p.website);
+            // Sem website não se escreve <a>: um <a> sem href não recebe foco
+            // nem é anunciado como ligação, e era o que a página fazia antes.
+            const et = url ? 'a' : 'div';
+            const atributos = url
+              ? ` href="${jscEsc(url)}" target="_blank" rel="noopener noreferrer"`
+              : '';
+            // <img> com alt, e não uma imagem de fundo: um fundo não tem texto
+            // alternativo, e o cartão ficava sem nome acessível nenhum.
+            const cabeca = logo
+              ? `<img src="${jscEscUrl(logo)}" alt="${jscEsc(nome)}" class="sponsor-card__img" loading="lazy" />
+              <span class="sponsor-card__title">${jscEsc(nome)}</span>`
+              : `<div class="sponsor-card__logo">${jscEsc(nome)}</div>`;
+            return `
+            <${et} class="sponsor-card"${atributos}>
+              ${cabeca}
+              ${sector ? `<span class="sponsor-card__name">${jscEsc(sector)}</span>` : ''}
+            </${et}>`;
+          }).join('');
+        }
       }
     }
   } catch(e) {}

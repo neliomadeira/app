@@ -46,6 +46,82 @@ define('JSC_PUB_DIARIO', JSC_PUB . '/transacao.json');
 // Um bloco = um par de marcas dentro de um ficheiro + o modelo que escreve
 // o que vai lá dentro + o que validar no resultado. Acrescentar um bloco
 // novo (agenda, resultados, ...) é acrescentar uma entrada aqui.
+// Validação partilhada pelos dois blocos dos patrocinadores. O que tem de
+// valer nas duas páginas vale aqui, uma vez só.
+//
+// $contentor  o id que o JavaScript procura quando tem de redesenhar
+// $cartao     a classe de cada cartão nessa página
+function jsc_validar_patrocinadores($meio, array $conteudo, $contentor, $cartao) {
+    $erros = [];
+    $lista     = jsc_patrocinadores($conteudo);
+    $esperados = count($lista);
+
+    // O [ "] a seguir à classe exclui os sp-card__body e companhia.
+    $obtidos = preg_match_all('/<(?:a|div) class="' . preg_quote($cartao, '/') . '[ "]/', $meio);
+    if ($obtidos !== $esperados) {
+        $erros[] = "gerou $obtidos cartões, esperava $esperados";
+    }
+    if (strpos($meio, 'id="' . $contentor . '"') === false) {
+        $erros[] = 'o bloco gerado não tem o contentor id="' . $contentor . '"';
+    }
+    if (strpos($meio, 'data-itens="' . $esperados . '"') === false) {
+        $erros[] = 'o data-itens não corresponde ao número de patrocinadores gerados';
+    }
+    if ($esperados === 0 && strpos($meio, 'jsc-vazio') === false
+        && strpos($meio, 'sp-empty') === false) {
+        $erros[] = 'sem patrocinadores, o bloco tem de manter o estado vazio';
+    }
+
+    // Deixou de existir divisão por níveis. O que se proíbe é a *estrutura* do
+    // nível, não a palavra: uma empresa pode chamar-se "Bronze, Lda." e o nome
+    // dela é conteúdo legítimo. O que não pode voltar é uma classe de nível,
+    // um cabeçalho de nível, ou o tier a sair para o HTML — o tier fica nos
+    // dados só por compatibilidade histórica e não tem efeito na publicação.
+    foreach (['--ouro', '--prata', '--bronze', 'sponsors-tier', 'sp-tier',
+              'tier-label', 'tier-dot', 'data-tier', 'tier="'] as $proibido) {
+        if (stripos($meio, $proibido) !== false) {
+            $erros[] = "o bloco de patrocinadores não pode conter \"$proibido\"";
+        }
+    }
+
+    // O travessão que o painel gravava num sector em branco não é conteúdo.
+    if (preg_match('/>\s*[-—–]\s*</', $meio)) {
+        $erros[] = 'o cartão não pode mostrar um travessão como se fosse conteúdo';
+    }
+
+    // Uma ligação por patrocinador com website, e nenhum cartão que seja um
+    // <a> sem href: um <a> sem href não recebe foco nem é anunciado como
+    // ligação.
+    $comUrl = 0;
+    foreach ($lista as $p) { if ($p['url'] !== '') $comUrl++; }
+    $externas = preg_match_all('/<a[^>]+href="https?:\/\//i', $meio);
+    if ($externas !== $comUrl) {
+        $erros[] = "gerou $externas ligações externas, esperava $comUrl";
+    }
+    if (preg_match('/<a class="(?:sponsor-card|sp-card)[^"]*"\s*>/', $meio)) {
+        $erros[] = 'nenhum cartão pode ser um <a> sem href';
+    }
+
+    // Todo o logótipo tem texto alternativo. A verificação olha para a
+    // etiqueta inteira: o alt pode vir antes ou depois do class.
+    if (preg_match_all('/<img\b[^>]*>/', $meio, $imgs)) {
+        foreach ($imgs[0] as $img) {
+            if (strpos($img, 'sponsor-card__img') === false
+                && strpos($img, 'sp-card__logo-img') === false) continue;
+            if (!preg_match('/\salt="[^"]+"/', $img)) {
+                $erros[] = 'todo o logótipo tem de ter um alt não vazio';
+                break;
+            }
+        }
+    }
+    // Campo vazio não produz elemento vazio.
+    if (preg_match('/<(span|h3)[^>]*>\s*<\/\1>/', $meio)) {
+        $erros[] = 'o bloco gerado não pode ter elementos vazios';
+    }
+
+    return $erros;
+}
+
 function jsc_blocos() {
     return [
         'noticias' => [
@@ -387,6 +463,46 @@ function jsc_blocos() {
                     }
                 }
 
+                return $erros;
+            },
+        ],
+
+        // Os dois blocos dos patrocinadores partilham a mesma função de
+        // conteúdo e o mesmo validador: só o modelo difere.
+        'patrocinadores' => [
+            'ficheiro' => 'index.html',
+            'modelo'   => 'patrocinadores-inicio.php',
+            'inicio'   => '<!-- JSC:patrocinadores:inicio -->',
+            'fim'      => '<!-- JSC:patrocinadores:fim -->',
+            'dados'    => function (array $conteudo) {
+                return ['patrocinadores' => jsc_patrocinadores($conteudo)];
+            },
+            'validar'  => function ($meio, array $conteudo) {
+                return jsc_validar_patrocinadores($meio, $conteudo, 'sponsorsGrid', 'sponsor-card');
+            },
+        ],
+
+        'patrocinadores-pagina' => [
+            'ficheiro' => 'patrocinadores.html',
+            'modelo'   => 'patrocinadores-pagina.php',
+            'inicio'   => '<!-- JSC:patrocinadores-pagina:inicio -->',
+            'fim'      => '<!-- JSC:patrocinadores-pagina:fim -->',
+            'dados'    => function (array $conteudo) {
+                return ['patrocinadores' => jsc_patrocinadores($conteudo)];
+            },
+            'validar'  => function ($meio, array $conteudo) {
+                $erros = jsc_validar_patrocinadores($meio, $conteudo, 'sponsorsContent', 'sp-card');
+                // O convite final aparece sempre, com ou sem patrocinadores:
+                // era ele que desaparecia com a página quando não havia
+                // JavaScript.
+                if (strpos($meio, 'class="sp-cta"') === false) {
+                    $erros[] = 'o bloco gerado tem de manter o convite final (sp-cta)';
+                }
+                // Uma grelha só. Mais do que uma significa que voltou a haver
+                // divisão por níveis.
+                if (substr_count($meio, '<div class="sp-grid">') > 1) {
+                    $erros[] = 'só pode existir uma grelha de patrocinadores';
+                }
                 return $erros;
             },
         ],

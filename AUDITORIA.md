@@ -1499,3 +1499,162 @@ não existe, e a foto do treinador com `'` e `( )` sai percent-encoded dentro do
 `401` com password errada, `200` para a Comunicação a alterar notícias, e
 **`403` para a Comunicação a alterar `escaloes`** — a área dos escalões é
 `equipas`, que aquele perfil não tem.
+
+---
+
+# FASE C — BLOCO 5: PATROCINADORES
+
+Duas regiões, uma zona. A divisão por Ouro, Prata e Bronze **deixou de existir
+na apresentação pública e no painel**: todos os patrocinadores ativos numa
+grelha só, pela ordem dos dados, sem tratamento visual diferente entre eles.
+
+## Os dois piores fallbacks da Fase C, ambos aqui
+
+**A página de patrocinadores estava completamente vazia sem JavaScript.** O
+`patrocinadores.html` tinha, literalmente, `<div id="sponsorsContent"></div>`, e
+o conteúdo era construído por um `<script>` inline de 134 linhas dentro do
+próprio HTML — a única página do site assim. Sem JavaScript não havia nada: nem
+cartões, nem estado vazio, nem o convite final, debaixo de um cabeçalho que
+promete "Quem nos apoia".
+
+**A página inicial mostrava doze patrocinadores falsos.** Cartões escritos à
+mão, com nomes de empresas que não existem, em três níveis. O `js/main.js` só
+substituía uma fila **se houvesse patrocinadores ativos nesse nível**, e por
+isso: base vazia → os doze ficavam todos; só patrocinadores num nível → os
+outros sete falsos ficavam; desativar o último de um nível → os falsos desse
+nível voltavam.
+
+## Achados
+
+**Campo `logo` inexistente no painel.** Os dois renderizadores públicos leem
+`p.logo`, e o editor do Admin tinha `nome`, `sector`, `tier`, `desde` e
+`website` — e mais nada. **Nenhum patrocinador podia ter logótipo.** Passa a
+haver campo, por URL ou upload, com o `setupImageUpload` que o painel já usa.
+
+**O painel gravava `'—'` dentro dos dados.** `sector: valor || '—'`. Deixar o
+sector em branco gravava um travessão em `db_patrocinadores`, publicado depois
+como se fosse o sector da empresa — e, na página inicial, como o nome do
+cartão. O painel deixou de o gravar, e um travessão já gravado conta como
+vazio.
+
+**O nome nunca aparecia na página inicial.** O `<span class="__name">` recebia
+o **sector**; o nome só surgia quando não havia logótipo. E como o logótipo era
+uma **imagem de fundo CSS**, não tinha `alt`: o cartão ficava **sem nome
+acessível nenhum**. Passa a `<img alt>` mais o nome em texto.
+
+**O mesmo `website` dava destinos diferentes nas duas páginas.** A página de
+patrocinadores punha `https://` quando faltava o esquema; a inicial não. Um
+`empresa.pt` ficava `https://empresa.pt` numa e `campinense.pt/empresa.pt` —
+404 — na outra. Uma regra só, agora, e **lista de permitidos**: `http` e
+`https`, nada mais.
+
+**Sem website, o cartão da inicial era um `<a>` sem `href`** — não focável, não
+anunciado como ligação, mas com aspeto de clicável. Passa a `<div>`.
+
+**Um `initials()` que apagava a página.** `nome.trim()` sem guarda: um registo
+sem nome lançava `TypeError`, a exceção subia e o IIFE inteiro abortava —
+nem os outros patrocinadores, nem o estado vazio, nem o convite eram escritos.
+
+**Filtro de `ativo` divergente:** a inicial aceitava qualquer valor verdadeiro,
+a página exigia exactamente `true`. Um `ativo: 1` aparecia numa e não na outra.
+
+**Escape errado no logótipo da inicial:** `jscEscUrl` dentro de um `url('…')`
+de CSS. O mesmo defeito dos cartões de notícia e da foto do treinador.
+Desapareceu com o fundo CSS.
+
+## O que foi removido, e o que fica por compatibilidade
+
+**Removido da zona pública** — 83 ocorrências: os 24 blocos e cartões de nível
+do `index.html`; as 41 do `patrocinadores.html` (o array de níveis, a
+`tierHtml()`, o filtro por nível, o bloco que anunciava "não temos
+patrocinadores" com patrocinadores ativos, e 18 regras CSS); as 13 do
+`css/styles.css`; as 5 do `js/main.js`.
+
+**Removido do painel** — 22 ocorrências: o selector de nível nos dois modais, a
+escrita de `tier`, o agrupamento da lista, o cabeçalho de nível, o ponto de cor,
+e as 11 regras CSS que ficaram sem uso.
+
+**Dependência forçada, registada:** o `renderPatrocinadores()` agrupava por
+`p.tier.toLowerCase()` **sem guarda**. No momento em que o selector sai e os
+registos novos deixam de ter `tier`, essa linha lançaria `TypeError` e a lista
+do painel deixaria de aparecer. Não era possível "só remover o selector": a
+lista tinha de passar a grelha única na mesma alteração.
+
+**Fica por compatibilidade histórica, sem qualquer efeito:** o campo `tier` nos
+registos já guardados. **Nenhuma migração, nenhum registo reescrito, nenhum
+campo apagado.** Os registos novos não o levam; antigos com `tier` e novos sem
+convivem. A publicação ignora-o por completo — antigo, desconhecido (`Platina`),
+vazio, nulo, numérico ou ausente dá tudo no mesmo resultado, sem erro. O
+`api/save.php` e o `api/load.php` não conhecem patrocinadores (zero
+ocorrências), a exportação e a importação do painel passam
+`DB.patrocinadores` inteiro, e por isso o `tier` sobrevive a cópias de
+segurança e restauros. **Pode ser removido mais tarde, quando se confirmar que
+nada depende dele.**
+
+**Não são patrocinadores e não foram tocados:** `Medalha Municipal de Mérito —
+Grau Prata` (palmarés, 1995) no `js/historia.js`, `js/pesquisa.js` e
+`admin/js/admin.js`; o esquema de cores `Vinho & Ouro` do painel.
+
+## Ordenação
+
+Não existe ordenação administrável: `db_patrocinadores` não tem campo de ordem,
+o painel não tem arrastar nem setas, e a criação faz `push`. **A ordem
+publicada é a ordem do array**, e um teste compara-a nome a nome com a fixture.
+Fica registado como melhoria futura do painel — setas ou arrastar para
+reordenar. Não foi construída.
+
+## O estilo único
+
+Sem as variantes de nível, o `.sponsor-card` ficava **sem borda e sem
+espaçamento**: tudo isso vivia nas três variantes, e o mesmo na outra página
+(barra de acento, altura e fundo da área do logótipo, tamanho das iniciais).
+O estilo único vem do nível do meio, o mais sóbrio, **com a barra superior em
+amarelo do clube** em vez das cores de medalha. Uma classe, um aspeto, nenhum
+patrocinador em evidência.
+
+## Tratamento de cada caso
+
+| Caso | Resultado |
+|---|---|
+| `tier` antigo, desconhecido, vazio, nulo, numérico ou ausente | **ignorado, sem erro e sem efeito** |
+| `nome` vazio/ausente | patrocinador descartado — e **sem `TypeError`** |
+| `sector` vazio **ou `'—'`** | nenhum elemento |
+| `desde` vazio, `"abc"` ou `"26"` | nenhum elemento; `"2019-05"` dá `2019` |
+| `website` vazio, `javascript:` ou `data:` | **nenhum `<a>`** — o cartão é uma `<div>` |
+| `website` sem esquema | `https://`, nas **duas** páginas |
+| `logo` vazio | iniciais na página, nome em texto na inicial |
+| `ativo` não verdadeiro | não aparece — regra única |
+| `db_patrocinadores` vazio, ou todos inativos | estado vazio nas duas, e o convite final mantém-se |
+| Dupla renderização | `data-gerado` + `data-itens` + `jscBlocoAtual()`, sem `data-desde` |
+
+## Guardas de regressão
+
+Oito verificações `zona-base:`, a olhar **só** para dentro de cada região, antes
+de qualquer geração. Procuram a forma, não textos: as classes de cartão, as
+classes de nível, as ligações externas e o `<script>`. Um patrocinador cujo
+nome contenha "Bronze" é conteúdo legítimo e **não** é o que se proíbe — o
+validador do gerador proíbe a *estrutura* do nível, não a palavra. Provadas ao
+contrário: com um cartão de nível de volta no `index.html` e uma grelha de
+nível com `<script>` na `patrocinadores.html`, as oito falham e as outras 518
+continuam a passar.
+
+## Como se verificou
+
+`node tools/testar-sem-js.js` — **526 verificações**. Deste bloco: 17 cartões a
+partir de 22 registos, nas duas páginas; inativos em quatro formas ausentes;
+ordem igual à dos dados; `tier` em cinco formas ignorado; nenhuma classe de
+nível na zona pública; todos os cartões com as mesmas classes; nenhum `<a>` sem
+`href`; ligações alcançáveis por teclado; `alt` com o nome e a imagem a
+resolver com um apóstrofo no endereço; travessão não publicado; base vazia e
+todos inativos com estado vazio e convite; o bloco gerado e atual não
+redesenhado; `data-itens` errado a forçar o redesenho e o cartão desenhado a
+ser **o mesmo** que o gerado; um registo sem nome a não apagar a página; o
+painel sem selector de nível, sem agrupamento e com campo de logótipo; 320 px e
+1440 px; `/modelos/patrocinadores-*.php` → 403; o exterior às marcas igual byte
+a byte nos **sete** ficheiros; o reverter a devolver os sete.
+
+`node tools/validar.js --comparar` — sem problemas em 168 combinações,
+**novos: 0**. Fase A verificada à mão: `405` a não-POST, `401` sem sessão,
+`400` sem o cabeçalho do painel, `401` com password errada, `200` para a
+Comunicação a alterar notícias **e patrocinadores** (é área dela), e `403` a
+alterar `escaloes`.
