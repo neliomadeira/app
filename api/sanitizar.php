@@ -52,7 +52,22 @@ function jsc_href_seguro($valor) {
     return $v;                                                          // relativo ou âncora
 }
 
-function jsc_sanitizar_html($html) {
+// Elementos permitidos nos textos institucionais curtos — o título do herói e
+// a morada. São uma linha ou duas com um salto e, no caso do título, um <span>
+// que o CSS pinta de amarelo. Nada de ligações, listas ou títulos.
+//
+// Estes dois textos são inseridos como HTML (innerHTML no site, e escritos por
+// um modelo no rodapé gerado), e é isso que os obriga a passar por aqui. Com o
+// filtro do jsc_sanitizar_html() ficavam com <a> e <blockquote> permitidos, que
+// num título de herói ou numa morada não fazem sentido nenhum.
+const JSC_ELEMENTOS_INLINE = ['br', 'span', 'strong', 'em', 'b', 'i'];
+
+// Nenhum atributo passa: nem style, nem class, nem onclick.
+function jsc_sanitizar_inline($html) {
+    return jsc_sanitizar_html($html, JSC_ELEMENTOS_INLINE, []);
+}
+
+function jsc_sanitizar_html($html, array $permitidos = null, array $atributos = null) {
     $html = (string)$html;
     if (trim($html) === '') return '';
 
@@ -69,7 +84,7 @@ function jsc_sanitizar_html($html) {
     $corpo = $doc->getElementsByTagName('body')->item(0);
     if (!$corpo) return '';
 
-    jsc_limpar_no($corpo);
+    jsc_limpar_no($corpo, $permitidos, $atributos);
 
     $saida = '';
     foreach ($corpo->childNodes as $filho) {
@@ -78,7 +93,9 @@ function jsc_sanitizar_html($html) {
     return trim($saida);
 }
 
-function jsc_limpar_no(DOMNode $no) {
+function jsc_limpar_no(DOMNode $no, array $permitidos = null, array $atributos = null) {
+    if ($permitidos === null) $permitidos = JSC_ELEMENTOS;
+    if ($atributos === null)  $atributos  = JSC_ATRIBUTOS;
     // De trás para a frente: a lista é viva e remover altera os índices.
     for ($i = $no->childNodes->length - 1; $i >= 0; $i--) {
         $filho = $no->childNodes->item($i);
@@ -103,9 +120,9 @@ function jsc_limpar_no(DOMNode $no) {
         }
 
         // Primeiro limpa lá dentro, depois decide o que fazer com este.
-        jsc_limpar_no($filho);
+        jsc_limpar_no($filho, $permitidos, $atributos);
 
-        if (!in_array($nome, JSC_ELEMENTOS, true)) {
+        if (!in_array($nome, $permitidos, true)) {
             // Não é permitido, mas o texto lá dentro é: desembrulha-se.
             while ($filho->firstChild) {
                 $no->insertBefore($filho->firstChild, $filho);
@@ -114,12 +131,13 @@ function jsc_limpar_no(DOMNode $no) {
             continue;
         }
 
-        jsc_limpar_atributos($filho, $nome);
+        jsc_limpar_atributos($filho, $nome, $atributos);
     }
 }
 
-function jsc_limpar_atributos(DOMElement $el, $nome) {
-    $permitidos = isset(JSC_ATRIBUTOS[$nome]) ? JSC_ATRIBUTOS[$nome] : [];
+function jsc_limpar_atributos(DOMElement $el, $nome, array $atributos = null) {
+    if ($atributos === null) $atributos = JSC_ATRIBUTOS;
+    $permitidos = isset($atributos[$nome]) ? $atributos[$nome] : [];
 
     for ($i = $el->attributes->length - 1; $i >= 0; $i--) {
         $attr = $el->attributes->item($i);

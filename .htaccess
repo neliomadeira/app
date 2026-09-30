@@ -10,7 +10,13 @@
 # Prevent directory listing
 Options -Indexes
 
-# Block sensitive file types (data JSON, configs, dumps)
+# Block sensitive file types (data JSON, configs, dumps, documentação interna)
+#
+# O .md entrou nesta lista porque o AUDITORIA.md era servido inteiro — 118 KB
+# que nomeiam, ficheiro a ficheiro, cada defeito conhecido do projeto, incluindo
+# os que ainda não estavam corrigidos. Um mapa desses não se publica. O
+# robots.txt acompanha, mas robots.txt é um pedido, não uma protecção: é esta
+# regra que impede o acesso.
 #
 # As duas sintaxes de propósito, como em data/.htaccess e tools/.htaccess:
 # a de cima é do Apache 2.4, a de baixo do 2.2. Sem a segunda, num
@@ -18,7 +24,7 @@ Options -Indexes
 # entende as duas sintaxes mas não aparece com esse módulo na lista — o
 # bloco inteiro era ignorado e o data/db.json ficava legível por qualquer
 # pessoa. Onde o mod_authz_core existe, a segunda nunca é lida.
-<FilesMatch "\.(env|json|log|sql|bak|sh|bat)$">
+<FilesMatch "\.(env|json|log|sql|bak|sh|bat|md)$">
   <IfModule mod_authz_core.c>
     Require all denied
   </IfModule>
@@ -40,6 +46,18 @@ Options -Indexes
     Allow from all
   </IfModule>
 </Files>
+
+# A pasta scraper/ é uma ferramenta de linha de comando: importa
+# classificações do resultados.fpf.pt e corre no computador de quem publica,
+# nunca no browser de quem visita. Não tinha .htaccess, e o fpf-scraper.js e o
+# README.md eram servidos e indexáveis.
+#
+# Aqui basta uma sintaxe: o mod_alias existe em Apache 2.2 e 2.4 e no LiteSpeed,
+# ao contrário do mod_authz_core, que é só do 2.4 e obriga ao par de blocos que
+# está acima.
+<IfModule mod_alias.c>
+  RedirectMatch 403 ^/scraper(/.*)?$
+</IfModule>
 
 # Impedir indexação fora do domínio oficial (subdomínios de teste,
 # pré-visualizações, qualquer host que não seja o site a sério).

@@ -72,6 +72,26 @@ const DEMO_DB = {
   },
 
   seniores: [],
+  // Identidade do clube. É configuração verdadeira, como os escalões e as
+  // modalidades, e por isso arranca preenchida.
+  //
+  // Os quatro valores são exactamente os que o site já publica hoje, escritos à
+  // mão no HTML de 17 páginas e no js/seo.js: nada foi inventado nem alterado.
+  // Passam a ter um sítio só, e o painel a poder mudá-los.
+  //
+  // O ano de fundação arranca VAZIO, de propósito: a decisão do Bloco 8 foi que
+  // um campo vazio não inventa 1947. Enquanto ninguém o escrever no painel, os
+  // dados estruturados saem sem foundingDate — que é melhor do que uma data que
+  // o clube não confirmou por esta via.
+  dadosClube: {
+    nome:    'Juventude Sport Campinense',
+    sigla:   'JS Campinense',
+    navNome: 'JS Campinense',
+    navSub:  'Juventude',
+    ano:     '',
+    estadio: '',
+    logo:    '',
+  },
 
   // Cronologia e palmarés do clube. São factos históricos, não conteúdo de
   // exemplo: é por isso que estão aqui ao lado dos escalões, das modalidades
@@ -130,9 +150,9 @@ const DEMO_DB = {
 };
 // O que arranca preenchido e o que arranca vazio.
 //
-// Escalões, modalidades, a época dos seniores e a história são configuração
-// e factos do clube, verdadeiros: sem eles a formação, os escalões e a página
-// de História ficam sem nada.
+// Escalões, modalidades, a época dos seniores, a história e a identidade do
+// clube são configuração e factos verdadeiros: sem eles a formação, os
+// escalões, a História e o rodapé ficam sem nada.
 // Tudo o resto — atletas, jogos, notícias, patrocinadores, treinadores,
 // inscrições, mensagens, galeria, agenda, plantel sénior — era inventado,
 // e passa a arrancar vazio. O painel mostra o que existir de verdade.
@@ -142,6 +162,7 @@ const DB = {
   senioresInfo:   DEMO_DB.senioresInfo,
   historia:       DEMO_DB.historia,
   palmares:       DEMO_DB.palmares,
+  dadosClube:     DEMO_DB.dadosClube,
 
   inscricoes:     [],
   atletas:        [],

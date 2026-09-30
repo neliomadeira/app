@@ -1083,3 +1083,224 @@ function jsc_palmares(array $conteudo) {
     unset($e);
     return $fora;
 }
+
+// O endereço oficial do site. Está aqui uma vez, e é daqui que saem os
+// endereços absolutos dos dados estruturados e do sitemap. Sem barra no fim.
+//
+// Não substitui os canonicals das páginas, que continuam escritos no HTML de
+// cada uma: isso exigiria uma região no <head> de 17 páginas, e não foi
+// autorizado neste bloco.
+if (!defined('JSC_SITE_URL')) define('JSC_SITE_URL', 'https://campinense.pt');
+
+// =====================================================
+// IDENTIDADE INSTITUCIONAL — rodapé, dados estruturados e sitemap
+// =====================================================
+// Duas estruturas persistentes, uma por tipo de informação:
+//   dados_clube  identidade (nome, sigla, ano, logótipo)
+//   siteConfig   contactos, redes sociais e texto editorial
+//
+// Nenhuma delas é nova, e não se criou campo nenhum. O que se fez foi ligar o
+// que já era administrável ao que é publicado: o nome oficial do clube era
+// editável no painel e não chegava a sítio nenhum, e a morada, o telefone e o
+// e-mail do painel não chegavam aos dados estruturados.
+//
+// Regra em toda esta zona: campo vazio não produz elemento, ligação nem
+// propriedade. Não se inventa nada, e não há valor por omissão.
+
+// O nome oficial do clube. Fonte única: dados_clube.nome.
+function jsc_clube_nome(array $conteudo) {
+    $c = (isset($conteudo['dadosClube']) && is_array($conteudo['dadosClube']))
+       ? $conteudo['dadosClube'] : [];
+    return (isset($c['nome']) && is_string($c['nome'])) ? trim($c['nome']) : '';
+}
+
+// O ano de fundação, ou '' — quatro dígitos e nada mais. Mesma regra do
+// js/seo.js desde o Bloco 8: campo vazio não inventa 1947.
+function jsc_clube_ano(array $conteudo) {
+    $c = (isset($conteudo['dadosClube']) && is_array($conteudo['dadosClube']))
+       ? $conteudo['dadosClube'] : [];
+    $ano = isset($c['ano']) ? trim((string)$c['ano']) : '';
+    return preg_match('/^\d{4}$/', $ano) ? $ano : '';
+}
+
+// A sigla / nome abreviado do clube. Fonte única: dados_clube.sigla.
+function jsc_clube_sigla(array $conteudo) {
+    $c = (isset($conteudo['dadosClube']) && is_array($conteudo['dadosClube']))
+       ? $conteudo['dadosClube'] : [];
+    return (isset($c['sigla']) && is_string($c['sigla'])) ? trim($c['sigla']) : '';
+}
+
+// Um campo de texto do siteConfig, já aparado.
+function jsc_config_texto(array $conteudo, $chave) {
+    $cfg = (isset($conteudo['siteConfig']) && is_array($conteudo['siteConfig']))
+         ? $conteudo['siteConfig'] : [];
+    return (isset($cfg[$chave]) && is_string($cfg[$chave])) ? trim($cfg[$chave]) : '';
+}
+
+// Contactos publicáveis. Cada um vem vazio quando não está preenchido, e é o
+// modelo que decide não escrever a linha.
+function jsc_contactos(array $conteudo) {
+    return [
+        'morada'   => jsc_config_texto($conteudo, 'contactAddress'),
+        'telefone' => jsc_config_texto($conteudo, 'contactPhone'),
+        'email'    => jsc_config_texto($conteudo, 'contactEmail'),
+        'tagline'  => jsc_config_texto($conteudo, 'footerTagline'),
+    ];
+}
+
+// As redes sociais com endereço válido, pela ordem em que aparecem no rodapé.
+//
+// Sem endereço, o botão não é escrito. Antes ficava com href="#": eram 54
+// ligações mortas em 16 páginas, porque não existem endereços por omissão.
+//
+// O jsc_href_seguro() é o mesmo que filtra as ligações dos textos legais, e
+// tem gémeo em JavaScript (jscHrefSeguro, em js/html.js).
+function jsc_redes(array $conteudo) {
+    if (!function_exists('jsc_href_seguro')) {
+        require_once __DIR__ . '/sanitizar.php';
+    }
+    $wa = jsc_config_texto($conteudo, 'socialWhatsappUrl');
+    $bruto = [
+        ['chave' => 'Instagram', 'url' => jsc_config_texto($conteudo, 'socialInstagramUrl')],
+        ['chave' => 'Facebook',  'url' => jsc_config_texto($conteudo, 'socialFacebookUrl')],
+        // O painel guarda só os dígitos do WhatsApp; o endereço monta-se aqui,
+        // como o js/site-config.js faz.
+        ['chave' => 'WhatsApp',  'url' => $wa !== '' ? 'https://wa.me/' . preg_replace('/\D/', '', $wa) : ''],
+    ];
+    $fora = [];
+    foreach ($bruto as $r) {
+        if ($r['url'] === '') continue;
+        $seguro = jsc_href_seguro($r['url']);
+        if ($seguro === null || $seguro === '') continue;
+        $r['url'] = $seguro;
+        $fora[] = $r;
+    }
+    return $fora;
+}
+
+// Os dados estruturados do clube, prontos a serializar.
+//
+// Estavam escritos à mão no js/seo.js — 14 das 15 propriedades — e só existiam
+// com JavaScript. Passam a ser derivados das duas fontes únicas e escritos no
+// HTML gerado, com o JavaScript a servir de melhoria progressiva.
+//
+// Uma propriedade sem valor NÃO é escrita: uma morada incompleta ou um sameAs
+// vazio nos dados estruturados é pior do que a ausência, porque os motores de
+// busca citam-nos como se fossem do clube.
+function jsc_dados_estruturados(array $conteudo) {
+    $nome = jsc_clube_nome($conteudo);
+    $c    = jsc_contactos($conteudo);
+    $ano  = jsc_clube_ano($conteudo);
+
+    $org = [
+        '@context' => 'https://schema.org',
+        '@type'    => 'SportsOrganization',
+    ];
+    if ($nome !== '') $org['name'] = $nome;
+    // O alternateName estava escrito à mão no js/seo.js como 'JS Campinense';
+    // passa a vir do campo Sigla do painel.
+    $sigla = jsc_clube_sigla($conteudo);
+    if ($sigla !== '' && $sigla !== $nome) $org['alternateName'] = $sigla;
+    $org['url']  = JSC_SITE_URL;
+    $org['logo'] = JSC_SITE_URL . '/images/logo.png';
+    $org['sport'] = 'Football';
+    // Descrição confirmada pelo clube. Fica no código por ser o único texto
+    // desta zona que não tem campo no painel; não se inventou nem se alterou.
+    $org['description'] = 'Clube desportivo de Loulé, Algarve, com escalões de formação de Sub-5 a Sub-19.';
+    if ($ano !== '') $org['foundingDate'] = $ano;
+
+    // A morada vem de um campo só, com um <br> a separar a rua do código
+    // postal. Sem uma segunda linha reconhecível não se parte em campos: só o
+    // streetAddress, que é verdade, em vez de um postalCode adivinhado.
+    if ($c['morada'] !== '') {
+        $linhas = preg_split('~\s*<br\s*/?>\s*~i', $c['morada']);
+        $linhas = array_values(array_filter(array_map('trim', $linhas), function ($l) { return $l !== ''; }));
+        $endereco = ['@type' => 'PostalAddress'];
+        $endereco['streetAddress'] = strip_tags($linhas[0]);
+        if (count($linhas) > 1) {
+            $segunda = strip_tags($linhas[1]);
+            if (preg_match('/^(\d{4}-\d{3})\s+(.+?)(?:,.*)?$/u', $segunda, $m)) {
+                $endereco['postalCode']      = $m[1];
+                $endereco['addressLocality'] = trim($m[2]);
+            } else {
+                $endereco['addressLocality'] = $segunda;
+            }
+        }
+        $endereco['addressCountry'] = 'PT';
+        $org['address'] = $endereco;
+    }
+
+    // O contactPoint só existe se tiver por onde contactar.
+    $ponto = ['@type' => 'ContactPoint', 'contactType' => 'customer service',
+              'availableLanguage' => 'Portuguese'];
+    $tem = false;
+    if ($c['telefone'] !== '') { $ponto['telephone'] = $c['telefone']; $tem = true; }
+    if ($c['email'] !== '')    { $ponto['email']     = $c['email'];    $tem = true; }
+    if ($tem) $org['contactPoint'] = $ponto;
+
+    // sameAs só com endereços válidos.
+    $redes = jsc_redes($conteudo);
+    if ($redes) {
+        $org['sameAs'] = array_values(array_map(function ($r) { return $r['url']; }, $redes));
+    }
+
+    $site = [
+        '@context' => 'https://schema.org',
+        '@type'    => 'WebSite',
+        'url'      => JSC_SITE_URL,
+        'potentialAction' => [
+            '@type'  => 'SearchAction',
+            'target' => [
+                '@type'       => 'EntryPoint',
+                'urlTemplate' => JSC_SITE_URL . '/pesquisa.html?q={search_term_string}',
+            ],
+            'query-input' => 'required name=search_term_string',
+        ],
+    ];
+    if ($nome !== '') $site['name'] = $nome;
+
+    return [$org, $site];
+}
+
+// As páginas que entram no sitemap, com a prioridade e a frequência que já
+// estavam no ficheiro estático.
+//
+// A lista é fixa e explícita, e é isso que se quer: não se varre a pasta, para
+// que acrescentar um ficheiro HTML não o ponha no sitemap por acidente.
+//
+// Fora, e porquê:
+//   admin/, api/, modelos/   não são conteúdo; o Apache devolve 403 ou o painel
+//                            tem autenticação própria
+//   manutencao, offline, 404 existem para o visitante, não para os motores
+//   pesquisa                 resultados de pesquisa interna, com noindex
+//   atleta                   página individual de atleta
+//   modalidade, escalao      só existem preenchidas por parâmetro, e o canonical
+//                            de cada uma aponta para a página base, que sem
+//                            parâmetro mostra "não encontrada". Listar um
+//                            endereço que mostra um estado de erro é pior do que
+//                            não o listar.
+function jsc_sitemap_paginas() {
+    return [
+        ['loc' => '/',                       'freq' => 'weekly',  'pri' => '1.0'],
+        ['loc' => '/noticias.html',          'freq' => 'daily',   'pri' => '0.9'],
+        ['loc' => '/agenda.html',            'freq' => 'weekly',  'pri' => '0.8'],
+        ['loc' => '/resultados.html',        'freq' => 'weekly',  'pri' => '0.8'],
+        ['loc' => '/inscricao.html',         'freq' => 'monthly', 'pri' => '0.8'],
+        ['loc' => '/galeria.html',           'freq' => 'monthly', 'pri' => '0.7'],
+        ['loc' => '/videos.html',            'freq' => 'monthly', 'pri' => '0.7'],
+        ['loc' => '/equipa-principal.html',  'freq' => 'monthly', 'pri' => '0.7'],
+        ['loc' => '/formacao.html',          'freq' => 'monthly', 'pri' => '0.7'],
+        ['loc' => '/historia.html',          'freq' => 'yearly',  'pri' => '0.6'],
+        ['loc' => '/contacto.html',          'freq' => 'yearly',  'pri' => '0.6'],
+        ['loc' => '/patrocinadores.html',    'freq' => 'monthly', 'pri' => '0.5'],
+        ['loc' => '/privacidade.html',       'freq' => 'yearly',  'pri' => '0.3'],
+    ];
+}
+
+// A data que o sitemap declara: o dia da publicação que o gerou. Era
+// 2026-07-01 escrito à mão em todas as 14 entradas.
+function jsc_sitemap_data(array $conteudo) {
+    $p = jsc_publicado_em($conteudo);
+    if ($p !== '' && preg_match('/^(\d{4}-\d{2}-\d{2})/', $p, $m)) return $m[1];
+    return gmdate('Y-m-d');
+}

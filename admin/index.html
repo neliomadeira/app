@@ -936,16 +936,21 @@
 
           <!-- SEO -->
           <div class="card" style="margin-bottom:20px">
-            <div class="card-header"><h3>🔍 SEO — Título e Descrição</h3></div>
+            <div class="card-header"><h3>🔍 SEO da Página Inicial</h3></div>
             <div style="padding:16px;display:grid;gap:12px">
+              <p style="margin:0;padding:10px 12px;background:#f4f6fb;border-left:3px solid #003B8E;border-radius:4px;font-size:12px;color:#475569">
+                Estes dois campos são <strong>só da página inicial</strong>. As restantes páginas —
+                História, Notícias, Formação, Contacto e as outras — têm o título e a descrição
+                próprios, e não são alterados por aqui.
+              </p>
               <div class="modal-field">
-                <label class="form-label">Título da página (aparece no separador do browser e no Google)</label>
-                <input class="form-input" type="text" id="cfgSeoTitle" placeholder="Juventude Sport Campinense – Loulé" />
-                <small style="color:#888;font-size:11px;margin-top:4px;display:block">Recomendado: 50–60 caracteres. <span id="cfgSeoTitleCount" style="color:#003B8E;font-weight:600"></span></small>
+                <label class="form-label">Título da <strong>página inicial</strong> (separador do browser e Google)</label>
+                <input class="form-input" type="text" id="cfgSeoTitle" data-exemplo-fixo="1" placeholder="Ex: Juventude Sport Campinense – Loulé" />
+                <small style="color:#888;font-size:11px;margin-top:4px;display:block">Recomendado: 50–60 caracteres. Em branco, fica o título escrito na página. <span id="cfgSeoTitleCount" style="color:#003B8E;font-weight:600"></span></small>
               </div>
               <div class="modal-field">
-                <label class="form-label">Meta descrição (texto que o Google mostra nos resultados)</label>
-                <textarea class="form-input" id="cfgSeoDesc" rows="3" placeholder="Formação de futebol de excelência em Loulé, Algarve. Escalões Sub-9 a Sub-19."></textarea>
+                <label class="form-label">Meta descrição da <strong>página inicial</strong></label>
+                <textarea class="form-input" id="cfgSeoDesc" data-exemplo-fixo="1" rows="3" placeholder="Ex: Formação de futebol em Loulé, Algarve. Escalões Sub-5 a Sub-19."></textarea>
                 <small style="color:#888;font-size:11px;margin-top:4px;display:block">Recomendado: 120–160 caracteres. <span id="cfgSeoDescCount" style="color:#003B8E;font-weight:600"></span></small>
               </div>
             </div>

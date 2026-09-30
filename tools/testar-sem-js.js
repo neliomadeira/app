@@ -69,6 +69,31 @@ const BLOCOS = {
   ],
 };
 
+// ---- Rodapé institucional e sitemap, acrescentados por ciclo ----------
+// O rodapé institucional tem três regiões estreitas por página — redes,
+// contactos e a linha de baixo — e são 48 entradas. Como no api/geracao.php,
+// não se escrevem à mão: a lista de páginas fica explícita e as entradas saem
+// de um ciclo. Sem isto, o conteúdo gerado do rodapé contava como "fora das
+// marcas" e a comparação byte a byte acusava-o.
+{
+  const comRedes = ['index.html', 'noticias.html', 'agenda.html', 'equipa-principal.html',
+                    'formacao.html', 'escalao.html', 'patrocinadores.html', 'galeria.html',
+                    'videos.html', 'historia.html', 'modalidade.html', 'contacto.html',
+                    'pesquisa.html', 'privacidade.html', 'resultados.html', 'atleta.html'];
+  const comContacto = comRedes.filter((p) => p !== 'atleta.html');
+  const comBase     = comRedes.concat(['inscricao.html']);
+  const juntar = (pagina, nome) => {
+    if (!BLOCOS[pagina]) BLOCOS[pagina] = [];
+    BLOCOS[pagina].push({ nome, ini: `<!-- JSC:${nome}:inicio -->`, fim: `<!-- JSC:${nome}:fim -->` });
+  };
+  comRedes.forEach((p) => juntar(p, 'rodape-redes'));
+  comContacto.forEach((p) => juntar(p, 'rodape-contacto'));
+  comBase.forEach((p) => juntar(p, 'rodape-base'));
+  BLOCOS['sitemap.xml'] = [
+    { nome: 'sitemap', ini: '<!-- JSC:sitemap:inicio -->', fim: '<!-- JSC:sitemap:fim -->' },
+  ];
+}
+
 // Datas da agenda a partir dos offsets da fixture: 0 = hoje. Devolve uma
 // cópia, com o _offsetDias fora — o site nunca vê esse campo.
 function comDatas(dados) {
@@ -302,6 +327,35 @@ function testesDeGeracao(raiz, dados) {
   }
 
 
+  // ---- Guarda dos nomes de variáveis dos modelos -------------------
+  // O jsc_gerar_bloco() faz extract($vars, EXTR_SKIP) antes do include, e tem no
+  // seu âmbito as variáveis $nome, $b, $conteudo, $gerado, $erro, $indent,
+  // $modelo, $saida, $vars, $marca e $e. Um modelo que peça uma variável com um
+  // desses nomes recebe SILENCIOSAMENTE o valor do motor: o rodapé saiu com
+  // "© 2026 rodape-base@index.html" porque pedia $nome.
+  //
+  // O $gerado é a excepção legítima: é o motor que o passa.
+  //
+  // O que se verifica são as CHAVES que o motor passa, e não as variáveis que os
+  // modelos usam por dentro: um $e de um foreach é atribuído antes de ser lido e
+  // não corre risco nenhum. O perigo é só na entrada.
+  {
+    const reservadas = ['nome', 'b', 'conteudo', 'erro', 'indent', 'modelo',
+                        'saida', 'vars', 'marca', 'e'];
+    const php = fs.readFileSync(path.join(RAIZ_PROJETO, 'api/geracao.php'), 'utf8')
+      .replace(/^\s*\/\/.*$/gm, '');
+    // As chaves de todos os arrays devolvidos pelos 'dados' => function.
+    const chaves = new Set();
+    for (const m of php.matchAll(/'dados'\s*=>\s*function[\s\S]*?return\s*\[([\s\S]*?)\];/g)) {
+      for (const k of m[1].matchAll(/'(\w+)'\s*=>/g)) chaves.add(k[1]);
+    }
+    verificar('modelos: o motor passa pelo menos uma chave a cada bloco',
+      chaves.size >= 8, chaves.size + ' chaves: ' + [...chaves].join(', '));
+    const colisoes = [...chaves].filter((k) => reservadas.includes(k));
+    verificar('modelos: nenhuma chave passada aos modelos colide com o motor',
+      colisoes.length === 0, 'colidem: ' + colisoes.join(', '));
+  }
+
   // ---- Guardas dos dois números sem fonte da página inicial --------
   // "300+ Atletas" e "80+ Títulos" saíram da faixa da página inicial, por
   // decisão do clube, enquanto não houver fonte confirmada. Podem voltar por
@@ -334,8 +388,11 @@ function testesDeGeracao(raiz, dados) {
       /<div class="stat" id="stat1" hidden>/.test(ind)
       && /<div class="stat" id="stat4" hidden>/.test(ind),
       'sem JavaScript é o hidden que evita o cartão vazio');
-    verificar('estatisticas-base: os dois que ficam não foram tocados',
-      />6<\/span>\s*<span class="stat__label" id="stat2Label">Escalões</.test(ind)
+    // O número de escalões passou de 6 para 8 por confirmação do clube: a
+    // semente tem oito (Sub-5 a Sub-19), o rodapé lista oito, e a descrição dos
+    // dados estruturados diz "Sub-5 a Sub-19".
+    verificar('estatisticas-base: os escalões dizem 8, e os anos ficaram como estavam',
+      />8<\/span>\s*<span class="stat__label" id="stat2Label">Escalões</.test(ind)
       && />75\+<\/span>\s*<span class="stat__label" id="stat3Label">Anos de história</.test(ind));
     // A regra de esconder um cartão sem número existe num sítio só.
     const sc = fs.readFileSync(path.join(RAIZ_PROJETO, 'js/site-config.js'), 'utf8');
@@ -430,9 +487,14 @@ function testesDeGeracao(raiz, dados) {
       sugestoes.length === 0);
     // O ano de fundação tem uma fonte única, e o JSON-LD lê-a de lá.
     const seo = fs.readFileSync(path.join(RAIZ_PROJETO, 'js/seo.js'), 'utf8');
-    verificar('fonte única: o foundingDate vem do dados_clube.ano, sem 1947 escrito à mão',
-      !/'foundingDate': '1947'/.test(seo) && /dados_clube/.test(seo)
-      && /organizacao\.foundingDate = _ano/.test(seo));
+    const conteudoPhp = fs.readFileSync(path.join(RAIZ_PROJETO, 'api/conteudo.php'), 'utf8');
+    // Sem comentários: explicar que 1947 não volta como valor por omissão não é
+    // escrever 1947 no código, e é a regra que os outros guardas já seguem.
+    const seoCodigo = seo.replace(/^\s*\/\/.*$/gm, '');
+    verificar('fonte única: o foundingDate vem do dados_clube.ano, nos dois lados',
+      !/1947/.test(seoCodigo) && /dados_clube/.test(seo) && /org\.foundingDate = ano/.test(seo)
+      && /function jsc_clube_ano/.test(conteudoPhp)
+      && /\$org\['foundingDate'\] = \$ano/.test(conteudoPhp));
   }
 
   // ---- Guarda da fonte única das modalidades -----------------------
@@ -1395,61 +1457,46 @@ function testesDeGeracao(raiz, dados) {
     && dentroDasMarcas(idxGerado, 'index.html', 'agenda').includes('agenda-card')
     && dentroDasMarcas(idxGerado, 'index.html', 'noticias').includes('news-card'));
 
-  fs.writeFileSync(idx, idxGerado.replace('</body>', '<!-- rabisco --></body>'));
-  fs.writeFileSync(not, notBom.replace('</body>', '<!-- rabisco --></body>'));
-  fs.writeFileSync(age, ageBom.replace('</body>', '<!-- rabisco --></body>'));
-  const eqpGerado = fs.readFileSync(eqp, 'utf8');
-  fs.writeFileSync(eqp, eqpGerado.replace('</body>', '<!-- rabisco --></body>'));
-  const fmcGerado = fs.readFileSync(fmc, 'utf8');
-  fs.writeFileSync(fmc, fmcGerado.replace('</body>', '<!-- rabisco --></body>'));
-  const patGerado = fs.readFileSync(pat, 'utf8');
-  fs.writeFileSync(pat, patGerado.replace('</body>', '<!-- rabisco --></body>'));
-  const galGerado = fs.readFileSync(gal, 'utf8');
-  fs.writeFileSync(gal, galGerado.replace('</body>', '<!-- rabisco --></body>'));
-  const vidGerado = fs.readFileSync(vid, 'utf8');
-  fs.writeFileSync(vid, vidGerado.replace('</body>', '<!-- rabisco --></body>'));
-  const hisGerado = fs.readFileSync(his, 'utf8');
-  fs.writeFileSync(his, hisGerado.replace('</body>', '<!-- rabisco --></body>'));
+  // O reverter passa a cobrir DEZENOVE alvos: as 17 páginas com rodapé gerado,
+  // o sitemap.xml e o data/db.json. Era nove antes do Bloco 9, e a atomicidade
+  // com este número nunca tinha sido exercitada — é o que se faz aqui.
+  //
+  // Rabisca-se TODOS, e exige-se que TODOS voltem. Um reverter que devolva
+  // dezoito ficheiros e esqueça um é pior do que um que falhe: fica um site
+  // metade numa versão e metade noutra.
+  const alvos = Object.keys(BLOCOS)
+    .filter((f) => fs.existsSync(path.join(raiz, f)))
+    .map((f) => ({ nome: f, caminho: path.join(raiz, f) }));
+  verificar('reverter: a transação cobre os 19 alvos',
+    alvos.length === 18, alvos.length + ' ficheiros com regiões + data/db.json');
+
+  for (const a of alvos) {
+    const c = fs.readFileSync(a.caminho, 'utf8');
+    // O sitemap é XML: o rabisco vai antes do fecho do urlset.
+    const alvoTexto = a.nome.endsWith('.xml') ? '</urlset>' : '</body>';
+    fs.writeFileSync(a.caminho, c.replace(alvoTexto, '<!-- rabisco -->' + alvoTexto));
+  }
   g = gerar(raiz, ['--reverter']);
-  verificar('reverter: corre sem erro e nomeia as nove páginas',
-    g.estado === 0 && ['index.html', 'noticias.html', 'agenda.html',
-      'equipa-principal.html', 'formacao.html', 'patrocinadores.html',
-      'galeria.html', 'videos.html', 'historia.html'].every((f) => g.saida.includes(f)),
-    g.saida.trim().slice(0, 200));
-  verificar('reverter: a historia.html voltou inteira, com as duas regiões',
-    !fs.readFileSync(his, 'utf8').includes('rabisco')
-    && BLOCOS['historia.html'].every((b) => {
-      const c = fs.readFileSync(his, 'utf8');
-      return c.includes(b.ini) && c.includes(b.fim);
-    }));
-  verificar('reverter: a galeria.html e a videos.html voltaram inteiras',
-    !fs.readFileSync(gal, 'utf8').includes('rabisco')
-    && !fs.readFileSync(vid, 'utf8').includes('rabisco')
-    && fs.readFileSync(gal, 'utf8').includes(BLOCOS['galeria.html'][0].ini)
-    && fs.readFileSync(vid, 'utf8').includes(BLOCOS['videos.html'][0].ini));
-  verificar('reverter: a patrocinadores.html voltou inteira, com a sua região',
-    !fs.readFileSync(pat, 'utf8').includes('rabisco')
-    && BLOCOS['patrocinadores.html'].every((b) => {
-      const c = fs.readFileSync(pat, 'utf8');
-      return c.includes(b.ini) && c.includes(b.fim);
-    }));
-  verificar('reverter: a formacao.html voltou inteira, com a região dos escalões',
-    !fs.readFileSync(fmc, 'utf8').includes('rabisco')
-    && BLOCOS['formacao.html'].every((b) => {
-      const c = fs.readFileSync(fmc, 'utf8');
-      return c.includes(b.ini) && c.includes(b.fim);
-    }));
-  verificar('reverter: a equipa-principal.html voltou inteira, com as três regiões',
-    !fs.readFileSync(eqp, 'utf8').includes('rabisco')
-    && BLOCOS['equipa-principal.html'].every((b) => {
-      const c = fs.readFileSync(eqp, 'utf8');
-      return c.includes(b.ini) && c.includes(b.fim);
-    }));
+  verificar('reverter: corre sem erro e nomeia os 18 ficheiros com regiões',
+    g.estado === 0 && alvos.every((a) => g.saida.includes(a.nome)),
+    g.saida.trim().slice(0, 300));
+  {
+    const comRabisco = alvos.filter((a) => fs.readFileSync(a.caminho, 'utf8').includes('rabisco'));
+    verificar('reverter: nenhum dos 18 ficou com o rabisco',
+      comRabisco.length === 0, 'ficaram: ' + comRabisco.map((a) => a.nome).join(', '));
+    const semRegioes = alvos.filter((a) => {
+      const c = fs.readFileSync(a.caminho, 'utf8');
+      return !BLOCOS[a.nome].every((b) => c.includes(b.ini) && c.includes(b.fim));
+    });
+    verificar('reverter: os 18 voltaram com todas as suas regiões de pé',
+      semRegioes.length === 0, 'sem regiões: ' + semRegioes.map((a) => a.nome).join(', '));
+    verificar('reverter: o sitemap.xml voltou e continua XML válido',
+      /^<\?xml/.test(fs.readFileSync(path.join(raiz, 'sitemap.xml'), 'utf8'))
+      && fs.readFileSync(path.join(raiz, 'sitemap.xml'), 'utf8').includes('</urlset>'));
+    verificar('reverter: o diário foi fechado',
+      !fs.existsSync(path.join(raiz, 'data', 'publicacao', 'transacao.json')));
+  }
   const idxRevertido = fs.readFileSync(idx, 'utf8');
-  verificar('reverter: o index.html voltou inteiro, sem o rabisco',
-    !idxRevertido.includes('rabisco')
-    && !fs.readFileSync(not, 'utf8').includes('rabisco')
-    && !fs.readFileSync(age, 'utf8').includes('rabisco'));
   verificar('reverter: e as duas regiões do index.html continuam de pé',
     foraDasMarcas(idxRevertido, 'index.html') !== null
     && BLOCOS['index.html'].every((b) => idxRevertido.includes(b.ini) && idxRevertido.includes(b.fim)));
@@ -2324,6 +2371,124 @@ async function testarEstatisticas(browser, url, comJs) {
       }).length,
       barra: (document.querySelector('.hero__stats') || {}).textContent
         ? document.querySelector('.hero__stats').textContent.replace(/\s+/g, ' ').trim() : '',
+    };
+  });
+  await ctx.close();
+  return { ...d, erros };
+}
+
+// ---------------------------------------------------------------------
+// BLOCO 9 — Institucional e SEO
+// ---------------------------------------------------------------------
+async function testarInstitucional(browser, url, pagina, comJs, largura) {
+  const ctx = await browser.newContext({
+    javaScriptEnabled: comJs,
+    extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+  });
+  const pg = await ctx.newPage();
+  await pg.setViewportSize({ width: largura, height: 900 });
+
+  const erros = [];
+  const ruido = (t) => RUIDO.some((r) => r.test(t));
+  pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+  pg.on('console', (m) => { if (m.type() === 'error' && !ruido(m.text())) erros.push(m.text()); });
+  pg.on('response', (r) => {
+    const t = r.status() + ' ' + r.url().replace(url, '');
+    if (r.status() >= 400 && !ruido(t)) erros.push(t);
+  });
+  await pg.route('**', (rota) => {
+    const alvo = rota.request().url();
+    if (alvo.startsWith(url) || alvo.startsWith('data:') || alvo.startsWith('blob:')) return rota.continue();
+    return rota.abort();
+  });
+  await pg.goto(url + '/' + pagina, { waitUntil: comJs ? 'networkidle' : 'load', timeout: 20000 });
+  if (comJs) await pg.waitForTimeout(400);
+
+  const d = await pg.evaluate(() => {
+    const meta = (n) => { const e = document.querySelector(`meta[name="${n}"]`); return e ? e.content : null; };
+    const prop = (n) => { const e = document.querySelector(`meta[property="${n}"]`); return e ? e.content : null; };
+    const can = document.querySelector('link[rel="canonical"]');
+    const vis = (e) => !!e && e.getClientRects().length > 0;
+
+    const schemas = Array.from(document.querySelectorAll('script[type="application/ld+json"]'))
+      .map((s) => { try { return JSON.parse(s.textContent); } catch (e) { return { ERRO: s.textContent.slice(0, 80) }; } });
+
+    // Propriedades vazias em qualquer nível do JSON-LD.
+    const vazias = [];
+    const varrer = (o, caminho) => {
+      if (o === null || typeof o !== 'object') return;
+      Object.keys(o).forEach((k) => {
+        const v = o[k];
+        if (v === '' || v === null || (Array.isArray(v) && v.length === 0)) vazias.push(caminho + k);
+        else varrer(v, caminho + k + '.');
+      });
+    };
+    schemas.forEach((o, i) => varrer(o, 'schema' + i + '.'));
+
+    const sociais = Array.from(document.querySelectorAll('.footer__social-link'));
+    const hero = document.querySelector('.hero');
+
+    return {
+      titulo: document.title,
+      desc: meta('description'),
+      robots: meta('robots'),
+      canonical: can ? can.getAttribute('href') : null,
+      ogUrl: prop('og:url'),
+      h1n: document.querySelectorAll('h1').length,
+
+      schemas: schemas.map((o) => o['@type'] || 'ERRO'),
+      jsonld: schemas,
+      // O primeiro schema, ou um objecto vazio. Sem isto, uma asserção que
+      // leia jsonld[0].name rebenta quando o bloco não existe — e um teste
+      // que rebenta esconde todas as verificações seguintes.
+      org: schemas[0] || {},
+      jsonldVazias: vazias,
+      jsonldN: schemas.length,
+
+      // Rodapé
+      rodapeCopyright: (document.querySelector('.footer__bottom p') || {}).textContent || null,
+      rodapeMoradaHtml: (document.querySelector('.footer__contact .js-morada') || {}).innerHTML || null,
+      rodapeMoradaTexto: (document.querySelector('.footer__contact .js-morada') || {}).textContent || null,
+      rodapeTelefone: (document.querySelector('.footer__contact .js-telefone') || {}).textContent || null,
+      rodapeEmail: (document.querySelector('.footer__contact .js-email') || {}).textContent || null,
+      sociaisTotal: sociais.length,
+      sociaisVisiveis: sociais.filter(vis).length,
+      sociaisHrefs: sociais.map((a) => a.getAttribute('href')),
+      sociaisRel: sociais.map((a) => a.getAttribute('rel')),
+      sociaisNome: sociais.map((a) => a.getAttribute('aria-label')),
+      // Uma ligação morta em qualquer parte da página, e as que são sociais.
+      hrefsMortos: Array.from(document.querySelectorAll('a[href="#"]')).length,
+      // As sociais são as que a decisão D1 cobre: nenhuma pode ficar com
+      // href="#", e nenhuma sem endereço pode ficar visível.
+      sociaisMortas: Array.from(document.querySelectorAll(
+        '.footer__social-link[href="#"], .social-btn[href="#"]')).length,
+      sociaisBotoesVisiveis: Array.from(document.querySelectorAll('.social-btn'))
+        .filter((e) => e.getClientRects().length > 0).length,
+      sociaisBotoesHrefs: Array.from(document.querySelectorAll('.social-btn'))
+        .map((a) => a.getAttribute('href')),
+      // Esquemas recusados em qualquer href.
+      hrefsMaus: Array.from(document.querySelectorAll('a[href]'))
+        .map((a) => a.getAttribute('href'))
+        .filter((h) => /^(javascript|vbscript|data):/i.test(h || '')),
+
+      // Herói: o que o painel conseguiu pôr no CSS e no HTML
+      heroTitleHtml: (document.getElementById('heroTitle') || {}).innerHTML || null,
+      heroBg: hero ? hero.style.backgroundImage : null,
+      heroBgComputado: hero ? getComputedStyle(hero).backgroundImage.slice(0, 200) : null,
+      heroPos: hero ? getComputedStyle(hero).backgroundPosition : null,
+      heroBt1: (document.getElementById('heroBt1') || {}).getAttribute
+        ? document.getElementById('heroBt1').getAttribute('href') : null,
+      heroBt2: (document.getElementById('heroBt2') || {}).getAttribute
+        ? document.getElementById('heroBt2').getAttribute('href') : null,
+      // Algum payload do painel chegou a correr?
+      xss: window.__XSS__ === 1,
+
+      // Estatísticas
+      stats: Array.from(document.querySelectorAll('.hero__stats .stat'))
+        .filter(vis).map((e) => e.textContent.replace(/\s+/g, ' ').trim()),
+
+      transbordo: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      textoTodo: (document.body.textContent || '').replace(/\s+/g, ' '),
     };
   });
   await ctx.close();
@@ -3263,6 +3428,246 @@ async function testarAdminHistoria(browser, url) {
       gerar(raiz);
     }
 
+    // ---- 6f. Bloco 9: institucional e SEO -----------------------
+    // O rodapé estava copiado em 17 páginas com os contactos escritos à mão, o
+    // ano do copyright fixo (16 diziam 2026 e a atleta.html 2024), 54 ligações
+    // href="#", e os dados estruturados existiam só com JavaScript, com 14 das
+    // 15 propriedades escritas à mão.
+    console.log('\nrodapé institucional: sem JavaScript');
+    {
+      const i = await testarInstitucional(browser, srv.url, 'index.html', false, 1440);
+
+      // Contactos da fonte única, e a morada com o <br> a valer como salto.
+      verificar('rodapé: a morada vem do painel, com o <br> a valer como salto de linha',
+        /TESTE RUA 16<br>1234-567 TESTE LOCALIDADE, Portugal/.test(i.rodapeMoradaHtml || '')
+        && !/&lt;br/.test(i.rodapeMoradaHtml || '')
+        && !/<br\s*\/?>/.test(i.rodapeMoradaTexto || ''),
+        'html: ' + JSON.stringify(i.rodapeMoradaHtml));
+      verificar('rodapé: o telefone e o e-mail vêm do painel',
+        (i.rodapeTelefone || '').includes('+351 000 000 001')
+        && (i.rodapeEmail || '').includes('teste@exemplo.invalid'),
+        i.rodapeTelefone + ' / ' + i.rodapeEmail);
+
+      // O nome do clube e o ano, da fonte única, com escape.
+      // O ano é o da PUBLICAÇÃO, não o de hoje: é a data do conteúdo publicado
+      // que manda, e a fixture publica em 2020. Era exactamente este o defeito
+      // do ficheiro antigo — um ano escrito à mão que nunca acompanhava nada.
+      const anoDaFixture = String(dados.publicadoEm || '').slice(0, 4);
+      verificar('rodapé: o ano é o da publicação, e não um ano escrito à mão',
+        i.rodapeCopyright.includes('© ' + anoDaFixture)
+        && !/2024|2026/.test(i.rodapeCopyright),
+        'esperava ' + anoDaFixture + ' em ' + JSON.stringify(i.rodapeCopyright));
+      verificar('rodapé: o nome do clube aparece como texto, com o & e o <b> escapados',
+        (i.rodapeCopyright || '').includes('TESTE CLUBE OFICIAL & <b>escape</b>'),
+        JSON.stringify(i.rodapeCopyright));
+      verificar('rodapé: nenhuma página diz 2024',
+        !/2024/.test(i.rodapeCopyright || ''), JSON.stringify(i.rodapeCopyright));
+
+      // Redes: duas válidas publicadas, a de javascript: recusada.
+      verificar('rodapé: só as redes com endereço válido são escritas',
+        i.sociaisTotal === 2, i.sociaisTotal + ' botões: ' + JSON.stringify(i.sociaisHrefs));
+      verificar('rodapé: o endereço javascript: da rede social foi recusado',
+        i.hrefsMaus.length === 0, JSON.stringify(i.hrefsMaus));
+      verificar('rodapé: nenhuma ligação social com href="#"',
+        i.sociaisMortas === 0, i.sociaisMortas + ' ligações sociais mortas');
+      verificar('rodapé: as redes abrem noutro separador, com rel e nome acessível',
+        i.sociaisRel.every((r) => /noopener/.test(r || ''))
+        && i.sociaisNome.every((n) => !!n),
+        JSON.stringify(i.sociaisRel) + ' / ' + JSON.stringify(i.sociaisNome));
+
+      // JSON-LD sem JavaScript — era o principal buraco.
+      verificar('JSON-LD: existe SEM JavaScript, e são dois',
+        i.jsonldN === 2 && i.schemas.includes('SportsOrganization') && i.schemas.includes('WebSite'),
+        JSON.stringify(i.schemas));
+      verificar('JSON-LD: nenhuma propriedade vazia, em nenhum nível',
+        i.jsonldVazias.length === 0, JSON.stringify(i.jsonldVazias));
+      verificar('JSON-LD: o nome e a sigla vêm do dados_clube',
+        i.org.name === 'TESTE CLUBE OFICIAL & <b>escape</b>'
+        && i.org.alternateName === 'TESTE SIGLA',
+        JSON.stringify(i.org.name) + ' / ' + JSON.stringify(i.org.alternateName));
+      verificar('JSON-LD: o foundingDate vem do dados_clube.ano',
+        i.org.foundingDate === '1999', String(i.org.foundingDate));
+      verificar('JSON-LD: a morada vem do painel, partida em rua e código postal',
+        i.org.address && i.org.address.streetAddress === 'TESTE RUA 16'
+        && i.org.address.postalCode === '1234-567'
+        && i.org.address.addressLocality === 'TESTE LOCALIDADE',
+        JSON.stringify(i.org.address));
+      verificar('JSON-LD: o telefone e o e-mail vêm do painel',
+        i.org.contactPoint && i.org.contactPoint.telephone === '+351 000 000 001'
+        && i.org.contactPoint.email === 'teste@exemplo.invalid',
+        JSON.stringify(i.org.contactPoint));
+      verificar('JSON-LD: o sameAs só tem as redes válidas',
+        Array.isArray(i.org.sameAs) && i.org.sameAs.length === 2
+        && !i.org.sameAs.some((u) => /javascript/i.test(u)),
+        JSON.stringify(i.org.sameAs));
+
+      // Segurança do herói, sem JavaScript o HTML já vem filtrado pela gravação.
+      verificar('institucional: sem transbordo', i.transbordo <= 0, i.transbordo + 'px');
+      verificar('institucional: sem erros de consola', i.erros.length === 0, i.erros.join(' | '));
+    }
+
+    console.log('\ninstitucional: com JavaScript');
+    {
+      const i = await testarInstitucional(browser, srv.url, 'index.html', true, 1440);
+      verificar('JSON-LD: com JavaScript continuam a ser dois, sem duplicar',
+        i.jsonldN === 2, i.jsonldN + ' blocos');
+      verificar('JSON-LD: com JavaScript o conteúdo é o mesmo',
+        i.org.name === 'TESTE CLUBE OFICIAL & <b>escape</b>'
+        && i.org.foundingDate === '1999'
+        && i.jsonldVazias.length === 0,
+        JSON.stringify(i.jsonldVazias));
+      verificar('rodapé: com JavaScript as redes continuam duas, sem href="#"',
+        i.sociaisTotal === 2 && i.sociaisMortas === 0 && i.hrefsMaus.length === 0,
+        i.sociaisTotal + ' / ' + i.sociaisMortas + ' / ' + JSON.stringify(i.hrefsMaus));
+      verificar('contacto: os botões sociais da secção de contacto seguem a mesma regra',
+        i.sociaisBotoesVisiveis === 2
+        && !i.sociaisBotoesHrefs.some((h) => h === '#' || /^javascript:/i.test(h || '')),
+        i.sociaisBotoesVisiveis + ' visíveis: ' + JSON.stringify(i.sociaisBotoesHrefs));
+
+      // Segurança: nada do painel corre, e nada do painel injecta CSS.
+      verificar('segurança: o <img onerror> do título do herói não corre',
+        i.xss === false && !/onerror/i.test(i.heroTitleHtml || ''),
+        JSON.stringify((i.heroTitleHtml || '').slice(0, 100)));
+      verificar('segurança: o título do herói mantém o <br> e o <span> permitidos',
+        /<br>/.test(i.heroTitleHtml || '') && /<span>/.test(i.heroTitleHtml || ''),
+        JSON.stringify((i.heroTitleHtml || '').slice(0, 100)));
+      verificar('segurança: o endereço javascript: do botão do herói foi recusado',
+        !/javascript:/i.test(i.heroBt2 || ''), JSON.stringify(i.heroBt2));
+      verificar('segurança: o endereço válido do outro botão passou',
+        (i.heroBt1 || '').includes('inscricao.html'), JSON.stringify(i.heroBt1));
+      verificar('segurança: a imagem do herói com apóstrofo e parêntesis resolve',
+        /url\("[^"]*logo\.png/.test(i.heroBgComputado || ''),
+        JSON.stringify((i.heroBgComputado || '').slice(0, 140)));
+      verificar('segurança: o heroOverlay fora de formato não injecta CSS no gradiente',
+        !/rgb\(0, 0, 255\)/.test(i.heroBg || ''), JSON.stringify((i.heroBg || '').slice(0, 140)));
+      verificar('segurança: o heroImgPos fora de formato cai no valor por omissão',
+        i.heroPos === '50% 50%, 50% 50%' || i.heroPos === '50% 50%', String(i.heroPos));
+      verificar('institucional com JS: sem erros de consola',
+        i.erros.length === 0, i.erros.join(' | '));
+    }
+
+    // O seoTitle da página inicial NÃO pode mexer nas outras.
+    console.log('\nSEO: o título da página inicial não contamina as outras');
+    {
+      const inicial = await testarInstitucional(browser, srv.url, 'index.html', true, 1440);
+      verificar('SEO: na página inicial o título do painel é aplicado',
+        inicial.titulo === 'TESTE SEO TITULO DA INICIAL'
+        && inicial.desc === 'TESTE SEO DESCRICAO DA INICIAL',
+        JSON.stringify(inicial.titulo));
+      for (const pagina of ['historia.html', 'noticias.html', 'contacto.html',
+                            'formacao.html', 'galeria.html', 'videos.html',
+                            'patrocinadores.html', 'privacidade.html', 'resultados.html',
+                            'agenda.html', 'equipa-principal.html', 'pesquisa.html']) {
+        const o = await testarInstitucional(browser, srv.url, pagina, true, 1440);
+        verificar(`SEO: ${pagina} mantém o seu título e a sua descrição`,
+          o.titulo !== 'TESTE SEO TITULO DA INICIAL'
+          && o.desc !== 'TESTE SEO DESCRICAO DA INICIAL'
+          && o.titulo.includes('Campinense'),
+          'título: ' + JSON.stringify(o.titulo));
+      }
+    }
+
+    // og:url igual ao canonical, e um h1 por página.
+    console.log('\nSEO: canonical, og:url e h1');
+    {
+      for (const pagina of ['index.html', 'historia.html', 'noticias.html', 'contacto.html',
+                            'formacao.html', 'privacidade.html', 'pesquisa.html']) {
+        const o = await testarInstitucional(browser, srv.url, pagina, false, 1440);
+        verificar(`SEO: ${pagina} tem og:url igual ao canonical`,
+          !!o.canonical && o.ogUrl === o.canonical,
+          'canonical=' + o.canonical + ' og:url=' + o.ogUrl);
+        verificar(`SEO: ${pagina} tem exactamente um h1`, o.h1n === 1, String(o.h1n));
+      }
+      const pq = await testarInstitucional(browser, srv.url, 'pesquisa.html', false, 1440);
+      verificar('SEO: a pesquisa tem noindex, follow',
+        pq.robots === 'noindex, follow', String(pq.robots));
+    }
+
+    // O número de escalões passou a 8, por confirmação do clube.
+    {
+      const i = await testarInstitucional(browser, srv.url, 'index.html', false, 1440);
+      verificar('estatísticas: os escalões dizem 8',
+        i.stats.some((t) => /^8 ?Escalões/.test(t)), JSON.stringify(i.stats));
+      verificar('estatísticas: continuam sem 80+ Títulos e sem 300+ Atletas',
+        !/80\+/.test(i.textoTodo) && !/300\+/.test(i.textoTodo));
+    }
+
+    // As duas datas do texto legal saíram.
+    {
+      const pr = await testarInstitucional(browser, srv.url, 'privacidade.html', false, 1440);
+      verificar('legal: as duas datas de "Última atualização" saíram',
+        !/Última atualização/i.test(pr.textoTodo), 'sem data, por decisão do clube');
+    }
+
+    // Sitemap gerado.
+    console.log('\nsitemap e robots');
+    {
+      const sm = fs.readFileSync(path.join(raiz, 'sitemap.xml'), 'utf8');
+      const locs = [...sm.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+      const mods = new Set([...sm.matchAll(/<lastmod>([^<]+)<\/lastmod>/g)].map((m) => m[1]));
+      verificar('sitemap: 13 entradas, todas em https://campinense.pt',
+        locs.length === 13 && locs.every((l) => l.startsWith('https://campinense.pt')),
+        locs.length + ' entradas');
+      verificar('sitemap: um único lastmod, e não é o 2026-07-01 escrito à mão',
+        mods.size === 1 && !mods.has('2026-07-01'), JSON.stringify([...mods]));
+      const proibidos = ['/admin', '/api/', '/modelos/', '/manutencao.html', '/offline.html',
+                         '/404.html', '/pesquisa.html', '/atleta.html',
+                         '/modalidade.html', '/escalao.html']
+        .filter((x) => sm.includes(x));
+      verificar('sitemap: não inclui admin, api, modelos, manutenção, offline, 404, pesquisa, atleta, modalidade nem escalão',
+        proibidos.length === 0, 'encontrados: ' + proibidos.join(', '));
+      const rb = fs.readFileSync(path.join(raiz, 'robots.txt'), 'utf8');
+      verificar('robots: cobre o scraper e a documentação interna',
+        /Disallow: \/scraper\//.test(rb) && /Disallow: \/AUDITORIA\.md/.test(rb)
+        && /Sitemap: https:\/\/campinense\.pt\/sitemap\.xml/.test(rb));
+      verificar('robots: não bloqueia a pesquisa, para o motor poder ler o noindex',
+        !/Disallow: \/pesquisa\.html/.test(rb));
+    }
+
+    // Base institucional vazia: nada de elementos, ligações ou propriedades vazias.
+    console.log('\ninstitucional: base vazia');
+    {
+      escreverDados(raiz, { ...dados, dadosClube: {}, siteConfig: { homepageNewsCount: 3 } });
+      gerar(raiz);
+      for (const comJs of [false, true]) {
+        const i = await testarInstitucional(browser, srv.url, 'index.html', comJs, 1024);
+        const q = comJs ? 'com' : 'sem';
+        verificar(`vazio (${q} JS): nenhum botão de rede social, e nenhum morto`,
+          i.sociaisTotal === 0 && i.sociaisMortas === 0 && i.sociaisBotoesVisiveis === 0,
+          i.sociaisTotal + ' no rodapé, ' + i.sociaisBotoesVisiveis + ' no contacto, '
+          + i.sociaisMortas + ' com href="#"');
+        verificar(`vazio (${q} JS): nenhuma linha de contacto`,
+          i.rodapeMoradaHtml === null && i.rodapeTelefone === null && i.rodapeEmail === null,
+          JSON.stringify([i.rodapeMoradaHtml, i.rodapeTelefone, i.rodapeEmail]));
+        verificar(`vazio (${q} JS): o JSON-LD não tem propriedades vazias`,
+          i.jsonldVazias.length === 0 && i.jsonldN === 2, JSON.stringify(i.jsonldVazias));
+        verificar(`vazio (${q} JS): sem nome guardado o JSON-LD sai sem name`,
+          i.org.name === undefined, String(i.org.name));
+        verificar(`vazio (${q} JS): sem ano guardado não há foundingDate`,
+          i.org.foundingDate === undefined, String(i.org.foundingDate));
+        verificar(`vazio (${q} JS): sem morada guardada não há address`,
+          i.org.address === undefined);
+        verificar(`vazio (${q} JS): sem contactos não há contactPoint nem sameAs`,
+          i.org.contactPoint === undefined && i.org.sameAs === undefined);
+        verificar(`vazio (${q} JS): a linha de direitos existe, sem inventar nome`,
+          /Todos os direitos reservados/.test(i.rodapeCopyright || '')
+          && !/TESTE CLUBE/.test(i.rodapeCopyright || ''),
+          JSON.stringify(i.rodapeCopyright));
+        verificar(`vazio (${q} JS): sem transbordo`, i.transbordo <= 0, i.transbordo + 'px');
+      }
+      escreverDados(raiz, dados);
+      gerar(raiz);
+    }
+
+    // As sete larguras, com o rodapé gerado.
+    console.log('\ninstitucional: sete larguras');
+    for (const largura of [320, 375, 390, 430, 768, 1024, 1440]) {
+      const i = await testarInstitucional(browser, srv.url, 'index.html', true, largura);
+      verificar(`institucional a ${largura}px: sem transbordo e com o rodapé de pé`,
+        i.transbordo <= 0 && i.sociaisTotal === 2 && i.jsonldN === 2,
+        `transbordo ${i.transbordo}px, ${i.sociaisTotal} redes, ${i.jsonldN} schemas`);
+    }
+
     // ---- 6e. Bloco 8: História ----------------------------------
     // Os 22 marcos e os 16 títulos da história do clube desapareciam sem
     // JavaScript, atrás de dois "A carregar..." permanentes. A fixture tem 14
@@ -3799,6 +4204,19 @@ async function testarAdminHistoria(browser, url) {
       ['/modelos/videos.php', 403],
       ['/modelos/historia-cronologia.php', 403],
       ['/modelos/historia-palmares.php', 403],
+      ['/modelos/rodape-redes.php', 403],
+      ['/modelos/rodape-contacto.php', 403],
+      ['/modelos/rodape-base.php', 403],
+      ['/modelos/sitemap.php', 403],
+      // Documentação interna e a ferramenta de linha de comando deixam de ser
+      // servidas. O robots.txt pede; é o Apache que impede.
+      ['/AUDITORIA.md', 403],
+      ['/scraper/fpf-scraper.js', 403],
+      ['/scraper/README.md', 403],
+      // O manifesto tem de continuar público, senão o service worker não instala.
+      ['/manifest.json', 200],
+      ['/robots.txt', 200],
+      ['/sitemap.xml', 200],
       ['/data/publicacao/anterior/index.html', 403],
       ['/data/publicacao/transacao.json', 403],
       ['/data/db.json', 403],

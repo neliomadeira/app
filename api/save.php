@@ -103,6 +103,22 @@ if (isset($novos['siteLegal']) && is_array($novos['siteLegal'])) {
     }
 }
 
+// O título do herói e a morada são os outros dois textos do painel que chegam
+// às páginas como HTML — o primeiro precisa do <span> que o CSS pinta, a
+// segunda do <br> que separa a rua do código postal. Sem filtro, quem entre no
+// painel punha <img onerror> no título da página inicial, e corria no browser
+// de todos os visitantes: foi medido a correr antes desta linha existir.
+//
+// Filtro estreito, não o dos textos legais: aqui não fazem sentido ligações,
+// listas nem títulos.
+if (isset($novos['siteConfig']) && is_array($novos['siteConfig'])) {
+    foreach (['heroTitle', 'contactAddress'] as $campo) {
+        if (isset($novos['siteConfig'][$campo]) && is_string($novos['siteConfig'][$campo])) {
+            $novos['siteConfig'][$campo] = jsc_sanitizar_inline($novos['siteConfig'][$campo]);
+        }
+    }
+}
+
 // ---- Corpo das notícias: filtrar só o que mudou ---------------------
 // As notícias também vão para a página como HTML, pelo mesmo caminho.
 // Mas o painel envia sempre todas, e filtrar todas reescreveria em

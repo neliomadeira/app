@@ -148,6 +148,91 @@
     return valor !== false;
   }
 
+  // Um endereço que vai para uma PROPRIEDADE (el.href = ...), não para um
+  // atributo de HTML escrito à mão. Aqui não se escapa nada — escapar
+  // transformaria & em &amp; dentro do endereço — mas recusa-se o esquema.
+  //
+  // Sem isto, um "javascript:..." guardado no painel no endereço de um botão do
+  // herói ou de uma rede social ficava no href e corria ao primeiro clique.
+  // Foi medido a acontecer.
+  //
+  // Réplica exacta do jsc_href_seguro() do api/sanitizar.php: devolve '' onde o
+  // PHP devolve null.
+  function jscHrefSeguro(valor) {
+    var v = String(valor === null || valor === undefined ? '' : valor).trim();
+    if (v === '') return '';
+    // Tira os caracteres de controlo que servem para disfarçar o esquema,
+    // por exemplo "java\tscript:".
+    var limpo = v.replace(/[\x00-\x20]+/g, '');
+    if (/^[a-z0-9.+-]*script\s*:/i.test(limpo)) return '';
+    if (/^(javascript|vbscript|data|blob|file|about)\s*:/i.test(limpo)) return '';
+    if (/^(https?|mailto|tel)\s*:/i.test(limpo)) return v;   // esquema aceite
+    if (/^[a-z][a-z0-9.+-]*:/i.test(limpo)) return '';        // qualquer outro
+    return v;                                                 // relativo ou âncora
+  }
+
+  // Os textos institucionais curtos que entram como HTML — o título do herói e
+  // a morada. O filtro a sério está no servidor (jsc_sanitizar_inline), antes de
+  // gravar; este é a segunda linha, para o caso de o valor chegar ao browser por
+  // outro caminho que não a publicação.
+  //
+  // Mesma lista de elementos do JSC_ELEMENTOS_INLINE do api/sanitizar.php, e
+  // nenhum atributo.
+  var JSC_INLINE = ['BR', 'SPAN', 'STRONG', 'EM', 'B', 'I'];
+  var JSC_INLINE_FORA = ['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'APPLET',
+                         'FORM', 'INPUT', 'BUTTON', 'SELECT', 'OPTION', 'TEXTAREA',
+                         'LINK', 'META', 'BASE', 'SVG', 'MATH', 'TEMPLATE', 'NOSCRIPT'];
+  function jscHtmlSeguro(valor) {
+    var texto = String(valor === null || valor === undefined ? '' : valor);
+    if (texto === '') return '';
+    // O <template> não executa nada do que lá está dentro: nem script, nem
+    // onerror de imagem. É por isso que a análise se faz aqui.
+    var t = document.createElement('template');
+    t.innerHTML = texto;
+    limparInline(t.content);
+    return t.innerHTML;
+  }
+  function limparInline(no) {
+    for (var i = no.childNodes.length - 1; i >= 0; i--) {
+      var f = no.childNodes[i];
+      if (f.nodeType === 8) { no.removeChild(f); continue; }   // comentário
+      if (f.nodeType === 3) continue;                          // texto fica
+      if (f.nodeType !== 1) { no.removeChild(f); continue; }
+      var nome = f.nodeName.toUpperCase();
+      if (JSC_INLINE_FORA.indexOf(nome) !== -1) { no.removeChild(f); continue; }
+      limparInline(f);
+      if (JSC_INLINE.indexOf(nome) === -1) {
+        // Não é permitido, mas o texto lá dentro é: desembrulha-se.
+        while (f.firstChild) no.insertBefore(f.firstChild, f);
+        no.removeChild(f);
+        continue;
+      }
+      for (var j = f.attributes.length - 1; j >= 0; j--) {
+        f.removeAttribute(f.attributes[j].name);
+      }
+    }
+  }
+
+  // Um valor de opacidade do painel, entre 0 e 1. Só isso: era um campo que
+  // entrava cru dentro de rgba(), e com "0.5),rgb(0,0,255" acrescentava paradas
+  // de cor ao gradiente do herói. Injecção de CSS medida e confirmada.
+  function jscOpacidade(valor, omissao) {
+    var n = parseFloat(String(valor === null || valor === undefined ? '' : valor).trim());
+    if (!isFinite(n) || n < 0 || n > 1) return omissao;
+    return String(n);
+  }
+
+  // Uma posição de fundo do painel. Aceita as palavras do CSS e pares de
+  // percentagens ou pixéis; qualquer outra coisa dá o valor por omissão, em vez
+  // de um valor inválido que o browser resolve para 0% 0%.
+  function jscPosicaoFundo(valor, omissao) {
+    var v = String(valor === null || valor === undefined ? '' : valor).trim();
+    if (v === '') return omissao;
+    if (/^(left|right|center|top|bottom)(\s+(left|right|center|top|bottom))?$/i.test(v)) return v;
+    if (/^-?\d+(\.\d+)?(%|px)(\s+-?\d+(\.\d+)?(%|px))?$/.test(v)) return v;
+    return omissao;
+  }
+
   // O dia de hoje em AAAA-MM-DD, na hora local de quem visita.
   function jscHojeISO() {
     var d = new Date();
@@ -251,6 +336,10 @@
   global.jscAtivo = jscAtivo;
   global.jscAnoHistorico = jscAnoHistorico;
   global.jscOrdenarPorAno = jscOrdenarPorAno;
+  global.jscHrefSeguro = jscHrefSeguro;
+  global.jscHtmlSeguro = jscHtmlSeguro;
+  global.jscOpacidade = jscOpacidade;
+  global.jscPosicaoFundo = jscPosicaoFundo;
 })(typeof window !== 'undefined' ? window : this);
 
 // =====================================================

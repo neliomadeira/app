@@ -240,8 +240,42 @@ function jsc_validar_historia($meio, $cartao, array $lista, $contentor) {
     return $erros;
 }
 
+// Validação partilhada pelas três regiões do rodapé institucional e pelo
+// sitemap. O que se verifica é sempre o mesmo: que nada de fictício voltou, que
+// campo vazio não produziu elemento vazio, e que nenhum endereço de esquema
+// recusado passou.
+function jsc_validar_institucional($meio, array $regras) {
+    $erros = [];
+    $visivel = preg_replace('/<!--[\s\S]*?-->/', '', $meio);
+
+    // Nenhum esquema recusado, em lado nenhum.
+    foreach (['javascript:', 'vbscript:', 'data:text/html'] as $proibido) {
+        if (stripos($visivel, $proibido) !== false) {
+            $erros[] = "o bloco não pode conter \"$proibido\"";
+        }
+    }
+    // Uma ligação morta nunca é escrita.
+    if (strpos($visivel, 'href="#"') !== false) {
+        $erros[] = 'o bloco não pode conter href="#"';
+    }
+    // Campo vazio não produz elemento vazio.
+    if (preg_match('/<(p|span|a)\b[^>]*>\s*<\/\1>/', $visivel)) {
+        $erros[] = 'o bloco gerado não pode ter elementos vazios';
+    }
+    // Os números que o clube não confirma não voltam por esta via.
+    foreach (['80+ Títulos', '300+ Atletas'] as $proibido) {
+        if (strpos($visivel, $proibido) !== false) {
+            $erros[] = "o bloco não pode conter \"$proibido\"";
+        }
+    }
+    foreach ($regras as $mensagem => $condicao) {
+        if (!$condicao) $erros[] = $mensagem;
+    }
+    return $erros;
+}
+
 function jsc_blocos() {
-    return [
+    $blocos = [
         'noticias' => [
             'ficheiro' => 'index.html',
             'modelo'   => 'noticias-inicio.php',
@@ -813,6 +847,44 @@ function jsc_blocos() {
             },
         ],
 
+        'sitemap' => [
+            'ficheiro' => 'sitemap.xml',
+            'modelo'   => 'sitemap.php',
+            'inicio'   => '<!-- JSC:sitemap:inicio -->',
+            'fim'      => '<!-- JSC:sitemap:fim -->',
+            'dados'    => function (array $conteudo) {
+                return [
+                    'paginas' => jsc_sitemap_paginas(),
+                    'data'    => jsc_sitemap_data($conteudo),
+                ];
+            },
+            'validar'  => function ($meio, array $conteudo) {
+                $paginas = jsc_sitemap_paginas();
+                $data    = jsc_sitemap_data($conteudo);
+                $erros = [];
+                $n = substr_count($meio, '<url>');
+                if ($n !== count($paginas)) {
+                    $erros[] = "gerou $n entradas, esperava " . count($paginas);
+                }
+                if (substr_count($meio, '<lastmod>' . $data . '</lastmod>') !== count($paginas)) {
+                    $erros[] = 'o lastmod tem de ser a data desta publicação em todas as entradas';
+                }
+                // Nada que não deva ser indexado.
+                foreach (['/admin', '/api/', '/modelos/', '/manutencao.html',
+                          '/offline.html', '/404.html', '/pesquisa.html',
+                          '/atleta.html', '/modalidade.html', '/escalao.html'] as $fora) {
+                    if (strpos($meio, $fora) !== false) {
+                        $erros[] = "o sitemap não pode incluir $fora";
+                    }
+                }
+                // A data antiga escrita à mão não volta.
+                if (strpos($meio, '2026-07-01') !== false && $data !== '2026-07-01') {
+                    $erros[] = 'o lastmod escrito à mão não pode voltar';
+                }
+                return $erros;
+            },
+        ],
+
         'historia' => [
             'ficheiro' => 'historia.html',
             'modelo'   => 'historia-cronologia.php',
@@ -891,6 +963,132 @@ function jsc_blocos() {
         ],
 
     ];
+
+    // ---- Rodapé institucional, por página ----------------------------
+    // Três regiões estreitas, e não o rodapé inteiro: o rodapé está copiado em
+    // 17 páginas e a lista "Links rápidos" muda de página para página. Um modelo
+    // que tivesse de reproduzir essas diferenças seria saída parametrizada, que
+    // é E2. Aqui só entram os valores institucionais, iguais em todas.
+    //
+    // As entradas são geradas por ciclo, em vez de 48 blocos escritos à mão.
+    $comRedes = ['index.html', 'noticias.html', 'agenda.html', 'equipa-principal.html',
+                 'formacao.html', 'escalao.html', 'patrocinadores.html', 'galeria.html',
+                 'videos.html', 'historia.html', 'modalidade.html', 'contacto.html',
+                 'pesquisa.html', 'privacidade.html', 'resultados.html', 'atleta.html'];
+    // A atleta.html não tem bloco de contactos no rodapé, e a inscricao.html tem
+    // um rodapé só com a linha de baixo.
+    $comContacto = array_values(array_diff($comRedes, ['atleta.html']));
+    $comBase     = array_merge($comRedes, ['inscricao.html']);
+
+    foreach ($comRedes as $pagina) {
+        $blocos['rodape-redes@' . $pagina] = [
+            'ficheiro' => $pagina,
+            'modelo'   => 'rodape-redes.php',
+            'inicio'   => '<!-- JSC:rodape-redes:inicio -->',
+            'fim'      => '<!-- JSC:rodape-redes:fim -->',
+            'dados'    => function (array $conteudo) {
+                return ['redes' => jsc_redes($conteudo)];
+            },
+            'validar'  => function ($meio, array $conteudo) {
+                $redes = jsc_redes($conteudo);
+                $n = substr_count($meio, 'class="footer__social-link');
+                return jsc_validar_institucional($meio, [
+                    "gerou $n botões de rede social, esperava " . count($redes)
+                        => $n === count($redes),
+                    'toda a rede social tem de abrir noutro separador com rel="noopener noreferrer"'
+                        => substr_count($meio, 'rel="noopener noreferrer"') === count($redes),
+                    'toda a rede social tem de ter nome acessível'
+                        => substr_count($meio, 'aria-label="') === count($redes),
+                ]);
+            },
+        ];
+    }
+
+    foreach ($comContacto as $pagina) {
+        $blocos['rodape-contacto@' . $pagina] = [
+            'ficheiro' => $pagina,
+            'modelo'   => 'rodape-contacto.php',
+            'inicio'   => '<!-- JSC:rodape-contacto:inicio -->',
+            'fim'      => '<!-- JSC:rodape-contacto:fim -->',
+            'dados'    => function (array $conteudo) {
+                return ['contactos' => jsc_contactos($conteudo)];
+            },
+            'validar'  => function ($meio, array $conteudo) {
+                $c = jsc_contactos($conteudo);
+                return jsc_validar_institucional($meio, [
+                    'com morada guardada tem de existir a linha da morada'
+                        => ($c['morada'] === '') === (strpos($meio, 'class="js-morada"') === false),
+                    'com telefone guardado tem de existir a linha do telefone'
+                        => ($c['telefone'] === '') === (strpos($meio, 'class="js-telefone"') === false),
+                    'com e-mail guardado tem de existir a linha do e-mail'
+                        => ($c['email'] === '') === (strpos($meio, 'class="js-email"') === false),
+                    'a morada não pode sair com a etiqueta <br /> como texto'
+                        => strpos($meio, '&lt;br') === false,
+                ]);
+            },
+        ];
+    }
+
+    foreach ($comBase as $pagina) {
+        $blocos['rodape-base@' . $pagina] = [
+            'ficheiro' => $pagina,
+            'modelo'   => 'rodape-base.php',
+            'inicio'   => '<!-- JSC:rodape-base:inicio -->',
+            'fim'      => '<!-- JSC:rodape-base:fim -->',
+            'dados'    => function (array $conteudo) {
+                // 'clubeNome' e não 'nome': o jsc_gerar_bloco() tem essa
+                // variável no âmbito do include (é o nome do bloco) e o
+                // extract() corre com EXTR_SKIP, logo nunca chegaria ao modelo.
+                return [
+                    'clubeNome' => jsc_clube_nome($conteudo),
+                    'ano'       => jsc_sitemap_data($conteudo) !== ''
+                                   ? substr(jsc_sitemap_data($conteudo), 0, 4) : '',
+                    'schemas'   => jsc_dados_estruturados($conteudo),
+                ];
+            },
+            'validar'  => function ($meio, array $conteudo) {
+                $nome = jsc_clube_nome($conteudo);
+                list($org, $site) = jsc_dados_estruturados($conteudo);
+                $erros = jsc_validar_institucional($meio, [
+                    'a linha de direitos reservados tem de existir'
+                        => strpos($meio, 'Todos os direitos reservados') !== false,
+                    'o ano não pode ser 2024 nem ficar escrito à mão'
+                        => strpos($meio, '&copy; 2024') === false,
+                    'com nome guardado, a linha tem de o mostrar'
+                        => $nome === '' || strpos($meio, jsc_esc($nome)) !== false,
+                    'os dois blocos de dados estruturados têm de existir'
+                        => substr_count($meio, 'application/ld+json') === 2,
+                ]);
+                // O JSON-LD tem de ser JSON válido, e ter o que se espera.
+                if (preg_match_all('~<script type="application/ld\+json"[^>]*>([\s\S]*?)</script>~', $meio, $m)) {
+                    foreach ($m[1] as $bruto) {
+                        $d = json_decode(html_entity_decode($bruto, ENT_QUOTES, 'UTF-8'), true);
+                        if (!is_array($d) || empty($d['@type'])) {
+                            $erros[] = 'o JSON-LD gerado não é JSON válido com @type';
+                            continue;
+                        }
+                        // Nenhuma propriedade vazia: uma morada ou um sameAs
+                        // vazios nos dados estruturados são piores do que a
+                        // ausência, porque os motores citam-nos como do clube.
+                        foreach ($d as $k => $v) {
+                            if ($v === '' || $v === [] || $v === null) {
+                                $erros[] = "o JSON-LD não pode ter a propriedade vazia \"$k\"";
+                            }
+                        }
+                    }
+                }
+                if (!empty($org['foundingDate']) && strpos($meio, $org['foundingDate']) === false) {
+                    $erros[] = 'o foundingDate tem de aparecer no JSON-LD gerado';
+                }
+                if (empty($org['foundingDate']) && strpos($meio, 'foundingDate') !== false) {
+                    $erros[] = 'sem ano de fundação guardado não pode existir foundingDate';
+                }
+                return $erros;
+            },
+        ];
+    }
+
+    return $blocos;
 }
 
 // Ficheiros que esta transação tem autorização para escrever. Um diário

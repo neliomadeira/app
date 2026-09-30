@@ -1154,13 +1154,18 @@ ${jogadores.map(j => `            <div class="player-card">
     const slideBg = document.getElementById('heroSlideBg');
     if (!hero || !slideBg) return;
 
-    const overlay = cfg.heroOverlay !== undefined && cfg.heroOverlay !== '' ? cfg.heroOverlay : '0.65';
+    // Mesmo tratamento do js/site-config.js: a opacidade é um número entre 0 e
+    // 1, e a imagem passa pelo jscUrlCss(). Entravam as duas cruas numa
+    // declaração de CSS.
+    const overlay = jscOpacidade(cfg.heroOverlay, '0.65');
     const speed   = parseInt(cfg.heroSlideSpeed) || 6000;
     let   idx     = 0;
 
     function applySlide(n) {
-      slideBg.style.backgroundImage = `linear-gradient(rgba(0,27,77,${overlay}),rgba(0,27,77,${overlay})),url('${n.imagem}')`;
-      slideBg.style.backgroundPosition = n.imagemPos || 'center';
+      const imagem = jscUrlCss(n.imagem);
+      if (!imagem) return;   // endereço recusado: fica o slide anterior
+      slideBg.style.backgroundImage = `linear-gradient(rgba(0,27,77,${overlay}),rgba(0,27,77,${overlay})),url('${imagem}')`;
+      slideBg.style.backgroundPosition = jscPosicaoFundo(n.imagemPos, 'center');
     }
 
     function showSlide(n) {

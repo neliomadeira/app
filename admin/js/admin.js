@@ -3982,7 +3982,7 @@ const SITE_DEFAULTS = {
   // não há nada guardado, e é o que é enviado ao publicar. Não foram
   // substituídos por outros números.
   stat1Num: '', stat1Label: '',
-  stat2Num: '6',    stat2Label: 'Escalões',
+  stat2Num: '8',    stat2Label: 'Escalões',
   stat3Num: '75+', stat3Label: 'Anos de história',
   stat4Num: '', stat4Label: '',
   aboutText1: 'Fundado a 12 de dezembro de 1947, o Juventude Sport Campinense é um dos clubes mais históricos e emblemáticos do concelho de Loulé e do distrito de Faro. Ao longo de mais de sete décadas de existência, tem desempenhado um papel fundamental na promoção do desporto, na formação de jovens atletas e na dinamização da comunidade local.',
@@ -4028,11 +4028,29 @@ function loadPaginaInicialForm() {
     cfgFooterTagline: 'footerTagline',
     cfgHomepageNewsCount: 'homepageNewsCount',
   };
+  // Sem valor guardado, o texto por omissão passa a SUGESTÃO (placeholder) e não
+  // a conteúdo do campo.
+  //
+  // Antes era escrito no campo, e o guardar gravava o que estivesse no campo:
+  // qualquer texto por omissão tornava-se conteúdo oficial do site no primeiro
+  // save, sem ninguém o ter escrito. Foi por esta via que "80+ Títulos" e "300+
+  // Atletas" continuariam a ser publicados depois de terem sido retirados do
+  // HTML, e é a mesma via para as três referências a 1947 do heroTag, do
+  // aboutEst e do aboutText1.
+  //
+  // Agora o campo vazio grava vazio, e quem quiser o texto por omissão escreve-o.
   for (const [elId, cfgKey] of Object.entries(fields)) {
     const el = document.getElementById(elId);
     if (!el) continue;
-    if (cfg[cfgKey] !== undefined && cfg[cfgKey] !== '') el.value = cfg[cfgKey];
-    else if (SITE_DEFAULTS[cfgKey] !== undefined) el.value = SITE_DEFAULTS[cfgKey];
+    if (cfg[cfgKey] !== undefined && cfg[cfgKey] !== '') {
+      el.value = cfg[cfgKey];
+    } else {
+      el.value = '';
+      if (SITE_DEFAULTS[cfgKey] !== undefined && SITE_DEFAULTS[cfgKey] !== ''
+          && !el.getAttribute('data-exemplo-fixo')) {
+        el.placeholder = SITE_DEFAULTS[cfgKey];
+      }
+    }
   }
   // Checkboxes
   const sl = document.getElementById('cfgHeroSlideshow');
@@ -4885,8 +4903,14 @@ function initConfiguracoes() {
   if (cores.amarelo) document.getElementById('cfgCorAmarelo').value = cores.amarelo;
   renderTemaTemplates();
 
-  // Carregar dados do clube
-  const clube = JSON.parse(localStorage.getItem('dados_clube') || '{}');
+  // Carregar dados do clube. Sem nada guardado, semeia-se a partir do
+  // DB.dadosClube (admin/js/data.js) — a identidade é configuração verdadeira do
+  // clube, como os escalões e as modalidades, e o rodapé gerado depende dela.
+  let clube = JSON.parse(localStorage.getItem('dados_clube') || '{}');
+  if (!clube.nome && typeof DB !== 'undefined' && DB.dadosClube) {
+    clube = JSON.parse(JSON.stringify(DB.dadosClube));
+    localStorage.setItem('dados_clube', JSON.stringify(clube));
+  }
   if (clube.nome)    document.getElementById('cfgClubNome').value    = clube.nome;
   if (clube.sigla)   document.getElementById('cfgClubSigla').value   = clube.sigla;
   if (clube.ano)     document.getElementById('cfgClubAno').value     = clube.ano;

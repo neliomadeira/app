@@ -2,7 +2,23 @@
   "_LEIA_ISTO": "DADOS DE TESTE. Nada aqui é conteúdo do Juventude Sport Campinense: nem notícias, nem eventos, nem jogadores, nem datas, nem locais. Existe só para os testes em tools/ poderem contar cartões e comparar textos. Nunca é copiado para o data/db.json do projeto nem do alojamento: os testes trabalham sempre sobre uma cópia temporária do site. Os eventos da agenda não têm data: têm _offsetDias, que o teste converte em data (0 = hoje) antes de escrever o db.json da cópia. Sem isso, uma agenda com datas fixas ficava no passado e os testes começavam a falhar sozinhos.",
   "publicadoEm": "2020-01-05T10:00:00.000Z",
   "siteConfig": {
-    "homepageNewsCount": 3
+    "homepageNewsCount": 3,
+    "contactAddress": "TESTE RUA 16<br />1234-567 TESTE LOCALIDADE, Portugal",
+    "contactPhone": "+351 000 000 001",
+    "contactEmail": "teste@exemplo.invalid",
+    "heroTitle": "TESTE HERO<br /><span>TITULO</span><img src=x onerror=\"window.__XSS__=1\">",
+    "socialInstagramUrl": "https://instagram.com/teste",
+    "socialFacebookUrl": "javascript:window.__XSS__=1",
+    "socialWhatsappUrl": "351000000001",
+    "heroBtn1Text": "TESTE BOTAO OK",
+    "heroBtn1Url": "inscricao.html",
+    "heroBtn2Text": "TESTE BOTAO MAU",
+    "heroBtn2Url": "javascript:window.__XSS__=1",
+    "heroImagem": "images/logo.png?x=a'b(1)&y=2",
+    "heroOverlay": "0.5),rgb(0,0,255",
+    "heroImgPos": "center;background-color:rgb(0,255,0)",
+    "seoTitle": "TESTE SEO TITULO DA INICIAL",
+    "seoDesc": "TESTE SEO DESCRICAO DA INICIAL"
   },
   "noticias": [
     {
@@ -1366,5 +1382,14 @@
       "ano": "",
       "ativo": true
     }
-  ]
+  ],
+  "dadosClube": {
+    "nome": "TESTE CLUBE OFICIAL & <b>escape</b>",
+    "sigla": "TESTE SIGLA",
+    "ano": "1999",
+    "estadio": "TESTE ESTADIO",
+    "navNome": "TESTE NAV",
+    "navSub": "TESTE SUB",
+    "logo": ""
+  }
 }

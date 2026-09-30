@@ -48,13 +48,22 @@
     const el = document.getElementById(id);
     if (el && val !== undefined && val !== '') el.textContent = val;
   }
+  // Os dois textos que entram como HTML — o título do herói e a morada —
+  // precisam do <br> e do <span>, e por isso não podem ir por textContent. O
+  // filtro a sério está no servidor (jsc_sanitizar_inline, em api/save.php),
+  // antes de gravar; o jscHtmlSeguro() é a segunda linha, para o caso de o
+  // valor chegar ao browser por outro caminho que não a publicação.
   function setHtml(id, val) {
     const el = document.getElementById(id);
-    if (el && val !== undefined && val !== '') el.innerHTML = val;
+    if (el && val !== undefined && val !== '') el.innerHTML = jscHtmlSeguro(val);
   }
+  // Um endereço do painel nunca vai directo para um href: um "javascript:..."
+  // corria ao primeiro clique. O jscHrefSeguro() devolve '' aos esquemas que não
+  // são http, https, mailto, tel ou relativos.
   function setHref(id, val) {
     const el = document.getElementById(id);
-    if (el && val) el.href = val;
+    const seguro = jscHrefSeguro(val);
+    if (el && seguro) el.href = seguro;
   }
   function setAttr(id, attr, val) {
     const el = document.getElementById(id);
@@ -89,9 +98,21 @@
   if (cfg.heroImagem && !cfg.heroSlideshow) {
     const hero = document.querySelector('.hero');
     if (hero) {
-      const opacity = cfg.heroOverlay !== undefined && cfg.heroOverlay !== '' ? cfg.heroOverlay : '0.7';
-      const pos     = cfg.heroImgPos || 'center';
-      hero.style.backgroundImage    = `linear-gradient(rgba(0,27,77,${opacity}),rgba(0,27,77,${opacity})),url('${cfg.heroImagem}')`;
+      // Três valores do painel entravam crus numa declaração de CSS:
+      //   heroOverlay  dentro de rgba() — com "0.5),rgb(0,0,255" acrescentava
+      //                paradas de cor ao gradiente. Injecção medida.
+      //   heroImagem   dentro de url('...') — um apóstrofo num nome de ficheiro
+      //                legítimo invalidava a declaração inteira e o herói
+      //                perdia a imagem. Medido.
+      //   heroImgPos   em backgroundPosition — um valor inválido resolvia
+      //                silenciosamente para 0% 0% em vez de center.
+      // O jscEscUrlCss()/jscUrlCss() é o mesmo que os Blocos 5, 6 e 7 já usam
+      // em todas as outras imagens de CSS do site.
+      const opacity = jscOpacidade(cfg.heroOverlay, '0.7');
+      const pos     = jscPosicaoFundo(cfg.heroImgPos, 'center');
+      const imagem  = jscUrlCss(cfg.heroImagem);
+      if (!imagem) return;   // endereço recusado: fica o gradiente do CSS
+      hero.style.backgroundImage    = `linear-gradient(rgba(0,27,77,${opacity}),rgba(0,27,77,${opacity})),url('${imagem}')`;
       hero.style.backgroundSize     = 'cover';
       hero.style.backgroundPosition = pos;
       hero.style.backgroundRepeat   = 'no-repeat';
@@ -140,12 +161,19 @@
   set('contactHours',   cfg.contactHours);
 
   // Redes sociais — abre em nova tab, popula contact section + footer
+  // Sem endereço válido o botão NÃO aparece. Antes ficava com href="#" — eram
+  // 54 ligações mortas em 16 páginas, porque não há endereços por omissão. E o
+  // endereço passa pela política de esquemas: um "javascript:..." guardado no
+  // painel ficava no href de seis botões por página.
   function setSocial(id, url) {
     const el = document.getElementById(id);
-    if (!el || !url) return;
-    el.href = url;
+    if (!el) return;
+    const seguro = jscHrefSeguro(url);
+    if (!seguro) { el.setAttribute('hidden', ''); return; }
+    el.href = seguro;
     el.target = '_blank';
     el.rel = 'noopener noreferrer';
+    el.removeAttribute('hidden');
   }
   const waUrl = cfg.socialWhatsappUrl ? 'https://wa.me/' + cfg.socialWhatsappUrl.replace(/\D/g,'') : null;
   setSocial('socialInstagram',       cfg.socialInstagramUrl);
@@ -177,7 +205,14 @@
   }
   aplicar('.js-email',    cfg.contactEmail);
   aplicar('.js-telefone', cfg.contactPhone);
-  aplicar('.js-morada',   cfg.contactAddress);
+  // A morada leva um <br> entre a rua e o código postal — é assim que o valor
+  // por omissão do painel está escrito, e é assim que a página de contacto o
+  // mostra. Aqui usava-se textContent, e o rodapé de 17 páginas mostrava a
+  // etiqueta "<br />" como texto visível. Medido.
+  if (cfg.contactAddress) {
+    const morada = jscHtmlSeguro(cfg.contactAddress);
+    document.querySelectorAll('.js-morada').forEach(function (el) { el.innerHTML = morada; });
+  }
 
   // Os mailto:/tel: em texto corrido — a página de privacidade tem três —
   // precisam do href actualizado, não só do texto.
@@ -202,27 +237,34 @@
     const bt1 = document.getElementById('heroBt1');
     if (bt1) bt1.textContent = cfg.heroBtn1Text;
   }
-  if (cfg.heroBtn1Url) {
-    const bt1 = document.getElementById('heroBt1');
-    if (bt1) bt1.href = cfg.heroBtn1Url;
-  }
+  // Pelo setHref(), que aplica a política de esquemas. Estava aqui uma
+  // atribuição directa, e um "javascript:..." guardado no painel corria ao
+  // primeiro clique no botão do herói.
+  setHref('heroBt1', cfg.heroBtn1Url);
   if (cfg.heroBtn2Text) {
     const bt2 = document.getElementById('heroBt2');
     if (bt2) bt2.textContent = cfg.heroBtn2Text;
   }
-  if (cfg.heroBtn2Url) {
-    const bt2 = document.getElementById('heroBt2');
-    if (bt2) bt2.href = cfg.heroBtn2Url;
-  }
+  setHref('heroBt2', cfg.heroBtn2Url);
 
-  // SEO
-  if (cfg.seoTitle) document.title = cfg.seoTitle;
-  if (cfg.seoDesc) {
-    let meta = document.getElementById('metaDesc');
-    if (!meta) {
-      meta = document.querySelector('meta[name="description"]');
+  // SEO — SÓ da página inicial.
+  //
+  // Isto aplicava-se às 16 páginas que carregam este ficheiro. Preencher os dois
+  // campos do painel punha o mesmo <title> e a mesma descrição na História, nas
+  // Notícias, no Contacto e na Formação — 16 títulos distintos colapsados num
+  // só, que é o pior caso possível de conteúdo duplicado. Medido.
+  //
+  // O reconhecimento é por uma marca explícita no <body> da página inicial, e
+  // não por um id que lá esteja por acaso: se amanhã a secção "Sobre"
+  // desaparecer, o título da página inicial continua a ser administrável.
+  const daInicial = document.body.getAttribute('data-pagina') === 'inicial';
+  if (daInicial) {
+    if (cfg.seoTitle) document.title = cfg.seoTitle;
+    if (cfg.seoDesc) {
+      let meta = document.getElementById('metaDesc');
+      if (!meta) meta = document.querySelector('meta[name="description"]');
+      if (meta) meta.setAttribute('content', cfg.seoDesc);
     }
-    if (meta) meta.setAttribute('content', cfg.seoDesc);
   }
 
 

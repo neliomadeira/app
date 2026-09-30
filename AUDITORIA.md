@@ -2389,3 +2389,254 @@ alterar `historia` e `palmares`, **`403` para a Comunicação a alterar
 `atletas`**, e **`403` para o Futebol a alterar `historia` ou `palmares`** — a
 área é `institucional`, que aquele perfil não tem. O `conteudo.php` continua sem
 escrever: nenhuma escrita provocada por GET público.
+
+---
+
+# FASE C — BLOCO 9: INSTITUCIONAL / SEO
+
+O rodapé institucional, os dados estruturados e o sitemap passam a ser escritos
+no servidor a partir de duas fontes únicas: `dados_clube` para a identidade e
+`siteConfig` para os contactos. Corrigiram-se os oito defeitos de segurança da
+auditoria, e o pior deles estava a correr.
+
+## O que estava mal, medido
+
+**O título de SEO do painel sobrescrevia as 16 páginas.** O `js/site-config.js`
+aplicava `cfg.seoTitle` a `document.title` e `cfg.seoDesc` à meta description
+**sem âmbito nenhum**, e carrega em 16 páginas. Medido: com os dois campos
+preenchidos, a História, as Notícias, o Contacto e a Formação ficavam **todas**
+com o mesmo título e a mesma descrição. Dois campos do painel colapsavam 16
+títulos distintos num só — o pior caso possível de conteúdo duplicado, e os
+motores de busca executam JavaScript.
+
+**A morada aparecia com `<br />` como texto.** O valor por omissão tem um `<br>`
+entre a rua e o código postal; a página de contacto usava `innerHTML`, o rodapé
+usava `textContent`. Medido: o rodapé de 17 páginas mostrava a etiqueta.
+
+**54 ligações sociais mortas.** `href="#"` em 16 páginas, e não existem
+endereços por omissão: sem configuração eram 54 botões que não iam a lado
+nenhum, e sem JavaScript nunca funcionavam.
+
+**O nome oficial do clube era editável e nunca publicado.** `dados_clube.nome`,
+`.sigla` e `.estadio`: três dos sete campos não chegavam a sítio nenhum.
+Medido: mudar o nome no painel não mexia no `<title>` nem no JSON-LD.
+
+**O ano do copyright estava escrito à mão em 17 páginas** — 16 diziam 2026, a
+`atleta.html` dizia **2024**, e ninguém o actualizava.
+
+**Os dados estruturados existiam só com JavaScript**, e 14 das suas 15
+propriedades estavam escritas à mão. Sem `sameAs`, sem `email`, com a morada e o
+telefone a divergirem do painel.
+
+**`og:url` não existia em nenhuma das 20 páginas.**
+
+**O `sitemap.xml` tinha `lastmod` 2026-07-01 nas 14 entradas** — igual e com três
+meses de atraso — e incluía a página de pesquisa.
+
+**`/AUDITORIA.md` era servido inteiro**: 118 835 bytes que nomeiam, ficheiro a
+ficheiro, cada defeito conhecido do projeto, incluindo os que ainda não estavam
+corrigidos. E `/scraper/` não tinha `.htaccess`.
+
+## Os oito defeitos de segurança, e o que se mediu de cada um
+
+Todos em `js/site-config.js`, com um em `js/main.js`. O ficheiro nunca foi um
+bloco da Fase C, e é por isso que as correcções dos Blocos 5, 6 e 7 não lhe
+chegaram — o `js/main.js` usa `jscEscUrlCss` corretamente em seis sítios, e este
+usava interpolação crua.
+
+| # | Campo | O que acontecia | Medido |
+|---|---|---|---|
+| S1 | `heroTitle` | `innerHTML` sem filtro | **o `<img onerror>` correu** |
+| S2 | `contactAddress` | idem | mesmo caminho |
+| S3 | `heroBtn1Url`/`heroBtn2Url` | `href` sem política | `javascript:` no href, a correr ao clique |
+| S4 | redes sociais (×6 por página) | idem | `javascript:` no href |
+| S5 | `heroOverlay` | cru dentro de `rgba()` | **injecção de CSS confirmada**: `0.5),rgb(0,0,255` acrescentou paradas de cor ao gradiente |
+| S6 | `heroImagem` | cru em `url('…')` | um apóstrofo num nome de ficheiro legítimo **anulava a declaração** e o herói perdia a imagem |
+| S7 | slideshow do herói (`js/main.js`) | idem, com imagens de notícias | mesmo defeito |
+| S8 | `heroImgPos` | cru em `backgroundPosition` | sem injecção; valor inválido degradava para `0% 0%` |
+
+**Como se corrigiram.** O filtro a sério é no **servidor**, antes de gravar, como
+já acontecia com os textos legais: nasceu o `jsc_sanitizar_inline()`, com uma
+lista estreita — `br`, `span`, `strong`, `em`, `b`, `i` e **nenhum atributo** —
+sem duplicar o percorrer da árvore do `jsc_sanitizar_html()`, que passou a
+aceitar as listas como parâmetro. O comportamento dos textos legais foi verificado
+inalterado.
+
+No browser ficam quatro ajudantes novos em `js/html.js`: `jscHrefSeguro()`
+(réplica exacta do `jsc_href_seguro()`, **provada em 26 casos** — 15 recusados),
+`jscHtmlSeguro()` (mesma lista do PHP, via `<template>`, que não executa nada do
+que analisa), `jscOpacidade()` e `jscPosicaoFundo()`. As imagens de CSS passam
+pelo `jscUrlCss()` que o Bloco 6 criou.
+
+## Fontes únicas
+
+| Tipo | Fonte |
+|---|---|
+| Identidade: nome, sigla, ano, logótipo | **`dados_clube`** |
+| Contactos: morada, telefone, e-mail, redes | **`siteConfig`** |
+| Texto legal | **`siteLegal`** *(já era)* |
+| SEO por página | **o HTML de cada página** — um campo global não serve 20 páginas |
+| Dados estruturados | **derivados** das duas primeiras |
+| Endereço oficial do site | **`JSC_SITE_URL`**, um sítio só |
+
+A identidade do clube passou a ter semente em `admin/js/data.js`, ao lado dos
+escalões, das modalidades e da história. Os quatro valores são **exactamente os
+que o site já publicava**, escritos à mão em 17 páginas e no `js/seo.js`: nada foi
+inventado. O **ano de fundação arranca vazio**, de propósito — a decisão do Bloco
+8 foi que um campo vazio não inventa 1947, e enquanto ninguém o escrever no
+painel os dados estruturados saem sem `foundingDate`.
+
+## As três regiões do rodapé, e porque são estreitas
+
+O rodapé está copiado em 17 páginas e **não é igual nas 17**: a lista "Links
+rápidos" muda de página para página. Envolver o rodapé inteiro obrigaria o modelo
+a reproduzir essas diferenças, e um modelo que tem de saber em que página está é
+saída parametrizada — E2. As regiões cercam por isso **só os valores
+institucionais**: as ligações de dentro do `.footer__social` (16 páginas), as três
+linhas de dentro do `.footer__contact` (15), e o `<p>` de dentro do
+`.footer__bottom` (17). São 48 entradas, geradas por ciclo e não escritas à mão.
+
+Os dados estruturados vão dentro da terceira. Um `<script type="application/
+ld+json">` é conteúdo de fluxo e vale em qualquer parte do documento; fica ali
+porque é a região que existe em todas as páginas e porque os dados são os mesmos
+— um `<head>` gerado por página exigiria E2.
+
+## Campo vazio não produz nada
+
+Sem endereço, o botão de rede social **não é escrito** — e nunca `href="#"`. Sem
+morada, telefone ou e-mail, a linha não existe. Sem nome guardado, a linha de
+direitos fica sem nome em vez de inventar um. E **nenhuma propriedade vazia entra
+no JSON-LD**: uma morada incompleta ou um `sameAs` vazio nos dados estruturados é
+pior do que a ausência, porque os motores de busca citam-nos como se fossem do
+clube.
+
+## Sitemap e robots
+
+O `sitemap.xml` passa a ser gerado, com o `lastmod` da publicação. As marcas
+ficam **dentro** do `<urlset>`: a declaração XML tem de ser a primeiríssima coisa
+do documento, e um comentário antes dela torna o XML inválido.
+
+**13 entradas.** Fora ficam, e cada ausência tem a razão escrita ao lado em
+`jsc_sitemap_paginas()`: `admin/`, `api/`, `modelos/`, manutenção, offline, 404,
+fichas de atleta, **a pesquisa** — que passou a ter `noindex, follow`, porque
+resultados de pesquisa interna são combinações do que já está indexado — e
+**`modalidade.html` e `escalao.html`**, que só existem preenchidas por parâmetro
+e cujo canonical aponta para a página base, a qual sem parâmetro mostra "não
+encontrada". Listar um endereço que mostra um estado de erro é pior do que não o
+listar.
+
+O `robots.txt` cobre `/admin/`, `/api/`, `/scraper/`, `/AUDITORIA.md`,
+manutenção e offline, e **não** bloqueia a pesquisa — o motor precisa de poder
+lê-la para ver o `noindex`. O `.htaccess` acrescentou `.md` à lista de extensões
+bloqueadas e fechou `/scraper/`: **é o Apache que impede, e o robots.txt que
+pede.** Verificado: `/AUDITORIA.md` e `/scraper/*` respondem **403**, e o
+`manifest.json`, o `robots.txt` e o `sitemap.xml` continuam a **200**.
+
+## Estratégia de indexação mantida
+
+Os canonicals das páginas parametrizadas continuam a apontar para a página base:
+notícias, modalidades e escalões **não passam a ser indexáveis individualmente**
+neste bloco. SEO por entidade exige um `<head>` parametrizado, que é E2, e fica
+registado para depois.
+
+## Dois enganos meus, e o que ficou no lugar deles
+
+**O `?>` dentro de um comentário fecha o bloco PHP.** O comentário do modelo do
+sitemap citava a declaração XML, e tudo o que vinha depois era emitido como
+texto — o sitemap saía com o comentário lá dentro. A guarda do `lastmod` apanhou.
+
+**O `extract($vars, EXTR_SKIP)` não sobrepõe.** O `jsc_gerar_bloco()` tem
+`$nome` no seu âmbito — é o nome do bloco — e o modelo pedia `$nome` para o nome
+do clube. Resultado: o rodapé saiu com **"© 2026 rodape-base@index.html"**.
+Renomeado para `$clubeNome`, e nasceu uma guarda nova: nenhuma chave passada aos
+modelos pode colidir com as variáveis do motor.
+
+**E um teste meu rebentava em vez de falhar.** Ao provar as guardas ao contrário,
+uma asserção lia `jsonld[0].name` num array vazio e atirava um `TypeError`, que
+esconde todas as verificações seguintes. Passou a ler um objecto que existe
+sempre. Um teste que rebenta não é um teste que falha.
+
+## O rollback passou de 9 para 19 alvos
+
+A transação cobre agora 18 ficheiros com regiões mais o `data/db.json`. A
+atomicidade com este número nunca tinha sido exercitada: o teste rabisca **todos**
+e exige que **todos** voltem, com as suas regiões de pé e o sitemap ainda XML
+válido. Passa. Não foi preciso enfraquecer nada.
+
+## Acessibilidade
+
+Já estava certo e não se mexeu: `lang="pt-PT"`, charset e viewport nas 20
+páginas; `skip-link` nas 20; um `header`/`nav`/`main`/`footer` por página; um
+`h1` por página; zero imagens sem `alt`. O que mudou: as redes sociais deixam de
+ser ligações mortas, e as que existem levam `aria-label`, `target="_blank"` e
+`rel="noopener noreferrer"` — verificado no bloco gerado.
+
+## O que fica em aberto, e porquê
+
+- **A `historia.html` tem `1947` escrito à mão em três sítios de prosa** — o
+  herói, a intro (com a data completa, que um campo de ano não sabe guardar) e o
+  selo. Fechar isto exigia uma terceira região naquela página, que não foi
+  autorizada. Decisão tomada: manter como está.
+- **O logótipo da página inicial aponta para `#`** e o botão do popup também.
+  Não são ligações sociais, não estavam em nenhuma decisão aprovada, e ficaram.
+- **SEO por entidade** (notícias, modalidades, escalões): E2.
+- **Direção, órgãos sociais, NIF e instalações**: não existem no projeto. Não se
+  criaram campos nem se inventou informação.
+
+## Guardas de regressão
+
+Provadas ao contrário com **nove regressões** reintroduzidas de uma vez: o
+`seoTitle` a contaminar todas as páginas, o `innerHTML` sem filtro, o `href` sem
+política, as redes de volta a `href="#"`, a imagem e a opacidade do herói cruas,
+o `1947` escrito à mão no JSON-LD, os escalões de volta a 6, o `og:url` fora, o
+`robots.txt` sem o scraper, e o Apache a servir o `.md` e o `scraper/`.
+
+**74 verificações falharam** — entre elas as 12 que exigem que cada página
+mantenha o seu título, o `<img onerror>` a correr, os dois 403 do Apache, e o
+caso da base vazia — e as outras 997 continuaram a passar. Os oito ficheiros
+foram depois confirmados **byte-idênticos** aos backups.
+
+## Como se verificou
+
+`node tools/testar-sem-js.js` — **1034 verificações** (890 antes). Deste bloco: o
+rodapé com os contactos da fonte única e a morada com o `<br>` a valer como salto
+de linha e **não** como texto; o ano da publicação e o nome do clube com o `&` e
+o `<b>` escapados; **nenhuma página a dizer 2024**; só as redes com endereço
+válido escritas, a de `javascript:` recusada, com `rel` e nome acessível;
+**JSON-LD presente SEM JavaScript**, dois schemas, sem propriedade vazia em
+nenhum nível, com `name`, `alternateName`, `foundingDate`, `address` partida em
+rua e código postal, `contactPoint` e `sameAs` só com as válidas; com JavaScript
+**os mesmos dois, sem duplicar**; o `<img onerror>` do título do herói a **não
+correr**, mantendo o `<br>` e o `<span>` permitidos; o `javascript:` do botão do
+herói recusado e o endereço válido a passar; a imagem do herói com apóstrofo e
+parêntesis **a resolver no browser**; o `heroOverlay` fora de formato a **não**
+injectar CSS; **12 páginas a manterem o seu título e a sua descrição** com o
+`seoTitle` da inicial preenchido; `og:url` igual ao canonical e um `h1` em sete
+páginas; a pesquisa com `noindex, follow`; os escalões a dizerem **8**; as duas
+datas do texto legal fora; o sitemap com 13 entradas, um só `lastmod`, e sem
+nada do que não deve entrar; o `robots.txt` a cobrir o scraper e a documentação
+interna; base institucional vazia sem botões, sem linhas de contacto e sem
+propriedades vazias, com e sem JavaScript; **as sete larguras** (320, 375, 390,
+430, 768, 1024, 1440) com o rodapé gerado e sem transbordo; os quatro modelos
+novos, o `/AUDITORIA.md` e o `/scraper/` → **403**, com o `manifest.json` ainda a
+200; o exterior às regiões igual byte a byte em **18** ficheiros; e o reverter a
+devolver os **19 alvos**.
+
+`node tools/validar.js --comparar` — sem problemas em 168 combinações,
+**novos: 0**.
+
+Fase A reverificada ponta-a-ponta numa cópia do projeto, com três perfis de teste
+e credenciais descartáveis que nunca entraram no repositório: `400` a um GET ao
+`auth.php`, `400` sem o cabeçalho do painel, `401` com password errada, `401` a
+escrever sem sessão, `405` a um GET ao `save.php`; **`200` para a Comunicação a
+alterar `dadosClube` e `siteLegal`** e **`403` a alterar `siteConfig`** — são
+capacidades diferentes, `institucional` e `configuracoes`; `200` para o
+Administrador a alterar `siteConfig`; **`403` para o Matchday nas duas**; o
+`<img onerror>` e o `<script>` filtrados **ao gravar**, com o `<br>` e o `<span>`
+preservados; e o `conteudo.php` continua sem escrever.
+
+Uma nota sobre o método: a primeira versão deste guião corria sobre uma cópia
+dentro da pasta privada da sessão, a `0700`, onde o Apache — que corre como
+`www-data` — responde 403 a **todos** os ficheiros estáticos. Os 403 do
+`AUDITORIA.md` e do `scraper/` passavam pela razão errada. A cópia passou para
+um sítio alcançável, e só então as asserções mediram o que dizem medir.

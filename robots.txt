@@ -1,7 +1,21 @@
 User-agent: *
 Allow: /
 
+# O painel tem autenticação própria e tem de continuar acessível: é o robots.txt
+# que pede aos motores para não o rastrearem.
 Disallow: /admin/
+
+# Estas três são bloqueadas pelo Apache (403). Ficam aqui para os motores não
+# gastarem pedidos nelas — o robots.txt é um pedido, não uma protecção.
+Disallow: /api/
+Disallow: /scraper/
+Disallow: /AUDITORIA.md
+
+# Páginas que existem para o visitante e não para os motores.
 Disallow: /manutencao.html
+Disallow: /offline.html
+
+# A pesquisa tem noindex no próprio HTML, e por isso não se bloqueia aqui: o
+# motor precisa de poder lê-la para ver o noindex e seguir as suas ligações.
 
 Sitemap: https://campinense.pt/sitemap.xml
