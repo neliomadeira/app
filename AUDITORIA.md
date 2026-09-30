@@ -2276,10 +2276,44 @@ mais" é um controlo morto e os cinco parágrafos — que contêm afirmações
 históricas sobre a Taça de Portugal, os campeonatos nacionais e o futebol
 feminino — são inalcançáveis. Foi decidido deixar como está e apenas documentar.
 
-A página inicial continua a publicar `80+ Títulos` e `300+ Atletas` na sua
-própria faixa de estatísticas, que é administrável via `siteConfig`. A decisão
-autorizada nomeava a `historia.html`; as guardas de regressão medem essa página
-e os dados da História. **A duplicação fica em aberto e precisa de decisão.**
+## Os dois números também saíram da página inicial
+
+A decisão foi depois confirmada para a página inicial: `300+ Atletas` e
+`80+ Títulos` saem também da faixa do herói, enquanto não houver fonte
+confirmada. Não foram substituídos por outros números, o total de títulos **não**
+é calculado a partir do palmarés, e não se inventou número de atletas.
+
+A faixa é administrável via `siteConfig`, e por isso os dois números podiam
+voltar por quatro caminhos. Fecharam-se os quatro:
+
+1. **Escritos no HTML** — saíram do `index.html`.
+2. **Escritos em JavaScript** — não existem no `js/main.js` nem no
+   `js/site-config.js`.
+3. **Como valor por omissão do `siteConfig`** — os `SITE_DEFAULTS` do painel
+   tinham `stat1Num: '300+'` e `stat4Num: '80+'`. Isso não era só o que o painel
+   mostrava: era o que ele **enviava ao publicar**. Passaram a vazio.
+4. **Na semente** — o `admin/js/data.js` não tem `siteConfig`, e continua sem.
+
+**O lugar fica, e continua administrável.** Apagar os dois `.stat` do HTML teria
+deixado quatro campos do painel a escrever em elementos inexistentes — o mesmo
+defeito dos oito ids `hStat*` que este bloco veio corrigir. Em vez disso os dois
+lugares ficam no HTML **vazios e com `hidden`**, e uma regra única no
+`js/site-config.js` esconde qualquer estatística sem número e mostra qualquer
+uma que o tenha. Sem JavaScript vale o `hidden` do HTML, e não aparece cartão
+vazio; basta guardar um valor no painel para o lugar voltar.
+
+Os dois que não estavam abrangidos pela decisão — `6 Escalões` e `75+ Anos de
+história` — ficaram exactamente como estavam.
+
+Sete guardas novas medem os quatro caminhos e o resultado no browser, com e sem
+JavaScript. Provadas ao contrário: com os dois números de volta no HTML, de volta
+nos valores por omissão do painel, e a regra de esconder desfeita, **as 11
+verificações falham** — nomeando `index.html` e `admin/js/admin.js` — e as outras
+879 continuam a passar. Os três ficheiros foram depois confirmados
+**byte-idênticos** aos backups.
+
+As **três referências factuais a 1947** da `historia.html` ficaram como estão,
+como decidido. Não se criou terceira região nem campo novo.
 
 ## Acessibilidade
 

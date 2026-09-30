@@ -302,6 +302,48 @@ function testesDeGeracao(raiz, dados) {
   }
 
 
+  // ---- Guardas dos dois números sem fonte da página inicial --------
+  // "300+ Atletas" e "80+ Títulos" saíram da faixa da página inicial, por
+  // decisão do clube, enquanto não houver fonte confirmada. Podem voltar por
+  // quatro caminhos: escritos no HTML, escritos em JavaScript, como valor por
+  // omissão do siteConfig no painel, ou na semente do data.js. Esta guarda
+  // fecha os quatro. Sem comentários: explicar o que saiu não é publicá-lo.
+  {
+    const limpo = (rel) => fs.readFileSync(path.join(RAIZ_PROJETO, rel), 'utf8')
+      .replace(/<!--[\s\S]*?-->/g, '').replace(/^\s*\/\/.*$/gm, '');
+    const fontes = ['index.html', 'js/main.js', 'js/site-config.js',
+                    'admin/js/admin.js', 'admin/js/data.js'];
+    const comNumeros = fontes.filter((rel) => /300\+|80\+/.test(limpo(rel)));
+    verificar('estatisticas-base: nem 300+ nem 80+ em código público ou no painel',
+      comNumeros.length === 0, 'ficheiros: ' + comNumeros.join(', '));
+    const comRotulos = fontes.filter((rel) =>
+      /Atletas Formados|Títulos Conquistados/.test(limpo(rel)));
+    verificar('estatisticas-base: nem "Atletas Formados" nem "Títulos Conquistados"',
+      comRotulos.length === 0, 'ficheiros: ' + comRotulos.join(', '));
+    // O valor por omissão do siteConfig é o que o painel envia ao publicar: um
+    // número aqui é um número publicado.
+    const adm = limpo('admin/js/admin.js');
+    verificar('estatisticas-base: o siteConfig não semeia os dois valores',
+      /stat1Num:\s*''/.test(adm) && /stat4Num:\s*''/.test(adm)
+      && /stat1Label:\s*''/.test(adm) && /stat4Label:\s*''/.test(adm),
+      'os valores por omissão de stat1 e stat4 têm de estar vazios');
+    // Os dois lugares continuam a existir e continuam administráveis: o que
+    // mudou foi o valor, não a capacidade.
+    const ind = fs.readFileSync(path.join(RAIZ_PROJETO, 'index.html'), 'utf8');
+    verificar('estatisticas-base: os dois lugares vazios vêm escondidos do HTML',
+      /<div class="stat" id="stat1" hidden>/.test(ind)
+      && /<div class="stat" id="stat4" hidden>/.test(ind),
+      'sem JavaScript é o hidden que evita o cartão vazio');
+    verificar('estatisticas-base: os dois que ficam não foram tocados',
+      />6<\/span>\s*<span class="stat__label" id="stat2Label">Escalões</.test(ind)
+      && />75\+<\/span>\s*<span class="stat__label" id="stat3Label">Anos de história</.test(ind));
+    // A regra de esconder um cartão sem número existe num sítio só.
+    const sc = fs.readFileSync(path.join(RAIZ_PROJETO, 'js/site-config.js'), 'utf8');
+    verificar('estatisticas-base: a regra de esconder existe e é uma só',
+      /function estatistica\(n\)/.test(sc)
+      && /estatistica\(1\); estatistica\(2\); estatistica\(3\); estatistica\(4\);/.test(sc));
+  }
+
   // ---- Guardas da História -----------------------------------------
   // As duas zonas mostravam "A carregar..." para sempre sem JavaScript, e os
   // 22 marcos e 16 títulos da história do clube ficavam invisíveis. E havia
@@ -2243,6 +2285,51 @@ async function testarAdminMedia(browser, url) {
 }
 
 
+// Os dois números sem fonte confirmada — "300+ Atletas" e "80+ Títulos" —
+// deixaram de ser publicados na faixa da página inicial. Esta sonda mede o que
+// a barra mostra de facto, com e sem JavaScript, e se sobrou algum cartão vazio.
+async function testarEstatisticas(browser, url, comJs) {
+  const ctx = await browser.newContext({
+    javaScriptEnabled: comJs,
+    extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+  });
+  const pg = await ctx.newPage();
+  await pg.setViewportSize({ width: 1440, height: 900 });
+  const erros = [];
+  const ruido = (t) => RUIDO.some((r) => r.test(t));
+  pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+  pg.on('console', (m) => { if (m.type() === 'error' && !ruido(m.text())) erros.push(m.text()); });
+  await pg.route('**', (rota) => {
+    const alvo = rota.request().url();
+    if (alvo.startsWith(url) || alvo.startsWith('data:') || alvo.startsWith('blob:')) return rota.continue();
+    return rota.abort();
+  });
+  await pg.goto(url + '/index.html', { waitUntil: comJs ? 'networkidle' : 'load', timeout: 20000 });
+  // O js/main.js anima a contagem dos números durante 900 ms. Medir antes disso
+  // lê "11" onde está "12", e acusaria um defeito que não existe.
+  if (comJs) await pg.waitForTimeout(1100);
+
+  const d = await pg.evaluate(() => {
+    const cartoes = Array.from(document.querySelectorAll('.hero__stats .stat'));
+    const visiveis = cartoes.filter((c) => c.getClientRects().length > 0);
+    return {
+      total: cartoes.length,
+      visiveis: visiveis.length,
+      // O que cada cartão visível diz, já normalizado.
+      conteudo: visiveis.map((c) => c.textContent.replace(/\s+/g, ' ').trim()),
+      // Um cartão visível sem número, ou sem etiqueta, é um cartão vazio.
+      vazios: visiveis.filter((c) => {
+        const n = c.querySelector('.stat__num'), e = c.querySelector('.stat__label');
+        return !n || !e || n.textContent.trim() === '' || e.textContent.trim() === '';
+      }).length,
+      barra: (document.querySelector('.hero__stats') || {}).textContent
+        ? document.querySelector('.hero__stats').textContent.replace(/\s+/g, ' ').trim() : '',
+    };
+  });
+  await ctx.close();
+  return { ...d, erros };
+}
+
 // ---------------------------------------------------------------------
 // BLOCO 8 — História: cronologia e palmarés
 // ---------------------------------------------------------------------
@@ -3138,6 +3225,43 @@ async function testarAdminHistoria(browser, url) {
       adm7.ytPartilhado === true);
     verificar('painel: sem exceções', adm7.erros.length === 0, adm7.erros.join(' | '));
 
+
+    // Os dois números sem fonte não aparecem na faixa da página inicial, e não
+    // sobra cartão vazio no lugar deles.
+    console.log('\npágina inicial: faixa de estatísticas');
+    for (const comJs of [false, true]) {
+      const e = await testarEstatisticas(browser, srv.url, comJs);
+      const q = comJs ? 'com' : 'sem';
+      verificar(`estatísticas (${q} JS): nem "300+ Atletas" nem "80+ Títulos"`,
+        !/300\+/.test(e.barra) && !/80\+/.test(e.barra)
+        && !/Atletas Formados/.test(e.barra),
+        'barra: ' + JSON.stringify(e.barra));
+      verificar(`estatísticas (${q} JS): nenhum cartão vazio na barra`,
+        e.vazios === 0, e.vazios + ' cartões visíveis sem número ou sem etiqueta');
+      verificar(`estatísticas (${q} JS): ficam os dois com fonte, e só esses`,
+        e.visiveis === 2
+        && e.conteudo.some((c) => /Escalões/.test(c))
+        && e.conteudo.some((c) => /Anos de história/.test(c)),
+        e.visiveis + ' visíveis: ' + JSON.stringify(e.conteudo));
+      verificar(`estatísticas (${q} JS): os quatro lugares continuam no HTML`,
+        e.total === 4, 'os lugares ficam administráveis: ' + e.total);
+      verificar(`estatísticas (${q} JS): sem erros de consola`,
+        e.erros.length === 0, e.erros.join(' | '));
+    }
+    // Com um valor guardado no painel, o lugar volta a aparecer — a capacidade
+    // administrável não se perdeu ao retirar o número.
+    {
+      escreverDados(raiz, { ...dados,
+        siteConfig: { ...(dados.siteConfig || {}), stat1Num: '12', stat1Label: 'Equipas' } });
+      const e = await testarEstatisticas(browser, srv.url, true);
+      verificar('estatísticas: um valor guardado no painel faz o lugar aparecer',
+        e.visiveis === 3 && e.conteudo.some((c) => /12 ?Equipas/.test(c)),
+        e.visiveis + ' visíveis: ' + JSON.stringify(e.conteudo));
+      verificar('estatísticas: e não traz de volta nenhum dos dois retirados',
+        !/300\+/.test(e.barra) && !/80\+/.test(e.barra), 'barra: ' + JSON.stringify(e.barra));
+      escreverDados(raiz, dados);
+      gerar(raiz);
+    }
 
     // ---- 6e. Bloco 8: História ----------------------------------
     // Os 22 marcos e os 16 títulos da história do clube desapareciam sem

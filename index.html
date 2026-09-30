@@ -113,21 +113,30 @@
     </div>
     <div class="hero__stats">
       <div class="container hero__stats-inner">
-        <div class="stat">
-          <span class="stat__num" id="stat1Num">300+</span>
-          <span class="stat__label" id="stat1Label">Atletas</span>
+        <!-- Estava aqui "300+ Atletas". O número não tem fonte confirmada, e o
+             clube decidiu não o publicar enquanto não tiver. O lugar fica, e
+             continua administrável pelo painel: sem valor guardado não é
+             desenhado, com valor aparece. Não foi substituído por outro número
+             nem calculado a partir de nada. -->
+        <div class="stat" id="stat1" hidden>
+          <span class="stat__num" id="stat1Num"></span>
+          <span class="stat__label" id="stat1Label"></span>
         </div>
-        <div class="stat">
+        <div class="stat" id="stat2">
           <span class="stat__num" id="stat2Num">6</span>
           <span class="stat__label" id="stat2Label">Escalões</span>
         </div>
-        <div class="stat">
+        <div class="stat" id="stat3">
           <span class="stat__num" id="stat3Num">75+</span>
           <span class="stat__label" id="stat3Label">Anos de história</span>
         </div>
-        <div class="stat">
-          <span class="stat__num" id="stat4Num">80+</span>
-          <span class="stat__label" id="stat4Label">Títulos</span>
+        <!-- Estava aqui "80+ Títulos", contra 16 entradas no palmarés. O
+             número não tem fonte confirmada e não se publica; e não se afirma
+             um total a partir da contagem do palmarés, que não é a mesma
+             coisa. Mesma regra do stat1: o lugar fica administrável. -->
+        <div class="stat" id="stat4" hidden>
+          <span class="stat__num" id="stat4Num"></span>
+          <span class="stat__label" id="stat4Label"></span>
         </div>
       </div>
     </div>

@@ -99,10 +99,27 @@
   }
 
   // Stats
-  set('stat1Num',   cfg.stat1Num);   set('stat1Label', cfg.stat1Label);
-  set('stat2Num',   cfg.stat2Num);   set('stat2Label', cfg.stat2Label);
-  set('stat3Num',   cfg.stat3Num);   set('stat3Label', cfg.stat3Label);
-  set('stat4Num',   cfg.stat4Num);   set('stat4Label', cfg.stat4Label);
+  //
+  // Uma estatística sem número não é desenhada. Duas das quatro — "300+
+  // Atletas" e "80+ Títulos" — deixaram de ter valor, porque os números não têm
+  // fonte confirmada e o clube decidiu não os publicar. O lugar continua a
+  // existir e continua administrável: basta guardar um valor no painel para
+  // aparecer. O que não acontece é um cartão vazio ficar na barra.
+  //
+  // A regra é a mesma para as quatro, num sítio só: se não houver número, o
+  // cartão fica escondido, e se houver, aparece. Sem JavaScript vale o que o
+  // HTML traz — e os dois que não têm valor já vêm com hidden.
+  function estatistica(n) {
+    var cartao = document.getElementById('stat' + n);
+    var num = cfg['stat' + n + 'Num'];
+    set('stat' + n + 'Num',   num);
+    set('stat' + n + 'Label', cfg['stat' + n + 'Label']);
+    if (!cartao) return;
+    var texto = (document.getElementById('stat' + n + 'Num') || {}).textContent || '';
+    if (texto.trim() === '') cartao.setAttribute('hidden', '');
+    else cartao.removeAttribute('hidden');
+  }
+  estatistica(1); estatistica(2); estatistica(3); estatistica(4);
 
   // Sobre
   set('aboutText1', cfg.aboutText1);

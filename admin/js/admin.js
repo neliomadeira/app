@@ -3975,10 +3975,16 @@ const SITE_DEFAULTS = {
   heroTag:   'Formando Campeões desde 1947 →',
   heroTitle: 'Juventude<br /><span>Sport Campinense</span>',
   heroDesc:  'Desenvolvendo talentos, construindo carácter e cultivando a paixão pelo futebol em Loulé, Algarve.',
-  stat1Num: '300+', stat1Label: 'Atletas',
+  // Os valores por omissão de duas das quatro estatísticas saíram: "300+
+  // Atletas" e "80+ Títulos" não têm fonte confirmada, e o clube decidiu não os
+  // publicar enquanto não tiverem. Ficar aqui como valor por omissão era
+  // publicá-los por outra via — estes textos são o que o painel mostra quando
+  // não há nada guardado, e é o que é enviado ao publicar. Não foram
+  // substituídos por outros números.
+  stat1Num: '', stat1Label: '',
   stat2Num: '6',    stat2Label: 'Escalões',
   stat3Num: '75+', stat3Label: 'Anos de história',
-  stat4Num: '80+',  stat4Label: 'Títulos',
+  stat4Num: '', stat4Label: '',
   aboutText1: 'Fundado a 12 de dezembro de 1947, o Juventude Sport Campinense é um dos clubes mais históricos e emblemáticos do concelho de Loulé e do distrito de Faro. Ao longo de mais de sete décadas de existência, tem desempenhado um papel fundamental na promoção do desporto, na formação de jovens atletas e na dinamização da comunidade local.',
   aboutText2: 'Desde a sua fundação, o clube construiu uma identidade assente em valores como o respeito, a dedicação, o espírito de equipa, a formação humana e a paixão pelo desporto. Mais do que competir, o Juventude Sport Campinense tem como missão educar através do futebol, formando atletas e cidadãos preparados para os desafios da vida.',
   aboutEst:   'EST. 1947',
