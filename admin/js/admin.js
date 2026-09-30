@@ -4392,8 +4392,9 @@ function renderGaleria() {
 
   const catIcons = { Treino:'⚽', Jogo:'🏆', Evento:'🎉', Conquista:'🥇' };
   grid.innerHTML = items.length ? items.map((f, i) => `
-    <div class="galeria-card">
-      <div class="galeria-card__img" ${f.url ? `style="background-image:url('${jscEscUrl(f.url)}')"` : ''}>
+    <div class="galeria-card ${jscEsc(f.ativo === false ? 'galeria-card--inativa' : '')}">
+      ${f.ativo === false ? '<span class="galeria-card__estado">Não publicada</span>' : ''}
+      <div class="galeria-card__img" ${f.url ? `style="background-image:url('${jscEscUrlCss(f.url)}')"` : ''}>
         ${!f.url ? `<span>${jscEsc(catIcons[f.categoria] || '📷')}</span>` : ''}
         <span class="galeria-card__cat">${jscEsc(f.categoria)}</span>
       </div>
@@ -4403,6 +4404,7 @@ function renderGaleria() {
       </div>
       <div class="galeria-card__actions">
         <button class="btn btn-sm" onclick="editFoto(${DB.galeria.indexOf(f)})">✏️ Editar</button>
+        <button class="btn btn-sm" onclick="toggleFoto(${DB.galeria.indexOf(f)})">${f.ativo === false ? '✅ Publicar' : '⛔ Despublicar'}</button>
         <button class="btn btn-sm btn-danger" onclick="deleteFoto(${DB.galeria.indexOf(f)})">🗑️</button>
       </div>
     </div>`).join('') :
@@ -4410,7 +4412,7 @@ function renderGaleria() {
 }
 
 function editFoto(idx) {
-  const f = idx >= 0 ? DB.galeria[idx] : { titulo:'', categoria:'Treino', data:'', url:'', descricao:'', imgPos:'center', imgSize:'cover' };
+  const f = idx >= 0 ? DB.galeria[idx] : { titulo:'', categoria:'Treino', data:'', url:'', descricao:'', imgPos:'center', imgSize:'cover', ativo:true };
   const pos = f.imgPos  || 'center';
   const sz  = f.imgSize || 'cover';
   openModal(idx >= 0 ? 'Editar Foto' : 'Adicionar Foto', `
@@ -4431,7 +4433,7 @@ function editFoto(idx) {
         <input type="file" id="mFotoFicheiro" accept="image/*" style="display:none">
         <input class="form-input" type="text" id="mFotoUrl" placeholder="ou cole URL da imagem..." value="${jscEsc(f.url)}" />
       </div>
-      <small style="color:#888;font-size:11px;margin-top:4px;display:block">JPG, PNG, WebP — máx. 3MB</small>
+      <small style="color:#888;font-size:11px;margin-top:4px;display:block">JPG, PNG, WebP — máx. 5MB</small>
     </div>
     <div id="mFotoPreview" style="margin-top:8px;${jscEsc(f.url?'':'display:none')}">
       <img src="${jscEscUrl(f.url)}" style="max-width:100%;max-height:160px;border-radius:8px;object-fit:cover" onerror="this.parentElement.style.display='none'" />
@@ -4457,6 +4459,17 @@ function editFoto(idx) {
     </div>
     <div class="modal-field"><label>Descrição</label>
       <textarea class="form-input" id="mFotoDesc" rows="2">${jscEsc(f.descricao)}</textarea></div>
+    <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:10px 12px;margin-top:10px">
+      <strong style="font-size:12px;color:#9a3412">&#9888; Dados pessoais</strong>
+      <p style="font-size:11.5px;color:#9a3412;margin:4px 0 0;line-height:1.5">
+        O título e a descrição são publicados no site. Não inclua nomes nem
+        outros dados pessoais de menores sem autorização adequada.
+      </p>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;margin-top:10px">
+      <input type="checkbox" id="mFotoAtivo" ${jscEsc(f.ativo !== false ? 'checked' : '')} style="width:16px;height:16px" />
+      Fotografia publicada (visível no site)
+    </label>
   `, `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="salvarFoto(${idx})">Guardar</button>`);
   setupImageUpload('mFotoFicheiro', 'mFotoUrl', 'mFotoPreview');
@@ -4471,12 +4484,26 @@ function salvarFoto(idx) {
     imgPos:    document.getElementById('mFotoPos')?.value  || 'center',
     imgSize:   document.getElementById('mFotoSize')?.value || 'cover',
     descricao: document.getElementById('mFotoDesc').value.trim(),
+    // Uma fotografia pode ter de sair do site de imediato — um pedido de um
+    // encarregado de educação, por exemplo — sem se apagar o registo. Um
+    // registo sem este campo conta como publicado, para não esconder o que já
+    // esteja lá.
+    ativo:     document.getElementById('mFotoAtivo')?.checked !== false,
   };
   if (!item.titulo) { showToast('Preencha o título', 'red'); return; }
   if (idx >= 0) DB.galeria[idx] = { ...DB.galeria[idx], ...item };
   else DB.galeria.unshift({ id: Date.now(), ...item });
   saveDB(); closeModal(); renderGaleria();
   showToast(idx >= 0 ? 'Foto atualizada' : 'Foto adicionada', 'green');
+}
+
+// Despublicar em vez de apagar: o registo fica, e a fotografia sai do site.
+function toggleFoto(idx) {
+  const f = DB.galeria[idx];
+  if (!f) return;
+  f.ativo = f.ativo === false;
+  saveDB(); renderGaleria();
+  showToast(f.ativo ? 'Fotografia publicada' : 'Fotografia despublicada', f.ativo ? 'green' : '');
 }
 
 function deleteFoto(idx) {
@@ -4491,10 +4518,10 @@ function deleteFoto(idx) {
 // =============================================
 let videosFiltro = '';
 
+// O id do YouTube vem do jscVideoId() do js/html.js, que o painel também
+// carrega. Era a mesma expressão escrita aqui e no js/videos.js.
 function _ytIdAdmin(url) {
-  if (!url) return '';
-  const m = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-  return m ? m[1] : '';
+  return typeof jscVideoId === 'function' ? jscVideoId(url) : '';
 }
 
 function initVideosAdmin() {
@@ -4521,8 +4548,9 @@ function renderVideos() {
     const id    = _ytIdAdmin(v.url);
     const thumb = id ? `https://img.youtube.com/vi/${jscEsc(id)}/mqdefault.jpg` : '';
     return `
-    <div class="galeria-card">
-      <div class="galeria-card__img" ${thumb ? `style="background-image:url('${jscEscUrl(thumb)}')"` : 'style="background:#001f4d"'}>
+    <div class="galeria-card ${jscEsc(v.ativo === false ? 'galeria-card--inativa' : '')}">
+      ${v.ativo === false ? '<span class="galeria-card__estado">Não publicado</span>' : ''}
+      <div class="galeria-card__img" ${thumb ? `style="background-image:url('${jscEscUrlCss(thumb)}')"` : 'style="background:#001f4d"'}>
         ${!thumb ? '<span style="font-size:2rem">🎬</span>' : ''}
         <span class="galeria-card__cat">${jscEsc(v.categoria || 'Outro')}</span>
       </div>
@@ -4532,6 +4560,7 @@ function renderVideos() {
       </div>
       <div class="galeria-card__actions">
         <button class="btn btn-sm" onclick="editVideo(${(DB.videos||[]).indexOf(v)})">✏️ Editar</button>
+        <button class="btn btn-sm" onclick="toggleVideo(${(DB.videos||[]).indexOf(v)})">${v.ativo === false ? '✅ Publicar' : '⛔ Despublicar'}</button>
         <button class="btn btn-sm btn-danger" onclick="deleteVideo(${(DB.videos||[]).indexOf(v)})">🗑️</button>
       </div>
     </div>`; }).join('') :
@@ -4540,7 +4569,7 @@ function renderVideos() {
 
 function editVideo(idx) {
   if (!DB.videos) DB.videos = [];
-  const v = idx >= 0 ? DB.videos[idx] : { titulo:'', categoria:'Golos', data:'', url:'', descricao:'' };
+  const v = idx >= 0 ? DB.videos[idx] : { titulo:'', categoria:'Golos', data:'', url:'', descricao:'', ativo:true };
   const id = _ytIdAdmin(v.url);
   openModal(idx >= 0 ? 'Editar Vídeo' : 'Adicionar Vídeo', `
     <div class="modal-row">
@@ -4561,6 +4590,10 @@ function editVideo(idx) {
     ${id ? `<div id="mVidPreview" style="margin-top:8px"><img src="https://img.youtube.com/vi/${jscEscUrl(id)}/mqdefault.jpg" style="max-width:100%;border-radius:8px" /></div>` : ''}
     <div class="modal-field"><label>Descrição (opcional)</label>
       <textarea class="form-input" id="mVidDesc" rows="2">${jscEsc(v.descricao)}</textarea></div>
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;margin-top:10px">
+      <input type="checkbox" id="mVidAtivo" ${jscEsc(v.ativo !== false ? 'checked' : '')} style="width:16px;height:16px" />
+      Vídeo publicado (visível no site)
+    </label>
   `, `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="salvarVideo(${idx})">Guardar</button>`);
 }
@@ -4573,13 +4606,29 @@ function salvarVideo(idx) {
     data:      document.getElementById('mVidData').value,
     url:       document.getElementById('mVidUrl').value.trim(),
     descricao: document.getElementById('mVidDesc').value.trim(),
+    ativo:     document.getElementById('mVidAtivo')?.checked !== false,
   };
   if (!item.titulo) { showToast('Preencha o título', 'red'); return; }
   if (!item.url)    { showToast('Cole o URL do YouTube', 'red'); return; }
+  // Antes bastava o campo não estar vazio: um endereço de outro sítio gravava
+  // sem aviso, e o erro só se descobria no site — cartão sem miniatura e um
+  // iframe vazio. Agora não passa daqui.
+  if (!_ytIdAdmin(item.url)) {
+    showToast('O URL não é de um vídeo do YouTube reconhecido.', 'red');
+    return;
+  }
   if (idx >= 0) DB.videos[idx] = { ...DB.videos[idx], ...item };
   else DB.videos.unshift({ id: Date.now(), ...item });
   saveDB(); closeModal(); renderVideos();
   showToast(idx >= 0 ? 'Vídeo atualizado' : 'Vídeo adicionado', 'green');
+}
+
+function toggleVideo(idx) {
+  const v = (DB.videos || [])[idx];
+  if (!v) return;
+  v.ativo = v.ativo === false;
+  saveDB(); renderVideos();
+  showToast(v.ativo ? 'Vídeo publicado' : 'Vídeo despublicado', v.ativo ? 'green' : '');
 }
 
 function deleteVideo(idx) {

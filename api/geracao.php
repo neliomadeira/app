@@ -122,6 +122,53 @@ function jsc_validar_patrocinadores($meio, array $conteudo, $contentor, $cartao)
     return $erros;
 }
 
+// Validação partilhada pelas três zonas de galeria e vídeo. O que tem de valer
+// nas três vale aqui, uma vez só.
+// $itens  quantos o data-itens deve declarar. Na página inicial a grelha
+//         mostra uma prévia mas conta a lista completa: é por esse número que
+//         o JavaScript sabe se o bloco continua a servir.
+function jsc_validar_media($meio, $cartao, array $lista, $contentor, $itens = null) {
+    $erros = [];
+    $esperados = count($lista);
+    if ($itens === null) $itens = $esperados;
+
+    $obtidos = preg_match_all('/<(?:a|div) class="' . preg_quote($cartao, '/') . '[ "]/', $meio);
+    if ($obtidos !== $esperados) {
+        $erros[] = "gerou $obtidos cartões, esperava $esperados";
+    }
+    if ($contentor !== '' && $esperados > 0
+        && strpos($meio, 'id="' . $contentor . '"') === false) {
+        $erros[] = 'o bloco gerado não tem o contentor id="' . $contentor . '"';
+    }
+    if ($esperados > 0 && strpos($meio, 'data-itens="' . $itens . '"') === false) {
+        $erros[] = 'o data-itens não corresponde ao número de itens gerados';
+    }
+
+    // As cinco legendas fictícias da página inicial não podem voltar, nem aqui
+    // nem em sítio nenhum.
+    foreach (['Treino Sub-17', 'Jogo Sub-13', 'Celebração', 'Treino Sub-9',
+              'Campeão Distrital'] as $proibido) {
+        if (strpos($meio, $proibido) !== false) {
+            $erros[] = "o bloco não pode conter a legenda fictícia \"$proibido\"";
+        }
+    }
+    // Nem os esqueletos de carregamento permanentes.
+    if (strpos($meio, 'class="skeleton') !== false) {
+        $erros[] = 'o bloco não pode conter esqueletos de carregamento';
+    }
+    // Campo vazio não produz elemento vazio.
+    if (preg_match('/<(span|p|h3)[^>]*>\s*<\/\1>/', $meio)) {
+        $erros[] = 'o bloco gerado não pode ter elementos vazios';
+    }
+    // Nenhum campo pessoal: estas listas não os têm e nunca devem ter.
+    foreach (['dataNascimento', 'nascimento', 'telefone', 'email', 'encarregado'] as $proibido) {
+        if (stripos($meio, $proibido) !== false) {
+            $erros[] = "o bloco de media não pode conter \"$proibido\"";
+        }
+    }
+    return $erros;
+}
+
 function jsc_blocos() {
     return [
         'noticias' => [
@@ -572,6 +619,125 @@ function jsc_blocos() {
                     }
                 }
 
+                return $erros;
+            },
+        ],
+
+        'galeria' => [
+            'ficheiro' => 'index.html',
+            'modelo'   => 'galeria-inicio.php',
+            'inicio'   => '<!-- JSC:galeria:inicio -->',
+            'fim'      => '<!-- JSC:galeria:fim -->',
+            'dados'    => function (array $conteudo) {
+                return [
+                    'fotos'  => jsc_galeria($conteudo),
+                    'previa' => jsc_galeria_previa(),
+                ];
+            },
+            'validar'  => function ($meio, array $conteudo) {
+                $fotos = jsc_galeria($conteudo);
+                $previa = jsc_galeria_previa();
+                $mostradas = array_slice($fotos, 0, $previa);
+                // Sem fotografias a secção inteira desaparece: nada de
+                // cabeçalho, subtítulo, grelha ou botão.
+                if (!$fotos) {
+                    $erros = [];
+                    // Sem fotografias o bloco só pode ter o comentário que
+                    // explica a ausência: nada que o visitante veja.
+                    $visivel = trim(preg_replace('/<!--[\s\S]*?-->/', '', $meio));
+                    if ($visivel !== '') {
+                        $erros[] = 'sem fotografias a secção da galeria tem de desaparecer por inteiro';
+                    }
+                    if (strpos($meio, 'id="galeria"') !== false) {
+                        $erros[] = 'sem fotografias não pode existir a secção da galeria';
+                    }
+                    return $erros;
+                }
+                $erros = jsc_validar_media($meio, 'gallery__item--img', $mostradas,
+                                           'galleryGrid', count($fotos));
+                if (strpos($meio, 'id="galeria"') === false) {
+                    $erros[] = 'com fotografias a secção tem de existir';
+                }
+                if (count($fotos) > $previa && strpos($meio, 'id="galleryMore"') === false) {
+                    $erros[] = 'com mais fotografias do que a prévia tem de haver o botão "Ver mais"';
+                }
+                if (count($fotos) <= $previa && strpos($meio, 'id="galleryMore"') !== false) {
+                    $erros[] = 'sem fotografias a mais não pode haver botão "Ver mais"';
+                }
+                return $erros;
+            },
+        ],
+
+        'galeria-pagina' => [
+            'ficheiro' => 'galeria.html',
+            'modelo'   => 'galeria-pagina.php',
+            'inicio'   => '<!-- JSC:galeria-pagina:inicio -->',
+            'fim'      => '<!-- JSC:galeria-pagina:fim -->',
+            'dados'    => function (array $conteudo) {
+                return ['fotos' => jsc_galeria($conteudo)];
+            },
+            'validar'  => function ($meio, array $conteudo) {
+                $fotos = jsc_galeria($conteudo);
+                $erros = jsc_validar_media($meio, 'galeria-item', $fotos, 'galeriaGrid');
+                $vazioEscondido = strpos($meio, 'id="galeriaEmpty" hidden') !== false;
+                if (!$fotos && $vazioEscondido) {
+                    $erros[] = 'sem fotografias o estado vazio tem de ficar visível';
+                }
+                if ($fotos && !$vazioEscondido) {
+                    $erros[] = 'com fotografias o estado vazio tem de ficar escondido';
+                }
+                // A fotografia sem endereço fica com o cartão de categoria.
+                $semUrl = 0;
+                foreach ($fotos as $f) { if ($f['url'] === '') $semUrl++; }
+                $cartoes = substr_count($meio, 'galeria-placeholder galeria-placeholder--');
+                if ($cartoes !== $semUrl) {
+                    $erros[] = "gerou $cartoes cartões de categoria, esperava $semUrl";
+                }
+                return $erros;
+            },
+        ],
+
+        'videos' => [
+            'ficheiro' => 'videos.html',
+            'modelo'   => 'videos.php',
+            'inicio'   => '<!-- JSC:videos:inicio -->',
+            'fim'      => '<!-- JSC:videos:fim -->',
+            'dados'    => function (array $conteudo) {
+                return ['videos' => jsc_videos($conteudo)];
+            },
+            'validar'  => function ($meio, array $conteudo) {
+                $videos = jsc_videos($conteudo);
+                $erros = jsc_validar_media($meio, 'video-card', $videos, 'videosGrid');
+                $vazioEscondido = strpos($meio, 'id="videosEmpty" hidden') !== false;
+                if (!$videos && $vazioEscondido) {
+                    $erros[] = 'sem vídeos o estado vazio tem de ficar visível';
+                }
+                if ($videos && !$vazioEscondido) {
+                    $erros[] = 'com vídeos o estado vazio tem de ficar escondido';
+                }
+                // Cada cartão é uma ligação a sério para o YouTube, construída
+                // do id validado. Nenhum <iframe> vive dentro desta região: o
+                // do modal fica fora.
+                $ligacoes = substr_count($meio, 'href="https://www.youtube.com/watch?v=');
+                if ($ligacoes !== count($videos)) {
+                    $erros[] = "gerou $ligacoes ligações para o YouTube, esperava " . count($videos);
+                }
+                if (stripos($meio, '<iframe') !== false) {
+                    $erros[] = 'a região dos vídeos não pode conter um <iframe>';
+                }
+                // Toda a miniatura vem do id validado e tem texto alternativo.
+                $minis = substr_count($meio, 'https://img.youtube.com/vi/');
+                if ($minis !== count($videos)) {
+                    $erros[] = "gerou $minis miniaturas, esperava " . count($videos);
+                }
+                if (preg_match_all('/<img\b[^>]*class="video-card__img"[^>]*>/', $meio, $imgs)) {
+                    foreach ($imgs[0] as $img) {
+                        if (!preg_match('/\salt="[^"]+"/', $img)) {
+                            $erros[] = 'toda a miniatura tem de ter um alt não vazio';
+                            break;
+                        }
+                    }
+                }
                 return $erros;
             },
         ],

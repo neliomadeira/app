@@ -233,6 +233,11 @@
     .videos-empty p { font-size: 1rem; }
   </style>
   <link rel="canonical" href="https://campinense.pt/videos.html" />
+  <!-- Os filtros dos vídeos só funcionam com JavaScript. Sem ele saem da página, em vez de
+       ficarem lá a não fazer nada: a grelha já vem completa. -->
+  <noscript><style>
+    .jsc-so-com-js { display: none !important; }
+  </style></noscript>
 </head>
 <body>
 <a href="#main-content" class="skip-link">Saltar para o conteúdo</a>
@@ -306,17 +311,23 @@
   <section class="section section--dark" style="padding-top:48px">
     <div class="container">
 
-      <!-- Filters -->
-      <div id="videosFilters" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:32px"></div>
+      <!-- Os filtros, a grelha e o estado vazio são escritos pela geração
+           (modelos/videos.php) e, com JavaScript, pelo js/videos.js. A fonte é
+           o db_videos do painel.
+           A grelha vinha vazia e o estado vazio escondido: sem JavaScript a
+           página ficava em branco. Cada cartão é agora uma ligação a sério
+           para o YouTube, construída do id validado. Não voltar a pôr cartões
+           nem <iframe> nesta região. -->
+      <!-- JSC:videos:inicio -->
+      <div id="videosFilters" class="jsc-so-com-js" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:32px"></div>
 
-      <!-- Grid -->
       <div class="videos-grid" id="videosGrid"></div>
 
-      <!-- Empty -->
-      <div class="videos-empty" id="videosEmpty" style="display:none">
-        <div class="videos-empty__icon">&#127909;</div>
+      <div class="videos-empty" id="videosEmpty">
+        <div class="videos-empty__icon" aria-hidden="true">&#127909;</div>
         <p>Ainda não há vídeos publicados.<br>Volte em breve!</p>
       </div>
+      <!-- JSC:videos:fim -->
 
     </div>
   </section>

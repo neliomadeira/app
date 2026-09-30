@@ -772,3 +772,162 @@ function jsc_modalidades(array $conteudo) {
     }
     return $fora;
 }
+
+// ---- Galeria e vídeos -----------------------------------------------
+//
+// Fontes únicas: o db_galeria e o db_videos do painel. A página inicial tinha
+// cinco fotografias escritas à mão, uma delas a afirmar um título distrital
+// que o clube pode não ter conquistado; a galeria.html tinha seis esqueletos
+// de carregamento permanentes; a videos.html ficava em branco. Saíram.
+//
+// Nenhum campo pessoal existe nestas duas listas e nenhum é criado: não há
+// nome de atleta, data de nascimento, contacto nem etiqueta de pessoa. O
+// título e a descrição são texto livre de quem publica.
+
+// Está publicado? Um registo sem o campo conta como publicado, para não
+// esconder o que já esteja lá. Réplica exacta do jscMediaAtivo() do
+// js/html.js.
+function jsc_media_ativo($valor) {
+    return $valor !== false;
+}
+
+// O id de um vídeo do YouTube, a partir de qualquer dos endereços que o painel
+// aceita. Devolve '' quando não é um deles — e é por isso que o endereço do
+// iframe e a ligação pública nunca são o endereço que alguém escreveu, mas
+// sempre construídos a partir de onze caracteres validados aqui.
+//
+// Réplica exacta do jscVideoId() do js/html.js.
+function jsc_video_id($url) {
+    if (!preg_match('~(?:youtube\.com/(?:watch\?v=|shorts/|embed/)|youtu\.be/)([a-zA-Z0-9_-]{11})~',
+                    (string)$url, $m)) {
+        return '';
+    }
+    return $m[1];
+}
+
+// Quantas fotografias mostra a página inicial. O mesmo número que o PREVIEW
+// do js/main.js.
+function jsc_galeria_previa() {
+    return 6;
+}
+
+// As fotografias publicáveis, pela ordem do array — a ordem em que o painel as
+// mostra, com a mais recente à frente porque a criação faz unshift. Não há
+// campo de ordenação nem forma de reordenar; não se inventa aqui uma ordem que
+// ninguém pode controlar.
+//
+// Sem título é descartada: o título é obrigatório no painel, e sem ele não há
+// texto alternativo, legenda nem nome acessível.
+//
+// Sem endereço fica o cartão de categoria que a página completa já usava — não
+// se inventa imagem, e não se descarta a fotografia como a página inicial
+// fazia.
+function jsc_galeria(array $conteudo) {
+    $lista = (isset($conteudo['galeria']) && is_array($conteudo['galeria']))
+           ? $conteudo['galeria'] : [];
+
+    $texto = function ($f, $chave) {
+        return (isset($f[$chave]) && is_string($f[$chave])) ? trim($f[$chave]) : '';
+    };
+
+    // Ícone e classe por categoria. Um sítio só, em vez dos três de antes.
+    $icones = [
+        'Jogo'      => '&#9917;',
+        'Treino'    => '&#127939;',
+        'Conquista' => '&#127942;',
+        'Evento'    => '&#127881;',
+    ];
+
+    $fora = [];
+    foreach ($lista as $f) {
+        if (!is_array($f)) continue;
+        if (!jsc_media_ativo(isset($f['ativo']) ? $f['ativo'] : null)) continue;
+
+        $titulo = $texto($f, 'titulo');
+        if ($titulo === '') continue;
+
+        $categoria = $texto($f, 'categoria');
+        $pos  = $texto($f, 'imgPos');
+        $size = $texto($f, 'imgSize');
+
+        $fora[] = [
+            'titulo'    => $titulo,
+            'categoria' => $categoria,
+            'slug'      => $categoria !== '' ? jsc_media_slug($categoria) : 'outro',
+            'icone'     => isset($icones[$categoria]) ? $icones[$categoria] : '&#128247;',
+            'data'      => $texto($f, 'data'),
+            'dataPt'    => jsc_data_pt($texto($f, 'data')),
+            // jsc_esc_url() rejeita javascript:, vbscript: e data: que não seja
+            // de imagem. Uma fotografia cujo endereço seja recusado fica com o
+            // cartão de categoria, como se não tivesse endereço nenhum.
+            'url'       => jsc_esc_url($texto($f, 'url')) !== '' ? $texto($f, 'url') : '',
+            'imgPos'    => $pos !== ''  ? $pos  : 'center',
+            'imgSize'   => $size !== '' ? $size : 'cover',
+            'descricao' => $texto($f, 'descricao'),
+        ];
+    }
+    return $fora;
+}
+
+// A classe da categoria, em minúsculas e sem acentos, para o CSS.
+function jsc_media_slug($categoria) {
+    $s = strtolower(trim((string)$categoria));
+    $s = strtr($s, ['á'=>'a','à'=>'a','ã'=>'a','â'=>'a','é'=>'e','ê'=>'e',
+                    'í'=>'i','ó'=>'o','ô'=>'o','õ'=>'o','ú'=>'u','ç'=>'c']);
+    $s = preg_replace('/[^a-z0-9]+/', '-', $s);
+    return trim($s, '-') !== '' ? trim($s, '-') : 'outro';
+}
+
+// As categorias que têm conteúdo publicável, pela ordem em que aparecem. Não
+// se escreve uma lista fixa: uma categoria sem nada não produz botão.
+function jsc_media_categorias(array $lista) {
+    $fora = [];
+    foreach ($lista as $item) {
+        $c = isset($item['categoria']) ? $item['categoria'] : '';
+        if ($c === '' || in_array($c, $fora, true)) continue;
+        $fora[] = $c;
+    }
+    return $fora;
+}
+
+// Os vídeos publicáveis, pela ordem do array. Sem título ou sem um id de
+// YouTube válido não é publicado: antes, um endereço que não fosse do YouTube
+// gravava sem aviso e produzia um cartão sem miniatura e um iframe vazio.
+function jsc_videos(array $conteudo) {
+    $lista = (isset($conteudo['videos']) && is_array($conteudo['videos']))
+           ? $conteudo['videos'] : [];
+
+    $texto = function ($v, $chave) {
+        return (isset($v[$chave]) && is_string($v[$chave])) ? trim($v[$chave]) : '';
+    };
+
+    $fora = [];
+    foreach ($lista as $v) {
+        if (!is_array($v)) continue;
+        if (!jsc_media_ativo(isset($v['ativo']) ? $v['ativo'] : null)) continue;
+
+        $titulo = $texto($v, 'titulo');
+        if ($titulo === '') continue;
+
+        $id = jsc_video_id($texto($v, 'url'));
+        if ($id === '') continue;
+
+        $categoria = $texto($v, 'categoria');
+
+        $fora[] = [
+            'titulo'    => $titulo,
+            'categoria' => $categoria,
+            'slug'      => $categoria !== '' ? jsc_media_slug($categoria) : 'outro',
+            'data'      => $texto($v, 'data'),
+            'dataPt'    => jsc_data_pt($texto($v, 'data')),
+            'descricao' => $texto($v, 'descricao'),
+            'videoId'   => $id,
+            // Os três endereços são construídos do id validado, nunca do que
+            // foi escrito no painel.
+            'miniatura' => 'https://img.youtube.com/vi/' . $id . '/hqdefault.jpg',
+            'ligacao'   => 'https://www.youtube.com/watch?v=' . $id,
+            'embed'     => 'https://www.youtube.com/embed/' . $id . '?autoplay=1&rel=0',
+        ];
+    }
+    return $fora;
+}

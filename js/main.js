@@ -841,93 +841,208 @@ ${jogadores.map(j => `            <div class="player-card">
   } catch(e) {}
 
   // Galeria
+  //
+  // Antes só corria se houvesse dados e se as fotografias tivessem endereço —
+  // e por isso as cinco fotografias escritas à mão no HTML ficavam na página
+  // quando a base estava vazia. Agora corre sempre: a secção inteira é gerada,
+  // e sem fotografias não existe.
   try {
-    const raw = localStorage.getItem('db_galeria');
-    if (raw) {
-      const allFotos = JSON.parse(raw).filter(f => f.url);
-      if (allFotos.length) initGaleria(allFotos);
-    }
+    initGaleria(lerGaleria());
   } catch(e) {}
 
 });
 
 // ---- GALERIA PÚBLICA + LIGHTBOX ---- //
+//
+// A secção da galeria da página inicial é escrita pela geração
+// (modelos/galeria-inicio.php). Este bloco só a redesenha quando o que está na
+// página deixou de servir, e trata da lightbox.
+//
+// Correcções em relação à versão anterior:
+//   — o endereço da imagem passa pelo jscEscUrlCss(), e não pelo jscEscUrl(),
+//     que não percent-encode e deixava um apóstrofo fechar o url(...);
+//   — o src da lightbox passa pelo jscEscUrl(), e era atribuído cru;
+//   — a variável global implícita _allFotos, que nunca era lida, desapareceu;
+//   — a lightbox devolve o foco a quem a abriu e retém-no enquanto está aberta;
+//   — o espaço deixa de fazer scroll ao abrir uma fotografia;
+//   — uma fotografia sem endereço deixa de ser descartada: leva o cartão de
+//     categoria, como na página completa.
 (function() {
-  let _fotos = [];      // filtered list currently shown
-  _allFotos = [];   // full list
+  let _fotos = [];      // o que o filtro actual mostra
+  let _todas = [];      // tudo o que é publicável
   let _curIdx = 0;
   let _expanded = false;
+  let _veioDe = null;
   const PREVIEW = 6;
 
+  const ICONES = {
+    Jogo:      '&#9917;',
+    Treino:    '&#127939;',
+    Conquista: '&#127942;',
+    Evento:    '&#127881;',
+  };
+  const icone = (c) => ICONES[c] || '&#128247;';
+
+  // Réplica exacta do jsc_media_slug() do api/conteudo.php.
+  function slug(categoria) {
+    let s = String(categoria || '').toLowerCase().trim();
+    const de = 'áàãâéêíóôõúç', para = 'aaaaeeiooouc';
+    s = s.replace(/./g, (c) => { const i = de.indexOf(c); return i === -1 ? c : para.charAt(i); });
+    s = s.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    return s !== '' ? s : 'outro';
+  }
+
+  // Lê e normaliza, com as mesmas regras do jsc_galeria() do PHP.
+  function lerGaleria() {
+    let lista = [];
+    try { lista = JSON.parse(localStorage.getItem('db_galeria') || '[]'); } catch (e) { lista = []; }
+    if (!Array.isArray(lista)) lista = [];
+    return lista
+      .filter(f => f && jscMediaAtivo(f.ativo))
+      .filter(f => String(f.titulo || '').trim() !== '')
+      .map(f => {
+        const url = String(f.url || '').trim();
+        return {
+          titulo:    String(f.titulo).trim(),
+          categoria: String(f.categoria || '').trim(),
+          data:      String(f.data || '').trim(),
+          url:       jscEscUrl(url) !== '' ? url : '',
+          imgPos:    String(f.imgPos || '').trim() || 'center',
+          imgSize:   String(f.imgSize || '').trim() || 'cover',
+          descricao: String(f.descricao || '').trim(),
+        };
+      });
+  }
+  window.lerGaleria = lerGaleria;
+
+  function categorias(lista) {
+    const fora = [];
+    lista.forEach(f => { if (f.categoria && fora.indexOf(f.categoria) === -1) fora.push(f.categoria); });
+    return fora;
+  }
+
   function initGaleria(lista) {
-    _allFotos = lista;
-    const grid    = document.getElementById('galleryGrid');
-    const filters = document.getElementById('galleryFilters');
-    const moreWrap = document.getElementById('galleryMore');
-    const moreBtn  = document.getElementById('galleryMoreBtn');
+    _todas = lista;
+    const secao = document.getElementById('galeria');
+    const grid  = document.getElementById('galleryGrid');
+
+    // Sem fotografias publicáveis a secção inteira sai da página, em vez de
+    // ficar um cabeçalho "Galeria" com uma caixa a dizer que não há nada.
+    if (!lista.length) {
+      if (secao) secao.remove();
+      return;
+    }
     if (!grid) return;
 
-    // Build category filters
-    const cats = [...new Set(lista.map(f => f.categoria).filter(Boolean))];
-    if (cats.length > 1 && filters) {
-      const extra = cats.map(c =>
-        `<button class="gallery__filter-btn" data-cat="${jscEsc(c)}">${jscEsc(c)}</button>`
-      ).join('');
-      filters.innerHTML = `<button class="gallery__filter-btn active" data-cat="">Todas</button>${extra}`;
-      filters.style.display = 'flex';
-      filters.addEventListener('click', e => {
-        const btn = e.target.closest('.gallery__filter-btn');
-        if (!btn) return;
-        filters.querySelectorAll('.gallery__filter-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        _expanded = false;
-        renderGrid(btn.dataset.cat);
-      });
+    // Se o servidor já escreveu esta grelha e ela continua a servir, não se
+    // lhe toca: o visitante já a está a ver, sem JavaScript.
+    if (!jscBlocoAtual(grid, lista.length)) {
+      desenharFiltros();
+      renderGrid('');
     }
-
-    if (moreBtn) {
-      moreBtn.addEventListener('click', () => {
-        _expanded = true;
-        renderGrid(filters?.querySelector('.active')?.dataset.cat || '');
-      });
-    }
-
-    renderGrid('');
-
-    function renderGrid(cat) {
-      _fotos = cat ? lista.filter(f => f.categoria === cat) : lista;
-      const shown = _expanded ? _fotos : _fotos.slice(0, PREVIEW);
-
-      grid.className = `gallery__grid${_expanded ? ' gallery__grid--expanded' : ''}`;
-      grid.innerHTML = shown.map((f, i) => {
-        const tall = i === 0 ? ' gallery__item--tall' : '';
-        const wide = !_expanded && i === shown.length - 1 && shown.length >= 4
-          ? ' gallery__item--wide' : '';
-        return `<div class="gallery__item--img${jscEsc(tall)}${jscEsc(wide)}" data-idx="${i}"
-                     style="background-image:url('${jscEscUrl(f.url)}');background-size:${jscEsc(f.imgSize||'cover')};background-position:${jscEsc(f.imgPos||'center')}"
-                     tabindex="0" role="button" aria-label="Abrir foto: ${jscEsc(f.titulo)}">
-                  <span class="gallery__caption">${jscEsc(f.titulo)}</span>
-                </div>`;
-      }).join('');
-
-      // Show/hide "Ver mais" button
-      if (moreWrap) {
-        moreWrap.style.display = (!_expanded && _fotos.length > PREVIEW) ? 'block' : 'none';
-        if (moreBtn) moreBtn.textContent = `Ver mais fotos (${_fotos.length - shown.length} restantes)`;
-      }
-
-      // Click on items → open lightbox
-      grid.querySelectorAll('[data-idx]').forEach(el => {
-        el.addEventListener('click', () => openLightbox(parseInt(el.dataset.idx)));
-        el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') openLightbox(parseInt(el.dataset.idx)); });
-      });
-    }
+    ligarFiltros();
+    ligarBotaoMais();
+    ligarGrelha();
   }
   window.initGaleria = initGaleria;
 
+  function desenharFiltros() {
+    const filters = document.getElementById('galleryFilters');
+    if (!filters) return;
+    const cats = categorias(_todas);
+    if (cats.length > 1) {
+      filters.innerHTML = '<button class="gallery__filter-btn active" data-cat="">Todas</button>'
+        + cats.map(c => `<button class="gallery__filter-btn" data-cat="${jscEsc(c)}">${jscEsc(c)}</button>`).join('');
+    } else {
+      filters.innerHTML = '';
+    }
+  }
+
+  function ligarFiltros() {
+    const filters = document.getElementById('galleryFilters');
+    if (!filters || filters.dataset.ligado) return;
+    filters.dataset.ligado = '1';
+    filters.addEventListener('click', e => {
+      const btn = e.target.closest('.gallery__filter-btn');
+      if (!btn) return;
+      filters.querySelectorAll('.gallery__filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      _expanded = false;
+      renderGrid(btn.dataset.cat);
+    });
+  }
+
+  function ligarBotaoMais() {
+    const moreBtn = document.getElementById('galleryMoreBtn');
+    if (!moreBtn || moreBtn.dataset.ligado) return;
+    moreBtn.dataset.ligado = '1';
+    moreBtn.addEventListener('click', () => {
+      _expanded = true;
+      const filters = document.getElementById('galleryFilters');
+      renderGrid(filters?.querySelector('.active')?.dataset.cat || '');
+    });
+  }
+
+  function renderGrid(cat) {
+    const grid = document.getElementById('galleryGrid');
+    if (!grid) return;
+    _fotos = cat ? _todas.filter(f => f.categoria === cat) : _todas;
+    const shown = _expanded ? _fotos : _fotos.slice(0, PREVIEW);
+
+    grid.className = `gallery__grid${_expanded ? ' gallery__grid--expanded' : ''}`;
+    grid.innerHTML = shown.map((f, i) => {
+      let classe = 'gallery__item--img';
+      if (i === 0) classe += ' gallery__item--tall';
+      if (!_expanded && i === shown.length - 1 && shown.length >= 4) classe += ' gallery__item--wide';
+      const fundo = f.url !== ''
+        ? ` style="background-image:url('${jscEscUrlCss(f.url)}');background-size:${jscEsc(f.imgSize)};background-position:${jscEsc(f.imgPos)}"`
+        : '';
+      return `
+        <div class="${classe}" data-idx="${i}"${fundo}
+             tabindex="0" role="button" aria-label="Abrir foto: ${jscEsc(f.titulo)}">
+          ${f.url === '' ? `<span class="gallery__icon" aria-hidden="true">${icone(f.categoria)}</span>` : ''}
+          <span class="gallery__caption">${jscEsc(f.titulo)}</span>
+        </div>`;
+    }).join('');
+
+    const moreWrap = document.getElementById('galleryMore');
+    const moreBtn  = document.getElementById('galleryMoreBtn');
+    if (moreWrap) {
+      moreWrap.hidden = _expanded || _fotos.length <= PREVIEW;
+      if (moreBtn) moreBtn.textContent = `Ver mais fotos (${_fotos.length - shown.length} restantes)`;
+    }
+  }
+
+  function ligarGrelha() {
+    const grid = document.getElementById('galleryGrid');
+    if (!grid || grid.dataset.ligado) return;
+    grid.dataset.ligado = '1';
+    // Ouvido no contentor: funciona igual sobre a grelha gerada e sobre a
+    // desenhada aqui.
+    grid.addEventListener('click', e => {
+      const el = e.target.closest('[data-idx]');
+      if (el) openLightbox(parseInt(el.dataset.idx), el);
+    });
+    grid.addEventListener('keydown', e => {
+      if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+      const el = e.target.closest('[data-idx]');
+      if (!el) return;
+      // preventDefault também no espaço: sem isto a página fazia scroll ao
+      // mesmo tempo que a caixa abria.
+      e.preventDefault();
+      openLightbox(parseInt(el.dataset.idx), el);
+    });
+  }
+
   // Lightbox
-  const lb      = document.getElementById('lightbox');
-  const lbImg   = document.getElementById('lightboxImg');
+  //
+  // Só a da página inicial. A galeria.html tem uma lightbox própria, com o
+  // mesmo id e o js/galeria.js a tratá-la — e este ficheiro é carregado lá
+  // também. Sem esta guarda, o Escape desta versão fechava a caixa da galeria
+  // antes de a versão de lá poder devolver o foco ao cartão.
+  const daInicial = !!document.getElementById('galleryGrid');
+  const lb      = daInicial ? document.getElementById('lightbox') : null;
+  const lbImg   = daInicial ? document.getElementById('lightboxImg') : null;
   const lbTitle = document.getElementById('lightboxTitle');
   const lbDesc  = document.getElementById('lightboxDesc');
   const lbCat   = document.getElementById('lightboxCat');
@@ -936,41 +1051,72 @@ ${jogadores.map(j => `            <div class="player-card">
   const lbPrev  = document.getElementById('lightboxPrev');
   const lbNext  = document.getElementById('lightboxNext');
 
-  function openLightbox(idx) {
+  const aberta = () => !!lb && !lb.hasAttribute('hidden');
+
+  function openLightbox(idx, quemAbriu) {
+    const lista = _fotos.length ? _fotos : _todas;
+    if (!lb || !lista[idx]) return;
+    _fotos = lista;
     _curIdx = idx;
+    _veioDe = quemAbriu || document.activeElement;
     showSlide(_curIdx);
-    if (lb) lb.style.display = 'flex';
+    lb.removeAttribute('hidden');
     document.body.style.overflow = 'hidden';
+    if (lbClose) lbClose.focus();
   }
 
   function closeLightbox() {
-    if (lb) lb.style.display = 'none';
+    if (!lb) return;
+    lb.setAttribute('hidden', '');
     document.body.style.overflow = '';
+    // O foco volta ao cartão que a abriu.
+    if (_veioDe && _veioDe.focus) _veioDe.focus();
+    _veioDe = null;
   }
 
   function showSlide(idx) {
     const f = _fotos[idx];
-    if (!f || !lbImg) return;
-    lbImg.src = f.url;
-    lbImg.alt = f.titulo || '';
+    if (!f) return;
+    if (lbImg) {
+      // jscEscUrl(): era atribuído cru, e é o único sítio do projeto onde um
+      // endereço do painel entrava no DOM sem passar pela política de URL.
+      lbImg.src = jscEscUrl(f.url);
+      lbImg.alt = f.titulo || '';
+      lbImg.hidden = f.url === '';
+    }
     if (lbTitle) lbTitle.textContent = f.titulo || '';
     if (lbDesc)  lbDesc.textContent  = f.descricao || '';
-    if (lbCat)   { lbCat.textContent = f.categoria || ''; lbCat.style.display = f.categoria ? '' : 'none'; }
+    if (lbCat)   { lbCat.textContent = f.categoria || ''; lbCat.hidden = !f.categoria; }
     if (lbCount) lbCount.textContent = `${idx + 1} / ${_fotos.length}`;
-    if (lbPrev)  lbPrev.style.display = _fotos.length > 1 ? '' : 'none';
-    if (lbNext)  lbNext.style.display = _fotos.length > 1 ? '' : 'none';
+    if (lbPrev)  lbPrev.hidden = _fotos.length <= 1;
+    if (lbNext)  lbNext.hidden = _fotos.length <= 1;
   }
+
+  const anda = (passo) => {
+    if (!_fotos.length) return;
+    _curIdx = (_curIdx + passo + _fotos.length) % _fotos.length;
+    showSlide(_curIdx);
+  };
 
   if (lbClose) lbClose.addEventListener('click', closeLightbox);
   if (lb) lb.addEventListener('click', e => { if (e.target === lb) closeLightbox(); });
-  if (lbPrev) lbPrev.addEventListener('click', () => { _curIdx = (_curIdx - 1 + _fotos.length) % _fotos.length; showSlide(_curIdx); });
-  if (lbNext) lbNext.addEventListener('click', () => { _curIdx = (_curIdx + 1) % _fotos.length; showSlide(_curIdx); });
+  if (lbPrev) lbPrev.addEventListener('click', () => anda(-1));
+  if (lbNext) lbNext.addEventListener('click', () => anda(1));
 
   document.addEventListener('keydown', e => {
-    if (!lb || lb.style.display === 'none') return;
-    if (e.key === 'Escape')     closeLightbox();
-    if (e.key === 'ArrowLeft')  { _curIdx = (_curIdx - 1 + _fotos.length) % _fotos.length; showSlide(_curIdx); }
-    if (e.key === 'ArrowRight') { _curIdx = (_curIdx + 1) % _fotos.length; showSlide(_curIdx); }
+    if (!daInicial || !aberta()) return;
+    if (e.key === 'Escape')     { closeLightbox(); return; }
+    if (e.key === 'ArrowLeft')  anda(-1);
+    if (e.key === 'ArrowRight') anda(1);
+    // O foco não sai da caixa enquanto ela está aberta.
+    if (e.key === 'Tab') {
+      const focaveis = Array.from(lb.querySelectorAll('button:not([hidden]), a[href]'))
+        .filter(el => el.offsetParent !== null);
+      if (!focaveis.length) return;
+      const primeiro = focaveis[0], ultimo = focaveis[focaveis.length - 1];
+      if (e.shiftKey && document.activeElement === primeiro) { e.preventDefault(); ultimo.focus(); }
+      else if (!e.shiftKey && document.activeElement === ultimo) { e.preventDefault(); primeiro.focus(); }
+    }
   });
 
   // Touch swipe on lightbox
@@ -982,10 +1128,16 @@ ${jogadores.map(j => `            <div class="player-card">
       const dx = e.changedTouches[0].clientX - _touchX;
       _touchX = null;
       if (Math.abs(dx) < 40) return;
-      if (dx < 0) { _curIdx = (_curIdx + 1) % _fotos.length; showSlide(_curIdx); }
-      else         { _curIdx = (_curIdx - 1 + _fotos.length) % _fotos.length; showSlide(_curIdx); }
+      anda(dx < 0 ? 1 : -1);
     }, { passive: true });
   }
+
+  // Quando os dados do servidor chegam (sync.js) ou o painel grava noutro
+  // separador.
+  document.addEventListener('jsc:synced', () => { try { initGaleria(lerGaleria()); } catch (e) {} });
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'db_galeria') { try { initGaleria(lerGaleria()); } catch (_) {} }
+  });
 })();
 
 // ---- HERO SLIDESHOW ----

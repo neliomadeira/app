@@ -31,6 +31,11 @@
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png" />
   <link rel="canonical" href="https://campinense.pt/galeria.html" />
+  <!-- Os filtros da galeria só funcionam com JavaScript. Sem ele saem da página, em vez de
+       ficarem lá a não fazer nada: a grelha já vem completa. -->
+  <noscript><style>
+    .jsc-so-com-js { display: none !important; }
+  </style></noscript>
 </head>
 <body>
 <a href="#main-content" class="skip-link">Saltar para o conteúdo</a>
@@ -104,24 +109,22 @@
   <section class="section">
     <div class="container">
 
-      <!-- Category filter pills -->
-      <div class="galeria-filter-bar" id="galeriaFilters"></div>
+      <!-- Os filtros, a grelha e o estado vazio são escritos pela geração
+           (modelos/galeria-pagina.php) e, com JavaScript, pelo js/galeria.js.
+           A fonte é o db_galeria do painel.
+           A grelha vinha com seis esqueletos de carregamento: sem JavaScript
+           ficavam lá para sempre, a dizer "está a carregar" e a nunca
+           carregar. Não voltar a pôr esqueletos nem fotografias aqui. -->
+      <!-- JSC:galeria-pagina:inicio -->
+      <div class="galeria-filter-bar jsc-so-com-js" id="galeriaFilters"></div>
 
-      <!-- Photo grid -->
-      <div class="galeria-grid" id="galeriaGrid">
-        <div class="skeleton" style="height:220px;border-radius:var(--radius-lg)" aria-hidden="true"></div>
-        <div class="skeleton" style="height:220px;border-radius:var(--radius-lg)" aria-hidden="true"></div>
-        <div class="skeleton" style="height:220px;border-radius:var(--radius-lg)" aria-hidden="true"></div>
-        <div class="skeleton" style="height:220px;border-radius:var(--radius-lg)" aria-hidden="true"></div>
-        <div class="skeleton" style="height:220px;border-radius:var(--radius-lg)" aria-hidden="true"></div>
-        <div class="skeleton" style="height:220px;border-radius:var(--radius-lg)" aria-hidden="true"></div>
-      </div>
+      <div class="galeria-grid" id="galeriaGrid"></div>
 
-      <!-- Empty state -->
-      <div class="galeria-empty" id="galeriaEmpty" style="display:none">
-        <span class="galeria-empty__icon">&#128247;</span>
+      <div class="galeria-empty" id="galeriaEmpty">
+        <span class="galeria-empty__icon" aria-hidden="true">&#128247;</span>
         <p class="galeria-empty__msg">Ainda não há fotos na galeria.</p>
       </div>
+      <!-- JSC:galeria-pagina:fim -->
 
     </div>
   </section>

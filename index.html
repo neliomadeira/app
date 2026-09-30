@@ -30,6 +30,12 @@
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png" />
   <link rel="canonical" href="https://campinense.pt/" />
+  <!-- Os filtros da galeria e o botão "Ver mais fotos" só funcionam com
+       JavaScript. Sem ele saem da página, em vez de ficarem lá a não fazer
+       nada: a galeria completa está a uma ligação de distância. -->
+  <noscript><style>
+    .jsc-so-com-js { display: none !important; }
+  </style></noscript>
 </head>
 <body>
 <a href="#main-content" class="skip-link">Saltar para o conteúdo</a>
@@ -286,42 +292,18 @@
   </section>
 
   <!-- GALERIA -->
-  <section class="section section--gray" id="galeria">
-    <div class="container">
-      <div class="section__header">
-        <span class="section__tag">Momentos</span>
-        <h2 class="section__title">Galeria</h2>
-      </div>
-      <p class="section__subtitle">Imagens dos treinos, jogos e momentos especiais da Juventude Sport Campinense.</p>
-      <!-- Category filters (shown when photos exist) -->
-      <div class="gallery__filters" id="galleryFilters" style="display:none">
-        <button class="gallery__filter-btn active" data-cat="">Todas</button>
-      </div>
-      <div class="gallery__grid" id="galleryGrid">
-        <div class="gallery__item gallery__item--tall gallery-placeholder">
-          <span>Treino Sub-17</span>
-        </div>
-        <div class="gallery__item gallery-placeholder">
-          <span>Jogo Sub-13</span>
-        </div>
-        <div class="gallery__item gallery-placeholder">
-          <span>Celebração</span>
-        </div>
-        <div class="gallery__item gallery-placeholder">
-          <span>Treino Sub-9</span>
-        </div>
-        <div class="gallery__item gallery__item--wide gallery-placeholder">
-          <span>Equipa Sub-19 – Campeão Distrital 2025</span>
-        </div>
-      </div>
-      <div class="gallery__more" id="galleryMore" style="display:none">
-        <button class="btn btn--outline" id="galleryMoreBtn">Ver mais fotos</button>
-      </div>
-    </div>
-  </section>
+  <!-- A secção da Galeria é escrita pela geração (modelos/galeria-inicio.php)
+       e, com JavaScript, pelo js/main.js. A fonte é o db_galeria do painel.
+       A região abrange a secção inteira de propósito: sem fotografias
+       publicáveis a secção desaparece toda — título, subtítulo, filtros,
+       grelha e botão. Estavam aqui cinco fotografias escritas à mão, com
+       legendas inventadas, uma delas a afirmar um título distrital que o
+       clube pode não ter conquistado. Não voltar a pôr fotografias aqui. -->
+  <!-- JSC:galeria:inicio -->
+  <!-- JSC:galeria:fim -->
 
   <!-- LIGHTBOX -->
-  <div id="lightbox" class="lightbox" role="dialog" aria-modal="true" aria-label="Galeria de fotos" style="display:none">
+  <div id="lightbox" class="lightbox" role="dialog" aria-modal="true" aria-label="Galeria de fotos" hidden>
     <button class="lightbox__close" id="lightboxClose" aria-label="Fechar">&#10005;</button>
     <button class="lightbox__nav lightbox__nav--prev" id="lightboxPrev" aria-label="Anterior">&#8249;</button>
     <button class="lightbox__nav lightbox__nav--next" id="lightboxNext" aria-label="Próxima">&#8250;</button>

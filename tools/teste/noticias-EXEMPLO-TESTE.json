@@ -967,5 +967,209 @@
       "imagemPos": "center",
       "publicada": true
     }
+  ],
+  "galeria": [
+    {
+      "id": 701,
+      "titulo": "TESTE FOTO COMPLETA",
+      "categoria": "Jogo",
+      "data": "2026-03-10",
+      "url": "images/logo.png?x=a'b(1)",
+      "imgPos": "top",
+      "imgSize": "contain",
+      "descricao": "TESTE DESCRICAO DA FOTO",
+      "ativo": true
+    },
+    {
+      "id": 702,
+      "titulo": "TESTE FOTO SO TITULO",
+      "categoria": "",
+      "data": "",
+      "url": "",
+      "imgPos": "",
+      "imgSize": "",
+      "descricao": ""
+    },
+    {
+      "id": 703,
+      "titulo": "TESTE FOTO SEM URL",
+      "categoria": "Treino",
+      "data": "2026-02-01",
+      "url": "",
+      "imgPos": "",
+      "imgSize": "",
+      "descricao": "",
+      "ativo": true
+    },
+    {
+      "id": 704,
+      "titulo": "TESTE FOTO IMAGEM SIMPLES",
+      "categoria": "Conquista",
+      "data": "",
+      "url": "images/logo.png",
+      "imgPos": "bottom",
+      "imgSize": "110%",
+      "descricao": "",
+      "ativo": true
+    },
+    {
+      "id": 705,
+      "titulo": "TESTE FOTO JAVASCRIPT",
+      "categoria": "Evento",
+      "data": "",
+      "url": "javascript:alert(1)",
+      "imgPos": "",
+      "imgSize": "",
+      "descricao": "",
+      "ativo": true
+    },
+    {
+      "id": 706,
+      "titulo": "TESTE FOTO DATA HTML",
+      "categoria": "Evento",
+      "data": "",
+      "url": "data:text/html,<b>x</b>",
+      "imgPos": "",
+      "imgSize": "",
+      "descricao": "",
+      "ativo": true
+    },
+    {
+      "id": 707,
+      "titulo": "TESTE ESCAPE FOTO & <b>B</b>",
+      "categoria": "Jogo",
+      "data": "",
+      "url": "",
+      "imgPos": "",
+      "imgSize": "",
+      "descricao": "TESTE DESC & <i>i</i>",
+      "ativo": true
+    },
+    {
+      "id": 708,
+      "titulo": "TESTE FOTO SETIMA",
+      "categoria": "Treino",
+      "data": "",
+      "url": "images/logo.png",
+      "imgPos": "",
+      "imgSize": "",
+      "descricao": "",
+      "ativo": true
+    },
+    {
+      "id": 709,
+      "titulo": "TESTE FOTO OITAVA",
+      "categoria": "Treino",
+      "data": "",
+      "url": "images/logo.png",
+      "imgPos": "",
+      "imgSize": "",
+      "descricao": "",
+      "ativo": true
+    },
+    {
+      "id": 710,
+      "titulo": "TESTE FOTO INATIVA NAO APARECE",
+      "categoria": "Jogo",
+      "data": "",
+      "url": "images/logo.png",
+      "imgPos": "",
+      "imgSize": "",
+      "descricao": "",
+      "ativo": false
+    },
+    {
+      "id": 711,
+      "titulo": "",
+      "categoria": "Jogo",
+      "data": "",
+      "url": "images/logo.png",
+      "imgPos": "",
+      "imgSize": "",
+      "descricao": "TESTE FOTO SEM TITULO NAO APARECE",
+      "ativo": true
+    }
+  ],
+  "videos": [
+    {
+      "id": 751,
+      "titulo": "TESTE VIDEO COMPLETO",
+      "categoria": "Golos",
+      "data": "2026-03-05",
+      "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "descricao": "TESTE DESC VIDEO",
+      "ativo": true
+    },
+    {
+      "id": 752,
+      "titulo": "TESTE VIDEO YOUTU BE",
+      "categoria": "Treino",
+      "data": "",
+      "url": "https://youtu.be/aaaaaaaaaaa",
+      "descricao": ""
+    },
+    {
+      "id": 753,
+      "titulo": "TESTE VIDEO SHORTS",
+      "categoria": "Entrevistas",
+      "data": "",
+      "url": "https://www.youtube.com/shorts/bbbbbbbbbbb",
+      "descricao": "",
+      "ativo": true
+    },
+    {
+      "id": 754,
+      "titulo": "TESTE VIDEO EMBED",
+      "categoria": "Golos",
+      "data": "",
+      "url": "https://www.youtube.com/embed/ccccccccccc",
+      "descricao": "",
+      "ativo": true
+    },
+    {
+      "id": 755,
+      "titulo": "TESTE ESCAPE VIDEO & <b>B</b>",
+      "categoria": "Outro",
+      "data": "",
+      "url": "https://www.youtube.com/watch?v=ddddddddddd",
+      "descricao": "",
+      "ativo": true
+    },
+    {
+      "id": 756,
+      "titulo": "TESTE VIDEO NAO YOUTUBE NAO APARECE",
+      "categoria": "Golos",
+      "data": "",
+      "url": "https://vimeo.com/123456",
+      "descricao": "",
+      "ativo": true
+    },
+    {
+      "id": 757,
+      "titulo": "TESTE VIDEO SEM URL NAO APARECE",
+      "categoria": "Golos",
+      "data": "",
+      "url": "",
+      "descricao": "",
+      "ativo": true
+    },
+    {
+      "id": 758,
+      "titulo": "TESTE VIDEO INATIVO NAO APARECE",
+      "categoria": "Golos",
+      "data": "",
+      "url": "https://www.youtube.com/watch?v=eeeeeeeeeee",
+      "descricao": "",
+      "ativo": false
+    },
+    {
+      "id": 759,
+      "titulo": "",
+      "categoria": "Golos",
+      "data": "",
+      "url": "https://www.youtube.com/watch?v=fffffffffff",
+      "descricao": "TESTE VIDEO SEM TITULO NAO APARECE",
+      "ativo": true
+    }
   ]
 }

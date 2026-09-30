@@ -84,6 +84,27 @@
     return jscEsc(jscUrlCss(valor));
   }
 
+  // O id de um vídeo do YouTube, a partir de qualquer dos endereços que o
+  // painel aceita. Devolve '' quando não é um deles: é por isso que o
+  // endereço do iframe nunca é o endereço que alguém escreveu, mas sempre um
+  // construído a partir de onze caracteres validados aqui.
+  //
+  // Réplica exacta do jsc_video_id() do api/conteudo.php. Substitui o _ytId()
+  // do js/videos.js e o _ytIdAdmin() do painel, que eram a mesma expressão
+  // escrita duas vezes.
+  function jscVideoId(url) {
+    var m = String(url === null || url === undefined ? '' : url)
+      .match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    return m ? m[1] : '';
+  }
+
+  // Um registo da galeria ou de vídeos está publicado? Sem o campo conta como
+  // publicado, para não esconder o que já esteja lá. Réplica exacta do
+  // jsc_media_ativo() do api/conteudo.php.
+  function jscMediaAtivo(valor) {
+    return valor !== false;
+  }
+
   // Uma modalidade está ativa? Uma modalidade sem o campo conta como ativa —
   // é a regra que o site já usa, e apertá-la esconderia modalidades que hoje
   // aparecem. Réplica exacta do jsc_modalidade_ativa() do api/conteudo.php.
@@ -181,6 +202,8 @@
   global.jscEscUrl = jscEscUrl;
   global.jscUrlCss = jscUrlCss;
   global.jscEscUrlCss = jscEscUrlCss;
+  global.jscVideoId = jscVideoId;
+  global.jscMediaAtivo = jscMediaAtivo;
   global.jscModalidadeAtiva = jscModalidadeAtiva;
   global.jscHojeISO = jscHojeISO;
   global.jscBlocoAtual = jscBlocoAtual;

@@ -1869,3 +1869,225 @@ claro.
 super-admin a alterar `modalidades`, **`403` para a Comunicação a alterar
 `modalidades`** e **`403` a alterar `modPosts`** — a área é `modalidades`, que
 aquele perfil não tem —, e `200` para a Comunicação a alterar notícias.
+
+---
+
+# FASE C — BLOCO 7: GALERIA / VÍDEO
+
+Três regiões, uma fonte. A galeria da página inicial, a galeria completa e a
+página de vídeos passam a ser escritas no servidor a partir do `db_galeria` e do
+`db_videos`. Saíram **cinco fotografias inventadas** e **seis esqueletos de
+carregamento permanentes**.
+
+## As cinco legendas inventadas, e a pior delas
+
+A galeria da página inicial trazia cinco cartões escritos à mão, com legendas
+que ninguém confirmou. Um deles afirmava **"Equipa Sub-19 – Campeão Distrital
+2025"**: um título que o clube pode não ter conquistado, publicado na página de
+entrada como se fosse facto. Apareciam **sempre**, com ou sem JavaScript,
+porque o `js/main.js` só substituía a grelha quando havia fotografias na base —
+e a base está vazia. Saíram os cinco.
+
+## Os seis esqueletos permanentes
+
+A `galeria.html` e a `videos.html` traziam caixas `class="skeleton"` no HTML.
+Um esqueleto é uma promessa: "está a carregar". Sem JavaScript nunca carregava
+nada, e a promessa ficava na página para sempre. Saíram os seis, e cada página
+passa a ter o estado vazio a sério: **"Ainda não há fotos na galeria."** e
+**"Ainda não há vídeos publicados."**
+
+Na página inicial a decisão foi outra, e mais dura: sem fotografias
+publicáveis **a secção inteira desaparece** — etiqueta, título, subtítulo,
+filtros, grelha e botão. Uma secção "Galeria" com uma caixa a dizer que não há
+nada é pior do que não ter secção. A região abrange por isso a `<section>`
+toda.
+
+O motor recusa um bloco que não escreva nada, e com razão: um modelo calado é
+quase sempre um modelo avariado. Por isso o caso sem fotografias escreve **um
+comentário HTML** — que explica a decisão a quem leia a fonte e não produz
+elemento nenhum na página. O validador tira os comentários antes de verificar
+que não sobrou nada visível.
+
+## Achados
+
+**A galeria mostrava HTML como texto.** O `js/galeria.js` construía o conteúdo
+do fundo e depois passava a coisa toda por `jscEsc()`: as etiquetas apareciam
+escritas na página em vez de desenhadas.
+
+**Escape duplo.** Valores já escapados voltavam a passar pelo escapador, e um
+`&` de um título aparecia como `&amp;amp;`.
+
+**Um `_escHtml` duplicado.** O `js/galeria.js` tinha a sua própria função de
+escape, ao lado da do `js/html.js`. Duas implementações da mesma regra é uma
+que fica atrás.
+
+**O escapador de CSS errado.** A imagem de fundo usava `jscEscUrl` dentro de
+`url('…')` — escapa HTML mas não percent-encode. O mesmo defeito dos cartões de
+notícia, da foto do treinador, do logótipo do patrocinador e do cartão de
+modalidade. Passa a usar `jscEscUrlCss` / `jsc_esc_url_css`.
+
+**Um `src` sem política de endereços.** A imagem da caixa de luz recebia o
+endereço cru dos dados. Passa por `jscEscUrl`, que recusa `javascript:`,
+`vbscript:` e `data:` que não seja de imagem.
+
+**Um global implícito.** O `_allFotos` do `js/main.js` não era declarado:
+existia no `window`, visível a qualquer outro guião.
+
+**Nenhum refresco depois de publicar.** As duas zonas não ouviam `jsc:synced`,
+e não havia `jscBlocoAtual()`: com o bloco já escrito no servidor, o JavaScript
+redesenhava-o por cima.
+
+**A caixa de luz nunca esteve a funcionar como o CSS dizia.** O
+`.lightbox` tem `flex-direction`, `align-items` e `justify-content`, mas
+**não tinha `display: flex`**. Abria com `hidden` removido, ficava
+`display: block`, e as três propriedades não faziam nada. Defeito anterior a
+este bloco; corrigido aqui porque é aqui que a caixa de luz passa a ser testada.
+
+**O `js/main.js` sequestrava a caixa de luz da `galeria.html`.** As duas
+páginas têm `id="lightbox"`, e o `js/main.js` carrega nas duas: o seu ouvinte de
+`Escape` fechava a caixa antes de o `js/galeria.js` poder devolver o foco. Toda
+a ligação da caixa de luz da página inicial passa a estar presa à existência do
+`#galleryGrid`.
+
+**Um vídeo que não fosse do YouTube gravava sem aviso.** O painel aceitava
+qualquer endereço, e o resultado era um cartão sem miniatura e um `<iframe>`
+vazio. A extração do id passa a estar num sítio só, e o painel recusa ao gravar.
+
+## Os três endereços vêm sempre do id validado
+
+O `jsc_video_id()` (e o `jscVideoId()` gémeo) aceita as quatro formas que o
+painel usa — `watch?v=`, `youtu.be/`, `shorts/`, `embed/` — e devolve os onze
+caracteres do id, ou nada. **Um vídeo sem título ou sem id válido não é
+publicado.**
+
+Miniatura, ligação e `embed` são construídos a partir desses onze caracteres,
+**nunca do endereço escrito no painel**:
+
+    miniatura → https://img.youtube.com/vi/<ID>/hqdefault.jpg
+    ligação   → https://www.youtube.com/watch?v=<ID>
+    embed     → https://www.youtube.com/embed/<ID>?autoplay=1&rel=0
+
+Não se acrescentou nenhum outro fornecedor de vídeo: o projeto usa YouTube, e
+alargar a lista sem necessidade é alargar a superfície.
+
+## Cada cartão de vídeo é uma ligação a sério
+
+O cartão passou de `<div>` a `<a href="https://www.youtube.com/watch?v=<ID>"
+target="_blank" rel="noopener noreferrer">`. Sem JavaScript o vídeo abre no
+YouTube; com JavaScript o clique é interceptado e abre-se o modal — o mesmo
+padrão do "Ler mais" da equipa principal. **Não há `<iframe>` dentro da
+região**: o único da página é o do modal, escondido, e recebe o `src` no
+momento em que o modal abre e perde-o quando fecha. O `title` do `iframe` passa
+a ser o título real do vídeo, escapado, em vez de um "Vídeo" genérico.
+
+## O campo `ativo`, sem migração
+
+`db_galeria` e `db_videos` passam a ter `ativo`. **Campo ausente = ativo**:
+nenhum registo existente foi reescrito, nenhum desapareceu, e não houve
+migração. Um registo inativo não aparece em sítio nenhum público — nem na
+página inicial, nem na galeria completa, nem na página de vídeos, nem nos
+filtros.
+
+## Privacidade
+
+A galeria pode ter fotografias de atletas e de menores. **Não se criou nenhum
+campo pessoal**: nem identificação de atletas, nem data de nascimento, nem
+contactos, nem etiquetas de pessoas. Os títulos e as descrições continuam a ser
+escritos à mão no painel, e o que é publicado é exactamente o que lá está.
+
+O que se acrescentou é **editorial**: um aviso curto junto aos campos de título
+e descrição, a pedir que não se incluam nomes nem outros dados pessoais de
+menores sem autorização adequada. É um aviso, não uma validação — a decisão
+continua a ser de quem escreve. A página **não** leva `noindex`.
+
+## Ordenação
+
+A ordem publicada é a ordem do array, que é a ordem de criação (com a mais
+recente à frente, porque o painel faz `unshift`). Não se ordenou por data, não
+se criou campo de ordem, nem arrastar, nem setas. **Ordenação administrável
+fica registada como melhoria futura**, não construída.
+
+## Categorias
+
+Nenhuma categoria nova e nenhuma eliminada. Os ícones por categoria — Jogo,
+Treino, Conquista, Evento — estavam em três sítios e passam a estar num só,
+no `jsc_galeria()`. Uma categoria sem nada publicável **não produz botão de
+filtro**: a lista de filtros sai dos dados, não de uma lista fixa.
+
+## Tratamento de cada caso
+
+| Situação | O que acontece |
+|---|---|
+| Fotografia sem título | Descartada — sem título não há texto alternativo, legenda nem nome acessível |
+| Fotografia sem endereço | Fica o cartão de categoria, com o ícone; não se inventa imagem |
+| Endereço recusado (`javascript:`, `data:` não-imagem) | Tratado como sem endereço |
+| `imgPos` / `imgSize` vazios | `center` e `cover` |
+| Vídeo sem título | Não publicado |
+| Vídeo sem id de YouTube válido | Não publicado — sem cartão sem miniatura e sem `iframe` vazio |
+| Registo com `ativo: false` | Não aparece em lado nenhum público |
+| Registo sem o campo `ativo` | Publicado |
+| Base de fotografias vazia | A secção da página inicial desaparece; a `galeria.html` mostra o estado vazio |
+| Base de vídeos vazia | A `videos.html` mostra o estado vazio |
+| Uma só categoria | Sem barra de filtros |
+
+## Acessibilidade da caixa de luz e do modal
+
+As duas continuam a ser melhoria progressiva, e ganharam o que lhes faltava:
+`display: flex` a sério; foco preso dentro da caixa enquanto está aberta;
+**foco devolvido** ao cartão que a abriu; `Enter` e espaço a abrir, com o
+espaço a não deslizar a página; `Escape` a fechar; anterior e seguinte; e um
+nome acessível em cada cartão (`Abrir foto: <título>`).
+
+## Guardas de regressão
+
+Nove verificações. As `galeria-base:` e `videos-base:` olham **só** para dentro
+das regiões, antes de qualquer geração, e exigem que lá esteja apenas o
+esqueleto legítimo: sem cartão escrito à mão, sem esqueleto de carregamento,
+sem `<iframe>`, sem ligação externa, e com o estado vazio como único texto. As
+`fonte única:` varrem o código público **sem comentários** e exigem que não
+exista nenhuma fotografia fictícia, que o `_escHtml` duplicado não volte, e que
+a extração do id do YouTube continue centralizada.
+
+Provadas ao contrário: com a legenda do Sub-19 de volta na região do
+`index.html`, um `skeleton` de volta na `galeria.html`, um cartão de vídeo e um
+`<iframe>` escritos à mão na `videos.html`, e os `_escHtml`/`_yt` duplicados de
+volta nos dois guiões, **as nove falham** — nomeando os ficheiros — e as outras
+763 continuam a passar.
+
+## Como se verificou
+
+`node tools/testar-sem-js.js` — **772 verificações**. Deste bloco: 11 registos
+de galeria a dar as fotografias certas (sem título e inativa descartadas);
+endereço com `'` e `( )` percent-encoded **e a resolver no browser**;
+`javascript:` e `data:text/html` tratados como sem endereço; `imgPos` e
+`imgSize` respeitados na página inicial **e** na `galeria.html`; título com
+`&` e `<b>` a aparecer **como texto**; 9 registos de vídeo a dar os que têm
+título e id válido, com as quatro formas de endereço a produzirem o mesmo id;
+cada cartão de vídeo uma ligação real para `watch?v=<ID>`; **nenhum `<iframe>`
+dentro da região**; o `title` do `iframe` com o título real ao abrir e o `src`
+limpo ao fechar; base vazia com a secção da página inicial **ausente por
+inteiro** e as duas páginas com o estado vazio; **as sete larguras** (320, 375,
+390, 430, 768, 1024, 1440) nas três zonas sem transbordo; blocos gerados não
+redesenhados pelo JavaScript e `data-itens` errado a forçar o redesenho para o
+**mesmo** resultado; caixa de luz e modal com `Enter`, espaço, `Escape`, foco
+preso e foco devolvido; `/modelos/galeria-inicio.php`,
+`/modelos/galeria-pagina.php` e `/modelos/videos.php` → **403**; o exterior às
+**cinco** regiões do `index.html` igual byte a byte; o reverter a nomear e devolver as
+oito páginas.
+
+Do painel: fotografia e vídeo com a caixa de publicação e o selo "Não
+publicada"/"Não publicado"; o aviso editorial junto ao título e à descrição da
+fotografia; o limite do carregamento a dizer **5MB**, que é o que o código
+aplica; um endereço que não é do YouTube **recusado ao gravar**.
+
+`node tools/validar.js --comparar` — sem problemas em 168 combinações,
+**novos: 0** (e 2 resolvidos, de blocos anteriores).
+
+Fase A reverificada ponta-a-ponta, com perfis de teste numa cópia do projeto e
+credenciais descartáveis que nunca entraram no repositório: `400` a um GET ao
+`auth.php`, `400` a entrar sem o cabeçalho do painel, `401` com password
+errada, `401` a escrever sem sessão, `405` a um GET ao `save.php`, `200` para a
+Comunicação a alterar `galeria` e `videos`, **`403` para a Comunicação a
+alterar `atletas`**, e **`403` para o Matchday a alterar `galeria` ou `videos`**
+— o perfil entra e não tem nenhuma das duas áreas. O `conteudo.php` continua
+sem escrever: nenhuma escrita provocada por GET público.

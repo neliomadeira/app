@@ -37,6 +37,7 @@ const BLOCOS = {
     { nome: 'modalidades',    ini: '<!-- JSC:modalidades:inicio -->',    fim: '<!-- JSC:modalidades:fim -->' },
     { nome: 'agenda',         ini: '<!-- JSC:agenda:inicio -->',         fim: '<!-- JSC:agenda:fim -->' },
     { nome: 'noticias',       ini: '<!-- JSC:noticias:inicio -->',       fim: '<!-- JSC:noticias:fim -->' },
+    { nome: 'galeria',        ini: '<!-- JSC:galeria:inicio -->',        fim: '<!-- JSC:galeria:fim -->' },
     { nome: 'patrocinadores', ini: '<!-- JSC:patrocinadores:inicio -->', fim: '<!-- JSC:patrocinadores:fim -->' },
   ],
   'noticias.html': [
@@ -55,6 +56,12 @@ const BLOCOS = {
   ],
   'patrocinadores.html': [
     { nome: 'patrocinadores-pagina', ini: '<!-- JSC:patrocinadores-pagina:inicio -->', fim: '<!-- JSC:patrocinadores-pagina:fim -->' },
+  ],
+  'galeria.html': [
+    { nome: 'galeria-pagina', ini: '<!-- JSC:galeria-pagina:inicio -->', fim: '<!-- JSC:galeria-pagina:fim -->' },
+  ],
+  'videos.html': [
+    { nome: 'videos', ini: '<!-- JSC:videos:inicio -->', fim: '<!-- JSC:videos:fim -->' },
   ],
 };
 
@@ -161,6 +168,8 @@ function testesDeGeracao(raiz, dados) {
   const eqp = path.join(raiz, 'equipa-principal.html');
   const fmc = path.join(raiz, 'formacao.html');
   const pat = path.join(raiz, 'patrocinadores.html');
+  const gal = path.join(raiz, 'galeria.html');
+  const vid = path.join(raiz, 'videos.html');
   const db  = path.join(raiz, 'data', 'db.json');
 
   // Quantas notícias cada página deve mostrar, contado a partir da fixture e
@@ -179,9 +188,11 @@ function testesDeGeracao(raiz, dados) {
   const antesEqp = fs.readFileSync(eqp, 'utf8');
   const antesFmc = fs.readFileSync(fmc, 'utf8');
   const antesPat = fs.readFileSync(pat, 'utf8');
+  const antesGal = fs.readFileSync(gal, 'utf8');
+  const antesVid = fs.readFileSync(vid, 'utf8');
   // A ordem declarada no BLOCOS tem de ser a ordem em que as marcas aparecem
   // no ficheiro: é dela que o foraDasMarcas() depende para cortar o HTML.
-  verificar('index.html tem as marcas das QUATRO regiões, pela ordem do ficheiro',
+  verificar('index.html tem as marcas das CINCO regiões, pela ordem do ficheiro',
     foraDasMarcas(antesIdx, 'index.html') !== null
     && BLOCOS['index.html'].every((b, i, todos) => i === 0
       || antesIdx.indexOf(todos[i - 1].ini) < antesIdx.indexOf(b.ini)));
@@ -225,6 +236,63 @@ function testesDeGeracao(raiz, dados) {
       !base.includes('escalao.html'));
     verificar('grelha-base: o único texto é o do estado vazio',
       texto === 'Escalões a atualizar.', 'texto encontrado: ' + JSON.stringify(texto.slice(0, 200)));
+  }
+
+  // ---- Guardas da galeria e dos vídeos -----------------------------
+  // A página inicial tinha cinco fotografias escritas à mão, com legendas
+  // inventadas, uma delas a afirmar um título distrital que o clube pode não
+  // ter conquistado. A galeria.html tinha seis esqueletos de carregamento
+  // permanentes. A videos.html ficava em branco. Nada disso pode voltar.
+  {
+    const base = dentroDasMarcas(antesIdx, 'index.html', 'galeria')
+      .replace(/<!--[\s\S]*?-->/g, '').trim();
+    verificar('galeria-base: a região da galeria do index.html está vazia',
+      base === '', 'obtive: ' + JSON.stringify(base.slice(0, 200)));
+  }
+  {
+    const base = dentroDasMarcas(antesGal, 'galeria.html', 'galeria-pagina')
+      .replace(/<!--[\s\S]*?-->/g, '');
+    const texto = base.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+    verificar('galeria-base: nenhum esqueleto de carregamento na região',
+      !base.includes('skeleton'), 'os esqueletos ficavam lá para sempre sem JavaScript');
+    verificar('galeria-base: nenhuma fotografia escrita à mão na região',
+      !base.includes('galeria-item') && !base.includes('galeria-placeholder'));
+    verificar('galeria-base: o único texto da região é o do estado vazio',
+      texto === '&#128247; Ainda não há fotos na galeria.', 'texto: ' + JSON.stringify(texto.slice(0, 200)));
+  }
+  {
+    const base = dentroDasMarcas(antesVid, 'videos.html', 'videos')
+      .replace(/<!--[\s\S]*?-->/g, '');
+    const texto = base.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+    verificar('videos-base: nenhum cartão de vídeo escrito à mão na região',
+      !base.includes('video-card'));
+    verificar('videos-base: nenhum <iframe> dentro da região',
+      !/<iframe/i.test(base), 'o iframe do modal fica fora da região');
+    verificar('videos-base: nenhuma ligação externa escrita à mão na região',
+      !/href="https?:\/\//i.test(base));
+    verificar('videos-base: o único texto da região é o do estado vazio',
+      texto === '&#127909; Ainda não há vídeos publicados.Volte em breve!', 'texto: ' + JSON.stringify(texto.slice(0, 200)));
+  }
+  // As cinco legendas fictícias não podem existir em código público nenhum, e
+  // o _escHtml duplicado também não.
+  {
+    const publicos = ['index.html', 'galeria.html', 'videos.html',
+                      'js/main.js', 'js/galeria.js', 'js/videos.js'];
+    const comFicticios = publicos.filter((rel) => /Treino Sub-17|Jogo Sub-13|Treino Sub-9|Campeão Distrital/.test(
+      fs.readFileSync(path.join(RAIZ_PROJETO, rel), 'utf8').replace(/<!--[\s\S]*?-->/g, '')));
+    verificar('fonte única: nenhuma fotografia fictícia em código público',
+      comFicticios.length === 0, 'ficheiros: ' + comFicticios.join(', '));
+    // Sem comentários: um comentário que explique o que saiu não é código.
+    const semComentarios = (rel) => fs.readFileSync(path.join(RAIZ_PROJETO, rel), 'utf8')
+      .replace(/^\s*\/\/.*$/gm, '');
+    const comEsc = ['js/galeria.js', 'js/videos.js'].filter((rel) =>
+      /_escHtml/.test(semComentarios(rel)));
+    verificar('fonte única: o _escHtml duplicado desapareceu',
+      comEsc.length === 0, 'ficheiros: ' + comEsc.join(', '));
+    const comYt = ['js/videos.js'].filter((rel) => /\.match\(\/\(\?:youtube/.test(semComentarios(rel)));
+    verificar('fonte única: a extração do id do YouTube está centralizada',
+      comYt.length === 0 && /function jscVideoId/.test(
+        fs.readFileSync(path.join(RAIZ_PROJETO, 'js/html.js'), 'utf8')));
   }
 
   // ---- Guarda da fonte única das modalidades -----------------------
@@ -355,10 +423,10 @@ function testesDeGeracao(raiz, dados) {
   escreverDados(raiz, dados);
   let g = gerar(raiz);
   verificar('geração corre sem erro', g.estado === 0, g.saida.trim());
-  verificar('a geração escreveu as seis páginas',
-    /index\.html/.test(g.saida) && /noticias\.html/.test(g.saida) && /agenda\.html/.test(g.saida)
-    && /equipa-principal\.html/.test(g.saida) && /formacao\.html/.test(g.saida)
-    && /patrocinadores\.html/.test(g.saida), g.saida.trim());
+  verificar('a geração escreveu as oito páginas',
+    ['index.html', 'noticias.html', 'agenda.html', 'equipa-principal.html',
+     'formacao.html', 'patrocinadores.html', 'galeria.html', 'videos.html']
+      .every((f) => g.saida.includes(f)), g.saida.trim());
 
   const depoisHtml = fs.readFileSync(idx, 'utf8');
   const depoisNot  = fs.readFileSync(not, 'utf8');
@@ -366,6 +434,8 @@ function testesDeGeracao(raiz, dados) {
   const depoisEqp  = fs.readFileSync(eqp, 'utf8');
   const depoisFmc  = fs.readFileSync(fmc, 'utf8');
   const depoisPat  = fs.readFileSync(pat, 'utf8');
+  const depoisGal  = fs.readFileSync(gal, 'utf8');
+  const depoisVid  = fs.readFileSync(vid, 'utf8');
 
   // ---- 9 / E1-8. Comparação byte a byte do exterior a TODAS as marcas ----
   for (const [nome, antes, depois] of [
@@ -375,6 +445,8 @@ function testesDeGeracao(raiz, dados) {
     ['equipa-principal.html', antesEqp, depoisEqp],
     ['formacao.html', antesFmc, depoisFmc],
     ['patrocinadores.html', antesPat, depoisPat],
+    ['galeria.html', antesGal, depoisGal],
+    ['videos.html', antesVid, depoisVid],
   ]) {
     const a = foraDasMarcas(antes, nome);
     const d = foraDasMarcas(depois, nome);
@@ -615,6 +687,149 @@ function testesDeGeracao(raiz, dados) {
      'TESTE ENCARREGADO', '000000000'].every((x) => !bEsc.toLowerCase().includes(x.toLowerCase())));
   verificar('escalões: nenhum atleta em toda a formacao.html gerada',
     !depoisFmc.includes('TESTE ATLETA') && !depoisFmc.includes('TESTE ENCARREGADO'));
+
+  // ---- Bloco 7: galeria e vídeos ----------------------------------
+  const bGalI = dentroDasMarcas(depoisHtml, 'index.html', 'galeria');
+  const bGalP = dentroDasMarcas(depoisGal, 'galeria.html', 'galeria-pagina');
+  const bVid  = dentroDasMarcas(depoisVid, 'videos.html', 'videos');
+  // Contado a partir da fixture. ativo ausente conta como publicado.
+  const galFix = dados.galeria.filter((f) => f.ativo !== false
+    && String(f.titulo || '').trim() !== '');
+  const semUrlFix = galFix.filter((f) => {
+    const u = String(f.url || '').trim();
+    return u === '' || /^javascript:/i.test(u) || (/^data:/i.test(u) && !/^data:image\//i.test(u));
+  }).length;
+  const idYt = (u) => {
+    const m = String(u || '').match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    return m ? m[1] : '';
+  };
+  const vidFix = dados.videos.filter((v) => v.ativo !== false
+    && String(v.titulo || '').trim() !== '' && idYt(v.url) !== '');
+  const PREVIA_GAL = 6;
+
+  // -- galeria da página inicial --
+  verificar(`galeria (inicial): ${Math.min(galFix.length, PREVIA_GAL)} cartões de prévia`,
+    (bGalI.match(/<div class="gallery__item--img/g) || []).length === Math.min(galFix.length, PREVIA_GAL),
+    'obtive ' + (bGalI.match(/<div class="gallery__item--img/g) || []).length);
+  verificar('galeria (inicial): o data-itens conta a galeria completa',
+    bGalI.includes('data-itens="' + galFix.length + '"'));
+  verificar('galeria (inicial): a secção existe quando há fotografias',
+    bGalI.includes('id="galeria"') && bGalI.includes('id="galleryGrid"'));
+  verificar('galeria (inicial): o botão "Ver mais" aparece e é só com JavaScript',
+    bGalI.includes('id="galleryMore"') && bGalI.includes('gallery__more jsc-so-com-js'));
+  verificar('galeria (inicial): os filtros são só com JavaScript',
+    bGalI.includes('gallery__filters jsc-so-com-js'));
+
+  // -- galeria completa --
+  verificar(`galeria (página): ${galFix.length} cartões, a lista completa`,
+    (bGalP.match(/<div class="galeria-item"/g) || []).length === galFix.length,
+    'obtive ' + (bGalP.match(/<div class="galeria-item"/g) || []).length);
+  verificar(`galeria (página): ${semUrlFix} cartões de categoria (sem endereço utilizável)`,
+    (bGalP.match(/galeria-placeholder galeria-placeholder--/g) || []).length === semUrlFix,
+    'obtive ' + (bGalP.match(/galeria-placeholder galeria-placeholder--/g) || []).length);
+  verificar('galeria: a fotografia com o fundo é um elemento, não texto',
+    bGalP.includes('<div class="galeria-item__bg" style="background-image:url(')
+    && !bGalP.includes('&lt;div class=&quot;galeria-item__bg'));
+  verificar('galeria: o endereço com apóstrofo e parêntesis é percent-encoded',
+    bGalP.includes("url('images/logo.png?x=a%27b%281%29')"));
+  // Sem comentários: uma frase como "Só com JavaScript: ..." num comentário do
+  // modelo não é um esquema de URL.
+  const semCom = (t) => t.replace(/<!--[\s\S]*?-->/g, '');
+  verificar('galeria: javascript: e data:text/html não chegam a nenhuma imagem',
+    !/javascript:/i.test(semCom(bGalP)) && !/url\('data:text/i.test(semCom(bGalP))
+    && !/javascript:/i.test(semCom(bGalI)) && !/url\('data:text/i.test(semCom(bGalI)),
+    JSON.stringify((semCom(bGalI + bGalP).match(/.{0,50}javascript:.{0,30}/i) || [''])[0]));
+  verificar('galeria: imgPos e imgSize são respeitados na página completa',
+    bGalP.includes('background-size:contain') && bGalP.includes('background-position:top')
+    && bGalP.includes('background-size:110%') && bGalP.includes('background-position:bottom'));
+  verificar('galeria: imgPos e imgSize são respeitados na página inicial',
+    bGalI.includes('background-size:contain') && bGalI.includes('background-position:top'));
+  verificar('galeria: o título com & e <b> é escapado uma vez só',
+    bGalP.includes('TESTE ESCAPE FOTO &amp; &lt;b&gt;B&lt;/b&gt;')
+    && !bGalP.includes('&amp;amp;'));
+  verificar('galeria: a inativa e a sem título não foram escritas',
+    !bGalP.includes('NAO APARECE') && !bGalI.includes('NAO APARECE'));
+  verificar('galeria: o estado vazio fica escondido quando há fotografias',
+    bGalP.includes('id="galeriaEmpty" hidden'));
+  verificar('galeria: os filtros da página são só com JavaScript',
+    bGalP.includes('galeria-filter-bar jsc-so-com-js'));
+  verificar('galeria: nenhum esqueleto de carregamento no HTML gerado',
+    !bGalP.includes('skeleton') && !depoisGal.includes('class="skeleton'));
+
+  // -- vídeos --
+  verificar(`vídeos: ${vidFix.length} cartões (sem título ou sem id do YouTube saem)`,
+    (bVid.match(/<a class="video-card"/g) || []).length === vidFix.length,
+    'obtive ' + (bVid.match(/<a class="video-card"/g) || []).length);
+  verificar('vídeos: o que não é do YouTube, o sem URL, o inativo e o sem título saem',
+    !bVid.includes('NAO APARECE'));
+  verificar('vídeos: os quatro formatos de endereço dão o id certo',
+    ['dQw4w9WgXcQ', 'aaaaaaaaaaa', 'bbbbbbbbbbb', 'ccccccccccc']
+      .every((id) => bVid.includes('watch?v=' + id)));
+  verificar('vídeos: cada cartão é uma ligação a sério para o YouTube',
+    (bVid.match(/href="https:\/\/www\.youtube\.com\/watch\?v=[a-zA-Z0-9_-]{11}"/g) || []).length === vidFix.length);
+  verificar('vídeos: toda a miniatura vem do id validado',
+    (bVid.match(/https:\/\/img\.youtube\.com\/vi\/[a-zA-Z0-9_-]{11}\/hqdefault\.jpg/g) || []).length === vidFix.length);
+  verificar('vídeos: nenhum <iframe> dentro da região gerada',
+    !/<iframe/i.test(bVid));
+  verificar('vídeos: toda a miniatura tem alt com o título',
+    /<img[^>]+alt="TESTE VIDEO COMPLETO"/.test(bVid));
+  verificar('vídeos: o título com & e <b> é escapado uma vez só',
+    bVid.includes('TESTE ESCAPE VIDEO &amp; &lt;b&gt;B&lt;/b&gt;') && !bVid.includes('&amp;amp;'));
+  verificar('vídeos: o estado vazio fica escondido quando há vídeos',
+    bVid.includes('id="videosEmpty" hidden'));
+  verificar('vídeos: nenhum cartão sem miniatura',
+    (bVid.match(/class="video-card__img"/g) || []).length === vidFix.length);
+
+  // -- nenhum elemento vazio nem dado pessoal nas três zonas --
+  for (const [nome, bloco] of [['galeria inicial', bGalI], ['galeria página', bGalP], ['vídeos', bVid]]) {
+    verificar(`${nome}: nenhum elemento vazio`,
+      !/<(span|p|h3)[^>]*>\s*<\/(span|p|h3)>/.test(bloco));
+    verificar(`${nome}: nenhum campo pessoal`,
+      ['dataNascimento', 'telefone', 'email', 'encarregado']
+        .every((x) => !bloco.toLowerCase().includes(x.toLowerCase())));
+  }
+
+  // -- base vazia: a secção da inicial desaparece, as páginas dizem que não há --
+  const semMedia = JSON.parse(JSON.stringify(dados));
+  semMedia.galeria = [];
+  semMedia.videos = [];
+  escreverDados(raiz, semMedia);
+  g = gerar(raiz);
+  const vGalI = dentroDasMarcas(fs.readFileSync(idx, 'utf8'), 'index.html', 'galeria');
+  const vGalP = dentroDasMarcas(fs.readFileSync(gal, 'utf8'), 'galeria.html', 'galeria-pagina');
+  const vVid  = dentroDasMarcas(fs.readFileSync(vid, 'utf8'), 'videos.html', 'videos');
+  verificar('galeria: sem fotografias a secção da página inicial desaparece por inteiro',
+    g.estado === 0 && !vGalI.includes('id="galeria"')
+    && vGalI.replace(/<!--[\s\S]*?-->/g, '').trim() === '',
+    'região: ' + JSON.stringify(vGalI.replace(/<!--[\s\S]*?-->/g, '').trim().slice(0, 120)));
+  verificar('galeria: sem fotografias a página mostra o estado vazio',
+    vGalP.includes('Ainda não há fotos na galeria.')
+    && !vGalP.includes('id="galeriaEmpty" hidden')
+    && !vGalP.includes('galeria-item'));
+  verificar('vídeos: sem vídeos a página mostra o estado vazio',
+    vVid.includes('Ainda não há vídeos publicados.')
+    && !vVid.includes('id="videosEmpty" hidden')
+    && !vVid.includes('video-card'));
+  verificar('base vazia: nenhuma das cinco legendas fictícias reaparece',
+    !/Treino Sub-17|Jogo Sub-13|Treino Sub-9|Campeão Distrital/.test(
+      fs.readFileSync(idx, 'utf8').replace(/<!--[\s\S]*?-->/g, '')));
+  // Todos inativos: o mesmo que nenhum.
+  const mediaInativa = JSON.parse(JSON.stringify(dados));
+  mediaInativa.galeria.forEach((f) => { f.ativo = false; });
+  mediaInativa.videos.forEach((v) => { v.ativo = false; });
+  escreverDados(raiz, mediaInativa);
+  g = gerar(raiz);
+  verificar('galeria e vídeos: todos inativos dá o mesmo que nenhum',
+    g.estado === 0
+    && dentroDasMarcas(fs.readFileSync(idx, 'utf8'), 'index.html', 'galeria')
+       .replace(/<!--[\s\S]*?-->/g, '').trim() === ''
+    && !dentroDasMarcas(fs.readFileSync(gal, 'utf8'), 'galeria.html', 'galeria-pagina').includes('galeria-item')
+    && !dentroDasMarcas(fs.readFileSync(vid, 'utf8'), 'videos.html', 'videos').includes('video-card'),
+    g.saida.trim().slice(0, 160));
+  escreverDados(raiz, dados);
+  g = gerar(raiz);
+  verificar('galeria e vídeos: a fixture completa volta a gerar sem erro', g.estado === 0,
+    g.saida.trim().slice(0, 160));
 
   // ---- Bloco 6: modalidades ---------------------------------------
   const bMod = dentroDasMarcas(depoisHtml, 'index.html', 'modalidades');
@@ -1049,12 +1264,21 @@ function testesDeGeracao(raiz, dados) {
   fs.writeFileSync(fmc, fmcGerado.replace('</body>', '<!-- rabisco --></body>'));
   const patGerado = fs.readFileSync(pat, 'utf8');
   fs.writeFileSync(pat, patGerado.replace('</body>', '<!-- rabisco --></body>'));
+  const galGerado = fs.readFileSync(gal, 'utf8');
+  fs.writeFileSync(gal, galGerado.replace('</body>', '<!-- rabisco --></body>'));
+  const vidGerado = fs.readFileSync(vid, 'utf8');
+  fs.writeFileSync(vid, vidGerado.replace('</body>', '<!-- rabisco --></body>'));
   g = gerar(raiz, ['--reverter']);
-  verificar('reverter: corre sem erro e nomeia as seis páginas',
-    g.estado === 0 && /index\.html/.test(g.saida) && /noticias\.html/.test(g.saida)
-    && /agenda\.html/.test(g.saida) && /equipa-principal\.html/.test(g.saida)
-    && /formacao\.html/.test(g.saida) && /patrocinadores\.html/.test(g.saida),
+  verificar('reverter: corre sem erro e nomeia as oito páginas',
+    g.estado === 0 && ['index.html', 'noticias.html', 'agenda.html',
+      'equipa-principal.html', 'formacao.html', 'patrocinadores.html',
+      'galeria.html', 'videos.html'].every((f) => g.saida.includes(f)),
     g.saida.trim().slice(0, 200));
+  verificar('reverter: a galeria.html e a videos.html voltaram inteiras',
+    !fs.readFileSync(gal, 'utf8').includes('rabisco')
+    && !fs.readFileSync(vid, 'utf8').includes('rabisco')
+    && fs.readFileSync(gal, 'utf8').includes(BLOCOS['galeria.html'][0].ini)
+    && fs.readFileSync(vid, 'utf8').includes(BLOCOS['videos.html'][0].ini));
   verificar('reverter: a patrocinadores.html voltou inteira, com a sua região',
     !fs.readFileSync(pat, 'utf8').includes('rabisco')
     && BLOCOS['patrocinadores.html'].every((b) => {
@@ -1752,6 +1976,166 @@ async function testarPaginaModalidade(browser, url, id, opcoes = {}) {
   return { ...d, erros };
 }
 
+// Galeria e vídeos. Uma sonda para as três zonas: o que interessa é o mesmo —
+// os cartões, as imagens, as ligações e a caixa que abre.
+async function testarMedia(browser, url, pagina, comJs, largura, opcoes = {}) {
+  const ctx = await browser.newContext({
+    javaScriptEnabled: comJs,
+    extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+  });
+  const pg = await ctx.newPage();
+  await pg.setViewportSize({ width: largura, height: 900 });
+
+  const erros = [];
+  const ruido = (t) => RUIDO.some((r) => r.test(t));
+  pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+  pg.on('console', (m) => { if (m.type() === 'error' && !ruido(m.text())) erros.push(m.text()); });
+  pg.on('response', (r) => {
+    const t = r.status() + ' ' + r.url().replace(url, '');
+    if (r.status() >= 400 && !ruido(t)) erros.push(t);
+  });
+  await pg.route('**', (rota) => {
+    const alvo = rota.request().url();
+    // O YouTube não é contactado no teste: as miniaturas são externas, e o que
+    // se verifica é o endereço, não a imagem.
+    if (alvo.startsWith(url) || alvo.startsWith('data:') || alvo.startsWith('blob:')) return rota.continue();
+    return rota.abort();
+  });
+
+  await pg.goto(url + '/' + pagina, { waitUntil: comJs ? 'networkidle' : 'load', timeout: 20000 });
+
+  // Abrir a caixa pelo teclado, para medir o foco e o scroll.
+  let scrollAntes = 0, scrollDepois = 0;
+  if (opcoes.teclado) {
+    await pg.focus(opcoes.teclado);
+    scrollAntes = await pg.evaluate(() => window.scrollY);
+    await pg.keyboard.press(opcoes.tecla || 'Enter');
+    await pg.waitForTimeout(150);
+    scrollDepois = await pg.evaluate(() => window.scrollY);
+  } else if (opcoes.clicar) {
+    await pg.click(opcoes.clicar);
+    await pg.waitForTimeout(150);
+  }
+  if (opcoes.tab) { await pg.keyboard.press('Tab'); await pg.waitForTimeout(80); }
+  if (opcoes.escape) { await pg.keyboard.press('Escape'); await pg.waitForTimeout(150); }
+  if (opcoes.seta) { await pg.keyboard.press(opcoes.seta); await pg.waitForTimeout(120); }
+
+  const d = await pg.evaluate(() => {
+    const visivel = (el) => !!el && getComputedStyle(el).display !== 'none' && !el.hidden;
+    const caixa = document.getElementById('lightbox') || document.getElementById('videoModal');
+    const cartoes = Array.from(document.querySelectorAll(
+      '#galleryGrid [data-idx], #galeriaGrid .galeria-item, #videosGrid .video-card'));
+    const grelha = document.getElementById('galleryGrid')
+      || document.getElementById('galeriaGrid') || document.getElementById('videosGrid');
+    const doc = document.documentElement;
+    const frame = document.getElementById('videoFrame');
+    const lido = (c) => {
+      const fundo = c.classList.contains('galeria-item')
+        ? c.querySelector('.galeria-item__bg') : c;
+      return {
+        etiqueta: c.tagName,
+        href: c.getAttribute('href'),
+        rotulo: c.getAttribute('aria-label'),
+        legenda: (c.querySelector('.gallery__caption, .galeria-item__overlay-title, .video-card__title') || {}).textContent || '',
+        fundo: fundo ? getComputedStyle(fundo).backgroundImage : '',
+        fundoPos: fundo ? getComputedStyle(fundo).backgroundPosition : '',
+        fundoSize: fundo ? getComputedStyle(fundo).backgroundSize : '',
+        alt: c.querySelector('img') ? c.querySelector('img').getAttribute('alt') : null,
+        src: c.querySelector('img') ? c.querySelector('img').getAttribute('src') : null,
+        classes: c.className,
+      };
+    };
+    return {
+      cartoes: cartoes.length,
+      cartoesVisiveis: cartoes.filter(visivel).length,
+      lidos: cartoes.map(lido),
+      secaoGaleria: !!document.getElementById('galeria'),
+      esqueletos: document.querySelectorAll('.skeleton').length,
+      filtros: document.querySelectorAll(
+        '#galleryFilters .gallery__filter-btn, #galeriaFilters .news-filter-btn, #videosFilters .news-filter-btn').length,
+      // getClientRects() e não o display do próprio botão: o <noscript>
+      // esconde o contentor, e um botão dentro de um pai escondido continua a
+      // ter display:inline-block. O que conta é se ocupa espaço na página.
+      filtrosVisiveis: Array.from(document.querySelectorAll(
+        '#galleryFilters .gallery__filter-btn, #galeriaFilters .news-filter-btn, #videosFilters .news-filter-btn'))
+        .filter((el) => el.getClientRects().length > 0).length,
+      botaoMais: (function () {
+        const el = document.getElementById('galleryMore');
+        return !!el && el.getClientRects().length > 0;
+      })(),
+      vazioVisivel: visivel(document.getElementById('galeriaEmpty'))
+        || visivel(document.getElementById('videosEmpty')),
+      itens: grelha ? grelha.getAttribute('data-itens') : null,
+      caixaAberta: visivel(caixa),
+      // Quem tem o foco agora: é assim que se sabe se a caixa o recebeu, se o
+      // prendeu e se o devolveu.
+      focado: document.activeElement ? (document.activeElement.id
+        || document.activeElement.getAttribute('aria-label')
+        || document.activeElement.className || document.activeElement.tagName) : '',
+      focoDentroDaCaixa: !!(caixa && document.activeElement && caixa.contains(document.activeElement)),
+      lbTitulo: (document.getElementById('lbTitle') || document.getElementById('vmTitle') || {}).textContent || '',
+      lbContador: (document.getElementById('lbCounter') || {}).textContent || '',
+      lbImagem: document.querySelector('.lightbox__img') ? document.querySelector('.lightbox__img').getAttribute('src') : null,
+      iframeSrc: frame ? frame.getAttribute('src') : null,
+      iframeTitle: frame ? frame.getAttribute('title') : null,
+      iframeLazy: frame ? frame.getAttribute('loading') : null,
+      iframeAllow: frame ? frame.getAttribute('allow') : null,
+      iframeFull: frame ? frame.hasAttribute('allowfullscreen') : null,
+      texto: document.body.textContent || '',
+      transbordo: doc.scrollWidth - doc.clientWidth,
+    };
+  });
+  await ctx.close();
+  return { ...d, scrollAntes, scrollDepois, erros };
+}
+
+// O painel: o aviso editorial, as caixas de publicado e o limite coerente.
+async function testarAdminMedia(browser, url) {
+  const ctx = await browser.newContext({ extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' } });
+  const pg = await ctx.newPage();
+  const erros = [];
+  pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+  await pg.route('**', (rota) => {
+    const alvo = rota.request().url();
+    if (alvo.startsWith(url) || alvo.startsWith('data:') || alvo.startsWith('blob:')) return rota.continue();
+    return rota.abort();
+  });
+  await pg.goto(url + '/admin/index.html', { waitUntil: 'networkidle', timeout: 20000 });
+
+  const d = await pg.evaluate(() => {
+    const fora = { limites: [] };
+    // Modal da fotografia.
+    if (typeof editFoto === 'function') {
+      editFoto(-1);
+      fora.fotoAviso = /dados pessoais/i.test(document.body.textContent || '')
+        && /menores/i.test(document.body.textContent || '');
+      fora.fotoAtivo = !!document.getElementById('mFotoAtivo');
+      fora.fotoAtivoMarcado = !!(document.getElementById('mFotoAtivo') || {}).checked;
+      var m = (document.body.innerHTML || '').match(/máx\.?\s*(\d+)\s*MB/i);
+      if (m) fora.limites.push(m[1]);
+      if (typeof closeModal === 'function') closeModal();
+    }
+    // Modal do vídeo.
+    if (typeof editVideo === 'function') {
+      editVideo(-1);
+      fora.videoAtivo = !!document.getElementById('mVidAtivo');
+      fora.videoAtivoMarcado = !!(document.getElementById('mVidAtivo') || {}).checked;
+      if (typeof closeModal === 'function') closeModal();
+    }
+
+    // O id do YouTube vem do ajudante partilhado.
+    fora.ytPartilhado = typeof jscVideoId === 'function'
+      && jscVideoId('https://youtu.be/dQw4w9WgXcQ') === 'dQw4w9WgXcQ';
+    return fora;
+  });
+  await ctx.close();
+  // O limite que a validação aplica de facto vem do ficheiro: o admin.js é um
+  // script externo, e no browser o seu textContent está vazio.
+  const codigo = fs.readFileSync(path.join(RAIZ_PROJETO, 'admin/js/admin.js'), 'utf8');
+  const m = codigo.match(/file\.size > (\d+) \* 1024 \* 1024/);
+  return { ...d, limiteReal: m ? m[1] : '?', erros };
+}
+
 // ---------------------------------------------------------------------
 // Principal
 // ---------------------------------------------------------------------
@@ -2280,6 +2664,184 @@ async function testarPaginaModalidade(browser, url, id, opcoes = {}) {
       JSON.stringify(esc.staffEstilos) + ' | ' + JSON.stringify(esc.staffImagens));
     verificar('escalão: sem erros de consola', esc.erros.length === 0, esc.erros.join(' | '));
 
+    // ---- 6d. Bloco 7: galeria e vídeos --------------------------
+    console.log('\ngaleria e vídeos: fonte única');
+    const galPub = dados.galeria.filter((f) => f.ativo !== false
+      && String(f.titulo || '').trim() !== '');
+    const idYtB = (u) => {
+      const m = String(u || '').match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+      return m ? m[1] : '';
+    };
+    const vidPub = dados.videos.filter((v) => v.ativo !== false
+      && String(v.titulo || '').trim() !== '' && idYtB(v.url) !== '');
+
+    // As sete larguras, nas três zonas.
+    for (const largura of [320, 375, 390, 430, 768, 1024, 1440]) {
+      for (const [pagina, esperados] of [
+        ['index.html', Math.min(galPub.length, 6)],
+        ['galeria.html', galPub.length],
+        ['videos.html', vidPub.length],
+      ]) {
+        const x = await testarMedia(browser, srv.url, pagina, false, largura);
+        verificar(`sem JS a ${largura} px (${pagina}): ${esperados} cartões visíveis`,
+          x.cartoes === esperados && x.cartoesVisiveis === esperados,
+          'cartões ' + x.cartoes + ', visíveis ' + x.cartoesVisiveis);
+        verificar(`sem JS a ${largura} px (${pagina}): sem transbordo`,
+          x.transbordo <= 0, '+' + x.transbordo + 'px');
+      }
+    }
+
+    let gi = await testarMedia(browser, srv.url, 'index.html', false, 1440);
+    verificar('sem JS (inicial): a secção da galeria existe e não há esqueletos',
+      gi.secaoGaleria && gi.esqueletos === 0);
+    verificar('sem JS (inicial): nenhuma das cinco legendas fictícias na página',
+      !/Treino Sub-17|Jogo Sub-13|Treino Sub-9|Campeão Distrital/.test(gi.texto));
+    verificar('sem JS (inicial): os filtros e o botão "Ver mais" saem sem JavaScript',
+      gi.filtrosVisiveis === 0 && !gi.botaoMais,
+      'filtros ' + gi.filtrosVisiveis + ', botão ' + gi.botaoMais);
+    verificar('sem JS (inicial): a imagem problemática resolve percent-encoded',
+      gi.lidos.some((c) => /%27/.test(c.fundo) && /%28/.test(c.fundo)),
+      JSON.stringify(gi.lidos.map((c) => c.fundo).slice(0, 2)));
+    verificar('sem JS (inicial): imgPos e imgSize resolvidos pelo browser',
+      gi.lidos.some((c) => c.fundoPos === '50% 0%' && c.fundoSize === 'contain'),
+      JSON.stringify(gi.lidos.map((c) => [c.fundoPos, c.fundoSize]).slice(0, 3)));
+
+    let gp = await testarMedia(browser, srv.url, 'galeria.html', false, 1440);
+    verificar('sem JS (galeria): nenhum esqueleto de carregamento',
+      gp.esqueletos === 0, 'esqueletos ' + gp.esqueletos);
+    verificar('sem JS (galeria): o estado vazio está escondido com fotografias',
+      !gp.vazioVisivel);
+    verificar('sem JS (galeria): os filtros saem sem JavaScript',
+      gp.filtrosVisiveis === 0, 'filtros visíveis ' + gp.filtrosVisiveis);
+    verificar('sem JS (galeria): a fotografia sem endereço tem cartão de categoria',
+      gp.lidos.some((c) => /galeria-placeholder/.test(c.classes) || !/url\(/.test(c.fundo)));
+    verificar('sem JS (galeria): cada cartão tem nome acessível',
+      gp.lidos.every((c) => /^Ver foto: /.test(c.rotulo || '')));
+    verificar('sem JS (galeria): o título com & e <b> aparece como texto',
+      gp.texto.includes('TESTE ESCAPE FOTO & <b>B</b>'));
+    verificar('sem JS (galeria): a ordem é a ordem dos dados',
+      JSON.stringify(gp.lidos.map((c) => c.legenda)) === JSON.stringify(galPub.map((f) => f.titulo.trim())),
+      JSON.stringify(gp.lidos.map((c) => c.legenda).slice(0, 3)));
+
+    let vp = await testarMedia(browser, srv.url, 'videos.html', false, 1440);
+    verificar('sem JS (vídeos): cada cartão é uma ligação para o YouTube',
+      vp.lidos.every((c) => c.etiqueta === 'A'
+        && /^https:\/\/www\.youtube\.com\/watch\?v=[a-zA-Z0-9_-]{11}$/.test(c.href || '')),
+      JSON.stringify(vp.lidos.map((c) => c.href)));
+    verificar('sem JS (vídeos): toda a miniatura vem do id validado e tem alt',
+      vp.lidos.every((c) => /^https:\/\/img\.youtube\.com\/vi\/[a-zA-Z0-9_-]{11}\//.test(c.src || '')
+        && (c.alt || '') !== ''));
+    verificar('sem JS (vídeos): o estado vazio está escondido com vídeos',
+      !vp.vazioVisivel);
+    verificar('sem JS (vídeos): os filtros saem sem JavaScript',
+      vp.filtrosVisiveis === 0);
+    verificar('sem JS (vídeos): o iframe do modal não tem src',
+      vp.iframeSrc === null || vp.iframeSrc === '');
+
+    // Com JavaScript: o bloco gerado e atual não é redesenhado, e o cartão
+    // desenhado é o mesmo que o gerado.
+    for (const [pagina, ficheiro, ancora] of [
+      ['index.html', path.join(raiz, 'index.html'), '<span class="gallery__caption">TESTE FOTO SO TITULO</span>'],
+      ['galeria.html', path.join(raiz, 'galeria.html'), '<p class="galeria-item__overlay-title">TESTE FOTO SO TITULO</p>'],
+      ['videos.html', path.join(raiz, 'videos.html'), '<p class="video-card__title">TESTE VIDEO COMPLETO</p>'],
+    ]) {
+      const esperados = pagina === 'index.html' ? Math.min(galPub.length, 6)
+        : pagina === 'galeria.html' ? galPub.length : vidPub.length;
+      const total = pagina === 'videos.html' ? vidPub.length : galPub.length;
+      const antes = fs.readFileSync(ficheiro, 'utf8');
+      fs.writeFileSync(ficheiro, antes.replace(ancora, ancora + '<!--MARCA-->'));
+      let y = await testarMedia(browser, srv.url, pagina, true, 1440);
+      verificar(`com JS (${pagina}): o bloco gerado e atual não é redesenhado`,
+        fs.readFileSync(ficheiro, 'utf8').includes('<!--MARCA-->') && y.cartoes === esperados,
+        'cartões ' + y.cartoes);
+      verificar(`com JS (${pagina}): sem erros de consola`, y.erros.length === 0, y.erros.join(' | '));
+      const gerados = JSON.stringify(y.lidos);
+
+      // Alterar o data-itens do contentor certo: na página inicial há mais do
+      // que uma região, e duas podem declarar o mesmo número.
+      const contentor = pagina === 'index.html' ? 'galleryGrid'
+        : pagina === 'galeria.html' ? 'galeriaGrid' : 'videosGrid';
+      fs.writeFileSync(ficheiro, fs.readFileSync(ficheiro, 'utf8').replace(
+        new RegExp('(id="' + contentor + '"[^>]*data-itens=")' + total + '(")'), '$199$2'));
+      y = await testarMedia(browser, srv.url, pagina, true, 1440);
+      verificar(`com JS (${pagina}): data-itens errado força o redesenho`,
+        y.cartoes === esperados && y.itens === '99', 'cartões ' + y.cartoes + ', itens ' + y.itens);
+      verificar(`com JS (${pagina}): o cartão desenhado é o mesmo que o gerado`,
+        JSON.stringify(y.lidos) === gerados, 'desenhado: ' + JSON.stringify(y.lidos).slice(0, 260));
+      fs.writeFileSync(ficheiro, antes);
+    }
+
+    // Com JavaScript os filtros voltam a aparecer.
+    gp = await testarMedia(browser, srv.url, 'galeria.html', true, 1440);
+    verificar('com JS (galeria): os filtros aparecem e há um por categoria',
+      gp.filtrosVisiveis === gp.filtros && gp.filtros > 1, 'filtros ' + gp.filtros);
+    gi = await testarMedia(browser, srv.url, 'index.html', true, 1440);
+    verificar('com JS (inicial): o botão "Ver mais" aparece quando há mais do que 6',
+      gi.botaoMais === (galPub.length > 6), 'botão ' + gi.botaoMais);
+
+    console.log('\ngaleria e vídeos: lightbox e teclado');
+    // Enter abre a lightbox e o foco vai para o botão de fechar.
+    let k = await testarMedia(browser, srv.url, 'galeria.html', true, 1440,
+      { teclado: '#galeriaGrid .galeria-item', tecla: 'Enter' });
+    verificar('lightbox: Enter abre e o foco vai para o botão de fechar',
+      k.caixaAberta && k.focado === 'lbClose', 'aberta=' + k.caixaAberta + ' foco=' + k.focado);
+    verificar('lightbox: mostra o título e o contador da fotografia',
+      k.lbTitulo !== '' && /^1 \/ /.test(k.lbContador), k.lbTitulo + ' | ' + k.lbContador);
+    // O espaço abre e não faz scroll.
+    k = await testarMedia(browser, srv.url, 'galeria.html', true, 1440,
+      { teclado: '#galeriaGrid .galeria-item', tecla: ' ' });
+    verificar('lightbox: o espaço abre a caixa e não faz scroll na página',
+      k.caixaAberta && k.scrollDepois === k.scrollAntes,
+      'scroll ' + k.scrollAntes + ' → ' + k.scrollDepois);
+    // Tab não sai da caixa.
+    k = await testarMedia(browser, srv.url, 'galeria.html', true, 1440,
+      { teclado: '#galeriaGrid .galeria-item', tecla: 'Enter', tab: true });
+    verificar('lightbox: o Tab não sai da caixa', k.focoDentroDaCaixa, 'foco=' + k.focado);
+    // Escape fecha e devolve o foco ao cartão.
+    k = await testarMedia(browser, srv.url, 'galeria.html', true, 1440,
+      { teclado: '#galeriaGrid .galeria-item', tecla: 'Enter', escape: true });
+    verificar('lightbox: Escape fecha e o foco volta ao cartão que a abriu',
+      !k.caixaAberta && /^Ver foto: /.test(k.focado), 'aberta=' + k.caixaAberta + ' foco=' + k.focado);
+    // A seta navega.
+    k = await testarMedia(browser, srv.url, 'galeria.html', true, 1440,
+      { teclado: '#galeriaGrid .galeria-item', tecla: 'Enter', seta: 'ArrowRight' });
+    verificar('lightbox: a seta direita avança para a fotografia seguinte',
+      /^2 \/ /.test(k.lbContador), 'contador ' + k.lbContador);
+
+    // O modal do vídeo: o iframe recebe só um embed do id validado.
+    let mv2 = await testarMedia(browser, srv.url, 'videos.html', true, 1440,
+      { clicar: '#videosGrid .video-card' });
+    verificar('modal do vídeo: abre e o foco vai para o botão de fechar',
+      mv2.caixaAberta && mv2.focado === 'vmClose', 'aberta=' + mv2.caixaAberta + ' foco=' + mv2.focado);
+    verificar('modal do vídeo: o src do iframe é um embed do id validado',
+      /^https:\/\/www\.youtube\.com\/embed\/[a-zA-Z0-9_-]{11}\?/.test(mv2.iframeSrc || ''),
+      String(mv2.iframeSrc));
+    verificar('modal do vídeo: o title do iframe é o título do vídeo',
+      mv2.iframeTitle === 'TESTE VIDEO COMPLETO', String(mv2.iframeTitle));
+    verificar('modal do vídeo: mantém loading lazy, allow e allowfullscreen',
+      mv2.iframeLazy === 'lazy' && /autoplay/.test(mv2.iframeAllow || '') && mv2.iframeFull === true);
+    mv2 = await testarMedia(browser, srv.url, 'videos.html', true, 1440,
+      { teclado: '#videosGrid .video-card', tecla: 'Enter', escape: true });
+    verificar('modal do vídeo: Escape fecha e o foco volta ao cartão',
+      !mv2.caixaAberta && /video-card/.test(mv2.focado), 'foco=' + mv2.focado);
+    verificar('modal do vídeo: o src do iframe é limpo ao fechar, e a reprodução pára',
+      mv2.iframeSrc === '' || mv2.iframeSrc === null, String(mv2.iframeSrc));
+
+    console.log('\ngaleria e vídeos: painel');
+    const adm7 = await testarAdminMedia(browser, srv.url);
+    verificar('painel: o aviso sobre dados pessoais de menores está no modal da fotografia',
+      adm7.fotoAviso === true);
+    verificar('painel: a fotografia tem caixa de publicado, marcada por omissão',
+      adm7.fotoAtivo === true && adm7.fotoAtivoMarcado === true);
+    verificar('painel: o vídeo tem caixa de publicado, marcada por omissão',
+      adm7.videoAtivo === true && adm7.videoAtivoMarcado === true);
+    verificar('painel: o limite de upload anunciado é o que a validação aplica',
+      adm7.limites.length > 0 && adm7.limites.every((l) => l === adm7.limiteReal),
+      'anunciado ' + adm7.limites.join('/') + ', aplicado ' + adm7.limiteReal);
+    verificar('painel: o id do YouTube vem do ajudante partilhado',
+      adm7.ytPartilhado === true);
+    verificar('painel: sem exceções', adm7.erros.length === 0, adm7.erros.join(' | '));
+
     // ---- 6c. Bloco 6: modalidades -------------------------------
     console.log('\nmodalidades: fonte única');
     const modAtivas = dados.modalidades.filter((m) => m.ativo !== false
@@ -2543,6 +3105,9 @@ async function testarPaginaModalidade(browser, url, id, opcoes = {}) {
       ['/modelos/patrocinadores-inicio.php', 403],
       ['/modelos/patrocinadores-pagina.php', 403],
       ['/modelos/modalidades.php', 403],
+      ['/modelos/galeria-inicio.php', 403],
+      ['/modelos/galeria-pagina.php', 403],
+      ['/modelos/videos.php', 403],
       ['/data/publicacao/anterior/index.html', 403],
       ['/data/publicacao/transacao.json', 403],
       ['/data/db.json', 403],
