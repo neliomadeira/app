@@ -1,5 +1,5 @@
 // Service Worker — Juventude Sport Campinense
-const CACHE_NAME = 'jsc-v17';
+const CACHE_NAME = 'jsc-v18';
 const PRECACHE = [
   '/',
   '/index.html',
@@ -75,12 +75,26 @@ self.addEventListener('fetch', e => {
   if (url.pathname.includes('/api/')) return;
 
   // Network-first for HTML pages so content stays fresh
+  //
+  // Só as respostas boas entram na cache. A falta desta verificação era
+  // inofensiva enquanto todas as páginas eram ficheiros estáticos: o Apache
+  // respondia 200 a tudo o que existia. Deixou de o ser com o E2: o
+  // noticias.html?id=N responde 404 a sério quando a notícia não existe, e uma
+  // 404 guardada aqui passava a ser servida no lugar da página — inclusive
+  // depois de a notícia ser publicada, e inclusive offline, onde a resposta
+  // guardada é a única que há.
+  //
+  // A resposta é devolvida sempre, 404 incluída: um erro verdadeiro tem de
+  // chegar ao visitante e ao motor de busca. O que não acontece é ficar
+  // guardado.
   if (e.request.destination === 'document') {
     e.respondWith(
       fetch(e.request)
         .then(res => {
-          const clone = res.clone();
-          caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
+          if (res && res.status === 200 && res.type !== 'opaque') {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
+          }
           return res;
         })
         .catch(() => caches.match(e.request).then(cached => cached || caches.match('/offline.html')))

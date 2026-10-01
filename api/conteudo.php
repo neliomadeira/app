@@ -1304,3 +1304,218 @@ function jsc_sitemap_data(array $conteudo) {
     if ($p !== '' && preg_match('/^(\d{4}-\d{2}-\d{2})/', $p, $m)) return $m[1];
     return gmdate('Y-m-d');
 }
+
+// =====================================================
+// NOTÍCIA INDIVIDUAL — a leitura que o api/noticia.php usa (E2)
+// =====================================================
+// O endereço público continua a ser o noticias.html?id=N. Quem responde a
+// esse endereço com um id é o api/noticia.php, por reescrita interna do
+// Apache: não há redirecionamento, e o visitante nunca vê outro endereço.
+//
+// Daí a regra que atravessa esta zona: o endereço canónico monta-se da
+// JSC_SITE_URL mais o id validado, NUNCA do REQUEST_URI. Depois da reescrita o
+// REQUEST_URI diz /api/noticia.php?id=N, e um canonical construído a partir
+// dele publicaria o endereço interno.
+//
+// As regras de publicação são as mesmas da lista (jsc_noticias_pagina): uma
+// notícia não publicada, ou agendada para o futuro, não existe aqui. É por
+// isso que se passa por essa função em vez de se escrever o filtro outra vez:
+// duas cópias do filtro divergem, e a divergência aqui significaria uma
+// notícia por publicar legível a quem adivinhasse o número.
+
+// O id tem de ser só dígitos. Validar o formato antes de comparar é o que
+// evita o que o JavaScript faz com o == : o '1e3' do JavaScript é igual a
+// 1000, e o ' 12' é igual a 12. Aqui a comparação é sempre de texto, e um id
+// que não seja dígitos não chega a ser procurado.
+//
+// Dezenove dígitos porque é o que cabe num inteiro de 64 bits; o painel gera
+// os ids com Date.now(), que tem treze.
+function jsc_noticia_id_valido($id) {
+    if (is_int($id)) $id = (string)$id;
+    if (!is_string($id)) return false;
+    return preg_match('/^\d{1,19}$/', $id) === 1;
+}
+
+// A posição da imagem no artigo. Vai para um nome de classe, por isso só os
+// quatro valores que o painel oferece — um valor desconhecido não inventa uma
+// classe nova. Tem gémeo em JavaScript (jscNoticiaImagemPos, em js/html.js).
+function jsc_noticia_imagem_pos($valor) {
+    $v = is_string($valor) ? strtolower(trim($valor)) : '';
+    return in_array($v, ['top', 'center', 'left', 'right'], true) ? $v : 'top';
+}
+
+// Um endereço absoluto, para o og:image e para os dados estruturados, que não
+// aceitam caminhos relativos. Devolve '' quando não dá para absolutizar:
+//   data:…        a imagem está embutida no JSON; não tem endereço público
+//   javascript:…  e qualquer outro esquema, recusados
+//   //host/x      sem esquema não é absoluto, e herdar o da página não serve
+//                 para um ficheiro que vai ser citado fora dela
+// Tem gémeo em JavaScript (jscUrlAbsoluta, em js/html.js).
+function jsc_url_absoluta($valor) {
+    $v = is_string($valor) ? trim($valor) : '';
+    if ($v === '') return '';
+    if (strpos($v, '//') === 0) return '';
+    if (preg_match('~^https?://~i', $v)) return $v;
+    if (preg_match('~^[a-z][a-z0-9.+-]*:~i', $v)) return '';
+    return JSC_SITE_URL . '/' . ltrim($v, '/');
+}
+
+// A notícia que o endereço pede, ou null. null significa as quatro situações
+// que o api/noticia.php trata todas da mesma maneira — com um 404:
+//   id com formato inválido, id que não existe, notícia não publicada,
+//   notícia agendada para um momento que ainda não chegou.
+//
+// Devolve a mesma estrutura da lista da página, mais dois campos que a lista
+// não precisa: o corpo completo (a lista só leva resumos cortados) e a posição
+// da imagem.
+function jsc_noticia_por_id(array $conteudo, $id, $agora = null) {
+    if (!jsc_noticia_id_valido($id)) return null;
+    $id = (string)$id;
+
+    $achada = null;
+    foreach (jsc_noticias_pagina($conteudo, $agora) as $n) {
+        if ($n['id'] === $id) { $achada = $n; break; }
+    }
+    if ($achada === null) return null;
+
+    // O corpo completo não vem na lista: lá só há o resumo aos 130 e aos 200
+    // caracteres. Vai-se buscar ao registo, pelo mesmo id já validado.
+    $bruto = null;
+    if (isset($conteudo['noticias']) && is_array($conteudo['noticias'])) {
+        foreach ($conteudo['noticias'] as $n) {
+            if (!is_array($n)) continue;
+            if ((string)(isset($n['id']) ? $n['id'] : '') === $id) { $bruto = $n; break; }
+        }
+    }
+    if ($bruto === null) return null;
+
+    $achada['corpo']     = (isset($bruto['resumo']) && is_string($bruto['resumo'])) ? $bruto['resumo'] : '';
+    $achada['imagemPos'] = jsc_noticia_imagem_pos(isset($bruto['imagemPos']) ? $bruto['imagemPos'] : '');
+    return $achada;
+}
+
+// As outras notícias da mesma categoria, no máximo três. Mesma regra do
+// js/noticias.js: a lista já ordenada, sem a própria, pela categoria.
+//
+// Sem categoria não há bloco: o js/noticias.js escrevia "Mais em " com o
+// título a meio quando a categoria estava vazia, e juntava ao artigo todas as
+// outras notícias sem categoria como se fossem do mesmo tema.
+function jsc_noticia_relacionadas(array $conteudo, array $noticia, $agora = null) {
+    if (!isset($noticia['categoria']) || $noticia['categoria'] === '') return [];
+    $fora = [];
+    foreach (jsc_noticias_pagina($conteudo, $agora) as $n) {
+        if ($n['id'] === $noticia['id']) continue;
+        if ($n['categoria'] !== $noticia['categoria']) continue;
+        $fora[] = $n;
+        if (count($fora) === 3) break;
+    }
+    return $fora;
+}
+
+// Tudo o que o <head> da notícia precisa, já decidido: título, descrição,
+// endereços e os dados estruturados.
+//
+// Campo vazio não produz propriedade. Uma notícia sem texto não leva
+// description, e uma notícia sem imagem não leva og:image — um og:image com o
+// logótipo do clube em vez da imagem da notícia é uma partilha que mostra
+// outra coisa, e um og:image vazio é pior do que nenhum.
+function jsc_noticia_seo(array $conteudo, array $noticia) {
+    $clube  = jsc_clube_nome($conteudo);
+    $titulo = isset($noticia['titulo']) ? (string)$noticia['titulo'] : '';
+    $corpo  = isset($noticia['corpo'])  ? (string)$noticia['corpo']  : '';
+    $url    = JSC_SITE_URL . '/noticias.html?id=' . $noticia['id'];
+
+    // O título da aba: o da notícia, com o nome do clube atrás. Sem nome de
+    // clube não se inventa sufixo; sem título de notícia fica o da secção, que
+    // é o que a página já dizia.
+    $pagina = ($titulo !== '' ? $titulo : 'Notícias') . ($clube !== '' ? ' – ' . $clube : '');
+
+    // 160 caracteres é o que os motores de busca mostram. O jsc_resumo_curto()
+    // é o mesmo que corta os resumos dos cartões: tira as etiquetas e só põe
+    // reticências se de facto cortou.
+    $descricao = jsc_resumo_curto($corpo, 160);
+    $imagem    = jsc_url_absoluta(isset($noticia['imagem']) ? $noticia['imagem'] : '');
+
+    // Dados estruturados do artigo. Réplica do injectArticleSchema() do
+    // js/noticias.js, com as propriedades na mesma ordem — é essa ordem que o
+    // teste de paridade compara.
+    $schema = ['@context' => 'https://schema.org', '@type' => 'NewsArticle'];
+    if ($titulo !== '') $schema['headline'] = $titulo;
+    $plano = mb_substr(trim(preg_replace('/<[^>]+>/', ' ', $corpo)), 0, 500, 'UTF-8');
+    if ($plano !== '') $schema['description'] = $plano;
+    $data = isset($noticia['data']) ? (string)$noticia['data'] : '';
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $data)) $schema['datePublished'] = $data . 'T00:00:00+00:00';
+    $schema['url'] = $url;
+    $editora = ['@type' => 'Organization'];
+    if ($clube !== '') $editora['name'] = $clube;
+    $editora['logo'] = ['@type' => 'ImageObject', 'url' => JSC_SITE_URL . '/images/logo.png'];
+    $schema['publisher'] = $editora;
+    if ($imagem !== '') $schema['image'] = $imagem;
+
+    return [
+        'url'       => $url,
+        'titulo'    => $pagina,
+        'descricao' => $descricao,
+        'imagem'    => $imagem,
+        'sitio'     => $clube,
+        'schema'    => $schema,
+    ];
+}
+
+// O <head> do estado "não encontrada". Não é um erro do servidor nem um
+// endereço a indexar: é um 404 com uma página que se percebe.
+//
+// O noindex é o ponto: sem ele, um id que deixou de existir ficaria indexado
+// com o título da notícia que já não há. E não leva canonical — um canonical
+// numa página 404 manda o motor de busca juntar o erro a outro endereço.
+function jsc_noticia_seo_ausente(array $conteudo) {
+    $clube = jsc_clube_nome($conteudo);
+    return [
+        'url'       => '',
+        'titulo'    => 'Notícia não encontrada' . ($clube !== '' ? ' – ' . $clube : ''),
+        'descricao' => '',
+        'imagem'    => '',
+        'sitio'     => $clube,
+        'schema'    => null,
+    ];
+}
+
+// As notícias que entram no sitemap, cada uma com a sua data.
+//
+// A lista é a mesma que o api/noticia.php serve com 200 — a da
+// jsc_noticias_pagina() —, e os ids passam pela mesma validação. Assim nenhum
+// endereço do sitemap pode responder 404: um sitemap que aponta para erros é
+// pior do que um sitemap mais curto.
+//
+// O lastmod é a data da notícia, não a da publicação que gerou o ficheiro:
+// cada artigo tem a sua.
+function jsc_sitemap_noticias(array $conteudo, $agora = null) {
+    $fora = [];
+    foreach (jsc_noticias_pagina($conteudo, $agora) as $n) {
+        if (!jsc_noticia_id_valido($n['id'])) continue;
+        $fora[] = [
+            'loc'     => '/noticias.html?id=' . $n['id'],
+            'freq'    => 'monthly',
+            'pri'     => '0.6',
+            'lastmod' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$n['data']) ? (string)$n['data'] : '',
+        ];
+    }
+    return $fora;
+}
+
+// As entradas todas do sitemap: as páginas primeiro, as notícias depois.
+// Cada uma já com o seu lastmod — as páginas levam a data da publicação, as
+// notícias a sua própria data.
+function jsc_sitemap_entradas(array $conteudo) {
+    $data = jsc_sitemap_data($conteudo);
+    $fora = [];
+    foreach (jsc_sitemap_paginas() as $p) {
+        $p['lastmod'] = $data;
+        $fora[] = $p;
+    }
+    foreach (jsc_sitemap_noticias($conteudo) as $n) {
+        if ($n['lastmod'] === '') $n['lastmod'] = $data;
+        $fora[] = $n;
+    }
+    return $fora;
+}

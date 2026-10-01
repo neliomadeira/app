@@ -853,21 +853,42 @@ function jsc_blocos() {
             'inicio'   => '<!-- JSC:sitemap:inicio -->',
             'fim'      => '<!-- JSC:sitemap:fim -->',
             'dados'    => function (array $conteudo) {
-                return [
-                    'paginas' => jsc_sitemap_paginas(),
-                    'data'    => jsc_sitemap_data($conteudo),
-                ];
+                return ['entradas' => jsc_sitemap_entradas($conteudo)];
             },
             'validar'  => function ($meio, array $conteudo) {
-                $paginas = jsc_sitemap_paginas();
-                $data    = jsc_sitemap_data($conteudo);
+                $entradas = jsc_sitemap_entradas($conteudo);
+                $paginas  = jsc_sitemap_paginas();
+                $noticias = jsc_sitemap_noticias($conteudo);
+                $data     = jsc_sitemap_data($conteudo);
                 $erros = [];
                 $n = substr_count($meio, '<url>');
-                if ($n !== count($paginas)) {
-                    $erros[] = "gerou $n entradas, esperava " . count($paginas);
+                if ($n !== count($entradas)) {
+                    $erros[] = "gerou $n entradas, esperava " . count($entradas);
                 }
-                if (substr_count($meio, '<lastmod>' . $data . '</lastmod>') !== count($paginas)) {
-                    $erros[] = 'o lastmod tem de ser a data desta publicação em todas as entradas';
+                // As páginas levam a data desta publicação; cada notícia leva a
+                // sua. Um lastmod igual em tudo era o defeito que o Bloco 9
+                // corrigiu, e não volta por outra via.
+                if (substr_count($meio, '<lastmod>' . $data . '</lastmod>') < count($paginas)) {
+                    $erros[] = 'o lastmod das páginas tem de ser a data desta publicação';
+                }
+                // Cada notícia publicada entra uma vez, e com o seu endereço.
+                foreach ($noticias as $nt) {
+                    if (substr_count($meio, '<loc>' . jsc_esc(JSC_SITE_URL . $nt['loc']) . '</loc>') !== 1) {
+                        $erros[] = 'falta a entrada da notícia ' . $nt['loc'];
+                    }
+                }
+                // E nenhuma que não esteja publicada.
+                if (isset($conteudo['noticias']) && is_array($conteudo['noticias'])) {
+                    $servidas = [];
+                    foreach ($noticias as $nt) $servidas[$nt['loc']] = true;
+                    foreach ($conteudo['noticias'] as $nb) {
+                        if (!is_array($nb) || !isset($nb['id'])) continue;
+                        $loc = '/noticias.html?id=' . (string)$nb['id'];
+                        if (isset($servidas[$loc])) continue;
+                        if (strpos($meio, '<loc>' . jsc_esc(JSC_SITE_URL . $loc) . '</loc>') !== false) {
+                            $erros[] = 'o sitemap não pode incluir a notícia não publicada ' . $loc;
+                        }
+                    }
                 }
                 // Nada que não deva ser indexado.
                 foreach (['/admin', '/api/', '/modelos/', '/manutencao.html',

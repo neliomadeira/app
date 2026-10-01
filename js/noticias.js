@@ -4,6 +4,19 @@
   const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
                  'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   const PREVIEW = 9;
+  // O endereço oficial do site, como no js/seo.js e na JSC_SITE_URL do
+  // api/conteudo.php. Não é o window.location: um canonical ou um og:image
+  // montado a partir dele publicaria o endereço do servidor de onde se abriu a
+  // página.
+  const SITE = 'https://campinense.pt';
+
+  // O nome oficial do clube, da mesma fonte única que o js/seo.js lê.
+  function nomeDoClube() {
+    try {
+      const c = JSON.parse(localStorage.getItem('dados_clube') || '{}');
+      return (c && typeof c.nome === 'string') ? c.nome.trim() : '';
+    } catch (e) { return ''; }
+  }
 
   let _all = [];
   let _cat = '';
@@ -77,6 +90,10 @@
 
   const SHARE_BTN_STYLE = 'font-size:0.75rem;padding:5px 10px;border-radius:20px;background:#f0f4ff;color:#003B8E;border:none;cursor:pointer;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:4px';
 
+  // O "Copiar link" leva a classe jsc-so-com-js, que o <noscript> da página
+  // esconde: precisa do navigator.clipboard, e sem JavaScript era um botão que
+  // não fazia nada. Os cartões gerados pelo servidor já a traziam; os que este
+  // ficheiro desenha não, e o mesmo botão ficava com marcação diferente.
   function shareRowHtml(id, titulo) {
     const pageUrl  = encodeURIComponent(window.location.origin + '/noticias.html?id=' + id);
     const titleEnc = encodeURIComponent(titulo);
@@ -85,7 +102,7 @@
     return `<div class="news-share" style="display:flex;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid #eee;flex-wrap:wrap">` +
       `<a href="${jscEscUrl(waUrl)}" target="_blank" rel="noopener" class="news-share-btn" style="${jscEsc(SHARE_BTN_STYLE)}">&#128241; WhatsApp</a>` +
       `<a href="${jscEscUrl(fbUrl)}" target="_blank" rel="noopener" class="news-share-btn" style="${jscEsc(SHARE_BTN_STYLE)}">&#128216; Facebook</a>` +
-      `<button onclick="(function(b){var u=window.location.origin+'/noticias.html?id=${id}';navigator.clipboard.writeText(u).then(function(){var t=b.textContent;b.textContent='✓ Copiado!';setTimeout(function(){b.textContent=t},2000)}).catch(function(){var t=b.textContent;b.textContent='✓ Copiado!';setTimeout(function(){b.textContent=t},2000)})})(this)" class="news-share-btn" style="${jscEsc(SHARE_BTN_STYLE)}">&#128279; Copiar link</button>` +
+      `<button onclick="(function(b){var u=window.location.origin+'/noticias.html?id=${id}';navigator.clipboard.writeText(u).then(function(){var t=b.textContent;b.textContent='✓ Copiado!';setTimeout(function(){b.textContent=t},2000)}).catch(function(){var t=b.textContent;b.textContent='✓ Copiado!';setTimeout(function(){b.textContent=t},2000)})})(this)" class="news-share-btn jsc-so-com-js" style="${jscEsc(SHARE_BTN_STYLE)}">&#128279; Copiar link</button>` +
       `</div>`;
   }
 
@@ -142,29 +159,47 @@
     }
   }
 
+  // Réplica do jsc_noticia_seo() do api/conteudo.php — mesmas propriedades, pela
+  // mesma ordem. O id="articleJsonLd" é o mesmo que o servidor usa: quando o
+  // servidor já escreveu o bloco e é este ficheiro a desenhar o artigo, o
+  // remove() daqui tira o do servidor antes de pôr o seu, e nunca ficam dois.
+  //
+  // Uma propriedade sem valor NÃO é escrita. Antes escrevia-se headline com o
+  // título que não havia e datePublished com '' — um datePublished vazio é um
+  // dado inválido oferecido aos motores de busca, pior do que a ausência.
+  //
+  // O nome do editor sai do dados_clube, como no js/seo.js. Estava escrito à
+  // mão aqui, e era o único sítio do projeto onde o nome do clube voltava a ser
+  // uma constante depois de passar a ter fonte única.
   function injectArticleSchema(n) {
     const old = document.getElementById('articleJsonLd');
     if (old) old.remove();
     if (!n || n.id === '__preview__') return;
-    const plain = (n.resumo || '').replace(/<[^>]+>/g, ' ').trim().slice(0, 500);
-    const schema = {
-      '@context': 'https://schema.org',
-      '@type': 'NewsArticle',
-      'headline': n.titulo,
-      'description': plain,
-      'datePublished': n.data ? n.data + 'T00:00:00+00:00' : '',
-      'url': 'https://campinense.pt/noticias.html?id=' + n.id,
-      'publisher': {
-        '@type': 'Organization',
-        'name': 'Juventude Sport Campinense',
-        'logo': { '@type': 'ImageObject', 'url': 'https://campinense.pt/images/logo.png' }
-      }
-    };
-    if (n.imagem && !n.imagem.startsWith('data:')) schema.image = n.imagem;
+
+    const titulo = n.titulo === null || n.titulo === undefined ? '' : String(n.titulo);
+    const plain  = (n.resumo || '').replace(/<[^>]+>/g, ' ').trim().slice(0, 500);
+    const imagem = jscUrlAbsoluta(n.imagem, SITE);
+
+    const schema = { '@context': 'https://schema.org', '@type': 'NewsArticle' };
+    if (titulo) schema.headline = titulo;
+    if (plain)  schema.description = plain;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(String(n.data || ''))) {
+      schema.datePublished = n.data + 'T00:00:00+00:00';
+    }
+    schema.url = SITE + '/noticias.html?id=' + n.id;
+    const editora = { '@type': 'Organization' };
+    const clube = nomeDoClube();
+    if (clube) editora.name = clube;
+    editora.logo = { '@type': 'ImageObject', 'url': SITE + '/images/logo.png' };
+    schema.publisher = editora;
+    if (imagem) schema.image = imagem;
+
     const s = document.createElement('script');
     s.id = 'articleJsonLd';
     s.type = 'application/ld+json';
-    s.textContent = JSON.stringify(schema);
+    // O < escapado impede que um valor do painel feche o <script>. É o mesmo
+    // que o JSON_HEX_TAG faz do lado do PHP.
+    s.textContent = JSON.stringify(schema).replace(/</g, '\\u003C');
     document.head.appendChild(s);
   }
 
@@ -224,7 +259,9 @@
     if (featured) featured.hidden = true;
     if (!article) return;
 
-    const imgPos   = n.imagemPos  || 'top';
+    // A posição passa pelo jscNoticiaImagemPos(): vai para um nome de classe,
+    // e um valor desconhecido inventava uma classe que o CSS não tem.
+    const imgPos   = jscNoticiaImagemPos(n.imagemPos);
     const imgSize  = n.imagemSize || 'cover';
     const imgStyle = n.imagem
       ? `background-image:url('${jscEscUrlCss(n.imagem)}');background-size:${jscEsc(imgSize)};background-position:${jscEsc(n.focalPos || 'center')};background-repeat:no-repeat`
@@ -236,22 +273,28 @@
     const midImg  = imgPos === 'center' ? imgHtml : '';
     const bodyImg = (imgPos === 'left' || imgPos === 'right') ? imgHtml : '';
 
-    const relacionados = n.id === '__preview__' ? [] :
+    // Sem categoria não há bloco de relacionadas: a seguir à categoria vazia
+    // vinha "Mais em " com o título a meio, e juntavam-se ao artigo todas as
+    // outras notícias sem categoria como se fossem do mesmo tema.
+    const relacionados = (n.id === '__preview__' || !n.categoria) ? [] :
       _all.filter(x => x.id != n.id && x.categoria === n.categoria).slice(0, 3);
 
+    // O <h2> e não <h3>: o artigo tem o <h1>, e um <h3> a seguir salta um
+    // nível. E o título de cada cartão é uma ligação a sério — o cartão
+    // inteiro continua clicável com JavaScript, mas sem ele era um <p> morto.
     const relacionadosHtml = relacionados.length ? `
       <div class="not-related">
-        <h3 class="not-related__title">Mais em ${jscEsc(n.categoria)}</h3>
+        <h2 class="not-related__title">Mais em ${jscEsc(n.categoria)}</h2>
         <div class="not-related__grid">
           ${relacionados.map((r, i) => {
             const imgStyle = r.imagem
-              ? `background-image:url('${jscEscUrl(r.imagem)}');background-size:cover;background-position:${jscEsc(r.focalPos || 'center')}`
+              ? `background-image:url('${jscEscUrlCss(r.imagem)}');background-size:cover;background-position:${jscEsc(r.focalPos || 'center')};background-repeat:no-repeat`
               : '';
             return `<article class="not-related__card" data-rel-id="${jscEsc(r.id)}" style="cursor:pointer">
               <div class="not-related__img not-related__img--${jscEsc((i % 3) + 1)}"${imgStyle ? ` style="${imgStyle}"` : ''}></div>
               <div class="not-related__body">
-                <time class="news-card__date">${jscEsc(ptDate(r.data))}</time>
-                <p class="not-related__heading">${jscEsc(r.titulo)}</p>
+                <time class="news-card__date" datetime="${jscEsc(r.data || '')}">${jscEsc(ptDate(r.data))}</time>
+                <p class="not-related__heading"><a class="not-related__link" href="noticias.html?id=${jscEsc(r.id)}">${jscEsc(r.titulo)}</a></p>
               </div>
             </article>`;
           }).join('')}
@@ -259,20 +302,30 @@
       </div>` : '';
 
     article.hidden = false;
+    // Este conteúdo é desenhado aqui, não vem do servidor: fica o data-id, para
+    // se saber qual é o artigo, e sai o data-gerado, que é a marca de conteúdo
+    // servido.
+    if (n.id !== '__preview__') article.setAttribute('data-id', String(n.id));
+    article.removeAttribute('data-gerado');
+    article.removeAttribute('data-estado');
+    // O topImg e o midImg são marcação, não texto: estavam a passar pelo
+    // jscEsc(), e o resultado era a etiqueta <div> da imagem escrita por
+    // extenso no meio do artigo. O que lá vai dentro — o endereço da imagem —
+    // é que está escapado, acima, com o jscEscUrlCss().
     article.innerHTML = `
       <div class="not-article-wrap">
         <div style="padding-top:20px">
-          <button class="news-archive__back" id="notBack">&#8592; Voltar às notícias</button>
+          <a class="news-archive__back" id="notBack" href="noticias.html">&#8592; Voltar às notícias</a>
         </div>
         <div class="news-article" style="padding:0 0 32px">
-          ${jscEsc(topImg)}
+          ${topImg}
           <h1 class="news-article__title">${jscEsc(n.titulo)}</h1>
           <div class="news-article__meta">
-            <span class="news-article__cat-badge">${jscEsc(n.categoria || '')}</span>
-            <time>${jscEsc(ptDate(n.data))}</time>
+            ${n.categoria ? `<span class="news-article__cat-badge">${jscEsc(n.categoria)}</span>` : ''}
+            ${n.data ? `<time datetime="${jscEsc(n.data)}">${jscEsc(ptDate(n.data))}</time>` : ''}
             <span style="color:#999;font-size:0.82rem">&#128336; ${jscEsc(readingTime(n.resumo))} de leitura</span>
           </div>
-          ${jscEsc(midImg)}
+          ${midImg}
           <div class="news-article__body">
             ${bodyImg}${n.resumo || '<em style="color:#aaa">Sem texto disponível.</em>'}
           </div>
@@ -284,12 +337,19 @@
 
     injectArticleSchema(n);
 
-    document.getElementById('notBack')?.addEventListener('click', () => {
+    // A ligação de voltar e os cartões de relacionadas funcionam sem
+    // JavaScript, por serem ligações. Com JavaScript o clique é interceptado
+    // aqui, para a navegação continuar a ser feita pelo history.
+    document.getElementById('notBack')?.addEventListener('click', (e) => {
+      e.preventDefault();
       history.pushState({}, '', 'noticias.html');
       backToList();
     });
     article.querySelectorAll('.not-related__card').forEach(card => {
-      card.addEventListener('click', () => openArticle(card.dataset.relId));
+      card.addEventListener('click', (e) => {
+        e.preventDefault();
+        openArticle(card.dataset.relId);
+      });
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
     startReadingProgress();
@@ -302,7 +362,12 @@
     const article  = document.getElementById('notArticle');
     const featured = document.getElementById('notFeatured');
 
-    if (article)  article.hidden  = true;
+    if (article) {
+      article.hidden = true;
+      article.removeAttribute('data-id');
+      article.removeAttribute('data-gerado');
+      article.removeAttribute('data-estado');
+    }
     if (grid)     grid.hidden     = false;
     if (featured) featured.hidden = false;
     document.getElementById('articleJsonLd')?.remove();
@@ -363,6 +428,26 @@
     return jscBlocoAtual(document.getElementById('notGrid'), _all.length);
   }
 
+  // O artigo também pode já vir escrito pelo servidor — é o E2: o
+  // api/noticia.php responde ao noticias.html?id=N com o artigo lá dentro.
+  // Reconhece-se por três coisas, e todas têm de bater:
+  //   data-id       é o artigo DESTE endereço, e não de outro;
+  //   data-gerado   veio do servidor, não foi este ficheiro a desenhá-lo;
+  //   e a publicação que o gerou não é anterior à que este browser conhece —
+  //   quem responde a isso é o jscBlocoAtual(), como nos outros blocos.
+  function artigoServidoEstaAtual(id) {
+    const el = document.getElementById('notArticle');
+    if (!el || el.getAttribute('data-id') !== String(id)) return false;
+    return jscBlocoAtual(el);
+  }
+
+  // O servidor respondeu "não encontrada" (404). Não se desenha a lista por
+  // cima: a mensagem é a resposta, e a lista fica a um clique de distância.
+  function artigoServidoAusente() {
+    const el = document.getElementById('notArticle');
+    return !!el && el.getAttribute('data-estado') === 'ausente';
+  }
+
   // Só o primeiro desenho é que se pode dispensar. Tudo o que venha depois —
   // filtrar, "Ver mais", voltar do artigo, o painel a gravar noutro
   // separador — desenha sempre.
@@ -404,11 +489,15 @@
       desenharListaSeNecessario();
     }
   } else if (idParam) {
-    const n = _all.find(x => x.id == idParam);
-    if (n) {
-      showArticle(n);
+    if (artigoServidoEstaAtual(idParam)) {
+      // Já está na página, e está actual. Não se toca.
     } else {
-      desenharListaSeNecessario();
+      const n = _all.find(x => x.id == idParam);
+      if (n) {
+        showArticle(n);
+      } else if (!artigoServidoAusente()) {
+        desenharListaSeNecessario();
+      }
     }
   } else {
     desenharListaSeNecessario();

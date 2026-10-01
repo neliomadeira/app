@@ -2640,3 +2640,357 @@ dentro da pasta privada da sessão, a `0700`, onde o Apache — que corre como
 `www-data` — responde 403 a **todos** os ficheiros estáticos. Os 403 do
 `AUDITORIA.md` e do `scraper/` passavam pela razão errada. A cópia passou para
 um sítio alcançável, e só então as asserções mediram o que dizem medir.
+
+# FASE C — BLOCO 10: NOTÍCIA INDIVIDUAL (E2 — MINI-PILOTO)
+
+O primeiro conteúdo do projeto gerado **ao pedido**, e não na publicação. O
+`noticias.html?id=N` passa a ser respondido pelo `api/noticia.php`, por reescrita
+interna do Apache: o endereço público não muda, o visitante continua a ver
+`noticias.html?id=N`, e o artigo, o `<head>` e os dados estruturados dessa notícia
+vão no HTML que o servidor entrega.
+
+O âmbito é um só: a notícia individual. Nada mais passou a ser gerado ao pedido.
+
+## O que estava mal, medido
+
+**Uma notícia só existia com JavaScript.** O artigo era desenhado pelo
+`showArticle()` do `js/noticias.js` a partir do `localStorage`. Sem JavaScript,
+`noticias.html?id=1001` respondia **200 com a lista inteira** e o artigo nunca
+aparecia. O contentor `#notArticle` ficava vazio e escondido.
+
+**As 21 notícias tinham um só título e uma só descrição.** O `<head>` era o da
+lista: `<title>Notícias – …</title>`, a mesma `description`, o mesmo `og:title`,
+o mesmo `og:image` (o logótipo), e o canonical a apontar sempre para
+`/noticias.html`. Medido: cada artigo partilhado no WhatsApp ou no Facebook
+mostrava o cartão da página de notícias, não o da notícia. E para os motores de
+busca, os 21 endereços eram **uma página só**.
+
+**Um id inventado respondia 200.** `noticias.html?id=999999` devolvia a lista
+com estado 200 — um endereço indexável, infinitamente multiplicável, a mostrar
+sempre o mesmo conteúdo.
+
+**O service worker guardava qualquer resposta de documento.** O ramo dos
+documentos fazia `c.put(e.request, clone)` **sem olhar ao estado**. Enquanto
+todas as páginas eram ficheiros estáticos isso era inofensivo. Com respostas 404
+a sério deixava de ser: uma 404 guardada passava a ser servida no lugar da
+página, inclusive depois de a notícia ser publicada, e inclusive offline, onde a
+resposta guardada é a única que há. É a correcção **J2**.
+
+**A imagem do artigo saía escrita por extenso.** O `showArticle()` fazia
+`${jscEsc(topImg)}` e `${jscEsc(midImg)}` — e o `topImg` é marcação, não texto.
+Resultado: a etiqueta `<div class="news-article__img" style="…">` aparecia como
+texto visível no meio do artigo, em vez da imagem. O endereço da imagem, esse,
+estava bem escapado, um nível acima.
+
+**O caminho de volta era um `<button>`.** Sem JavaScript não fazia nada, e era o
+único caminho de volta que o artigo oferecia. Os cartões de notícias relacionadas
+tinham o mesmo problema: `<div onclick>` sem ligação por dentro.
+
+**O JSON-LD do artigo escrevia propriedades vazias e um nome em constante.**
+`headline` com o título que não havia, `datePublished: ''` quando a data faltava,
+e `publisher.name` escrito à mão como `'Juventude Sport Campinense'` — o único
+sítio do projeto onde o nome do clube voltava a ser uma constante depois de
+passar a ter fonte única no Bloco 9.
+
+## A reescrita interna, confirmada no alojamento antes de ser escrita
+
+A arquitectura foi confirmada no alojamento real (`novo.campinense.pt`, cPanel)
+**antes** de se implementar: PHP 8.3.33 com SAPI `cgi-fcgi`, `mod_rewrite`
+activo, a `RewriteRule` a fazer reescrita interna para um ficheiro PHP
+preservando o endereço público, o PHP a receber o `id` e a query completa, e o
+ramo de 404 a executar. A regra de teste, temporária e com nome inequívoco, foi
+retirada depois.
+
+A regra definitiva, no `.htaccess`:
+
+```
+RewriteCond %{QUERY_STRING} (^|&)id=[0-9]+(&|$)
+RewriteCond %{QUERY_STRING} !(^|&)preview=
+RewriteRule ^noticias\.html$ /api/noticia.php [L,QSA]
+```
+
+Três linhas, três decisões. Só actua com um `id` de dígitos — sem `id`, ou com um
+`id` que não seja número, a página serve-se estática como sempre. O `?preview=1`
+fica **de fora**: a pré-visualização é o rascunho que o painel guarda no
+`sessionStorage` do próprio browser, não está publicado, e não pode passar a
+existir no servidor. E não há `[R]`: é reescrita, não redirecionamento.
+
+## O canonical nunca sai do REQUEST_URI
+
+Depois da reescrita, `$_SERVER['REQUEST_URI']` diz `/api/noticia.php?id=N`. Foi
+medido. Um canonical, um `og:url` ou um `url` de JSON-LD construídos a partir
+dele publicariam o endereço interno — e seria o endereço que os motores de busca
+guardariam.
+
+Por isso todos eles se montam da `JSC_SITE_URL` mais o `id` **já validado**, e há
+uma asserção que exige que nem o canonical, nem o `og:url`, nem o JSON-LD
+contenham `api/noticia.php`.
+
+## O id compara-se como texto, nunca com `==`
+
+O `js/noticias.js` faz `_all.find(x => x.id == idParam)`. Em JavaScript o `==`
+entre número e texto converte: `'1e3' == 1000` é verdade, e `' 12' == 12` também.
+
+No servidor o id passa primeiro por `jsc_noticia_id_valido()` — `^\d{1,19}$`, só
+dígitos, dezenove no máximo porque é o que cabe num inteiro de 64 bits — e só
+depois se procura, com comparação de **texto**. Um `?id=1e3` não chega a ser
+procurado: a própria `RewriteCond` já não reescreve, e se chegasse seria 404.
+`?id[]=1` chega como array e `?id=1&id=abc` chega como `'abc'`; em qualquer dos
+casos a resposta é a mesma de um id que não existe.
+
+## As três situações que dão 404, e são a mesma
+
+Notícia que não existe, notícia não publicada, notícia agendada para um momento
+que ainda não chegou: **404** nas três, com a mesma página. É deliberado — uma
+resposta diferente para a notícia que existe mas não está publicada diria a quem
+adivinhasse o número que ela existe.
+
+O filtro é o **mesmo** da lista pública, `jsc_noticias_pagina()`, chamado e não
+reescrito: duas cópias do filtro divergem, e a divergência aqui significaria uma
+notícia por publicar legível a quem adivinhasse o id. A página pública nunca lê
+conteúdo administrativo não publicado, e isso foi medido **com e sem sessão de
+Comunicação aberta**: nem o título da notícia não publicada nem o da agendada
+para o futuro aparecem no HTML.
+
+O 404 leva `noindex, follow` no HTML **e** no cabeçalho `X-Robots-Tag`, uma
+ligação a sério para as notícias, e **nenhum** canonical, `og:` ou JSON-LD: um
+canonical numa página de erro manda o motor de busca juntar o erro a outro
+endereço, e um `og:title` a dizer "não encontrada" só serve para ser partilhado
+por engano.
+
+## Sem lista de notícias não se decide nada
+
+Há uma diferença entre *a lista existe e esta notícia não está lá* — que é 404 —
+e *não há lista para consultar*, que é o que acontece quando o `data/db.json`
+ainda não foi enviado para o alojamento. No segundo caso serve-se a página como
+está, que é o que o visitante receberia sem o E2: responder 404 a todos os
+endereços de notícia transformava uma instalação incompleta num site com centenas
+de erros indexáveis. Uma lista que existe e está **vazia** é outra coisa, e aí a
+resposta certa é 404. As duas situações têm asserção própria.
+
+## Três regiões trocadas ao pedido, duas delas novas
+
+```
+JSC:noticia-head      o <head> da notícia: título, descrição, OG, Twitter,
+                      canonical e o JSON-LD do artigo
+JSC:noticia-artigo    o contentor #notArticle, com o artigo inteiro
+JSC:noticias-pagina   a lista, que na vista de artigo fica escondida
+```
+
+As duas primeiras são marcas novas na `noticias.html` e **não são regiões do
+E1**: o `api/geracao.php` não as conhece, e há uma asserção que o exige. O que
+está entre elas no ficheiro publicado é o `<head>` da lista e o contentor vazio e
+escondido — e é isso que o visitante recebe quando pede o `noticias.html` sem
+`id`. Como ficam **fora** de todas as regiões do E1, estão protegidas pelo hash
+do exterior: o gerador não lhes pode tocar. O `<link rel="canonical">` mudou de
+lugar no `<head>` para ficar dentro da região, contíguo às outras marcas.
+
+A terceira é a região do E1, e o E2 escreve-lhe **na resposta**, nunca no
+ficheiro. A razão é que a vista de artigo mostra o artigo, não a lista: o
+`showArticle()` esconde os cinco contentores antes de desenhar, e sem JavaScript
+ninguém os esconderia — o visitante receberia o artigo com a lista inteira por
+baixo, e com um canonical, um `og:title` e um `<h1>` de artigo numa página que
+mostra uma lista. Os cinco contentores ficam lá, vazios e escondidos, porque o
+`js/noticias.js` procura-os pelo id; e **sem** `data-gerado` no `#notGrid`, que é
+como o JavaScript sabe que a lista não vem servida.
+
+## Paridade PHP ↔ JavaScript, verificada por comparação directa
+
+O servidor e o `js/noticias.js` escrevem o **mesmo HTML** para o mesmo artigo. Não
+é uma afirmação: é um teste. Pede-se o artigo duas vezes — uma pelo E2, outra com
+`&preview=0`, que faz o `.htaccess` não reescrever e portanto é o JavaScript a
+desenhar — e comparam-se os dois `innerHTML`, com a origem normalizada (o
+JavaScript usa a origem a sério do browser, o servidor usa o endereço oficial).
+Cinco notícias, cinco comparações, mais o JSON-LD de cada uma.
+
+Foi esta comparação que encontrou a última divergência: o botão "Copiar link" dos
+cartões gerados levava `jsc-so-com-js` — a classe que o `<noscript>` esconde,
+porque precisa do `navigator.clipboard` — e o mesmo botão desenhado pelo
+JavaScript não levava. Divergência anterior a este bloco, e corrigida aqui.
+
+Para a paridade existir, acrescentaram-se dois gémeos ao `js/html.js`:
+`jscNoticiaImagemPos()` e `jscUrlAbsoluta()`, réplicas de
+`jsc_noticia_imagem_pos()` e `jsc_url_absoluta()`.
+
+## O filtro de HTML aplica-se também ao servir
+
+O `api/save.php` filtra o resumo de cada notícia com `jsc_sanitizar_noticia()`
+**ao gravar**, desde o commit `ce014d4`. O `api/noticia.php` aplica o **mesmo**
+filtro ao servir. Não é redundância cega: as notícias guardadas antes de o filtro existir
+nunca foram filtradas, e é este ficheiro que as escreve no HTML do servidor. Para
+tudo o que foi gravado depois do filtro não muda nada — é a mesma função, e é
+idempotente.
+
+Medido com um resumo que leva `<script>`, `<img src=x onerror>`, um
+`href="javascript:"` e um `style="position:fixed"`: nada disso chega ao HTML, o
+texto legítimo sobrevive, e o `window.__xss` continua `undefined` com e sem
+JavaScript. O `src="x"` do ensaio não existe de propósito — é o que faz o browser
+tentar carregá-lo e falhar, que é quando um `onerror` correria —, e há uma
+asserção a exigir que esse pedido tenha mesmo sido feito e tenha mesmo falhado.
+Sem ela o ensaio podia estar a medir nada.
+
+## Campo vazio não produz propriedade
+
+Notícia sem imagem: **sem** `og:image`, sem `twitter:image`, e o
+`twitter:card` volta a `summary` em vez de `summary_large_image`. Um `og:image`
+com o logótipo do clube em vez da imagem do artigo é uma partilha que mostra
+outra coisa.
+
+Notícia sem texto: **sem** `description`, sem `og:description`, e o JSON-LD sai
+sem `description`. A página diz "Sem texto disponível", que é verdade.
+
+Notícia sem título: o `<title>` fica "Notícias" com o nome do clube atrás, e o
+JSON-LD sai sem `headline`. Sem nome de clube guardado não se inventa sufixo.
+
+Uma imagem embutida (`data:`) não produz `og:image`: não tem endereço público.
+
+## Falha nenhuma deixa a página em branco
+
+Se o ficheiro não se ler, se uma marca não estiver onde devia, se um modelo não
+escrever nada ou escrever um aviso do PHP — serve-se a `noticias.html` tal como
+está no disco, que é **exactamente** o que o visitante receberia sem o E2.
+Degradação, não erro. Medido: com a marca de fim do artigo estragada e com a
+marca de início da cabeça estragada, a resposta é 200 e a página de notícias
+continua de pé com os seus cartões.
+
+O `jsc_e2_bloco()` repete as guardas do motor do E1: modelo em falta, excepção,
+saída vazia, e as cinco marcas de aviso do PHP (`Fatal error`, `Parse error`,
+`Warning:`, `Notice:`, `Deprecated:`).
+
+## A armadilha do `extract()`, outra vez
+
+O `jsc_gerar_bloco()` do E1 faz `extract($vars, EXTR_SKIP)`, e no Bloco 9 isso
+fez o rodapé sair com `© 2026 rodape-base@index.html` porque o modelo pedia
+`$nome` e o motor tinha uma variável com esse nome no âmbito.
+
+O `jsc_e2_bloco()` faz o mesmo `extract()`. Por isso **todas** as suas variáveis
+locais levam prefixo `jscE2`, e há uma guarda que lê o corpo da função e exige
+que nenhuma variável sem esse prefixo exista lá dentro — mais outra que exige que
+nenhuma chave passada aos modelos comece por `jscE2`.
+
+## O sitemap passa a listar as notícias
+
+21 entradas novas no sitemap de teste, uma por notícia publicada, cada uma com o
+**seu** `lastmod` — a data da notícia, não a da publicação que gerou o ficheiro.
+As páginas continuam com a data da publicação.
+
+Entram pela mesma lista que o `api/noticia.php` serve com 200, e os ids passam
+pela mesma validação: nenhum endereço do sitemap pode responder 404. E não entram
+as não publicadas nem as agendadas para o futuro — há asserção pelos dois lados,
+a exigir que cada publicada esteja lá uma vez e que as outras não estejam.
+
+A estratégia de indexação do Bloco 9 (H1) mantém-se: as modalidades e os escalões
+continuam fora, e a pesquisa continua com `noindex, follow`.
+
+## Só lê
+
+O `api/noticia.php` não tem uma única instrução de escrita, e não requer o
+`api/sessao.php` nem o `api/geracao.php` — não entra no caminho de autenticação
+nem no de geração. Um `GET` público nunca provoca escrita.
+
+A reescrita do Apache olha para o endereço, não para o método: um `POST` ao
+`noticias.html?id=1` chegaria aqui. Responde **405** com `Allow: GET, HEAD`, e o
+`HEAD` continua a responder 200. Medido com `POST`, `PUT`, `DELETE` e `PATCH`, e
+com o `data/db.json` comparado byte a byte antes e depois.
+
+## Acessibilidade
+
+O caminho de volta passou a ser `<a href="noticias.html">` em vez de `<button>`:
+funciona sem JavaScript, recebe foco e tem endereço. Com JavaScript o clique
+continua a ser interceptado, para a navegação ser feita pelo `history`.
+
+Cada cartão de notícias relacionadas ganhou uma ligação a sério no título, e o
+título do bloco passou de `<h3>` para `<h2>` — o artigo tem o `<h1>`, e um `<h3>`
+a seguir saltava um nível. Os `<time>` passaram a levar `datetime`.
+
+Sem categoria não há bloco de relacionadas: antes escrevia-se "Mais em " com o
+título a meio, e juntavam-se ao artigo todas as outras notícias sem categoria
+como se fossem do mesmo tema.
+
+## O que fica em aberto, e porquê
+
+**Dois `<h1>` na vista de artigo.** O herói da página diz
+`<h1 class="page-hero__title">Notícias</h1>`, e está **fora** das duas regiões do
+E2. O artigo acrescenta o seu `<h1>`, que é o que os motores de busca devem ler
+como título do artigo. Não é uma regressão — com JavaScript já era assim antes
+deste bloco —, mas passa a ser visível para quem rastreia. Resolvê-lo exige uma
+região no herói, e isso é âmbito de outro bloco.
+
+**`background-size: auto cover`.** Uma notícia da fixture tem `imagemSize` com o
+prefixo `auto `, e `auto cover` não é um valor válido de `background-size`: o
+browser descarta a declaração. O `jsc_noticias()` da página inicial retira esse
+prefixo; o `jsc_noticias_pagina()` não. O servidor e o JavaScript produzem o mesmo
+valor, por isso não há divergência — é um defeito de dados anterior a este bloco,
+e corrigi-lo é mudar o que a lista mostra, fora do âmbito.
+
+**As notícias antigas não foram migradas.** Nenhum registo foi alterado. O E2 lê
+o que está publicado, como está.
+
+**Atleta, modalidade e escalão continuam fora do E2.** O piloto é a notícia
+individual, e só.
+
+## Guardas de regressão
+
+Nove, todas a falhar se o que corrigiram voltar: o canonical e o `og:url` a não
+conterem `api/noticia.php`; as duas marcas novas a aparecerem exactamente uma vez
+e em par; o `api/geracao.php` a **não** as registar como blocos; o conteúdo
+estático das duas regiões a continuar a ser o da lista depois de gerar; as
+marcas do E2 a voltarem intactas depois de um `--reverter`; o ramo dos documentos
+do `sw.js` a verificar o estado antes de guardar; o `api/noticia.php` sem
+instruções de escrita e sem requerer `sessao.php` ou `geracao.php`; as variáveis
+do `jsc_e2_bloco()` todas com prefixo; e a paridade do HTML e do JSON-LD entre o
+servidor e o JavaScript, em cinco notícias.
+
+## Como se verificou
+
+`node tools/testar-sem-js.js` — **1160 verificações** (1034 antes). Deste bloco:
+o artigo visível **sem JavaScript**, com o corpo, a data, a categoria, o tempo de
+leitura, a imagem na posição guardada e as três relacionadas, cada uma com
+ligação navegável; a lista escondida e sem `data-gerado`; o `<title>`, a
+`description`, o canonical, o `og:url`, o `og:type`, o `og:title`, o
+`twitter:title` e o `og:image` **da notícia** e não da lista; um e um só JSON-LD
+de artigo, sem propriedades vazias, com o editor vindo do nome guardado; notícia
+sem imagem sem `og:image` e com `twitter:card` a voltar a `summary`; notícia sem
+texto sem `description` em sítio nenhum; o `&` e o `<b>` do título a ficarem
+texto; a imagem com apóstrofo e parêntesis a não fechar o `url()` do CSS; a
+agendada já vencida a responder 200; **404** para a que não existe, a não
+publicada, a agendada para o futuro e um id de vinte dígitos, as quatro com
+`noindex` no HTML e no cabeçalho, com ligação para as notícias, sem canonical nem
+Open Graph, sem JSON-LD, sem vestígio do título, e sem a lista por baixo; com
+JavaScript o artigo a continuar um só e o bloco servido a ser reconhecido pelo
+`data-id` e pelo `data-gerado`; a paridade do HTML e do JSON-LD em cinco
+notícias; o `?preview=1` a não ser reescrito e a continuar a ser o rascunho do
+browser; as duas marcas estragadas a darem 200 com a página de pé; sem lista de
+notícias a responder 200 e com lista vazia a responder 404; o service worker a
+guardar o 200 e **a não guardar o 404**, com a página mesmo sob o seu controlo; o
+`POST` a dar 405 sem alterar os dados; os três modelos novos → **403**; o
+`<script>`, o `onerror`, o `javascript:` e o `position:` filtrados ao servir, com
+o texto legítimo intacto; o sitemap com 13 páginas mais 21 notícias, cada notícia
+com a sua data e nenhuma não publicada; **as sete larguras** (320, 375, 414, 768,
+1024, 1280, 1440) com e sem JavaScript, sem transbordo; o exterior às regiões
+igual byte a byte em 18 ficheiros; e o reverter a devolver os 19 alvos e as
+quatro marcas do E2.
+
+`node tools/validar.js --comparar` — sem problemas em 168 combinações,
+**novos: 0**. O `noticias.html?id=1` passou a aceitar **200 ou 404** nesse guião,
+porque as duas são legítimas e dependem do conteúdo publicado que esteja no sítio
+onde ele corre: sem `data/db.json` — o caso do projeto, que não o versiona — não
+há lista para consultar e serve-se a página, 200; com lista e sem esse id, 404. A
+regra do E2 é medida onde há dados de teste, no `testar-sem-js.js`; aqui o que se
+mede é que a página não esteja partida, e continua a ser medida como as outras —
+texto visível, transbordo, consola, erros de JavaScript.
+
+Fase A reverificada ponta-a-ponta numa cópia do projeto, com três perfis de teste
+e credenciais descartáveis que nunca entraram no repositório: `400` a um GET ao
+`auth.php`, `400` sem o cabeçalho do painel, `401` com password errada, `401` a
+escrever sem sessão, `405` a um GET ao `save.php`; `200` para a Comunicação a
+alterar notícias e `403` a alterar `siteConfig`; `403` para o Matchday nas duas;
+`200` para o Administrador a alterar `siteConfig`; o E2 a responder 200 à
+publicada e 404 à não publicada e à agendada, **com e sem sessão aberta** e sem
+vestígio nenhum do que não está publicado; `405` a `POST`, `PUT`, `DELETE` e
+`PATCH` com o `data/db.json` inalterado; os três modelos novos, o `/data/db.json`
+e o `/AUDITORIA.md` a 403 com o `manifest.json` ainda a 200; e o `api/sessao.php`
+sem uma linha sobre este bloco.
+
+Não houve deploy. A raiz de `novo.campinense.pt` ainda não contém o site
+completo, e este bloco não a alterou.

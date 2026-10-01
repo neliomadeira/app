@@ -24,9 +24,17 @@
 // O que NÃO entra está decidido em jsc_sitemap_paginas(), com a razão de cada
 // ausência escrita ao lado.
 //
+// Desde o Bloco 10 entram também as notícias publicadas, uma por artigo
+// (noticias.html?id=N). Passaram a ser endereços a sério: o api/noticia.php
+// responde-lhes com o artigo, o título e a descrição dessa notícia. Antes eram
+// a mesma página para os motores de busca, e por isso não se listavam.
+//
+// Cada entrada traz o seu lastmod: as páginas levam a data da publicação, as
+// notícias levam a data da notícia.
+//
 // Recebe:
-//   $paginas  lista de ['loc' => caminho, 'freq' => …, 'pri' => …]
-//   $data     data da publicação, em AAAA-MM-DD
+//   $entradas  lista de ['loc' => caminho, 'freq' => …, 'pri' => …,
+//                        'lastmod' => AAAA-MM-DD]
 // =====================================================
 
 if (!defined('JSC_GERACAO')) {
@@ -34,13 +42,12 @@ if (!defined('JSC_GERACAO')) {
     exit;
 }
 
-$paginas = (isset($paginas) && is_array($paginas)) ? $paginas : [];
-$data    = isset($data) ? (string)$data : '';
+$entradas = (isset($entradas) && is_array($entradas)) ? $entradas : [];
 ?>
-<?php foreach ($paginas as $p): ?>
+<?php foreach ($entradas as $p): ?>
   <url>
     <loc><?= jsc_esc(JSC_SITE_URL . $p['loc']) ?></loc>
-    <lastmod><?= jsc_esc($data) ?></lastmod>
+    <lastmod><?= jsc_esc(isset($p['lastmod']) ? $p['lastmod'] : '') ?></lastmod>
     <changefreq><?= jsc_esc($p['freq']) ?></changefreq>
     <priority><?= jsc_esc($p['pri']) ?></priority>
   </url>

@@ -1465,6 +1465,10 @@ html.jsc-anima .tl-reveal.tl-visible {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+/* O título de cada cartão de relacionadas é uma ligação, para o artigo se
+   abrir sem JavaScript. Herda a cor do título para não parecer outra coisa. */
+.not-related__link { color: inherit; text-decoration: none; }
+.not-related__card:hover .not-related__link { color: var(--blue); }
 @media (max-width: 600px) {
   .not-related__grid { grid-template-columns: 1fr; }
 }
@@ -2832,6 +2836,9 @@ a.sponsor-card:hover { border-color: #aaa; transform: translateY(-3px); box-shad
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  /* Passou a ser uma ligação a sério, e não um <button>: sem JavaScript um
+     botão não faz nada, e este é o único caminho de volta que o artigo tem. */
+  text-decoration: none;
   font-size: 0.82rem;
   font-weight: 700;
   color: var(--blue);

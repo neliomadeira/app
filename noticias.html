@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <script>try{document.documentElement.setAttribute("data-theme",localStorage.getItem("jsc_theme")||"light")}catch(e){}</script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- JSC:noticia-head:inicio -->
   <title>Notícias – Juventude Sport Campinense</title>
   <meta name="description" content="Últimas notícias e resultados do Juventude Sport Campinense. Fique a par de tudo sobre o clube de futebol de Loulé, Algarve." />
   <meta property="og:type" content="website" />
@@ -17,6 +18,8 @@
   <meta name="twitter:title" content="Notícias – Juventude Sport Campinense" />
   <meta name="twitter:description" content="Últimas notícias e resultados do Juventude Sport Campinense. Fique a par de tudo sobre o clube de futebol de Loulé, Algarve." />
   <meta name="twitter:image" content="https://campinense.pt/images/logo.png" />
+  <link rel="canonical" href="https://campinense.pt/noticias.html" />
+  <!-- JSC:noticia-head:fim -->
   <link rel="preload" as="image" href="/images/logo.svg" fetchpriority="high" />
   <link rel="stylesheet" href="css/styles.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -37,7 +40,6 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32.png" />
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png" />
-  <link rel="canonical" href="https://campinense.pt/noticias.html" />
 </head>
 <body>
 <a href="#main-content" class="skip-link">Saltar para o conteúdo</a>
@@ -140,8 +142,13 @@
       </div>
       <!-- JSC:noticias-pagina:fim -->
 
-      <!-- Article view (shown when ?id= param present or card clicked) -->
+      <!-- Article view: o contentor vazio é o que a lista serve. Quando o
+           endereço traz ?id=N, o api/noticia.php troca esta região pelo
+           artigo inteiro, ao pedido (E2). O api/gerar.php não conhece estas
+           marcas: não é uma região do E1. -->
+      <!-- JSC:noticia-artigo:inicio -->
       <div id="notArticle" hidden></div>
+      <!-- JSC:noticia-artigo:fim -->
 
     </div>
   </section>

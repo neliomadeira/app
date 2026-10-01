@@ -41,6 +41,28 @@ const ROTAS_EXTRA = [
   'noticias.html?id=1',
 ];
 
+// Páginas cuja resposta certa pode não ser 200.
+//
+// O noticias.html?id=N passou a ser servido pelo api/noticia.php (E2, Bloco
+// 10), e aí a resposta depende do conteúdo publicado que estiver no sítio onde
+// este guião corre:
+//
+//   sem data/db.json          não há lista de notícias para consultar, e
+//                             serve-se a página como está: 200. É o caso do
+//                             projeto, que não versiona o data/db.json;
+//   com lista e sem este id   404, que é a resposta certa — antes era 200 com a
+//                             lista, e um id inventado ficava indexado como se
+//                             fosse um artigo.
+//
+// As duas são legítimas, e por isso aceitam-se as duas: o que este guião mede
+// não é a regra do E2 (isso é o tools/testar-sem-js.js, com dados de teste), é
+// que a página não esteja partida.
+//
+// Continua a ser medida como as outras — texto visível, transbordo, consola,
+// erros de JavaScript. O que muda é que um 404 dela própria não conta como
+// recurso em falta.
+const ESTADO_ESPERADO = { 'noticias.html?id=1': [200, 404] };
+
 // Respostas que o .htaccess tem de garantir. Verificadas uma vez.
 const ROTAS_HTTP = [
   { caminho: '/data/db.json',   esperado: 403, porque: 'o conteúdo publicado não pode ser lido diretamente' },
@@ -132,7 +154,8 @@ async function verificarPagina(ctx, url, pagina, largura) {
     return problemas;
   }
 
-  if (!resp || resp.status() !== 200) {
+  const aceitaveis = [].concat(ESTADO_ESPERADO[pagina] || 200);
+  if (!resp || !aceitaveis.includes(resp.status())) {
     problemas.push({ tipo: 'http', pagina, largura, detalhe: `resposta ${resp ? resp.status() : 'nenhuma'}` });
   }
 
@@ -163,12 +186,19 @@ async function verificarPagina(ctx, url, pagina, largura) {
     });
   }
 
-  const errosReais = erros.filter((e) => !RUIDO.some((r) => r.test(e)));
+  // Numa página cuja resposta certa é um erro, o browser escreve esse erro na
+  // consola e conta-o como recurso em falta. É a resposta esperada, não ruído
+  // que se esconde em geral: só nesta página, e só este estado.
+  const ruidoDoEstado = (t) => aceitaveis.some((c) => c !== 200)
+    && new RegExp('(^|\\s)(' + aceitaveis.join('|') + ')(\\s|$)|Failed to load resource').test(t);
+
+  const errosReais = erros.filter((e) => !RUIDO.some((r) => r.test(e)) && !ruidoDoEstado(e));
   for (const e of [...new Set(errosReais)]) {
     problemas.push({ tipo: 'consola', pagina, largura, detalhe: e.slice(0, 160) });
   }
 
-  const falhasReais = [...new Set(falhas)].filter((f) => !RUIDO.some((r) => r.test(f)));
+  const falhasReais = [...new Set(falhas)]
+    .filter((f) => !RUIDO.some((r) => r.test(f)) && !ruidoDoEstado(f));
   for (const f of falhasReais) {
     problemas.push({ tipo: 'recurso', pagina, largura, detalhe: f });
   }

@@ -111,6 +111,31 @@ Options -Indexes
   RewriteCond %{HTTP:X-Forwarded-Proto} !=https
   RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
 
+  # ---- Notícia individual servida pelo servidor (E2) ----
+  # O noticias.html?id=N passa a ser respondido pelo api/noticia.php, que
+  # escreve o artigo, o <head> e os dados estruturados dessa notícia dentro da
+  # página já gerada.
+  #
+  # É uma reescrita INTERNA: sem [R], o endereço público não muda e o visitante
+  # continua a ver noticias.html?id=N. Sem isto, só quem tem JavaScript lê uma
+  # notícia, e os motores de busca e as partilhas vêem sempre o mesmo título e
+  # a mesma descrição, os da lista, em todos os artigos.
+  #
+  # As três linhas, por ordem:
+  #   1. só actua se a query tiver um id só de dígitos. Sem id, ou com um id
+  #      que não seja número, a página serve-se como sempre — estática;
+  #   2. o ?preview=1 fica de fora. A pré-visualização é o rascunho que o
+  #      painel guardou no sessionStorage do próprio browser: não está
+  #      publicado, não existe no servidor, e não pode passar a existir;
+  #   3. o QSA mantém a query toda, e o [L] fecha a reescrita aqui.
+  #
+  # O que o api/noticia.php recebe passa a dizer /api/noticia.php no
+  # REQUEST_URI. É por isso que o canonical de lá se monta do endereço oficial
+  # mais o id, e nunca do REQUEST_URI.
+  RewriteCond %{QUERY_STRING} (^|&)id=[0-9]+(&|$)
+  RewriteCond %{QUERY_STRING} !(^|&)preview=
+  RewriteRule ^noticias\.html$ /api/noticia.php [L,QSA]
+
   # ---- Rede de segurança para os endereços do antigo site WordPress ----
   # No dia em que o WordPress sair, os endereços que o Google já tem
   # indexados deixam de existir. Sem isto passam todos a erro 404 e o

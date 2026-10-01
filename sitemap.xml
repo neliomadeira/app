@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <!-- As entradas são escritas pela geração (modelos/sitemap.php) a partir da
-       lista de jsc_sitemap_paginas(), com o lastmod da publicação. Antes estavam
-       escritas à mão, com 2026-07-01 em todas. Não acrescentar <url> aqui: o que
-       for escrito à mão é substituído na próxima publicação. -->
+  <!-- As entradas são escritas pela geração (modelos/sitemap.php): as páginas da
+       lista de jsc_sitemap_paginas() e, desde o Bloco 10, cada notícia publicada
+       (jsc_sitemap_noticias), com o seu próprio lastmod. Antes estavam escritas
+       à mão, com 2026-07-01 em todas. Não acrescentar entradas aqui: o que for
+       escrito à mão é substituído na próxima publicação. -->
   <!-- JSC:sitemap:inicio -->
   <!-- JSC:sitemap:fim -->
 </urlset>

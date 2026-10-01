@@ -319,6 +319,33 @@
     return (ano >= 1900 && ano <= 2100) ? String(ano) : '';
   }
 
+  // A posição da imagem no artigo de notícia. Réplica exacta do
+  // jsc_noticia_imagem_pos() do api/conteudo.php: só os quatro valores que o
+  // painel oferece, porque o valor vai para um nome de classe.
+  function jscNoticiaImagemPos(valor) {
+    var v = String(valor === null || valor === undefined ? '' : valor).trim().toLowerCase();
+    return (v === 'top' || v === 'center' || v === 'left' || v === 'right') ? v : 'top';
+  }
+
+  // Um endereço absoluto, para o og:image e para os dados estruturados, que não
+  // aceitam caminhos relativos. Réplica exacta do jsc_url_absoluta() do
+  // api/conteudo.php — e, como lá, devolve '' quando não dá para absolutizar:
+  // uma imagem embutida (data:) não tem endereço público, e um esquema que não
+  // seja http(s) não se cita.
+  //
+  // O sítio é o endereço oficial, não o window.location: um og:image com o
+  // endereço do servidor de testes é o que se publicaria a partir de lá.
+  function jscUrlAbsoluta(valor, sitio) {
+    var v = String(valor === null || valor === undefined ? '' : valor).trim();
+    if (v === '') return '';
+    if (v.indexOf('//') === 0) return '';
+    if (/^https?:\/\//i.test(v)) return v;
+    if (/^[a-z][a-z0-9.+-]*:/i.test(v)) return '';
+    return String(sitio || '').replace(/\/+$/, '') + '/' + v.replace(/^\/+/, '');
+  }
+
+  global.jscNoticiaImagemPos = jscNoticiaImagemPos;
+  global.jscUrlAbsoluta = jscUrlAbsoluta;
   global.jscEsc = jscEsc;
   global.jscEscUrl = jscEscUrl;
   global.jscUrlCss = jscUrlCss;

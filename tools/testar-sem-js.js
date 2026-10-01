@@ -354,6 +354,25 @@ function testesDeGeracao(raiz, dados) {
     const colisoes = [...chaves].filter((k) => reservadas.includes(k));
     verificar('modelos: nenhuma chave passada aos modelos colide com o motor',
       colisoes.length === 0, 'colidem: ' + colisoes.join(', '));
+
+    // A mesma armadilha existe no E2: o jsc_e2_bloco() do api/noticia.php faz o
+    // mesmo extract(). Lá as variáveis locais levam prefixo jscE2 de propósito,
+    // e é isso que se verifica — nenhuma variável local sem prefixo, e nenhuma
+    // chave passada aos modelos a colidir com as que há.
+    const e2 = fs.readFileSync(path.join(RAIZ_PROJETO, 'api/noticia.php'), 'utf8')
+      .replace(/^\s*\/\/.*$/gm, '');
+    const corpoE2 = (e2.match(/function jsc_e2_bloco[\s\S]*?\n\}/) || [''])[0];
+    const locaisE2 = [...new Set([...corpoE2.matchAll(/\$(\w+)/g)].map((m) => m[1]))]
+      .filter((v) => !/^jscE2/.test(v));
+    verificar('E2: todas as variáveis do jsc_e2_bloco() levam o prefixo jscE2',
+      locaisE2.length === 0, 'sem prefixo: ' + locaisE2.join(', '));
+    const chavesE2 = new Set();
+    for (const m of e2.matchAll(/jsc_e2_bloco\(\s*'[^']+'\s*,\s*\[([\s\S]*?)\]\)/g)) {
+      for (const k of m[1].matchAll(/'(\w+)'\s*=>/g)) chavesE2.add(k[1]);
+    }
+    verificar('E2: o jsc_e2_bloco() recebe chaves, e nenhuma colide com as suas variáveis',
+      chavesE2.size >= 4 && [...chavesE2].every((k) => !/^jscE2/.test(k)),
+      chavesE2.size + ' chaves: ' + [...chavesE2].join(', '));
   }
 
   // ---- Guardas dos dois números sem fonte da página inicial --------
@@ -1501,6 +1520,22 @@ function testesDeGeracao(raiz, dados) {
     foraDasMarcas(idxRevertido, 'index.html') !== null
     && BLOCOS['index.html'].every((b) => idxRevertido.includes(b.ini) && idxRevertido.includes(b.fim)));
 
+  // As marcas do E2 não são regiões do E1, mas vivem no mesmo ficheiro: fazem
+  // parte do que está FORA das regiões, e é por isso que o reverter as tem de
+  // devolver intactas. Sem elas o api/noticia.php não tem onde escrever, e a
+  // notícia individual deixava de ser servida depois de um reverter.
+  {
+    const notRevertido = fs.readFileSync(not, 'utf8');
+    const marcasE2 = ['<!-- JSC:noticia-head:inicio -->', '<!-- JSC:noticia-head:fim -->',
+                      '<!-- JSC:noticia-artigo:inicio -->', '<!-- JSC:noticia-artigo:fim -->'];
+    const faltam = marcasE2.filter((m) => !notRevertido.includes(m));
+    verificar('reverter: as marcas do E2 na noticias.html voltaram todas',
+      faltam.length === 0, 'faltam: ' + faltam.join(', '));
+    verificar('reverter: o contentor do artigo voltou vazio e escondido',
+      /<!-- JSC:noticia-artigo:inicio -->\s*<div id="notArticle" hidden><\/div>\s*<!-- JSC:noticia-artigo:fim -->/
+        .test(notRevertido));
+  }
+
   // ---- Deixar a cópia no estado bom, com a fixture gerada --------
   fs.writeFileSync(idx, htmlBom);
   fs.writeFileSync(not, notBom);
@@ -1650,6 +1685,179 @@ async function testarNoticias(browser, url, comJs, largura, opcoes = {}) {
   const inicioDoCorpo = estado === 200 ? '' : (await pg.content()).slice(0, 300);
   await ctx.close();
   return { ...d, estado, inicioDoCorpo, erros };
+}
+
+// Sonda da notícia individual — o E2.
+//
+// O endereço é sempre o público, noticias.html?id=N: é o Apache que o reescreve
+// para o api/noticia.php, e é essa reescrita que se quer medir. Pedir o
+// api/noticia.php à mão mediria outra coisa.
+//
+// Com `semE2: true` acrescenta-se &preview=0 ao endereço. O .htaccess exclui
+// qualquer query com preview=, por isso o pedido NÃO passa pelo E2 e a página
+// vem estática — e é o js/noticias.js que desenha o artigo. É assim que se
+// comparam as duas versões do mesmo artigo.
+async function testarNoticiaE2(browser, url, id, comJs, largura, opcoes = {}) {
+  const ctx = await browser.newContext({
+    javaScriptEnabled: comJs,
+    extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+  });
+  const pg = await ctx.newPage();
+  await pg.setViewportSize({ width: largura, height: 900 });
+
+  const erros = [];
+  const ruido = (t) => RUIDO.some((r) => r.test(t));
+  pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+  // O 404 da notícia que não existe é a resposta certa, não um erro — e o
+  // browser escreve-o também na consola, como "Failed to load resource".
+  const esperado404 = (t) => opcoes.esperar404 && /404|Failed to load resource/i.test(t);
+  pg.on('console', (m) => {
+    if (m.type() === 'error' && !ruido(m.text()) && !esperado404(m.text())) erros.push(m.text());
+  });
+  pg.on('response', (r) => {
+    const t = r.status() + ' ' + r.url().replace(url, '');
+    if (r.status() >= 400 && !ruido(t) && !esperado404(t)) erros.push(t);
+  });
+  await pg.route('**', (rota) => {
+    const alvo = rota.request().url();
+    if (alvo.startsWith(url) || alvo.startsWith('data:') || alvo.startsWith('blob:')) return rota.continue();
+    return rota.abort();
+  });
+
+  const endereco = url + '/noticias.html?id=' + id + (opcoes.semE2 ? '&preview=0' : '');
+  const resp = await pg.goto(endereco, { waitUntil: comJs ? 'networkidle' : 'load', timeout: 20000 });
+  const estado = resp ? resp.status() : 0;
+  const cabecalhos = resp ? resp.headers() : {};
+
+  const d = await pg.evaluate(() => {
+    const meta = (n) => { const e = document.querySelector('meta[name="' + n + '"]'); return e ? e.getAttribute('content') : null; };
+    const prop = (n) => { const e = document.querySelector('meta[property="' + n + '"]'); return e ? e.getAttribute('content') : null; };
+    const can  = document.querySelector('link[rel="canonical"]');
+    const visivel = (el) => !!el && getComputedStyle(el).display !== 'none' && !el.hidden
+                            && el.getClientRects().length > 0;
+    const artigo = document.getElementById('notArticle');
+    const ld = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
+    const artigoLd = ld.filter((e) => {
+      try { return JSON.parse(e.textContent)['@type'] === 'NewsArticle'; } catch (_) { return false; }
+    });
+
+    // O HTML do artigo, normalizado para comparar: espaços colapsados, e os
+    // espaços entre etiquetas fora. O que sobra é a marcação e o texto.
+    const normalizar = (h) => String(h || '')
+      .replace(/\s+/g, ' ')
+      .replace(/>\s+</g, '><')
+      .replace(/\s+"/g, '"')
+      .trim();
+
+    return {
+      titulo: document.title,
+      descricao: meta('description'),
+      robots: meta('robots'),
+      canonical: can ? can.getAttribute('href') : null,
+      ogType: prop('og:type'),
+      ogUrl: prop('og:url'),
+      ogTitle: prop('og:title'),
+      ogDesc: prop('og:description'),
+      ogImage: prop('og:image'),
+      ogSite: prop('og:site_name'),
+      twCard: meta('twitter:card'),
+      twTitle: meta('twitter:title'),
+      twImage: meta('twitter:image'),
+      nLd: ld.length,
+      nLdArtigo: artigoLd.length,
+      ldArtigo: artigoLd.length ? (() => { try { return JSON.parse(artigoLd[0].textContent); } catch (_) { return null; } })() : null,
+
+      h1: Array.from(document.querySelectorAll('h1')).filter(visivel).map((e) => e.textContent.trim()),
+      h1Artigo: Array.from(document.querySelectorAll('.news-article__title')).filter(visivel).map((e) => e.textContent.trim()),
+
+      artigoVisivel: visivel(artigo),
+      artigoHtml: artigo ? normalizar(artigo.innerHTML) : '',
+      artigoTexto: artigo ? (artigo.textContent || '').replace(/\s+/g, ' ').trim() : '',
+      dataId: artigo ? artigo.getAttribute('data-id') : null,
+      dataGerado: artigo ? artigo.getAttribute('data-gerado') : null,
+      dataEstado: artigo ? artigo.getAttribute('data-estado') : null,
+      // O <b> do título de teste tem de ficar texto, nunca etiqueta.
+      temTagB: !!(artigo && artigo.querySelector('.news-article__title b')),
+      temScript: !!(artigo && artigo.querySelector('script')),
+      temOnerror: /onerror|onload=/i.test(artigo ? artigo.innerHTML : ''),
+      corpoHtml: (() => { const e = document.querySelector('.news-article__body'); return e ? normalizar(e.innerHTML) : ''; })(),
+      imagens: document.querySelectorAll('.news-article__img').length,
+      imagemClasse: (() => { const e = document.querySelector('.news-article__img'); return e ? e.className : ''; })(),
+
+      voltar: (() => { const e = document.getElementById('notBack'); return e ? (e.getAttribute('href') || '(sem href)') : null; })(),
+      voltarEhLigacao: (() => { const e = document.getElementById('notBack'); return !!e && e.tagName === 'A'; })(),
+      ligacaoNoticias: Array.from(artigo ? artigo.querySelectorAll('a[href]') : [])
+        .map((a) => a.getAttribute('href')).filter((h) => /^noticias\.html/.test(h)),
+      relacionadas: document.querySelectorAll('.not-related__card').length,
+      relacionadasLigacoes: Array.from(document.querySelectorAll('.not-related__link'))
+        .map((a) => a.getAttribute('href')),
+      partilha: document.querySelectorAll('#notArticle .news-share-btn').length,
+
+      grelhaVisivel: visivel(document.getElementById('notGrid')),
+      destaqueVisivel: visivel(document.getElementById('notFeatured')),
+      filtrosVisivel: visivel(document.getElementById('notFilters')),
+      vazioVisivel: visivel(document.getElementById('notEmpty')),
+      maisVisivel: visivel(document.getElementById('notMoreWrap')),
+      cartoes: document.querySelectorAll('#notGrid article.news-page__card').length,
+      grelhaGerado: (() => { const e = document.getElementById('notGrid'); return e ? e.getAttribute('data-gerado') : null; })(),
+
+      transbordo: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      // Se algum dos vectores de XSS do ensaio tivesse corrido, deixava aqui a
+      // sua marca. É a verificação directa: não é só o HTML que não tem o
+      // <script>, é que nada se executou.
+      xss: typeof window.__xss,
+    };
+  });
+  await ctx.close();
+  return { ...d, estado, cabecalhos, erros };
+}
+
+// Sonda do service worker — a correcção J2 do Bloco 10.
+//
+// Antes, o ramo dos documentos guardava na cache tudo o que o servidor
+// respondesse, sem olhar ao estado. Enquanto todas as páginas eram ficheiros
+// estáticos isso era inofensivo. Com o E2 deixou de ser: o noticias.html?id=N
+// responde 404 a sério, e uma 404 guardada passava a ser servida no lugar da
+// página — inclusive depois de a notícia ser publicada.
+//
+// Mede-se com navegações a sério, e não com fetch(): o service worker decide
+// pelo request.destination, e só uma navegação tem destination 'document'.
+async function testarServiceWorker(browser, url) {
+  const ctx = await browser.newContext({
+    javaScriptEnabled: true,
+    extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+  });
+  const pg = await ctx.newPage();
+  await pg.goto(url + '/noticias.html', { waitUntil: 'load', timeout: 20000 });
+  await pg.evaluate(async () => {
+    await navigator.serviceWorker.register('/sw.js');
+    await navigator.serviceWorker.ready;
+  });
+  await pg.goto(url + '/noticias.html', { waitUntil: 'load', timeout: 20000 });
+  const controlado = await pg.evaluate(() => !!navigator.serviceWorker.controller);
+
+  const e200 = await pg.goto(url + '/noticias.html?id=1001', { waitUntil: 'load', timeout: 20000 });
+  const e404 = await pg.goto(url + '/noticias.html?id=9999', { waitUntil: 'load', timeout: 20000 });
+
+  const naCache = await pg.evaluate(async () => {
+    const onde = {};
+    for (const nome of await caches.keys()) {
+      const c = await caches.open(nome);
+      for (const p of ['/noticias.html', '/noticias.html?id=1001', '/noticias.html?id=9999']) {
+        const r = await c.match(p);
+        if (r) onde[p] = nome + ' (' + r.status + ')';
+      }
+    }
+    return onde;
+  });
+  const versao = await pg.evaluate(() => caches.keys());
+  await ctx.close();
+  return {
+    controlado,
+    estado200: e200 ? e200.status() : 0,
+    estado404: e404 ? e404.status() : 0,
+    naCache, versao,
+  };
 }
 
 // Sonda da agenda.html. O calendário e os filtros são controlos: existem só
@@ -2986,6 +3194,366 @@ async function testarAdminHistoria(browser, url) {
     verificar('reposto o data-itens: o JavaScript volta a não mexer',
       p.cartoes === N, 'cartões no DOM ' + p.cartoes);
 
+    // ---- Notícia individual servida pelo servidor (E2) -----------
+    // O endereço público é sempre o noticias.html?id=N. Quem responde é o
+    // api/noticia.php, por reescrita interna do Apache. Sem Apache não há
+    // .htaccess, e por isso não há E2 para medir.
+    if (srv.modo !== 'apache') {
+      console.log('\nnotícia individual (E2) — saltado: sem Apache não há .htaccess');
+    } else {
+      console.log('\nnotícia individual (E2) SEM JavaScript');
+      const n1001 = dados.noticias.find((n) => String(n.id) === '1001');
+      let e = await testarNoticiaE2(browser, srv.url, 1001, false, 1440);
+      verificar('responde 200', e.estado === 200, 'respondeu ' + e.estado);
+      verificar('o artigo está visível sem JavaScript',
+        e.artigoVisivel && e.h1Artigo.length === 1 && e.h1Artigo[0] === 'TESTE A',
+        'visível=' + e.artigoVisivel + ' títulos=' + JSON.stringify(e.h1Artigo));
+      verificar('o corpo da notícia está no HTML',
+        e.corpoHtml.includes('Resumo de <strong>teste</strong> A.'), e.corpoHtml.slice(0, 120));
+      verificar('a data, a categoria e o tempo de leitura aparecem',
+        /3 de Janeiro, 2020/.test(e.artigoTexto) && /TESTE/.test(e.artigoTexto)
+        && /min de leitura/.test(e.artigoTexto), e.artigoTexto.slice(0, 160));
+      verificar('a imagem aparece, na posição guardada',
+        e.imagens === 1 && /news-article__img--top/.test(e.imagemClasse), e.imagemClasse);
+      verificar('o caminho de volta é uma ligação a sério, não um botão morto',
+        e.voltarEhLigacao && e.voltar === 'noticias.html',
+        'ligação=' + e.voltarEhLigacao + ' href=' + e.voltar);
+      verificar('a lista fica escondida: é a vista de artigo, não a de lista',
+        !e.grelhaVisivel && !e.destaqueVisivel && !e.filtrosVisivel && !e.vazioVisivel && !e.maisVisivel,
+        'grelha=' + e.grelhaVisivel + ' destaque=' + e.destaqueVisivel + ' filtros=' + e.filtrosVisivel
+        + ' vazio=' + e.vazioVisivel + ' mais=' + e.maisVisivel);
+      verificar('a lista servida não traz data-gerado — não é lista servida',
+        e.grelhaGerado === null, String(e.grelhaGerado));
+      verificar('as relacionadas aparecem, e cada uma com ligação a sério',
+        e.relacionadas === 3 && e.relacionadasLigacoes.length === 3
+        && e.relacionadasLigacoes.every((h) => /^noticias\.html\?id=\d+$/.test(h)),
+        e.relacionadas + ' cartões, ligações ' + JSON.stringify(e.relacionadasLigacoes));
+      verificar('sem transbordo horizontal', e.transbordo <= 0, '+' + e.transbordo + 'px');
+
+      console.log('\nnotícia individual (E2): cabeça individual');
+      verificar('o <title> é o da notícia, com o nome do clube',
+        e.titulo === 'TESTE A – ' + dados.dadosClube.nome, JSON.stringify(e.titulo));
+      verificar('a descrição é o texto da notícia, não a da lista',
+        e.descricao === 'Resumo de teste A.', JSON.stringify(e.descricao));
+      verificar('o canonical é o da notícia e o endereço oficial',
+        e.canonical === 'https://campinense.pt/noticias.html?id=1001', String(e.canonical));
+      verificar('o og:url é igual ao canonical',
+        e.ogUrl === e.canonical, e.ogUrl + ' vs ' + e.canonical);
+      verificar('nem o canonical nem o og:url deixam escapar o /api/noticia.php',
+        !/api\/noticia\.php/.test(String(e.canonical) + String(e.ogUrl) + String(e.ldArtigo && e.ldArtigo.url)),
+        String(e.canonical) + ' | ' + String(e.ogUrl));
+      verificar('o og:type passa a article', e.ogType === 'article', String(e.ogType));
+      verificar('o og:title e o twitter:title são os da notícia',
+        e.ogTitle === e.titulo && e.twTitle === e.titulo, e.ogTitle + ' | ' + e.twTitle);
+      verificar('a notícia com imagem leva og:image e twitter:card grande',
+        e.ogImage === 'https://campinense.pt/' + n1001.imagem && e.twCard === 'summary_large_image',
+        e.ogImage + ' | ' + e.twCard);
+      verificar('há um e um só JSON-LD de artigo',
+        e.nLdArtigo === 1, e.nLdArtigo + ' de ' + e.nLd + ' blocos');
+      verificar('o JSON-LD do artigo tem headline, data e endereço da notícia',
+        !!e.ldArtigo && e.ldArtigo.headline === 'TESTE A'
+        && e.ldArtigo.datePublished === '2020-01-03T00:00:00+00:00'
+        && e.ldArtigo.url === 'https://campinense.pt/noticias.html?id=1001',
+        JSON.stringify(e.ldArtigo).slice(0, 180));
+      verificar('o JSON-LD do artigo não tem propriedades vazias',
+        !!e.ldArtigo && Object.values(e.ldArtigo).every((v) => v !== '' && v !== null),
+        JSON.stringify(e.ldArtigo).slice(0, 180));
+      verificar('o editor do JSON-LD vem do nome guardado, não de uma constante',
+        !!e.ldArtigo && e.ldArtigo.publisher && e.ldArtigo.publisher.name === dados.dadosClube.nome,
+        String(e.ldArtigo && e.ldArtigo.publisher && e.ldArtigo.publisher.name));
+      verificar('a notícia individual não leva noindex', !e.robots, String(e.robots));
+
+      // ---- Sem imagem, caracteres especiais, sem texto ----------
+      console.log('\nnotícia individual (E2): casos de dados');
+      e = await testarNoticiaE2(browser, srv.url, 1002, false, 1440);
+      verificar('notícia sem imagem: nenhum og:image e nenhuma imagem no artigo',
+        e.estado === 200 && e.ogImage === null && e.twImage === null && e.imagens === 0,
+        'og:image=' + e.ogImage + ' imagens=' + e.imagens);
+      verificar('notícia sem imagem: o twitter:card volta a summary',
+        e.twCard === 'summary', String(e.twCard));
+
+      e = await testarNoticiaE2(browser, srv.url, 1003, false, 1440);
+      verificar('caracteres especiais: o & e o <b> ficam texto no título, não etiqueta',
+        e.estado === 200 && e.h1Artigo[0] === 'TESTE C & <b>escape</b>' && !e.temTagB,
+        JSON.stringify(e.h1Artigo) + ' tagB=' + e.temTagB);
+      verificar('caracteres especiais: o <title> e o og:title saem escapados e legíveis',
+        e.titulo === 'TESTE C & <b>escape</b> – ' + dados.dadosClube.nome
+        && e.ogTitle === e.titulo, JSON.stringify(e.titulo));
+
+      e = await testarNoticiaE2(browser, srv.url, 1023, false, 1440);
+      verificar('notícia sem texto: diz que não há texto e não leva descrição inventada',
+        e.estado === 200 && /Sem texto disponível/.test(e.artigoTexto) && e.descricao === null,
+        'descrição=' + String(e.descricao));
+      verificar('notícia sem texto: o JSON-LD sai sem description',
+        !!e.ldArtigo && e.ldArtigo.description === undefined,
+        String(e.ldArtigo && e.ldArtigo.description));
+
+      e = await testarNoticiaE2(browser, srv.url, 1024, false, 1440);
+      verificar('imagem com apóstrofo e parêntesis: o url() do CSS não fecha a meio',
+        e.estado === 200 && e.imagens === 1
+        && /logo\.png%3Fx%3Da%27b%281%29|logo\.png\?x=a%27b%281%29/.test(e.artigoHtml),
+        (e.artigoHtml.match(/background-image:[^"]*/) || [''])[0].slice(0, 120));
+
+      // ---- Notícia agendada que já venceu --------------------------
+      e = await testarNoticiaE2(browser, srv.url, 1021, false, 1440);
+      verificar('agendada cujo momento já passou: responde 200 e abre',
+        e.estado === 200 && /TESTE P AGENDADA PASSADO/.test(e.artigoTexto), 'respondeu ' + e.estado);
+
+      // ---- As três situações que dão 404 --------------------------
+      console.log('\nnotícia individual (E2): 404');
+      for (const [id, nota] of [[1004, 'não publicada'], [1022, 'agendada para o futuro'],
+                                [9999, 'que não existe'], ['99999999999999999999', 'com id enorme']]) {
+        e = await testarNoticiaE2(browser, srv.url, id, false, 1440, { esperar404: true });
+        verificar(`notícia ${nota}: responde 404`, e.estado === 404, 'respondeu ' + e.estado);
+        verificar(`notícia ${nota}: leva noindex no HTML e no cabeçalho`,
+          e.robots === 'noindex, follow'
+          && /noindex/.test(String(e.cabecalhos['x-robots-tag'] || '')),
+          'meta=' + e.robots + ' cabeçalho=' + e.cabecalhos['x-robots-tag']);
+        verificar(`notícia ${nota}: tem ligação a sério para as notícias`,
+          e.ligacaoNoticias.includes('noticias.html'), JSON.stringify(e.ligacaoNoticias));
+        verificar(`notícia ${nota}: não há canonical nem Open Graph num 404`,
+          e.canonical === null && e.ogUrl === null && e.ogTitle === null && e.ogImage === null,
+          'canonical=' + e.canonical + ' og:title=' + e.ogTitle);
+        verificar(`notícia ${nota}: nenhum JSON-LD de artigo`,
+          e.nLdArtigo === 0, e.nLdArtigo + ' blocos');
+        verificar(`notícia ${nota}: nenhum vestígio do título da notícia`,
+          !/TESTE D NAO PUBLICADA|TESTE Q AGENDADA FUTURO/.test(
+            e.titulo + ' ' + e.artigoTexto + ' ' + String(e.descricao)),
+          e.titulo);
+        verificar(`notícia ${nota}: a lista não aparece por baixo do erro`,
+          !e.grelhaVisivel && e.cartoes === 0, 'grelha=' + e.grelhaVisivel + ' cartões=' + e.cartoes);
+      }
+
+      // ---- Com JavaScript: não desenha por cima -------------------
+      console.log('\nnotícia individual (E2) COM JavaScript');
+      e = await testarNoticiaE2(browser, srv.url, 1001, true, 1440);
+      verificar('com JavaScript o artigo continua um só, sem duplicação',
+        e.h1Artigo.length === 1 && e.h1Artigo[0] === 'TESTE A' && e.relacionadas === 3,
+        JSON.stringify(e.h1Artigo) + ' relacionadas=' + e.relacionadas);
+      verificar('com JavaScript continua a haver um só JSON-LD de artigo',
+        e.nLdArtigo === 1, e.nLdArtigo + ' blocos');
+      verificar('com JavaScript o bloco servido é reconhecido e não é reescrito',
+        e.dataId === '1001' && e.dataGerado === dados.publicadoEm,
+        'data-id=' + e.dataId + ' data-gerado=' + e.dataGerado);
+      verificar('com JavaScript a lista continua escondida',
+        !e.grelhaVisivel && !e.destaqueVisivel, 'grelha=' + e.grelhaVisivel);
+      verificar('sem erros de JavaScript', e.erros.length === 0, e.erros.join(' / '));
+      verificar('sem transbordo horizontal', e.transbordo <= 0, '+' + e.transbordo + 'px');
+
+      e = await testarNoticiaE2(browser, srv.url, 9999, true, 1440, { esperar404: true });
+      verificar('404 com JavaScript: a mensagem fica, e a lista não é desenhada por cima',
+        /não encontrada/i.test(e.artigoTexto) && e.cartoes === 0 && !e.grelhaVisivel,
+        'cartões=' + e.cartoes + ' grelha=' + e.grelhaVisivel);
+      verificar('404 com JavaScript: sem erros de consola', e.erros.length === 0, e.erros.join(' / '));
+
+      // ---- Paridade: o que o servidor escreve e o que o JavaScript desenha
+      // Pedir com &preview=0 faz o .htaccess não reescrever: a página vem
+      // estática e é o js/noticias.js que desenha o artigo. Depois comparam-se
+      // os dois HTML, com a origem normalizada — o JavaScript usa a origem a
+      // sério do browser, e o servidor usa o endereço oficial do site.
+      console.log('\nnotícia individual (E2): paridade PHP ↔ JavaScript');
+      {
+        const token = (h) => String(h)
+          .split(encodeURIComponent(srv.url)).join('ORIGEM')
+          .split(encodeURIComponent('https://campinense.pt')).join('ORIGEM')
+          .split(srv.url).join('ORIGEM')
+          .split('https://campinense.pt').join('ORIGEM');
+        for (const id of [1001, 1002, 1003, 1023, 1024]) {
+          const servidor = await testarNoticiaE2(browser, srv.url, id, false, 1440);
+          const script   = await testarNoticiaE2(browser, srv.url, id, true, 1440, { semE2: true });
+          verificar(`paridade do artigo ${id}: o servidor e o JavaScript escrevem o mesmo HTML`,
+            token(servidor.artigoHtml) === token(script.artigoHtml),
+            'servidor ' + servidor.artigoHtml.length + ' bytes, JavaScript ' + script.artigoHtml.length
+            + '\n      servidor: ' + token(servidor.artigoHtml).slice(0, 400)
+            + '\n      script:   ' + token(script.artigoHtml).slice(0, 400));
+          verificar(`paridade do artigo ${id}: o mesmo JSON-LD`,
+            JSON.stringify(servidor.ldArtigo) === JSON.stringify(script.ldArtigo),
+            '\n      servidor: ' + JSON.stringify(servidor.ldArtigo)
+            + '\n      script:   ' + JSON.stringify(script.ldArtigo));
+        }
+      }
+
+      // ---- O ?preview=1 não passa pelo E2 ------------------------
+      console.log('\nnotícia individual (E2): a pré-visualização fica de fora');
+      {
+        const pv = await testarNoticias(browser, srv.url, false, 1440, { query: '?id=1001&preview=1' });
+        verificar('?preview=1 não é reescrito: a página vem estática, com a lista servida',
+          pv.estado === 200 && pv.cartoes === N && !pv.artigo,
+          'cartões=' + pv.cartoes + ' artigo=' + pv.artigo);
+        const pv2 = await testarNoticias(browser, srv.url, true, 1440, {
+          query: '?id=1001&preview=1',
+          preview: { id: '__preview__', titulo: 'TESTE RASCUNHO E2', data: '2020-01-09',
+                     categoria: 'TESTE', resumo: 'Rascunho que o servidor não conhece.' },
+        });
+        verificar('?preview=1 continua a ser o rascunho do browser, e só dele',
+          pv2.banner && pv2.artigoTexto.includes('TESTE RASCUNHO E2'),
+          'faixa=' + pv2.banner);
+      }
+
+      // ---- Guardas inversas: o que acontece quando o E2 não pode -----
+      // Uma marca estragada não pode deixar a página de notícias em branco nem
+      // devolver 500: serve-se a página como está, que é o que o visitante
+      // receberia sem o E2.
+      console.log('\nnotícia individual (E2): guardas inversas');
+      {
+        const notPath2 = path.join(raiz, 'noticias.html');
+        const original = fs.readFileSync(notPath2, 'utf8');
+        for (const [marca, nota] of [
+          ['<!-- JSC:noticia-artigo:fim -->', 'sem a marca de fim do artigo'],
+          ['<!-- JSC:noticia-head:inicio -->', 'sem a marca de início da cabeça'],
+        ]) {
+          fs.writeFileSync(notPath2, original.replace(marca, '<!-- ESTRAGADO -->'));
+          const g = await testarNoticias(browser, srv.url, false, 1440, { query: '?id=1001' });
+          verificar(`${nota}: responde 200 e a página de notícias continua de pé`,
+            g.estado === 200 && g.cartoes === N,
+            'estado=' + g.estado + ' cartões=' + g.cartoes);
+          fs.writeFileSync(notPath2, original);
+        }
+        const reposto = await testarNoticiaE2(browser, srv.url, 1001, false, 1440);
+        verificar('marcas repostas: o artigo volta a ser servido',
+          reposto.estado === 200 && reposto.h1Artigo[0] === 'TESTE A', reposto.estado + '');
+      }
+
+      // Sem lista de notícias no conteúdo publicado — é o que acontece quando o
+      // data/db.json ainda não foi enviado para o alojamento — não se decide
+      // nada: serve-se a página como está. Uma lista que existe e está vazia é
+      // outra coisa, e aí a resposta certa é 404.
+      {
+        const semChave = { ...dados };
+        delete semChave.noticias;
+        escreverDados(raiz, semChave);
+        gerar(raiz);
+        const g = await testarNoticias(browser, srv.url, false, 1440, { query: '?id=1001' });
+        verificar('sem lista de notícias: responde 200 e serve a página, não 404',
+          g.estado === 200 && !g.artigo, 'estado=' + g.estado + ' artigo=' + g.artigo);
+
+        escreverDados(raiz, { ...dados, noticias: [] });
+        gerar(raiz);
+        const v = await testarNoticiaE2(browser, srv.url, 1001, false, 1440, { esperar404: true });
+        verificar('lista vazia: aí sim, responde 404',
+          v.estado === 404 && /não encontrada/i.test(v.artigoTexto), 'estado=' + v.estado);
+
+        escreverDados(raiz, dados);
+        gerar(raiz);
+      }
+
+      // ---- As sete larguras -------------------------------------
+      console.log('\nnotícia individual (E2): as sete larguras');
+      for (const largura of [320, 375, 414, 768, 1024, 1280, 1440]) {
+        for (const comJs of [false, true]) {
+          const w = await testarNoticiaE2(browser, srv.url, 1001, comJs, largura);
+          verificar(`${largura}px ${comJs ? 'com' : 'sem'} JavaScript: artigo visível e sem transbordo`,
+            w.artigoVisivel && w.h1Artigo.length === 1 && w.transbordo <= 0,
+            'visível=' + w.artigoVisivel + ' títulos=' + w.h1Artigo.length + ' transbordo=+' + w.transbordo + 'px');
+        }
+      }
+
+      // ---- As marcas novas não são regiões do E1 -----------------
+      console.log('\nnotícia individual (E2): as marcas e o E1');
+      {
+        const not = fs.readFileSync(path.join(raiz, 'noticias.html'), 'utf8');
+        for (const m of ['noticia-head', 'noticia-artigo']) {
+          const ni = (not.match(new RegExp('<!-- JSC:' + m + ':inicio -->', 'g')) || []).length;
+          const nf = (not.match(new RegExp('<!-- JSC:' + m + ':fim -->', 'g')) || []).length;
+          verificar(`a marca ${m} aparece exactamente uma vez, em par`, ni === 1 && nf === 1,
+            'início ' + ni + ', fim ' + nf);
+        }
+        // E o gerador não as conhece: o api/gerar.php não escreve lá dentro.
+        const ger = fs.readFileSync(path.join(raiz, 'api', 'geracao.php'), 'utf8');
+        verificar('o api/geracao.php não registou as marcas do E2 como blocos',
+          !/JSC:noticia-head|JSC:noticia-artigo/.test(ger));
+        // O conteúdo estático das duas regiões continua a ser o da lista: é o
+        // que o visitante recebe quando pede o noticias.html sem id.
+        const entre = (nome) => {
+          const a = not.indexOf('<!-- JSC:' + nome + ':inicio -->');
+          const b = not.indexOf('<!-- JSC:' + nome + ':fim -->');
+          return a < 0 || b < a ? '' : not.slice(a, b);
+        };
+        verificar('depois de gerar, a cabeça da página continua a ser a da lista',
+          /<title>Notícias –/.test(entre('noticia-head'))
+          && /canonical" href="https:\/\/campinense\.pt\/noticias\.html"/.test(entre('noticia-head')),
+          entre('noticia-head').slice(0, 120));
+        verificar('depois de gerar, o contentor do artigo continua vazio e escondido',
+          /<div id="notArticle" hidden><\/div>/.test(entre('noticia-artigo')),
+          entre('noticia-artigo').slice(0, 160));
+      }
+
+      // ---- Service worker: a 404 não pode ficar na cache (J2) -----
+      console.log('\nnotícia individual (E2): o service worker e as respostas de erro');
+      {
+        const sw = await testarServiceWorker(browser, srv.url);
+        verificar('o service worker ficou a controlar a página — a medição é válida',
+          sw.controlado, 'controlado=' + sw.controlado + ' caches=' + JSON.stringify(sw.versao));
+        verificar('a notícia que existe responde 200 e é guardada',
+          sw.estado200 === 200 && !!sw.naCache['/noticias.html?id=1001'],
+          JSON.stringify(sw.naCache));
+        verificar('a notícia que não existe responde 404 e NÃO é guardada',
+          sw.estado404 === 404 && !sw.naCache['/noticias.html?id=9999'],
+          'estado ' + sw.estado404 + ' ' + JSON.stringify(sw.naCache));
+        verificar('o ramo dos documentos do sw.js verifica o estado antes de guardar',
+          /destination === 'document'[\s\S]{0,900}?res\.status === 200[\s\S]{0,200}?c\.put/.test(
+            fs.readFileSync(path.join(raiz, 'sw.js'), 'utf8')));
+      }
+
+      // ---- Segurança -------------------------------------------
+      console.log('\nnotícia individual (E2): segurança');
+      {
+        const antes = fs.readFileSync(path.join(raiz, 'data', 'db.json'), 'utf8');
+        const r405 = await fetch(srv.url + '/noticias.html?id=1001', { method: 'POST' });
+        verificar('POST ao endereço da notícia é recusado com 405', r405.status === 405,
+          'respondeu ' + r405.status);
+        const depois = fs.readFileSync(path.join(raiz, 'data', 'db.json'), 'utf8');
+        verificar('nenhum pedido ao E2 alterou os dados publicados', antes === depois);
+        verificar('o api/noticia.php não tem uma única instrução de escrita',
+          !/file_put_contents|fwrite|rename\(|unlink\(|mkdir\(/.test(
+            fs.readFileSync(path.join(raiz, 'api', 'noticia.php'), 'utf8')));
+        verificar('o api/noticia.php não requer o api/sessao.php nem o api/geracao.php',
+          !/^\s*(require|include)(_once)?[^\n]*(sessao|geracao)\.php/m.test(
+            fs.readFileSync(path.join(raiz, 'api', 'noticia.php'), 'utf8')));
+        for (const m of ['noticia-head', 'noticia-artigo', 'noticia-lista-oculta']) {
+          const r = await fetch(srv.url + '/modelos/' + m + '.php');
+          verificar(`/modelos/${m}.php responde 403`, r.status === 403, 'respondeu ' + r.status);
+        }
+      }
+
+      // ---- XSS: um resumo com código não chega à página ----------
+      console.log('\nnotícia individual (E2): o filtro de HTML aplica-se ao servir');
+      {
+        const sujos = JSON.parse(JSON.stringify(dados));
+        sujos.noticias = sujos.noticias.map((n) => String(n.id) === '1001' ? {
+          ...n,
+          resumo: '<p>Texto bom</p><script>window.__xss=1</script>'
+                + '<img src=x onerror="window.__xss=2">'
+                + '<a href="javascript:window.__xss=3">ligação</a>'
+                + '<p style="position:fixed;top:0">posicionado</p>',
+        } : n);
+        escreverDados(raiz, sujos);
+        gerar(raiz);
+        const x = await testarNoticiaE2(browser, srv.url, 1001, false, 1440);
+        verificar('o <script> guardado não chega ao HTML servido',
+          x.estado === 200 && !x.temScript && !/window\.__xss/.test(x.artigoHtml),
+          x.corpoHtml.slice(0, 200));
+        verificar('o onerror e o javascript: também não',
+          !x.temOnerror && !/javascript:/i.test(x.artigoHtml), x.corpoHtml.slice(0, 200));
+        verificar('o texto legítimo sobreviveu ao filtro',
+          /Texto bom/.test(x.artigoTexto), x.artigoTexto.slice(0, 120));
+        verificar('o position: do style foi retirado',
+          !/position\s*:/i.test(x.corpoHtml), x.corpoHtml.slice(0, 200));
+        const xjs = await testarNoticiaE2(browser, srv.url, 1001, true, 1440);
+        // O src="x" do ensaio não existe de propósito: é o que faz o browser
+        // tentar carregá-lo e falhar, que é quando um onerror correria. O 404
+        // dele é esperado; qualquer outro erro de consola não é.
+        const semRuidoDoEnsaio = xjs.erros.filter((t) => !/\/x\b|Failed to load resource/i.test(t));
+        verificar('nada do que foi filtrado se executou, com ou sem JavaScript',
+          x.xss === 'undefined' && xjs.xss === 'undefined' && semRuidoDoEnsaio.length === 0,
+          'sem JS=' + x.xss + ' com JS=' + xjs.xss + ' ' + semRuidoDoEnsaio.join(' / '));
+        verificar('a imagem do ensaio foi mesmo pedida e falhou — o onerror teria corrido',
+          xjs.erros.some((t) => /\/x\b/.test(t)), xjs.erros.join(' / '));
+        escreverDados(raiz, dados);
+        gerar(raiz);
+      }
+    }
+
     // ---- Equipa principal ---------------------------------------
     const ativosB = dados.seniores.filter((j) => j.ativo !== false);
     const gruposB = ['GR', 'DEF', 'MEI', 'AVA']
@@ -3605,11 +4173,34 @@ async function testarAdminHistoria(browser, url) {
       const sm = fs.readFileSync(path.join(raiz, 'sitemap.xml'), 'utf8');
       const locs = [...sm.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
       const mods = new Set([...sm.matchAll(/<lastmod>([^<]+)<\/lastmod>/g)].map((m) => m[1]));
-      verificar('sitemap: 13 entradas, todas em https://campinense.pt',
-        locs.length === 13 && locs.every((l) => l.startsWith('https://campinense.pt')),
-        locs.length + ' entradas');
-      verificar('sitemap: um único lastmod, e não é o 2026-07-01 escrito à mão',
-        mods.size === 1 && !mods.has('2026-07-01'), JSON.stringify([...mods]));
+      // 13 páginas, mais uma entrada por notícia publicada (Bloco 10). As
+      // notícias passaram a ser endereços a sério: o api/noticia.php responde a
+      // cada uma com o seu artigo, o seu título e a sua descrição.
+      const publicadas = dados.noticias.filter(
+        (n) => n.publicada || (n.scheduledAt && n.scheduledAt <= new Date().toISOString()));
+      const locsNot = locs.filter((l) => /\?id=\d+$/.test(l));
+      verificar(`sitemap: ${13 + publicadas.length} entradas (13 páginas + ${publicadas.length} notícias), todas em https://campinense.pt`,
+        locs.length === 13 + publicadas.length
+        && locs.every((l) => l.startsWith('https://campinense.pt')),
+        locs.length + ' entradas, ' + locsNot.length + ' de notícias');
+      verificar('sitemap: cada notícia publicada entra uma vez, e só essas',
+        locsNot.length === publicadas.length
+        && publicadas.every((n) => locs.includes('https://campinense.pt/noticias.html?id=' + n.id))
+        && !locs.includes('https://campinense.pt/noticias.html?id=1004')
+        && !locs.includes('https://campinense.pt/noticias.html?id=1022'),
+        JSON.stringify(locsNot.slice(0, 4)));
+      // As 13 páginas levam a data da publicação; cada notícia leva a sua. O
+      // 2026-07-01 escrito à mão não volta por via nenhuma.
+      const modPaginas = [...sm.matchAll(/<loc>[^<]*<\/loc>\s*<lastmod>([^<]+)</g)]
+        .filter((m, i) => i < 13).map((m) => m[1]);
+      verificar('sitemap: as 13 páginas levam a data desta publicação, e não o 2026-07-01 escrito à mão',
+        new Set(modPaginas).size === 1 && !mods.has('2026-07-01'),
+        JSON.stringify([...new Set(modPaginas)]));
+      verificar('sitemap: o lastmod de cada notícia é a data da notícia',
+        publicadas.every((n) => new RegExp(
+          '<loc>https://campinense\\.pt/noticias\\.html\\?id=' + n.id
+          + '</loc>\\s*<lastmod>' + n.data + '</lastmod>').test(sm)),
+        JSON.stringify([...mods].slice(0, 5)));
       const proibidos = ['/admin', '/api/', '/modelos/', '/manutencao.html', '/offline.html',
                          '/404.html', '/pesquisa.html', '/atleta.html',
                          '/modalidade.html', '/escalao.html']
