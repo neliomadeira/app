@@ -76,6 +76,10 @@
 
     document.title = atleta.nome + ' – Juventude Sport Campinense';
 
+    // A data de nascimento deixou de sair pela API pública: é um dado pessoal, e
+    // os atletas da formação são menores. Quando não vem, as duas linhas que
+    // dependem dela não se escrevem — em vez de ficarem a dizer "—", que é uma
+    // linha vazia a ocupar espaço, ou "Invalid Date", que é pior.
     const age = calcAge(atleta.dataNascimento);
     const esc = escaloes.find(e => e.nome === atleta.escalao) || {};
     const iniStr = initials(atleta.nome);
@@ -117,14 +121,14 @@
           <div class="atleta-card">
             <h2 class="atleta-card__title">Informação</h2>
             <ul class="atleta-info-list">
-              <li>
+              ${atleta.dataNascimento ? `<li>
                 <span class="atleta-info-list__label">Data de nascimento</span>
                 <span class="atleta-info-list__val">${jscEsc(formatDate(atleta.dataNascimento))}</span>
-              </li>
-              <li>
+              </li>` : ''}
+              ${age !== null ? `<li>
                 <span class="atleta-info-list__label">Idade</span>
-                <span class="atleta-info-list__val">${jscEsc(age !== null ? age + ' anos' : '—')}</span>
-              </li>
+                <span class="atleta-info-list__val">${jscEsc(age + ' anos')}</span>
+              </li>` : ''}
               <li>
                 <span class="atleta-info-list__label">Posição</span>
                 <span class="atleta-info-list__val">${jscEsc(atleta.posicao || '—')}</span>

@@ -209,6 +209,17 @@ function prepararPrimeiroArranque() {
   showLoginError('Ainda não existe nenhuma conta. Crie a sua para proteger o painel.', true);
 }
 
+// A marca que impede o js/sync.js de sobrepor o armazém deste browser.
+//
+// O painel guarda o que está a ser escrito só no localStorage, e partilha-o com
+// o site público. Desde que o /api/load.php entrega apenas a projeção pública,
+// abrir uma página do site nesta aba sobreporia os rascunhos pela versão
+// publicada — e o Publicar seguinte apagava-os também do servidor.
+//
+// Escreve-se no arranque, antes de qualquer autenticação: quem abre o /admin/
+// está a usar este browser como painel, tenha ou não sessão.
+try { localStorage.setItem('jsc_painel_local', '1'); } catch (_) {}
+
 async function arrancarAutenticacao() {
   let r;
   try {
@@ -5074,6 +5085,67 @@ window.removerAdminUser = async function (utilizador) {
 
 
 // ---- PUBLICAR NO SERVIDOR ----
+// ---- Orçamento do conteúdo publicado --------------------------------
+// O post_max_size do alojamento é 8 MB. Guarda-se margem para o envelope do
+// pedido e para o JSON crescer entre a medição e o envio.
+const JSC_PAYLOAD_RECUSAR = 6 * 1024 * 1024;   // acima disto não se tenta
+const JSC_PAYLOAD_AVISAR  = 4 * 1024 * 1024;   // acima disto avisa-se
+// Uma página gerada acima disto é má para quem a abre em rede móvel, muito
+// antes de qualquer limite do servidor: a lista de notícias embute as imagens
+// de TODAS as notícias. Medido: 25 imagens de 120 KB dão 4,14 MB de HTML.
+const JSC_PAGINA_AVISAR   = 2 * 1024 * 1024;
+
+function jscTamanhoLegivel(n) {
+  return n >= 1048576 ? (n / 1048576).toFixed(2) + ' MB' : Math.round(n / 1024) + ' KB';
+}
+
+// Quanto pesa cada área, e quantas imagens embutidas tem. É isto que torna a
+// mensagem útil: diz onde está o peso, não só que há peso.
+function avaliarTamanhoDoPayload(corpo, dados) {
+  const n = corpo.length;
+  const areas = Object.keys(dados)
+    .map(function (k) {
+      let txt = '';
+      try { txt = JSON.stringify(dados[k]) || ''; } catch (_) { txt = ''; }
+      return { chave: k, bytes: txt.length, imagens: (txt.match(/data:image\//g) || []).length };
+    })
+    .filter(function (a) { return a.bytes > 32 * 1024; })
+    .sort(function (a, b) { return b.bytes - a.bytes; })
+    .slice(0, 3);
+
+  const detalhe = areas.map(function (a) {
+    return a.chave + ' ' + jscTamanhoLegivel(a.bytes)
+         + (a.imagens ? ' em ' + a.imagens + ' imagem(ns)' : '');
+  }).join(' · ');
+
+  if (n > JSC_PAYLOAD_RECUSAR) {
+    return {
+      recusar: true,
+      mensagem: 'Não publiquei: o conteúdo tem ' + jscTamanhoLegivel(n) + ' e o servidor aceita '
+        + 'no máximo 8 MB por pedido (post_max_size).\n\nO que pesa mais: ' + (detalhe || '—')
+        + '\n\nAs imagens ficam guardadas dentro do conteúdo. Remova ou substitua as mais '
+        + 'pesadas — ou peça ao alojamento para aumentar o limite — e publique outra vez.',
+    };
+  }
+  // O peso de UMA notícia multiplica-se: a lista embute todas.
+  const noticias = areas.find(function (a) { return a.chave === 'noticias'; });
+  if (noticias && noticias.bytes > JSC_PAGINA_AVISAR) {
+    return {
+      avisar: true,
+      mensagem: '⚠ As notícias ocupam ' + jscTamanhoLegivel(noticias.bytes) + ' em '
+        + noticias.imagens + ' imagem(ns). A página de notícias embute todas, '
+        + 'e fica pesada em rede móvel.',
+    };
+  }
+  if (n > JSC_PAYLOAD_AVISAR) {
+    return {
+      avisar: true,
+      mensagem: '⚠ O conteúdo já tem ' + jscTamanhoLegivel(n) + ' de 8 MB. ' + (detalhe || ''),
+    };
+  }
+  return {};
+}
+
 async function publicarNoServidor() {
   if (MODO_LOCAL) {
     showToast('Modo local: publicar precisa de PHP a correr no servidor.', 'red');
@@ -5132,6 +5204,25 @@ async function publicarNoServidor() {
     classConfig:    ls('fpf_sync_config'),
     classData:      Object.keys(classData).length ? classData : null,
   };
+  // ---- O payload cabe no que o servidor aceita? ---------------------
+  // As imagens não são enviadas como ficheiros: o compressImage() reduz-as no
+  // browser e guarda-as como data: URI DENTRO deste JSON. Por isso o limite que
+  // manda não é o upload_max_filesize — não há upload de ficheiro nenhum — é o
+  // post_max_size, aplicado a este corpo inteiro.
+  //
+  // Medido: um db.json com 50 imagens de 120 KB chega a 7,96 MB. Com
+  // post_max_size = 8M o POST é recusado, o corpo chega vazio, e sem esta
+  // verificação o painel dizia só "corpo vazio" — sem dizer porquê, nem o que
+  // remover. Verifica-se aqui, antes de enviar, e nomeia-se o que pesa.
+  const corpo = JSON.stringify(dados);
+  const limite = avaliarTamanhoDoPayload(corpo, dados);
+  if (limite.recusar) {
+    showToast(limite.mensagem, 'red');
+    alert(limite.mensagem);
+    return;
+  }
+  if (limite.avisar) showToast(limite.mensagem);
+
   try {
     const btn = document.querySelector('[onclick="publicarNoServidor()"]');
     if (btn) { btn.disabled = true; btn.textContent = '⏳ A publicar...'; }
@@ -5139,7 +5230,7 @@ async function publicarNoServidor() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'same-origin',
-      body: JSON.stringify(dados),
+      body: corpo,
     });
     const json = await resp.json();
     if (btn) { btn.disabled = false; btn.innerHTML = '&#128640; Publicar agora'; }

@@ -32,6 +32,31 @@ if (!$perfil) {
 }
 
 $raw = file_get_contents('php://input');
+
+// ---- Corpo vazio por engano, ou corpo recusado pelo servidor? -------
+// As imagens do painel não são enviadas como ficheiros: ficam dentro deste
+// JSON, como data: URI. Quando o conteúdo passa o post_max_size, o PHP
+// descarta o corpo inteiro e o que chega aqui é uma string vazia — enquanto o
+// CONTENT_LENGTH continua a anunciar o tamanho que o browser enviou.
+//
+// Antes, as duas situações davam a mesma resposta: "corpo vazio". Quem
+// publicasse uma notícia com imagens via isso e não tinha como saber que o
+// problema era o limite do servidor.
+$anunciado = isset($_SERVER['CONTENT_LENGTH']) ? (int)$_SERVER['CONTENT_LENGTH'] : 0;
+$recebido  = $raw === false ? 0 : strlen($raw);
+if ($anunciado > 0 && $recebido < $anunciado) {
+    $mb = function ($n) { return number_format($n / 1048576, 2, ',', ' ') . ' MB'; };
+    jsc_saida([
+        'ok'    => false,
+        'error' => 'O conteudo enviado (' . $mb($anunciado) . ') foi recusado pelo servidor antes de '
+                 . 'chegar aqui: excede o post_max_size, que neste alojamento esta em '
+                 . (string)ini_get('post_max_size') . '. Remova ou substitua as imagens mais pesadas, '
+                 . 'ou peca ao alojamento para aumentar o limite.',
+        'limite' => (string)ini_get('post_max_size'),
+        'enviado' => $anunciado,
+        'recebido' => $recebido,
+    ], 413);
+}
 if (!$raw) jsc_saida(['ok' => false, 'error' => 'corpo vazio'], 400);
 $novos = json_decode($raw, true);
 if (!is_array($novos)) jsc_saida(['ok' => false, 'error' => 'json invalido'], 400);
@@ -47,6 +72,12 @@ $chaves = array_unique(array_merge(array_keys($novos), array_keys($antigos)));
 $alteradas = [];
 foreach ($chaves as $k) {
     if ($k === 'publicadoEm') continue;   // muda sempre, não é conteúdo
+    // Uma chave que NÃO vem no pedido significa "inalterada", não "alterada".
+    // O array_merge mais abaixo já preserva o que lá está — a intenção está
+    // escrita no comentário dele —, mas esta contagem tratava a ausência como
+    // uma alteração e recusava com 403 um pedido parcial que não mudava nada.
+    // Nada se perde em permissões: o que não vem no pedido não é escrito.
+    if (!array_key_exists($k, $novos)) continue;
     $a = isset($antigos[$k]) ? json_encode($antigos[$k]) : null;
     $b = isset($novos[$k])   ? json_encode($novos[$k])   : null;
     if ($a !== $b) $alteradas[] = $k;

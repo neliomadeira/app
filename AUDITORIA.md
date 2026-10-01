@@ -2994,3 +2994,281 @@ sem uma linha sobre este bloco.
 
 Não houve deploy. A raiz de `novo.campinense.pt` ainda não contém o site
 completo, e este bloco não a alterou.
+
+# FASE C — BLOCO 10.1: PREPARAÇÃO PARA DEPLOY
+
+Não é um bloco de funcionalidades. Fecha um bloqueador encontrado na auditoria
+de pré-deploy, previne uma perda de dados que o próprio fecho criava, e alinha a
+aplicação com os limites medidos do alojamento. Nada no E1 e nada no E2.
+
+## B4 — o `/api/load.php` entregava o `data/db.json` inteiro
+
+Dez linhas de `readfile(DATA_FILE)`, sem autenticação nenhuma, e o `js/sync.js` a
+copiar o resultado para o `localStorage` de cada visitante.
+
+**O que saía de lá, medido:** notícias com `publicada:false` e notícias agendadas
+para o futuro, com texto e imagens; `atletas[].encarregado`, que **nenhuma página
+pública lê**; `atletas[].dataNascimento` e `atletas[].telefone`;
+`treinadores[].telefone` e `treinadores[].email`; e o `emailConfig.serverToken`,
+que é o segredo do `mail.php`.
+
+**O ponto que distingue o defeito:** as páginas nunca mostraram nada disto. O
+filtro existe e funciona — `main.js:221`, `pesquisa.js:70`, `noticias.js`,
+`jsc_noticias_pagina()`. O que entregava tudo era o **endpoint**. O defeito era no
+canal, não na renderização, e por isso a correcção é no canal.
+
+### A projeção pública
+
+O `data/db.json` continua a ser a fonte única. O que faltava era a noção de
+**projeção**: o mesmo ficheiro visto de duas maneiras.
+
+```
+data/db.json                       403 directo, 755 na pasta
+     ├─ jsc_conteudo_do_ficheiro() → E1 (api/geracao.php)   INALTERADO
+     │                             → E2 (api/noticia.php)   INALTERADO
+     └─ jsc_conteudo_publico()     → api/load.php           NOVO
+```
+
+O E1 e o E2 **não passam por aqui**: leem o ficheiro directamente. Há asserção a
+exigir que nem o `api/geracao.php` nem o `api/noticia.php` mencionem `load.php` ou
+`jsc_conteudo_publico`.
+
+### Allowlist, nunca denylist
+
+É a regra que manda nesta zona, e a razão é concreta: **foi uma denylist implícita
+que deixou o `encarregado` chegar aonde chegou.** Enumerar o que esconder falha
+sempre à primeira coisa nova que alguém acrescenta ao painel.
+
+Uma chave nova criada no painel amanhã **não aparece** no `/api/load.php`. Fica
+privada até ser declarada em `jsc_chaves_publicas()`, de propósito, com um teste a
+prová-lo. Dois testes guardam isto, e são os que distinguem a correcção de um
+remendo: acrescenta-se ao conteúdo publicado uma chave de topo inventada
+(`segredoInventado`, `notasInternas`) e um campo de atleta inventado
+(`nifInventado`), gera-se, e exige-se que **nenhum** apareça.
+
+### As quatro classes, e onde cada uma ficou
+
+| Classe | O que é | `/api/load.php` |
+|---|---|---|
+| Público | notícias publicadas e agendadas já vencidas, agenda, galeria, vídeos, escalões, modalidades, história, palmarés, patrocinadores, jogos, `siteConfig`, `dadosClube`, `siteCores`, `siteLegal`, `logos`, `publicadoEm` | ✅ |
+| Administrativo não publicado | `publicada:false`, agendadas para o futuro, itens com `ativo:false` | ❌ |
+| Segredo operacional | `emailConfig.serverToken`, `emailConfig.serverUrl` | ❌ |
+| Dados pessoais | `atletas[].encarregado`, `atletas[].dataNascimento`, `atletas[].telefone`, `treinadores[].telefone`, `treinadores[].email` | ❌ |
+
+### Nenhum filtro novo
+
+As notícias passam pelo **`jsc_noticias_pagina()`** — o mesmo que decide a lista
+pública e o mesmo que o E2 usa para decidir entre 200 e 404. Não se reescreveu o
+filtro: tira-se dele o conjunto de ids que passaram e devolvem-se os registos em
+bruto desse conjunto, em bruto porque o JavaScript faz a sua própria formatação.
+Duas cópias de um filtro divergem, e a divergência aqui seria conteúdo não
+publicado a escapar.
+
+O resto passa pelos mesmos verificadores de "activo" que os modelos já usam:
+`jsc_media_ativo()` na galeria e nos vídeos, `jsc_modalidade_ativa()`,
+`jsc_ativo()` na história e no palmarés, `jsc_patrocinador_ativo()`.
+
+O `publicada` e o `scheduledAt` **ficam** nos registos que saem: o
+`loadAll()` do `js/noticias.js` filtra por eles, e sem eles a lista ficava vazia
+com JavaScript ligado. Foi verificado.
+
+### Onde a allowlist é de campos, e onde não é
+
+Allowlist de campos onde vivem dados pessoais ou segredos: `atletas`,
+`treinadores`, `emailConfig`, `noticias`, `patrocinadores`.
+
+Nos tipos editoriais restantes os campos passam como estão, **e isso está
+assumido**: uma allowlist de campos em quinze tipos de registo partiria o site no
+primeiro campo que me escapasse, e a protecção que conta — a chave de topo — já
+está fechada. Alargá-la é trabalho de outro bloco.
+
+Um efeito lateral do `patrocinadores`: o campo `tier` deixa de sair. Já estava
+documentado como legado em três sítios do código ("continua nos dados já
+guardados, por compatibilidade") e nenhuma página o lê.
+
+## B5 — o fecho de B4 criava uma perda de dados, e isso não podia ficar
+
+O painel guarda o que está a ser escrito **só** no `localStorage` deste browser —
+o `admin/index.html` não carrega o `js/sync.js` e não lê do servidor em sítio
+nenhum — e **partilha o `localStorage` com o site público**, porque é a mesma
+origem.
+
+Enquanto o `/api/load.php` devolvia o ficheiro inteiro isso era inofensivo: o que
+o `js/sync.js` escrevia era igual ao que o painel tinha. Com a projeção pública,
+passava a existir esta sequência:
+
+```
+1. escrevem-se 3 notícias no painel, ainda sem publicar  → 24 no armazém
+2. na mesma aba, abre-se o noticias.html para ver como ficou
+3. o js/sync.js pede a projeção pública                  → 21
+4. e sobrepõe o armazém                     → OS 3 RASCUNHOS DESAPARECEM
+5. Publicar  →  apagava-os também do servidor
+```
+
+**A protecção:** o painel escreve `localStorage.jsc_painel_local = '1'` ao
+arrancar — antes de qualquer autenticação, porque quem abre o `/admin/` está a
+usar aquele browser como painel, tenha ou não sessão — e o `js/sync.js` não toca
+no armazém quando essa marca existe.
+
+O visitante desse browser não perde nada: as páginas públicas vêm já escritas pelo
+servidor (E1 e E2), e o `jsc_publicado_em` fica como está, logo os blocos gerados
+contam como actuais e é o HTML do servidor que se vê. Para voltar a sincronizar:
+`localStorage.removeItem('jsc_painel_local')`.
+
+Três testes guardam isto: sem a marca o armazém é preenchido com as 21 públicas;
+**com** a marca os 24 registos ficam intactos, e verifica-se nome a nome que os
+rascunhos lá estão; e abrir o `/admin/` escreve a marca.
+
+## Os limites do alojamento — medidos, não estimados
+
+`novo.campinense.pt`: PHP 8.3.33, `cgi-fcgi`, `max_execution_time 30`,
+`memory_limit 128M`, `post_max_size 8M`, `upload_max_filesize 2M`.
+
+### O `upload_max_filesize` não se aplica a este fluxo
+
+Procurado nos 109 ficheiros de runtime: **zero** `$_FILES`, zero `enctype`, zero
+`FormData`, zero `multipart`. **Não existe upload de ficheiro neste projeto.** O
+`compressImage()` lê a imagem com `FileReader` no browser, reduz a 800 px num
+`<canvas>` e guarda-a como `data:` URI dentro do JSON. O limite de 5 MB está no
+ficheiro de origem no disco de quem publica, antes da compressão, e o servidor
+nunca o vê. Alinhar a aplicação com 2 MB daria uma falsa garantia e recusaria
+fotografias de telemóvel que hoje funcionam — uma de 4 MB comprime para ~100 KB.
+Por decisão, o limite de origem **fica em 5 MB**.
+
+### O limite que manda
+
+Publicação real medida sobre cópias do projeto, com imagens de 120 KB (o pior caso
+realista de um JPEG de 800 px a q=0,75):
+
+| imagens | `data/db.json` | gerar | pico de memória | `noticias.html` |
+|---:|---:|---:|---:|---:|
+| 0 | 0,02 MB | 0,16 s | 4 MB | 0,07 MB |
+| 10 | 1,61 MB | 0,28 s | 16 MB | 1,63 MB |
+| 25 | 3,99 MB | 0,50 s | 26,5 MB | **4,14 MB** |
+| 50 | **7,96 MB** | 0,68 s | 46,4 MB | **8,10 MB** |
+
+O `max_execution_time` tem 44× de margem. O `memory_limit` chega às ~130 imagens.
+O **`post_max_size` é o muro**: o `db.json` bate nos 8 MB às ~50 imagens, e o POST
+é recusado. E há um muro antes desse, que nenhum valor do PHP mostra: a lista de
+notícias **embute as imagens de todas as notícias**, e chega a 4,14 MB com 25.
+
+### As três protecções
+
+**No painel, antes do POST.** `avaliarTamanhoDoPayload()` mede o corpo e, acima de
+6 MB de 8, recusa — e a mensagem **nomeia a área que pesa e quantas imagens tem**
+("notícias 4,21 MB em 31 imagem(ns)"), em vez de deixar o problema em branco.
+Acima de 4 MB avisa. E avisa à parte quando as notícias passam de 2 MB, pelo peso
+da página.
+
+**No servidor, depois.** O `api/save.php` distinguia duas situações com a mesma
+resposta, "corpo vazio": o corpo genuinamente vazio e o corpo que o PHP descartou
+por exceder o `post_max_size` — caso em que o `CONTENT_LENGTH` continua a anunciar
+o tamanho que o browser enviou. Passa a responder **413** com o tamanho enviado, o
+limite em vigor e o que fazer.
+
+**Uma nota de método, porque muda o valor do teste.** O `post_max_size` não é
+aplicado pelo SAPI deste ambiente: medido, o `php -S` (`cli-server`) aceitou
+**20 MB** de JSON sem recusar, e não há `php-cgi` nem `php-fpm` instalados para
+reproduzir o `cgi-fcgi` do alojamento. Por isso não se simula a imposição do PHP —
+isso não é código nosso. Simula-se o **estado** que ela produz, que é o que o ramo
+deteta: o `CONTENT_LENGTH` anuncia um corpo que o `php://input` não entrega. A
+confirmação ponta-a-ponta no alojamento fica para depois do deploy, e está na lista
+de verificações.
+
+## Chave ausente significa inalterada
+
+O `api/save.php` comparava cada chave do conteúdo antigo com o novo e contava a
+**ausência** como alteração. O `array_merge` logo abaixo já preservava o que não
+vinha no pedido — a intenção está escrita no comentário dele —, mas a contagem
+recusava com **403** um pedido parcial que não mudava nada. Verificado: uma
+Comunicação a enviar só `noticias` passa a receber 200, o `siteConfig` que não
+mencionou fica como estava, e a alteração que trazia é aplicada. Nada se perde em
+permissões: o que não vem no pedido não é escrito.
+
+## A data de nascimento, e o que fica em aberto
+
+`atleta.js:79,122` mostrava a data de nascimento e a idade na ficha, e
+`main.js:375-400` alimentava a secção **"Aniversários" da página inicial** com
+nome, dia e idade. Não era um descuido: o site estava desenhado para publicar a
+data de nascimento de atletas da formação, que são menores.
+
+Por decisão do clube, a data **sai da projeção pública** neste bloco. A secção de
+aniversários esconde-se sozinha, porque já tinha a guarda do estado vazio; na ficha
+as duas linhas que dependiam da data **não se escrevem** em vez de ficarem a dizer
+"—". O `encarregado` sai em qualquer caso: nenhuma página o lia, e perde-se zero.
+
+**Em aberto, e registado:**
+
+- **Idade e aniversários sem a data.** O servidor passaria a enviar `idade` e
+  `aniversario: "MM-DD"` calculados; a data completa nunca sairia e as duas
+  funcionalidades voltavam. É a opção C da auditoria, e é bloco próprio.
+- **Recuperação do conteúdo administrativo.** Um `api/painel.php` autenticado,
+  filtrado pelas capacidades do perfil, de que o painel carregasse quando o seu
+  armazém local estivesse vazio. Hoje o conteúdo do clube vive num só browser, e
+  o `data/db.json` é, da perspectiva do painel, só destino: perder esse browser
+  perde os rascunhos. Isto **já era verdade antes deste bloco** e não é segurança,
+  é recuperação — por isso ficou de fora. É bloco próprio.
+- **Nomes e fotografias de menores.** Mesmo com a data de fora, continuam públicos,
+  porque o `escalao.html` e o `atleta.html?id=N` existem para os mostrar e estão
+  ligados da pesquisa. É uma escolha editorial do clube, com implicações de RGPD.
+  Não é código a corrigir: é uma decisão a tomar.
+- **Peso das páginas.** A lista de notícias embute todas as imagens. 4,14 MB com
+  25 é mau em rede móvel, muito antes de qualquer limite do servidor. As
+  protecções deste bloco avisam; resolver exige imagens como ficheiros.
+- **Allowlist de campos nos tipos editoriais**, como escrito acima.
+- **O modo "servidor" do formulário de e-mail fica inerte** enquanto o
+  `serverToken` e o `serverUrl` não saírem na projeção — que é o que se quer
+  enquanto o `mail.php` não for instalado. Quem o reactivar tem de voltar à
+  `JSC_PUBLICO_EMAIL`.
+- **`pesquisa.js` filtra só `publicada`**, não as agendadas já vencidas: uma
+  notícia agendada aparece na lista e não na pesquisa.
+
+## Guardas de regressão
+
+Treze, todas a falhar se o que corrigiram voltar: chave de topo desconhecida fora
+da projeção; campo de atleta desconhecido fora da projeção; nenhuma chave entregue
+fora da `jsc_chaves_publicas()`; `encarregado`, `dataNascimento`, `serverToken`,
+`serverUrl`, `telefone` e `email` ausentes do `/api/load.php`; notícia não
+publicada e agendada para o futuro ausentes; agendada já vencida **presente**;
+`api/geracao.php` e `api/noticia.php` sem referência ao `load.php` nem à projeção;
+`api/load.php` sem uma instrução de escrita; os rascunhos intactos com a marca do
+painel; o `/admin/` a escrever a marca; o payload acima do orçamento recusado
+antes do POST, com a área nomeada; e o corpo anunciado e não entregue a dizer
+`post_max_size` em vez de "corpo vazio".
+
+## Como se verificou
+
+`node tools/testar-sem-js.js` — **1201 verificações** (1160 antes), todas a passar.
+Deste bloco: o `/api/load.php` em JSON, `no-store`, com as 21 notícias da política
+pública e sem as três que não entram; os seis campos privados ausentes; os atletas
+a sair com os sete campos permitidos e **com o nome lá** — o que saiu foi o dado
+pessoal, não o registo; os treinadores sem telefone nem e-mail; a chave de topo e
+o campo de atleta inventados a não aparecerem e o resto a sair normalmente; o E1 e
+o E2 sem referência à projeção; os rascunhos intactos com a marca e substituídos
+sem ela, nome a nome; o `/admin/` a escrever a marca; o orçamento do payload a
+recusar 6,45 MB nomeando "noticias … em 55 imagem(ns)", a avisar a 2,35 MB pelo
+peso da página, e a deixar passar 0,04 MB sem aviso; e a lista de notícias nas **sete larguras** (320,
+375, 414, 768, 1024, 1280, 1440) com os 21 cartões, 9 visíveis e sem transbordo.
+
+**E1 byte-idêntico, provado por hash.** O commit `53b4241` foi extraído para uma
+pasta à parte com `git archive`, gerado com o mesmo `data/db.json` que a árvore
+actual, e os **18 ficheiros gerados têm sha256 idêntico** nos dois lados —
+`index.html` `c1c649fa…`, `noticias.html` `b115c432…`, `sitemap.xml` `ed6db315…`.
+Zero diferenças.
+
+`node tools/validar.js --comparar` — sem problemas em 168 combinações,
+**novos: 0**.
+
+Fase A reverificada ponta-a-ponta numa cópia, com três perfis de teste e
+credenciais descartáveis que nunca entraram no repositório: as recusas de sempre;
+`403` para a Comunicação no `siteConfig` e para o Matchday nas notícias; o **pedido
+parcial da Comunicação aceite com 200**, a preservar o que não mencionou e a
+aplicar o que trazia; o corpo anunciado e não entregue a nomear o `post_max_size`
+e o corpo vazio a continuar "corpo vazio", **sem nenhum deles alterar os dados
+publicados**; o `/api/load.php` com a mesma projeção **com e sem sessão** — é um
+endpoint público, e não muda de conteúdo por haver sessão; o `/data/db.json`, o
+`/AUDITORIA.md` e os três modelos novos a 403 com o `manifest.json` a 200; o E2 a
+200 na publicada e 404 na não publicada; e o `api/sessao.php` sem uma linha sobre
+este bloco.
+
+Não houve deploy, não se criou pacote, e o `campinense.pt` não foi tocado.

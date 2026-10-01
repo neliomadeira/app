@@ -2,6 +2,32 @@
 (function () {
   if (sessionStorage.getItem('jsc_sync_done')) return;
 
+  // ---- Não tocar no armazém do painel -------------------------------
+  // O painel guarda o que está a ser escrito SÓ aqui, no localStorage deste
+  // browser, e partilha a mesma origem — e portanto o mesmo localStorage — com
+  // o site público. Enquanto o /api/load.php devolvia o ficheiro inteiro isso
+  // era inofensivo: o que este ficheiro escrevia era igual ao que o painel
+  // tinha. Deixou de ser, agora que o endpoint devolve só a projeção pública:
+  //
+  //   1. escrevem-se 3 notícias no painel, ainda sem publicar  → 24 no armazém
+  //   2. na mesma aba, abre-se o noticias.html para ver como ficou
+  //   3. isto corria, pedia a projeção pública                 → 21
+  //   4. e sobrepunha o armazém                    → OS 3 RASCUNHOS PERDIDOS
+  //   5. Publicar  →  apagava-os também do servidor
+  //
+  // Daí esta guarda. Num browser usado como painel, o localStorage é a cópia
+  // de trabalho de quem escreve, e não se mexe nela.
+  //
+  // O visitante desse browser não perde nada: as páginas públicas são servidas
+  // já escritas pelo servidor (E1 e E2), e o jsc_publicado_em fica como está,
+  // logo os blocos gerados contam como atuais e é o HTML do servidor que se vê.
+  //
+  // Para voltar a sincronizar num browser que já foi painel:
+  //     localStorage.removeItem('jsc_painel_local')
+  try {
+    if (localStorage.getItem('jsc_painel_local') === '1') return;
+  } catch (_) { /* sem localStorage não há nada a proteger nem a escrever */ }
+
   fetch('/api/load.php', { cache: 'no-store' })
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (data) {

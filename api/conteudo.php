@@ -1519,3 +1519,221 @@ function jsc_sitemap_entradas(array $conteudo) {
     }
     return $fora;
 }
+
+// =====================================================
+// PROJEÇÃO PÚBLICA — o que o api/load.php pode entregar
+// =====================================================
+// O data/db.json é a fonte única, e continua a ser. O que faltava era a noção
+// de PROJEÇÃO: o mesmo ficheiro visto de duas maneiras.
+//
+// O api/load.php servia o ficheiro inteiro, com readfile(), sem autenticação
+// nenhuma. As páginas nunca mostraram o que não está publicado — o filtro
+// existe e funciona, em cada ficheiro de JavaScript —, mas o ENDPOINT
+// entregava tudo, e o js/sync.js copiava tudo para o localStorage de cada
+// visitante. Saíam de lá:
+//
+//   • notícias por publicar e agendadas para o futuro, com texto e imagens;
+//   • o campo encarregado dos atletas, que nenhuma página pública usa;
+//   • a data de nascimento dos atletas, com os menores incluídos;
+//   • o emailConfig.serverToken, que é o segredo do mail.php.
+//
+// A partir daqui o endpoint entrega esta projeção, e nada mais.
+//
+// REGRA QUE MANDA AQUI — allowlist, nunca denylist:
+//
+//   Uma chave nova criada no painel amanhã NÃO aparece no api/load.php. Fica
+//   privada até alguém a declarar pública aqui, de propósito, com um teste a
+//   prová-lo. Enumerar o que esconder falha sempre à primeira coisa nova que
+//   se acrescenta — e foi assim que o encarregado chegou aonde chegou.
+//
+// E não há filtro novo: as notícias passam pelo jsc_noticias_pagina(), que é o
+// mesmo que decide a lista pública e o E2; o resto passa pelos mesmos
+// predicados de "activo" que os modelos já usam. Duas cópias de um filtro
+// divergem, e a divergência aqui seria conteúdo não publicado a escapar.
+//
+// O E1 e o E2 não passam por aqui: leem o ficheiro directamente, com o
+// jsc_conteudo_do_ficheiro(). Esta projeção é só do endpoint.
+
+// Os campos de cada tipo de registo que podem ser públicos.
+//
+// Há allowlist de campos onde vivem dados pessoais ou segredos. Nos tipos
+// editoriais os campos passam como estão — e isso está assumido: uma allowlist
+// de campos em quinze tipos de registo partiria o site no primeiro campo que me
+// escapasse, e a protecção que conta (a chave de topo) já está fechada. Alargá-la
+// é trabalho de outro bloco, e está escrito no AUDITORIA.md.
+
+// Sem dataNascimento e sem encarregado. A data de nascimento de um menor não
+// sai do servidor; o encarregado de educação não é lido por página nenhuma.
+if (!defined('JSC_PUBLICO_ATLETA')) {
+    define('JSC_PUBLICO_ATLETA', ['id', 'nome', 'numero', 'posicao', 'escalao', 'estado', 'foto']);
+}
+
+// Treinadores: nome, cargo e fotografia, que é o que o escalão mostra.
+if (!defined('JSC_PUBLICO_TREINADOR')) {
+    define('JSC_PUBLICO_TREINADOR', ['id', 'nome', 'cargo', 'foto', 'escalao', 'ativo']);
+}
+
+// Notícias. O publicada e o scheduledAt FICAM: o js/noticias.js filtra por
+// eles, e sem eles a lista ficava vazia com JavaScript ligado.
+if (!defined('JSC_PUBLICO_NOTICIA')) {
+    define('JSC_PUBLICO_NOTICIA', ['id', 'titulo', 'categoria', 'data', 'resumo', 'imagem',
+                                   'imagemSize', 'imagemPos', 'focalPos', 'destaque',
+                                   'publicada', 'scheduledAt']);
+}
+
+if (!defined('JSC_PUBLICO_PATROCINADOR')) {
+    define('JSC_PUBLICO_PATROCINADOR', ['id', 'nome', 'logo', 'website', 'sector',
+                                        'desde', 'ativo', 'destaque']);
+}
+
+// O emailConfig é configuração do painel e tem lá um segredo. Saem o
+// serverToken e o serverUrl.
+//
+// Consequência assumida, por decisão: com os dois de fora, o modo "servidor"
+// (mail.php) fica inerte no formulário público — o emailConfigured() do
+// js/email.js devolve falso. É o que se quer enquanto o mail.php não for
+// instalado. Quem o reactivar tem de voltar a esta lista.
+if (!defined('JSC_PUBLICO_EMAIL')) {
+    define('JSC_PUBLICO_EMAIL', ['mode', 'publicKey', 'serviceId', 'tplContacto',
+                                 'tplInscricao', 'dest']);
+}
+
+// Os campos permitidos de um registo, pela ordem da allowlist. Um campo que não
+// esteja na lista não é copiado — não é apagado, simplesmente não sai.
+function jsc_campos_publicos($item, array $permitidos) {
+    if (!is_array($item)) return null;
+    $fora = [];
+    foreach ($permitidos as $campo) {
+        if (array_key_exists($campo, $item)) $fora[$campo] = $item[$campo];
+    }
+    return $fora;
+}
+
+// Uma lista de registos, opcionalmente filtrada e opcionalmente reduzida aos
+// campos permitidos. A ordem original é preservada: quem ordena é quem mostra.
+function jsc_lista_publica($valor, array $permitidos = null, $predicado = null) {
+    if (!is_array($valor)) return null;
+    $fora = [];
+    foreach ($valor as $item) {
+        if (!is_array($item)) continue;
+        if ($predicado !== null && !call_user_func($predicado, $item)) continue;
+        $fora[] = $permitidos === null ? $item : jsc_campos_publicos($item, $permitidos);
+    }
+    return $fora;
+}
+
+// Um predicado a partir de um dos verificadores de "activo" que já existem,
+// aplicado ao campo que esse verificador espera.
+function jsc_predicado_ativo($funcao, $campo = 'ativo') {
+    return function ($item) use ($funcao, $campo) {
+        return call_user_func($funcao, isset($item[$campo]) ? $item[$campo] : null);
+    };
+}
+
+// As notícias que o público pode receber: as mesmas que a lista pública mostra.
+//
+// O filtro NÃO é reescrito aqui. Chama-se o jsc_noticias_pagina(), tira-se dele
+// o conjunto de ids que passaram, e devolvem-se os registos em bruto desse
+// conjunto — em bruto porque o JavaScript faz a sua própria formatação, e a
+// projeção do jsc_noticias_pagina() é para os modelos.
+function jsc_noticias_publicas_cru(array $conteudo, $agora = null) {
+    if (!isset($conteudo['noticias']) || !is_array($conteudo['noticias'])) return null;
+
+    $permitidos = [];
+    foreach (jsc_noticias_pagina($conteudo, $agora) as $n) $permitidos[$n['id']] = true;
+
+    $fora = [];
+    foreach ($conteudo['noticias'] as $n) {
+        if (!is_array($n)) continue;
+        $id = (string)(isset($n['id']) ? $n['id'] : '');
+        if (!isset($permitidos[$id])) continue;
+        $fora[] = jsc_campos_publicos($n, JSC_PUBLICO_NOTICIA);
+    }
+    return $fora;
+}
+
+// As chaves do classData que o js/sync.js reconhece. O resto não sai.
+function jsc_class_data_publica($valor) {
+    if (!is_array($valor)) return null;
+    $fora = [];
+    foreach ($valor as $chave => $v) {
+        if (strpos((string)$chave, 'fpf_class_') === 0 || strpos((string)$chave, 'fpf_jogos_') === 0) {
+            $fora[$chave] = $v;
+        }
+    }
+    return $fora ? $fora : null;
+}
+
+// A projeção pública completa. É isto, e só isto, que o api/load.php entrega.
+//
+// Cada chave está aqui porque alguma página pública a lê. A lista é a allowlist:
+// o que não estiver escrito abaixo não sai, agora nem quando alguém acrescentar
+// uma chave nova ao painel.
+function jsc_conteudo_publico(array $conteudo, $agora = null) {
+    $fora = [];
+
+    $juntar = function ($chave, $valor) use (&$fora) {
+        if ($valor !== null) $fora[$chave] = $valor;
+    };
+    $tal_e_qual = function ($chave) use ($conteudo, &$fora) {
+        if (isset($conteudo[$chave])) $fora[$chave] = $conteudo[$chave];
+    };
+
+    // A marca de actualidade dos blocos gerados: é por ela que o jscBlocoAtual()
+    // sabe se o HTML que está na página ainda serve.
+    if (isset($conteudo['publicadoEm']) && is_string($conteudo['publicadoEm'])) {
+        $fora['publicadoEm'] = $conteudo['publicadoEm'];
+    }
+
+    // ---- Conteúdo com filtro de publicação -----------------------------
+    $juntar('noticias', jsc_noticias_publicas_cru($conteudo, $agora));
+    $juntar('galeria',  jsc_lista_publica(isset($conteudo['galeria']) ? $conteudo['galeria'] : null,
+                            null, jsc_predicado_ativo('jsc_media_ativo')));
+    $juntar('videos',   jsc_lista_publica(isset($conteudo['videos']) ? $conteudo['videos'] : null,
+                            null, jsc_predicado_ativo('jsc_media_ativo')));
+    $juntar('modalidades', jsc_lista_publica(isset($conteudo['modalidades']) ? $conteudo['modalidades'] : null,
+                            null, jsc_predicado_ativo('jsc_modalidade_ativa')));
+    $juntar('historia', jsc_lista_publica(isset($conteudo['historia']) ? $conteudo['historia'] : null,
+                            null, jsc_predicado_ativo('jsc_ativo')));
+    $juntar('palmares', jsc_lista_publica(isset($conteudo['palmares']) ? $conteudo['palmares'] : null,
+                            null, jsc_predicado_ativo('jsc_ativo')));
+    $juntar('patrocinadores', jsc_lista_publica(isset($conteudo['patrocinadores']) ? $conteudo['patrocinadores'] : null,
+                            JSC_PUBLICO_PATROCINADOR, jsc_predicado_ativo('jsc_patrocinador_ativo')));
+
+    // ---- Pessoas: allowlist de campos ----------------------------------
+    $juntar('atletas', jsc_lista_publica(isset($conteudo['atletas']) ? $conteudo['atletas'] : null,
+                            JSC_PUBLICO_ATLETA));
+    $juntar('treinadores', jsc_lista_publica(isset($conteudo['treinadores']) ? $conteudo['treinadores'] : null,
+                            JSC_PUBLICO_TREINADOR));
+
+    // ---- Configuração do painel: allowlist de campos -------------------
+    if (isset($conteudo['emailConfig']) && is_array($conteudo['emailConfig'])) {
+        $email = jsc_campos_publicos($conteudo['emailConfig'], JSC_PUBLICO_EMAIL);
+        if ($email) $fora['emailConfig'] = $email;
+    }
+
+    // ---- Conteúdo público sem filtro -----------------------------------
+    // Nenhum destes tem campo privado nem estado de publicação: o que está
+    // guardado é o que o site mostra.
+    foreach (['agenda', 'escaloes', 'modPosts', 'jogos', 'seniores', 'senioresInfo',
+              'siteConfig', 'dadosClube', 'sitePopup', 'siteBanner', 'siteAviso',
+              'siteCores', 'siteLegal', 'siteManutencao', 'logos', 'fbPosts',
+              'classConfig'] as $chave) {
+        $tal_e_qual($chave);
+    }
+
+    $juntar('classData', jsc_class_data_publica(isset($conteudo['classData']) ? $conteudo['classData'] : null));
+
+    return $fora;
+}
+
+// As chaves que a projeção pode conter. Serve ao teste que exige que uma chave
+// nova do painel não apareça publicamente sem passar por aqui.
+function jsc_chaves_publicas() {
+    return ['publicadoEm', 'noticias', 'galeria', 'videos', 'modalidades', 'historia',
+            'palmares', 'patrocinadores', 'atletas', 'treinadores', 'emailConfig',
+            'agenda', 'escaloes', 'modPosts', 'jogos', 'seniores', 'senioresInfo',
+            'siteConfig', 'dadosClube', 'sitePopup', 'siteBanner', 'siteAviso',
+            'siteCores', 'siteLegal', 'siteManutencao', 'logos', 'fbPosts',
+            'classConfig', 'classData'];
+}

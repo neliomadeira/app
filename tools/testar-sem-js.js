@@ -1812,6 +1812,106 @@ async function testarNoticiaE2(browser, url, id, comJs, largura, opcoes = {}) {
   return { ...d, estado, cabecalhos, erros };
 }
 
+// Sonda da projeção pública — o /api/load.php depois do Bloco 10.1.
+//
+// Pede-se o endpoint a sério, por HTTP, e mede-se o que ele entrega. É isso que
+// conta: as páginas sempre filtraram o que mostram, o problema era o endpoint
+// entregar o data/db.json inteiro a quem pedisse.
+async function testarProjecaoPublica(url) {
+  const r = await fetch(url + '/api/load.php');
+  const bruto = await r.text();
+  let dados = null;
+  try { dados = JSON.parse(bruto); } catch (_) { dados = null; }
+  return {
+    estado: r.status,
+    tipo: r.headers.get('content-type') || '',
+    cache: r.headers.get('cache-control') || '',
+    bruto,
+    dados,
+    chaves: dados && typeof dados === 'object' ? Object.keys(dados) : [],
+  };
+}
+
+// Sonda do armazém do painel — a guarda B5.
+//
+// Semeia o localStorage ANTES de a página correr, como se fosse o browser de
+// quem escreve, e vê o que sobra depois de o js/sync.js ter tido a sua
+// oportunidade. É o teste que impede o apagamento de rascunhos.
+async function testarArmazemDoPainel(browser, url, opcoes = {}) {
+  const ctx = await browser.newContext({
+    javaScriptEnabled: true,
+    extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+  });
+  // Semeia-se UMA vez. O addInitScript corre em cada navegação, e o js/sync.js
+  // recarrega a página quando escreve algo novo: sem esta guarda, a semente
+  // voltava a entrar depois do reload e o teste media a sua própria semente em
+  // vez de medir o que o sync.js tinha feito.
+  await ctx.addInitScript((o) => {
+    try {
+      if (sessionStorage.getItem('jsc_teste_semeado')) return;
+      sessionStorage.setItem('jsc_teste_semeado', '1');
+      if (o.marca) localStorage.setItem('jsc_painel_local', '1');
+      if (o.noticias) localStorage.setItem('jsc_noticias', JSON.stringify(o.noticias));
+    } catch (_) {}
+  }, { marca: !!opcoes.marca, noticias: opcoes.noticias || null });
+
+  const pg = await ctx.newPage();
+  const erros = [];
+  pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+  await pg.goto(url + (opcoes.pagina || '/noticias.html'),
+    { waitUntil: 'networkidle', timeout: 20000 });
+  // O js/sync.js recarrega a página uma vez quando escreve algo novo. Dá-se-lhe
+  // tempo para isso acontecer, senão media-se o estado antes da escrita.
+  await pg.waitForTimeout(1200);
+
+  const d = await pg.evaluate(() => {
+    const ler = (k) => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (_) { return null; } };
+    const noticias = ler('jsc_noticias');
+    return {
+      marca: (() => { try { return localStorage.getItem('jsc_painel_local'); } catch (_) { return null; } })(),
+      nNoticias: Array.isArray(noticias) ? noticias.length : -1,
+      titulos: Array.isArray(noticias) ? noticias.map((n) => n.titulo) : [],
+      publicadoEm: (() => { try { return localStorage.getItem('jsc_publicado_em'); } catch (_) { return null; } })(),
+      cartoesVisiveis: Array.from(document.querySelectorAll('#notGrid article.news-page__card'))
+        .filter((e) => e.getClientRects().length > 0).length,
+    };
+  });
+  await ctx.close();
+  return { ...d, erros };
+}
+
+// Sonda do orçamento do payload — a função que o painel corre antes de publicar.
+// Mede-se na própria página do painel, que é onde ela vive.
+async function testarOrcamentoDoPayload(browser, url) {
+  const ctx = await browser.newContext({
+    javaScriptEnabled: true,
+    extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+  });
+  const pg = await ctx.newPage();
+  const erros = [];
+  pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+  await pg.goto(url + '/admin/', { waitUntil: 'networkidle', timeout: 20000 });
+
+  const d = await pg.evaluate(() => {
+    if (typeof avaliarTamanhoDoPayload !== 'function') return { existe: false };
+    const imagem = (kb) => 'data:image/jpeg;base64,' + 'A'.repeat(kb * 1024);
+    const comImagens = (n, kb) => Array.from({ length: n }, (_, i) =>
+      ({ id: i, titulo: 'T' + i, publicada: true, imagem: imagem(kb) }));
+
+    const pequeno = { noticias: comImagens(2, 20), agenda: [] };
+    const medio   = { noticias: comImagens(20, 120), agenda: [] };
+    const grande  = { noticias: comImagens(55, 120), agenda: [] };
+
+    const avaliar = (d) => {
+      const c = JSON.stringify(d);
+      return { bytes: c.length, ...avaliarTamanhoDoPayload(c, d) };
+    };
+    return { existe: true, pequeno: avaliar(pequeno), medio: avaliar(medio), grande: avaliar(grande) };
+  });
+  await ctx.close();
+  return { ...d, erros };
+}
+
 // Sonda do service worker — a correcção J2 do Bloco 10.
 //
 // Antes, o ramo dos documentos guardava na cache tudo o que o servidor
@@ -3552,6 +3652,166 @@ async function testarAdminHistoria(browser, url) {
         escreverDados(raiz, dados);
         gerar(raiz);
       }
+    }
+
+    // ---- Projeção pública do /api/load.php (Bloco 10.1) ----------
+    // O endpoint é público e tem de continuar a ser: é a melhoria progressiva
+    // de todas as páginas. O que não pode é entregar o data/db.json inteiro.
+    console.log('\nprojeção pública do /api/load.php');
+    {
+      const pp = await testarProjecaoPublica(srv.url);
+      verificar('responde 200 em JSON, sem ficar em cache',
+        pp.estado === 200 && /application\/json/.test(pp.tipo) && /no-store/.test(pp.cache),
+        pp.estado + ' · ' + pp.tipo + ' · ' + pp.cache);
+
+      // ---- O que não pode sair --------------------------------------
+      verificar('a notícia NÃO publicada não sai',
+        !/TESTE D NAO PUBLICADA/.test(pp.bruto));
+      verificar('a notícia agendada para o FUTURO não sai',
+        !/TESTE Q AGENDADA FUTURO/.test(pp.bruto));
+      verificar('a agendada JÁ VENCIDA sai — a política pública é exactamente a mesma',
+        /TESTE P AGENDADA PASSADO/.test(pp.bruto));
+      verificar(`a contagem é a da lista pública: ${N} notícias`,
+        pp.dados && Array.isArray(pp.dados.noticias) && pp.dados.noticias.length === N,
+        'obtive ' + (pp.dados && pp.dados.noticias ? pp.dados.noticias.length : '—'));
+
+      for (const campo of ['encarregado', 'dataNascimento', 'serverToken', 'serverUrl']) {
+        verificar(`o campo ${campo} nunca aparece`,
+          !new RegExp('"' + campo + '"').test(pp.bruto));
+      }
+      verificar('o telefone e o e-mail de pessoas não aparecem',
+        !/"telefone"/.test(pp.bruto) && !/"email"/.test(pp.bruto));
+      verificar('o valor do segredo do mail.php não aparece em sítio nenhum',
+        !/SEGREDO|serverToken/i.test(pp.bruto));
+
+      // ---- Allowlist de campos, nas pessoas -------------------------
+      const permitidosAtleta = ['id', 'nome', 'numero', 'posicao', 'escalao', 'estado', 'foto'];
+      const atletas = (pp.dados && pp.dados.atletas) || [];
+      verificar('os atletas da fixture saem, e só com os campos permitidos',
+        atletas.length === dados.atletas.length
+        && atletas.every((a) => Object.keys(a).every((k) => permitidosAtleta.includes(k))),
+        atletas.length + ' atletas · campos: ' + JSON.stringify(atletas.length ? Object.keys(atletas[0]) : []));
+      verificar('o nome do atleta continua lá — o que saiu foi o dado pessoal, não o registo',
+        atletas.length > 0 && typeof atletas[0].nome === 'string' && atletas[0].nome !== '',
+        JSON.stringify(atletas[0] || null));
+
+      const permitidosTreinador = ['id', 'nome', 'cargo', 'foto', 'escalao', 'ativo'];
+      const treinadores = (pp.dados && pp.dados.treinadores) || [];
+      verificar('os treinadores saem sem telefone nem e-mail',
+        treinadores.length === dados.treinadores.length
+        && treinadores.every((t) => Object.keys(t).every((k) => permitidosTreinador.includes(k))),
+        JSON.stringify(treinadores.length ? Object.keys(treinadores[0]) : []));
+
+      // ---- Allowlist de chaves de topo ------------------------------
+      const php = (expr) => spawnSync('php', ['-r',
+        'require "api/conteudo.php"; ' + expr], { cwd: raiz, encoding: 'utf8' }).stdout.trim();
+      const declaradas = JSON.parse(php('echo json_encode(jsc_chaves_publicas());'));
+      const forasteiras = pp.chaves.filter((k) => !declaradas.includes(k));
+      verificar('nenhuma chave entregue está fora da allowlist declarada',
+        forasteiras.length === 0, 'fora: ' + forasteiras.join(', '));
+
+      // ---- A guarda que importa: o que vier de novo fica privado -----
+      // Acrescenta-se ao conteúdo publicado uma chave de topo e um campo de
+      // atleta que ninguém declarou. Se aparecerem, a protecção é uma denylist
+      // disfarçada e falha na primeira coisa que o painel ganhar.
+      {
+        const inventado = JSON.parse(JSON.stringify(dados));
+        inventado.segredoInventado = 'ISTO NAO PODE SAIR';
+        inventado.notasInternas = [{ id: 1, texto: 'ISTO TAMBEM NAO' }];
+        inventado.atletas = inventado.atletas.map((a) => ({ ...a, nifInventado: '123456789' }));
+        escreverDados(raiz, inventado);
+        gerar(raiz);
+        const inv = await testarProjecaoPublica(srv.url);
+        verificar('chave de topo desconhecida NÃO aparece publicamente',
+          !/segredoInventado|ISTO NAO PODE SAIR/.test(inv.bruto)
+          && !/notasInternas|ISTO TAMBEM NAO/.test(inv.bruto));
+        verificar('campo de atleta desconhecido NÃO aparece publicamente',
+          !/nifInventado|123456789/.test(inv.bruto));
+        verificar('e o resto continua a sair normalmente',
+          inv.dados && Array.isArray(inv.dados.noticias) && inv.dados.noticias.length === N,
+          'notícias: ' + (inv.dados && inv.dados.noticias ? inv.dados.noticias.length : '—'));
+        escreverDados(raiz, dados);
+        gerar(raiz);
+      }
+
+      // ---- O E1 e o E2 não passam pela projeção ----------------------
+      const leitura = (rel) => fs.readFileSync(path.join(raiz, rel), 'utf8')
+        .replace(/^\s*\/\/.*$/gm, '');
+      verificar('o api/geracao.php não conhece o load.php nem a projeção pública',
+        !/load\.php|jsc_conteudo_publico/.test(leitura('api/geracao.php')));
+      verificar('o api/noticia.php também não',
+        !/load\.php|jsc_conteudo_publico/.test(leitura('api/noticia.php')));
+      verificar('o api/load.php continua sem uma única instrução de escrita',
+        !/file_put_contents|fwrite|rename\(|unlink\(|mkdir\(/.test(leitura('api/load.php')));
+    }
+
+    // ---- O armazém do painel não é sobreposto (B5) ----------------
+    // O painel guarda o que está a ser escrito só no localStorage, e partilha-o
+    // com o site público. Sem esta guarda, abrir uma página do site na aba do
+    // painel trocava os rascunhos pela projeção pública — e o Publicar seguinte
+    // apagava-os também do servidor.
+    console.log('\no armazém do painel não é sobreposto (B5)');
+    {
+      // 24 notícias, como o painel as tem: as 21 públicas mais 3 por publicar.
+      const comRascunhos = dados.noticias.slice();
+      verificar('a fixture tem rascunhos para proteger',
+        comRascunhos.length > N, comRascunhos.length + ' no painel, ' + N + ' públicas');
+
+      const semMarca = await testarArmazemDoPainel(browser, srv.url,
+        { noticias: comRascunhos, marca: false });
+      verificar(`sem a marca do painel: o armazém é preenchido com as ${N} públicas`,
+        semMarca.nNoticias === N, 'ficaram ' + semMarca.nNoticias);
+
+      const comMarca = await testarArmazemDoPainel(browser, srv.url,
+        { noticias: comRascunhos, marca: true });
+      verificar(`com a marca do painel: os ${comRascunhos.length} registos ficam INTACTOS`,
+        comMarca.nNoticias === comRascunhos.length,
+        'ficaram ' + comMarca.nNoticias + ' de ' + comRascunhos.length);
+      verificar('com a marca: nenhum rascunho desapareceu, nome a nome',
+        ['TESTE D NAO PUBLICADA', 'TESTE Q AGENDADA FUTURO']
+          .every((t) => comMarca.titulos.includes(t)),
+        comMarca.titulos.filter((t) => /NAO PUBLICADA|FUTURO/.test(t)).join(' | '));
+      verificar('com a marca: a página continua a mostrar as notícias publicadas',
+        comMarca.cartoesVisiveis > 0, 'cartões visíveis: ' + comMarca.cartoesVisiveis);
+      verificar('com a marca: sem erros de JavaScript',
+        comMarca.erros.length === 0, comMarca.erros.join(' / '));
+
+      const noPainel = await testarArmazemDoPainel(browser, srv.url, { pagina: '/admin/' });
+      verificar('abrir o /admin/ escreve a marca do painel',
+        noPainel.marca === '1', 'marca: ' + noPainel.marca);
+    }
+
+    // ---- Orçamento do payload antes de publicar -------------------
+    console.log('\norçamento do payload antes de publicar');
+    {
+      const o = await testarOrcamentoDoPayload(browser, srv.url);
+      verificar('a função de orçamento existe na página do painel', o.existe === true);
+      if (o.existe) {
+        verificar('conteúdo pequeno: publica sem aviso',
+          !o.pequeno.recusar && !o.pequeno.avisar,
+          JSON.stringify(o.pequeno).slice(0, 160));
+        verificar('conteúdo acima do limite do servidor: RECUSADO antes do POST',
+          o.grande.recusar === true && /post_max_size/.test(o.grande.mensagem || ''),
+          (o.grande.bytes / 1048576).toFixed(2) + ' MB · ' + String(o.grande.mensagem).slice(0, 120));
+        verificar('a recusa nomeia a área que pesa e quantas imagens tem',
+          /noticias/.test(o.grande.mensagem || '') && /imagem/.test(o.grande.mensagem || ''),
+          String(o.grande.mensagem).slice(0, 200));
+        verificar('notícias pesadas mas abaixo do limite: avisa em vez de recusar',
+          o.medio.avisar === true && !o.medio.recusar,
+          (o.medio.bytes / 1048576).toFixed(2) + ' MB · ' + String(o.medio.mensagem).slice(0, 120));
+        verificar('sem erros de JavaScript na página do painel',
+          o.erros.length === 0, o.erros.join(' / '));
+      }
+    }
+
+    // ---- A lista de notícias nas sete larguras --------------------
+    // A projeção pública passou a alimentar esta página com JavaScript ligado.
+    console.log('\nlista de notícias nas sete larguras, com a projeção pública');
+    for (const largura of [320, 375, 414, 768, 1024, 1280, 1440]) {
+      const w = await testarNoticias(browser, srv.url, true, largura);
+      verificar(`${largura}px: ${N} cartões no DOM, 9 visíveis, sem transbordo`,
+        w.cartoes === N && w.visiveis === 9 && w.transbordo <= 0,
+        'DOM ' + w.cartoes + ' · visíveis ' + w.visiveis + ' · transbordo +' + w.transbordo + 'px');
     }
 
     // ---- Equipa principal ---------------------------------------
