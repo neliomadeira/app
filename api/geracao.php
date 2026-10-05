@@ -608,7 +608,18 @@ function jsc_blocos() {
                 // Rede de segurança, não expectativa: este bloco lê apenas o
                 // db_escaloes e nunca chega perto de um atleta. Se algum dia
                 // chegar, a publicação para aqui.
-                foreach (['dataNascimento', 'data-nascimento', 'nascimento', 'idade',
+                //
+                // A palavra "idade" sozinha não serve de marcador: stripos()
+                // procura subcadeias, e "idade" vive dentro de modalidade,
+                // qualidade, comunidade, intensidade, unidade, atividade e de
+                // "Idades 11-12" — texto legítimo que o clube escreve na faixa
+                // ou na descrição do escalão. Com ela na lista, a publicação
+                // parava por uma palavra correta. O marcador fica a forma
+                // estrutural data-idade, que nenhuma prosa produz. A idade de
+                // um atleta nem existe neste bloco: jsc_escaloes() lê só o
+                // db_escaloes, e de atletas traz uma contagem. O mesmo motivo
+                // já tinha tirado "idade" da lista das modalidades.
+                foreach (['dataNascimento', 'data-nascimento', 'nascimento', 'data-idade',
                           'telefone', 'email', 'encarregado'] as $proibido) {
                     if (stripos($meio, $proibido) !== false) {
                         $erros[] = "o cartão de escalão não pode conter \"$proibido\"";

@@ -903,8 +903,11 @@ function testesDeGeracao(raiz, dados) {
     bEsc.includes('data-itens="' + escComNome.length + '"'));
   verificar('escalões: nenhum atleta no bloco gerado',
     !bEsc.includes('TESTE ATLETA UM') && !bEsc.includes('TESTE ATLETA DOIS'));
+  // "idade" não entra nesta lista: é subcadeia de modalidade, qualidade e
+  // intensidade, palavras que o clube escreve no cartão. O marcador é a forma
+  // estrutural data-idade. Ver api/geracao.php, validador dos escalões.
   verificar('escalões: nenhum dado pessoal no bloco gerado',
-    ['dataNascimento', 'nascimento', 'idade', 'telefone', 'email', 'encarregado',
+    ['dataNascimento', 'nascimento', 'data-idade', 'telefone', 'email', 'encarregado',
      'TESTE ENCARREGADO', '000000000'].every((x) => !bEsc.toLowerCase().includes(x.toLowerCase())));
   verificar('escalões: nenhum atleta em toda a formacao.html gerada',
     !depoisFmc.includes('TESTE ATLETA') && !depoisFmc.includes('TESTE ENCARREGADO'));
@@ -1246,6 +1249,34 @@ function testesDeGeracao(raiz, dados) {
     && !/<div class="category-card[ "]/.test(fmcVazio), g.saida.trim().slice(0, 160));
   verificar('escalões: sem escalões o data-itens é 0',
     fmcVazio.includes('data-itens="0"'));
+  // Texto legítimo com "idade" lá dentro. A sentinela de dados pessoais
+  // procurava a subcadeia "idade", e por isso parava a publicação em
+  // modalidade, qualidade, intensidade e em "Idades 11-12" — justamente o que
+  // se escreve na faixa de um escalão. O erro era
+  //   formacao.html [escaloes]: o cartão de escalão não pode conter "idade"
+  // com dados corretos no painel.
+  const escIdade = JSON.parse(JSON.stringify(dados));
+  escIdade.escaloes[0].faixa = 'Idades 11-12';
+  escIdade.escaloes[0].descricao = 'Pratica da modalidade com qualidade e intensidade.';
+  escreverDados(raiz, escIdade);
+  g = gerar(raiz);
+  const fmcIdade = dentroDasMarcas(fs.readFileSync(fmc, 'utf8'), 'formacao.html', 'escaloes');
+  verificar('escalões: "Idades", modalidade e qualidade no texto publicam',
+    g.estado === 0 && fmcIdade.includes('Idades 11-12')
+    && fmcIdade.includes('modalidade') && fmcIdade.includes('qualidade'),
+    g.saida.trim().slice(0, 160));
+
+  // E a sentinela continua a morder nos marcadores a sério.
+  for (const marcador of ['dataNascimento', 'encarregado', 'data-idade']) {
+    const escFuga = JSON.parse(JSON.stringify(dados));
+    escFuga.escaloes[0].descricao = 'TESTE ' + marcador + ' no sítio errado';
+    escreverDados(raiz, escFuga);
+    g = gerar(raiz);
+    verificar('escalões: um "' + marcador + '" no bloco aborta a publicação',
+      g.estado !== 0 && g.saida.includes('não pode conter "' + marcador + '"'),
+      g.saida.trim().slice(0, 160));
+  }
+
   // Volta a pôr a fixture completa para o resto dos testes.
   escreverDados(raiz, dados);
   g = gerar(raiz);
