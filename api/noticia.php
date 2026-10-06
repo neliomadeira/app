@@ -109,6 +109,21 @@ function jsc_e2_bloco($jscE2Modelo, array $jscE2Vars) {
 // ---------------------------------------------------------------------
 header('Content-Type: text/html; charset=UTF-8');
 
+// A notícia individual é HTML, e revalida como o resto do HTML do site.
+//
+// O .htaccess marca "no-cache" nos ficheiros .html, mas esta página não é
+// servida de um .html: a reescrita interna do Apache entrega-a a este ficheiro,
+// e o que o servidor serve é um .php. Sem esta linha, a notícia saía sem
+// Cache-Control nenhum — e sem informação de frescura os browsers aplicam
+// frescura heurística, pelo que um telemóvel podia servir uma notícia velha da
+// sua própria cache sem sequer perguntar ao servidor.
+//
+// "no-cache" não impede de guardar: obriga a revalidar antes de reutilizar.
+// Fica antes de qualquer saída e não substitui nada: é a única linha neste
+// ficheiro que toca no Cache-Control, e vale para todos os caminhos de resposta
+// — 200, 404, 405 e a página servida como está.
+header('Cache-Control: no-cache');
+
 // A reescrita do Apache olha para o endereço, não para o método. Um POST ao
 // noticias.html?id=1 chegaria aqui — e aqui não há nada para escrever.
 $metodo = isset($_SERVER['REQUEST_METHOD']) ? $_SERVER['REQUEST_METHOD'] : 'GET';

@@ -1,5 +1,8 @@
 // Service Worker — Juventude Sport Campinense
-const CACHE_NAME = 'jsc-v18';
+// A subida de versão apaga as caches antigas no activate, lá em baixo. É o que
+// desencrava os dispositivos que ficaram com uma página HTML velha guardada
+// pela regra cache-first — ver o comentário do ramo das páginas.
+const CACHE_NAME = 'jsc-v19';
 const PRECACHE = [
   '/',
   '/index.html',
@@ -87,16 +90,45 @@ self.addEventListener('fetch', e => {
   // A resposta é devolvida sempre, 404 incluída: um erro verdadeiro tem de
   // chegar ao visitante e ao motor de busca. O que não acontece é ficar
   // guardado.
-  if (e.request.destination === 'document') {
+  //
+  // COMO SE RECONHECE UMA PÁGINA. Isto era só
+  //     e.request.destination === 'document'
+  // e o Request.destination só existe a partir do Safari 16.4 / iOS 16.4. Num
+  // iPhone mais antigo vinha undefined, este ramo nunca corria, e a navegação
+  // caía na regra cache-first do fim do ficheiro — onde uma página guardada é
+  // devolvida para sempre e nunca mais é pedida ao servidor. Depois de
+  // Publicar no painel, esses telemóveis ficavam na versão antiga até a cache
+  // mudar de nome, e só um endereço diferente (um ?v=… à mão) os tirava de lá.
+  //
+  // O request.mode === 'navigate' existe no Safari desde a 11.1, muito antes
+  // do destination. O cabeçalho Accept é a terceira rede, para o caso de um
+  // browser que não dê nenhum dos dois.
+  const aceita = e.request.headers.get('accept') || '';
+  const ehPagina = e.request.mode === 'navigate'
+    || e.request.destination === 'document'
+    || aceita.indexOf('text/html') !== -1;
+
+  if (ehPagina) {
+    // Guardar só o que vale a pena guardar.
+    const guardar = res => {
+      if (res && res.status === 200 && res.type !== 'opaque') {
+        const clone = res.clone();
+        caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
+      }
+      return res;
+    };
     e.respondWith(
-      fetch(e.request)
-        .then(res => {
-          if (res && res.status === 200 && res.type !== 'opaque') {
-            const clone = res.clone();
-            caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
-          }
-          return res;
-        })
+      // cache: 'no-store' para este pedido não ser servido pela cache HTTP do
+      // próprio browser. Sem isto, uma cópia velha que o browser tenha
+      // guardado — o HTML não traz Cache-Control, e o Safari aplica frescura
+      // heurística — era devolvida aqui e voltava a entrar na cache do service
+      // worker: a cache reenvenenava-se a si mesma a cada navegação, e o
+      // "network-first" era primeiro-a-cache-do-browser.
+      fetch(e.request, { cache: 'no-store' })
+        .then(guardar)
+        // Um browser que recuse o init num pedido de navegação não fica sem
+        // página: tenta-se o pedido simples antes de desistir da rede.
+        .catch(() => fetch(e.request).then(guardar))
         .catch(() => caches.match(e.request).then(cached => cached || caches.match('/offline.html')))
     );
     return;

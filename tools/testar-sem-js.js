@@ -1991,6 +1991,124 @@ async function testarServiceWorker(browser, url) {
   };
 }
 
+// Sonda da sincronização com a página aberta — o separador que não se fecha.
+//
+// Reproduz o caso real que deu origem a isto: a página fica aberta, publica-se
+// no painel, e o visitante não fecha o separador, não limpa cache e não
+// acrescenta ?v=… ao endereço. O js/sync.js marcava jsc_sync_done no
+// sessionStorage e isso era definitivo — o sessionStorage sobrevive a
+// recarregamentos, a navegações e, no iOS, ao restauro de separadores. Um
+// telemóvel com o separador aberto há dias nunca voltava a pedir o
+// /api/load.php e ficava para sempre na versão antiga.
+//
+// A marca do último sync é envelhecida à mão em vez de se esperar o minuto de
+// validade: é a mesma marca que o código consulta, por isso o caminho
+// exercitado é o verdadeiro.
+async function testarSincronizacaoAoVivo(browser, url, publicar, opcoes = {}) {
+  const ctx = await browser.newContext({
+    javaScriptEnabled: true,
+    extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+    ...(opcoes.contexto || {}),
+  });
+  const pg = await ctx.newPage();
+  const pedidos = [];
+  const navegacoes = [];
+  const erros = [];
+  pg.on('request', (r) => { if (r.url().indexOf('/api/load.php') !== -1) pedidos.push(r.url()); });
+  pg.on('framenavigated', (f) => { if (f === pg.mainFrame()) navegacoes.push(f.url()); });
+  pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+
+  const alvo = opcoes.pagina || '/modalidade.html?id=601';
+  await pg.goto(url + alvo, { waitUntil: 'load', timeout: 20000 });
+  let controlado = false;
+  if (opcoes.sw) {
+    await pg.evaluate(async () => {
+      await navigator.serviceWorker.register('/sw.js');
+      await navigator.serviceWorker.ready;
+    });
+    await pg.goto(url + alvo, { waitUntil: 'load', timeout: 20000 });
+    controlado = await pg.evaluate(() => !!navigator.serviceWorker.controller);
+  }
+  // Arranque: sync inicial e, se escreveu algo novo, o recarregamento único.
+  await pg.waitForTimeout(1800);
+  const antes = await pg.evaluate(() => document.body.innerText);
+  const pedidosNoArranque = pedidos.length;
+  const navegacoesNoArranque = navegacoes.length;
+
+  // Publicar com a página aberta, sem lhe tocar.
+  publicar();
+
+  // O separador volta a ficar à frente.
+  await pg.evaluate(() => {
+    try { sessionStorage.setItem('jsc_sync_em', String(Date.now() - 120000)); } catch (_) {}
+  });
+  await pg.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+  await pg.waitForTimeout(2500);
+  const depois = await pg.evaluate(() => document.body.innerText);
+  const marcas = await pg.evaluate(() => {
+    const ler = (f) => { try { return f(); } catch (_) { return null; } };
+    return {
+      sync: ler(() => sessionStorage.getItem('jsc_sync_em')),
+      recarga: ler(() => sessionStorage.getItem('jsc_sync_recarregado')),
+      done: ler(() => sessionStorage.getItem('jsc_sync_done')),
+      publicado: ler(() => localStorage.getItem('jsc_publicado_em')),
+    };
+  });
+
+  // Período de calma: é aqui que um ciclo de recarregamentos ou de pedidos se
+  // denunciaria.
+  const navegacoesAteAqui = navegacoes.length;
+  const pedidosAteAqui = pedidos.length;
+  await pg.waitForTimeout(3000);
+  const estavel = navegacoes.length === navegacoesAteAqui && pedidos.length === pedidosAteAqui;
+
+  await ctx.close();
+  return {
+    antes, depois, marcas, estavel, controlado, erros,
+    pedidosNoArranque, pedidosTotal: pedidos.length,
+    navegacoesNoArranque, navegacoesTotal: navegacoes.length,
+  };
+}
+
+// Sonda do funcionamento offline. Mede-se com uma navegação a sério e com a
+// rede cortada no contexto, que é o que o service worker vê.
+//
+// UMA só navegação offline por contexto, e de propósito: medido neste Chromium,
+// a segunda navegação offline seguida já chega ao servidor, e a emulação deixa
+// de valer. Com uma navegação por contexto a medição é determinista.
+async function testarOffline(browser, url, alvo) {
+  const ctx = await browser.newContext({
+    javaScriptEnabled: true,
+    extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+  });
+  const pg = await ctx.newPage();
+  await pg.goto(url + '/index.html', { waitUntil: 'load', timeout: 20000 });
+  await pg.evaluate(async () => {
+    await navigator.serviceWorker.register('/sw.js');
+    await navigator.serviceWorker.ready;
+  });
+  await pg.goto(url + '/index.html', { waitUntil: 'load', timeout: 20000 });
+  const controlado = await pg.evaluate(() => !!navigator.serviceWorker.controller);
+  const nomes = await pg.evaluate(() => caches.keys());
+  const temOffline = await pg.evaluate(async () => {
+    for (const n of await caches.keys()) {
+      const r = await (await caches.open(n)).match('/offline.html');
+      if (r) return r.status;
+    }
+    return 0;
+  });
+
+  await ctx.setOffline(true);
+  let texto = '';
+  try {
+    await pg.goto(url + alvo, { waitUntil: 'load', timeout: 20000 });
+    texto = await pg.evaluate(() => document.body.innerText.slice(0, 300));
+  } catch (e) { texto = 'ERRO: ' + e.message; }
+  await ctx.setOffline(false);
+  await ctx.close();
+  return { controlado, nomes, temOffline, texto };
+}
+
 // Sonda da agenda.html. O calendário e os filtros são controlos: existem só
 // com JavaScript, e é isso que se verifica.
 async function testarAgenda(browser, url, comJs, largura, opcoes = {}) {
@@ -3621,8 +3739,8 @@ async function testarAdminHistoria(browser, url) {
         verificar('a notícia que não existe responde 404 e NÃO é guardada',
           sw.estado404 === 404 && !sw.naCache['/noticias.html?id=9999'],
           'estado ' + sw.estado404 + ' ' + JSON.stringify(sw.naCache));
-        verificar('o ramo dos documentos do sw.js verifica o estado antes de guardar',
-          /destination === 'document'[\s\S]{0,900}?res\.status === 200[\s\S]{0,200}?c\.put/.test(
+        verificar('o ramo das páginas do sw.js verifica o estado antes de guardar',
+          /if \(ehPagina\)[\s\S]{0,900}?res\.status === 200[\s\S]{0,200}?c\.put/.test(
             fs.readFileSync(path.join(raiz, 'sw.js'), 'utf8')));
       }
 
@@ -3810,6 +3928,230 @@ async function testarAdminHistoria(browser, url) {
       const noPainel = await testarArmazemDoPainel(browser, srv.url, { pagina: '/admin/' });
       verificar('abrir o /admin/ escreve a marca do painel',
         noPainel.marca === '1', 'marca: ' + noPainel.marca);
+    }
+
+    // ---- Cache e sincronização depois de Publicar ------------------
+    // O caso real: alterou-se uma modalidade, carregou-se em Publicar agora, e
+    // o telemóvel continuou a mostrar a versão antiga — com o separador aberto,
+    // sem limpar cache e sem ?v= no endereço. A modalidade.html não tem
+    // conteúdo escrito pelo servidor: desenha-se toda a partir do localStorage,
+    // e quem o enche é o js/sync.js.
+    console.log('\ncache e sincronização depois de Publicar');
+    {
+      const fonteSync = fs.readFileSync(path.join(raiz, 'js', 'sync.js'), 'utf8');
+      const fonteSw   = fs.readFileSync(path.join(raiz, 'sw.js'), 'utf8');
+      // Sem comentários: o jsc_sync_done ainda é nomeado no comentário que
+      // explica porque saiu, e o que interessa é que não haja código a lê-lo.
+      const semComentarios = (js) => js.replace(/\/\*[\s\S]*?\*\//g, '')
+        .split('\n').map((l) => l.replace(/\/\/.*$/, '')).join('\n');
+      const codigoSync = semComentarios(fonteSync);
+
+      // -- R1: o js/sync.js --
+      verificar('sync.js: já não há código a ler a marca definitiva jsc_sync_done',
+        !/jsc_sync_done/.test(codigoSync),
+        (codigoSync.match(/.*jsc_sync_done.*/) || [''])[0].trim());
+      verificar('sync.js: a sincronização passou a ter validade de 60 segundos',
+        /VALIDADE_MS = 60000/.test(fonteSync));
+      verificar('sync.js: volta a verificar quando o separador fica visível',
+        /addEventListener\('visibilitychange'/.test(fonteSync));
+      verificar('sync.js: volta a verificar no pageshow, que cobre a bfcache',
+        /addEventListener\('pageshow'/.test(fonteSync));
+      verificar('sync.js: o pedido ao /api/load.php continua a ser no-store',
+        /fetch\('\/api\/load\.php', \{ cache: 'no-store' \}\)/.test(fonteSync));
+      verificar('sync.js: continua a anunciar jsc:synced para as páginas redesenharem',
+        /dispatchEvent\(new CustomEvent\('jsc:synced'\)\)/.test(fonteSync));
+      verificar('sync.js: um pedido de cada vez, com os três gatilhos',
+        /if \(aCorrer \|\| ehPainel\(\) \|\| atual\(\)\) return;/.test(fonteSync)
+        && /aCorrer = true;/.test(fonteSync));
+      verificar('sync.js: o recarregamento é por publicação e não por sessão',
+        /MARCA_RECARGA = 'jsc_sync_recarregado'/.test(fonteSync)
+        && !/jsc_sync_reloaded/.test(codigoSync));
+      verificar('sync.js: a guarda do armazém do painel (B5) ficou intacta',
+        /jsc_painel_local/.test(fonteSync));
+
+      // -- R3 e R4: o sw.js --
+      verificar('sw.js: a cache subiu para jsc-v19',
+        /CACHE_NAME = 'jsc-v19'/.test(fonteSw));
+      verificar('sw.js: o activate apaga as caches antigas, com skipWaiting e clients.claim',
+        /k !== CACHE_NAME[\s\S]{0,80}caches\.delete\(k\)/.test(fonteSw)
+        && /self\.skipWaiting\(\)/.test(fonteSw) && /self\.clients\.claim\(\)/.test(fonteSw));
+      verificar('sw.js: a navegação já não depende só do Request.destination',
+        /e\.request\.mode === 'navigate'/.test(fonteSw));
+      verificar('sw.js: o pedido das páginas recusa a cache HTTP do browser',
+        /fetch\(e\.request, \{ cache: 'no-store' \}\)/.test(fonteSw));
+      verificar('sw.js: o offline.html continua a ser o último recurso',
+        /caches\.match\('\/offline\.html'\)/.test(fonteSw));
+
+      // -- R2 no E2: a notícia individual não é um .html, logo o .htaccess não
+      // a apanha. Declara o cabeçalho ela própria.
+      const fonteNoticia = fs.readFileSync(path.join(raiz, 'api', 'noticia.php'), 'utf8');
+      verificar('noticia.php: a notícia individual declara Cache-Control no-cache',
+        /header\('Cache-Control: no-cache'\);/.test(fonteNoticia));
+      verificar('noticia.php: é a única linha que toca no Cache-Control',
+        (fonteNoticia.match(/header\('Cache-Control[^)]*\)/g) || []).length === 1,
+        JSON.stringify(fonteNoticia.match(/header\('Cache-Control[^)]*\)/g) || []));
+
+      // A condição é avaliada a partir da própria fonte do sw.js, com pedidos
+      // falsos. O primeiro é o de um Safari anterior ao 16.4, onde o
+      // Request.destination não existe: era aí que a navegação caía no
+      // cache-first e a página nunca mais mudava.
+      const expr = fonteSw.match(/const ehPagina = ([\s\S]*?);\n/);
+      verificar('sw.js: a condição de página foi encontrada na fonte', !!expr);
+      if (expr) {
+        const avaliar = new Function('e',
+          'const aceita = e.request.headers.get("accept") || "";\nreturn ' + expr[1] + ';');
+        const pedido = (mode, destination, accept) => ({
+          request: {
+            mode, destination,
+            headers: { get: (h) => (String(h).toLowerCase() === 'accept' ? accept : null) },
+          },
+        });
+        verificar('deteção de página: navegação num Safari sem Request.destination',
+          avaliar(pedido('navigate', undefined, 'text/html,application/xhtml+xml')) === true);
+        verificar('deteção de página: navegação num browser moderno',
+          avaliar(pedido('navigate', 'document', 'text/html')) === true);
+        verificar('deteção de página: uma imagem não é página',
+          avaliar(pedido('no-cors', 'image', 'image/avif,image/webp,*/*')) === false);
+        verificar('deteção de página: um pedido de dados não é página',
+          avaliar(pedido('cors', 'empty', '*/*')) === false);
+      }
+
+      // -- R2: os cabeçalhos HTTP --
+      if (srv.modo !== 'apache') {
+        console.log('  (cabeçalhos HTTP saltados: sem Apache não há .htaccess)');
+      } else {
+        // A fixture completa, publicada, para o ?id=1001 do E2 existir.
+        escreverDados(raiz, dados);
+        gerar(raiz);
+        const cabecalhos = async (p) => {
+          const r = await fetch(srv.url + p);
+          await r.text();
+          return {
+            estado: r.status,
+            cc: r.headers.get('cache-control') || '',
+            etag: r.headers.get('etag') || '',
+          };
+        };
+        const html = await cabecalhos('/modalidade.html');
+        const raizHtml = await cabecalhos('/');
+        const load = await cabecalhos('/api/load.php');
+        const auth = await cabecalhos('/api/auth.php?acao=estado');
+        const css  = await cabecalhos('/css/styles.css');
+        const img  = await cabecalhos('/images/logo.png');
+        verificar('R2: o HTML sai com Cache-Control no-cache',
+          html.cc === 'no-cache', 'cache-control: ' + (html.cc || '(nenhum)'));
+        verificar('R2: a raiz do site, que serve o index.html, também',
+          raizHtml.cc === 'no-cache', 'cache-control: ' + (raizHtml.cc || '(nenhum)'));
+        verificar('R2: o HTML continua a trazer ETag, para revalidar com um 304 vazio',
+          html.etag !== '', 'etag: ' + (html.etag || '(nenhum)'));
+        verificar('R2: o /api/load.php mantém o no-store que já tinha',
+          /no-store/.test(load.cc), 'cache-control: ' + (load.cc || '(nenhum)'));
+        verificar('R2: o /api/auth.php mantém o no-store — a regra não toca em .php',
+          /no-store/.test(auth.cc), 'cache-control: ' + (auth.cc || '(nenhum)'));
+        verificar('R2: o CSS e as imagens mantêm a política de sempre',
+          /max-age=604800/.test(css.cc) && /max-age=2592000/.test(img.cc),
+          'css: ' + css.cc + ' · imagem: ' + img.cc);
+
+        // A notícia individual, que vem do api/noticia.php por reescrita
+        // interna. O <FilesMatch "\.html$"> não lhe chega: o ficheiro servido é
+        // um .php. O cabeçalho vem do próprio endpoint.
+        const e2ok  = await cabecalhos('/noticias.html?id=1001');
+        const e2nao = await cabecalhos('/noticias.html?id=9999');
+        verificar('R2: a notícia individual do E2 sai com no-cache',
+          e2ok.cc === 'no-cache', 'estado ' + e2ok.estado + ' · cache-control: '
+            + (e2ok.cc || '(nenhum)'));
+        verificar('R2: e continua a responder 200, sem mudar de comportamento',
+          e2ok.estado === 200, 'respondeu ' + e2ok.estado);
+        verificar('R2: a notícia inexistente também revalida, e continua a dar 404',
+          e2nao.cc === 'no-cache' && e2nao.estado === 404,
+          'estado ' + e2nao.estado + ' · cache-control: ' + (e2nao.cc || '(nenhum)'));
+      }
+
+      // -- O comportamento, com a página aberta e sem lhe tocar --
+      const correr = async (etiqueta, contexto) => {
+        // Volta ao estado original antes de cada medição, para a página
+        // arrancar com a descrição antiga.
+        escreverDados(raiz, dados);
+        gerar(raiz);
+        const texto = 'DESCRICAO AO VIVO ' + etiqueta;
+        const r = await testarSincronizacaoAoVivo(browser, srv.url, () => {
+          const alterado = JSON.parse(JSON.stringify(dados));
+          alterado.modalidades.find((x) => String(x.id) === '601').descricao = texto;
+          escreverDados(raiz, alterado);
+          const g = gerar(raiz);
+          if (g.estado !== 0) throw new Error('publicação falhou: ' + g.saida.slice(0, 200));
+        }, contexto);
+        return { r, texto };
+      };
+
+      const ANTIGA = 'TESTE DESCRICAO DA MODALIDADE';
+      const medir = (nome, { r, texto }) => {
+        verificar(nome + ': o service worker controla a página — a medição é válida',
+          r.controlado, 'controlado=' + r.controlado);
+        verificar(nome + ': no arranque o /api/load.php é pedido uma vez, não uma por gatilho',
+          r.pedidosNoArranque <= 2, 'pedidos no arranque: ' + r.pedidosNoArranque);
+        verificar(nome + ': antes de publicar mostra a descrição antiga',
+          r.antes.indexOf(ANTIGA) !== -1, r.antes.replace(/\s+/g, ' ').slice(0, 120));
+        verificar(nome + ': com o separador aberto, sem ?v= e sem limpar cache, a nova aparece',
+          r.depois.indexOf(texto) !== -1 && r.depois.indexOf(ANTIGA) === -1,
+          r.depois.replace(/\s+/g, ' ').slice(0, 160));
+        verificar(nome + ': a marca definitiva jsc_sync_done nunca é escrita',
+          r.marcas.done === null, 'jsc_sync_done=' + r.marcas.done);
+        verificar(nome + ': a marca de recarregamento guarda a publicação, não um "1"',
+          !!r.marcas.recarga && r.marcas.recarga !== '1', 'marca: ' + r.marcas.recarga);
+        verificar(nome + ': no máximo um recarregamento por publicação',
+          r.navegacoesTotal - r.navegacoesNoArranque <= 1,
+          'navegações: ' + r.navegacoesNoArranque + ' -> ' + r.navegacoesTotal);
+        verificar(nome + ': sem ciclo de recarregamentos nem de pedidos',
+          r.estavel, 'pedidos ' + r.pedidosTotal + ', navegações ' + r.navegacoesTotal);
+        verificar(nome + ': sem erros de JavaScript',
+          r.erros.length === 0, r.erros.join(' / '));
+      };
+
+      medir('separador aberto (desktop)', await correr('DESKTOP', { sw: true }));
+
+      // O mesmo, num contexto com a forma de um iPhone. É Chromium, não Safari:
+      // o que isto mede é o caminho do código, não o motor. A parte que depende
+      // do motor — o Request.destination ausente — está medida acima, a partir
+      // da fonte.
+      medir('separador aberto (forma de iPhone)', await correr('TELEMOVEL', {
+        sw: true,
+        contexto: {
+          viewport: { width: 390, height: 844 },
+          isMobile: true,
+          hasTouch: true,
+          userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) '
+            + 'AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
+        },
+      }));
+
+      // -- O offline continua a funcionar --
+      escreverDados(raiz, dados);
+      gerar(raiz);
+      const offVisitada = await testarOffline(browser, srv.url, '/index.html');
+      verificar('offline: o service worker controla a página',
+        offVisitada.controlado, 'caches: ' + JSON.stringify(offVisitada.nomes));
+      verificar('offline: só existe a cache jsc-v19 — as antigas foram apagadas',
+        offVisitada.nomes.length === 1 && offVisitada.nomes[0] === 'jsc-v19',
+        JSON.stringify(offVisitada.nomes));
+      verificar('offline: o offline.html está na cache, pronto para o último recurso',
+        offVisitada.temOffline === 200, 'estado na cache: ' + offVisitada.temOffline);
+      // A página verdadeira, não o offline.html: é essa a diferença entre ter
+      // cache e ter um aviso de que não há rede.
+      verificar('offline: uma página já visitada abre da cache, e não o offline.html',
+        offVisitada.texto.indexOf('ERRO:') !== 0
+        && offVisitada.texto.trim().length > 50
+        && offVisitada.texto.indexOf('Sem ligação à internet') === -1,
+        offVisitada.texto.replace(/\s+/g, ' ').slice(0, 120));
+
+      const offAusente = await testarOffline(browser, srv.url, '/nao-esta-na-cache.html');
+      verificar('offline: uma página que não está na cache dá o offline.html',
+        offAusente.texto.indexOf('Sem ligação à internet') !== -1,
+        offAusente.texto.replace(/\s+/g, ' ').slice(0, 120));
+
+      // Volta a pôr a fixture completa para o resto dos testes.
+      escreverDados(raiz, dados);
+      gerar(raiz);
     }
 
     // ---- Orçamento do payload antes de publicar -------------------

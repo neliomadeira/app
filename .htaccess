@@ -82,6 +82,33 @@ Options -Indexes
   AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json
 </IfModule>
 
+# O HTML revalida sempre
+#
+# Aqui não havia regra nenhuma para text/html: o ExpiresActive está ligado mas
+# só com ExpiresByType para imagens, CSS, JS e JSON, e sem ExpiresDefault. Uma
+# página saía com ETag e Last-Modified e sem Cache-Control, e sem informação de
+# frescura os browsers aplicam frescura heurística — tipicamente 10% da idade
+# do Last-Modified, e o Safari é dos mais agressivos. Resultado: depois de
+# Publicar no painel, um telemóvel continuava a servir a página da sua própria
+# cache sem sequer perguntar ao servidor.
+#
+# "no-cache" não quer dizer "não guardes": quer dizer "guarda, mas revalida
+# sempre". O Apache já envia ETag e Last-Modified, por isso o caso normal é um
+# 304 vazio — barato. A cache do service worker é outra coisa e não é afectada:
+# o funcionamento offline fica igual.
+<IfModule mod_headers.c>
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+  # A notícia individual é HTML escrita pelo api/noticia.php (E2). A regra de
+  # cima não a apanha: depois da reescrita interna, o ficheiro servido é um
+  # .php. Nomeia-se só este, e nunca *.php — o api/auth.php e o api/load.php
+  # definem "no-store" por eles, e um Header set aqui sobrepunha-o.
+  <FilesMatch "^noticia\.php$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>
+
 # Cache static assets
 <IfModule mod_expires.c>
   ExpiresActive On
