@@ -100,6 +100,22 @@ Options -Indexes
   <FilesMatch "\.html$">
     Header set Cache-Control "no-cache"
   </FilesMatch>
+  # O JS e o CSS revalidam pela mesma razão, e por um motivo medido num
+  # telemóvel: o .js saía sem Cache-Control nenhum — a regra ExpiresByType
+  # application/javascript nunca se aplica, porque o Apache serve .js como
+  # text/javascript — e cada motor lhe dava a sua frescura heurística. Depois de
+  # um deploy, o Chrome continuou a executar o js/sync.js antigo da sua própria
+  # cache, e um ↻ normal não revalida subrecursos que o browser considere
+  # frescos. O Safari, com outra heurística, buscou o ficheiro novo. Uma
+  # correção que não chega ao browser não é uma correção.
+  #
+  # Isto substitui, para o CSS, o "access plus 1 week" do mod_expires lá abaixo
+  # — que era igualmente um risco: uma alteração ao styles.css podia levar uma
+  # semana a chegar a quem já tinha visitado o site. As imagens ficam como
+  # estão, com o mês de cache.
+  <FilesMatch "\.(js|css)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
   # A notícia individual é HTML escrita pelo api/noticia.php (E2). A regra de
   # cima não a apanha: depois da reescrita interna, o ficheiro servido é um
   # .php. Nomeia-se só este, e nunca *.php — o api/auth.php e o api/load.php

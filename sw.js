@@ -2,7 +2,7 @@
 // A subida de versão apaga as caches antigas no activate, lá em baixo. É o que
 // desencrava os dispositivos que ficaram com uma página HTML velha guardada
 // pela regra cache-first — ver o comentário do ramo das páginas.
-const CACHE_NAME = 'jsc-v19';
+const CACHE_NAME = 'jsc-v20';
 const PRECACHE = [
   '/',
   '/index.html',
@@ -135,9 +135,23 @@ self.addEventListener('fetch', e => {
   }
 
   // Network-first for JS and CSS — always get the latest code
+  //
+  // O cache: 'no-store' é o que torna isto verdade. Sem ele, o fetch() passava
+  // pela cache HTTP do browser, e "network-first" era na prática
+  // cache-do-browser-primeiro: o .js sai do servidor sem Cache-Control, pelo que
+  // cada motor lhe aplica a sua frescura heurística, e um ↻ normal não revalida
+  // subrecursos que o browser considere frescos. Medido num telemóvel: depois do
+  // deploy, o Chrome continuou a executar o js/sync.js antigo — o que tinha a
+  // marca definitiva jsc_sync_done — e por isso nunca voltou a pedir os dados.
+  // Pior: a cópia velha era depois escrita aqui, e o service worker
+  // reenvenenava-se a si mesmo. O Safari, com outra heurística, buscou o
+  // ficheiro novo e funcionou. Era a mesma armadilha já corrigida no ramo das
+  // páginas, que tinha ficado de pé neste.
+  //
+  // O .catch devolve a cópia guardada: offline, é ela que serve o site.
   if (url.pathname.endsWith('.js') || url.pathname.endsWith('.css')) {
     e.respondWith(
-      fetch(e.request).then(res => {
+      fetch(e.request, { cache: 'no-store' }).then(res => {
         if (res && res.status === 200) {
           const clone = res.clone();
           caches.open(CACHE_NAME).then(c => c.put(e.request, clone));

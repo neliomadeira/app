@@ -182,6 +182,37 @@ function escreverDados(raiz, dados) {
   fs.writeFileSync(path.join(raiz, 'data', 'db.json'), JSON.stringify(dados));
 }
 
+// Todas as referências executáveis ao js/sync.js nas páginas de uma cópia.
+//
+// O js/sync.js é o único script do site que decide se o visitante vê conteúdo
+// publicado ou conteúdo velho, e era o único sem marca de versão. Num telemóvel
+// real, depois de um deploy, o Chrome continuou a executar a versão antiga que
+// tinha na cache HTTP. A marca ?v=… no endereço é o que garante que um browser
+// nessas condições vai buscar o ficheiro novo.
+//
+// Procura a tag <script> onde ela esteja, com qualquer caminho, para uma página
+// nova que se esqueça da versão fazer a bateria falhar.
+function referenciasSync(raiz) {
+  const paginas = fs.readdirSync(raiz).filter((f) => f.endsWith('.html'));
+  const comTag = [];
+  const semVersao = [];
+  const versoes = new Set();
+  for (const f of paginas) {
+    const html = fs.readFileSync(path.join(raiz, f), 'utf8');
+    const tags = html.match(/<script[^>]+src="[^"]*sync\.js[^"]*"[^>]*>/g) || [];
+    if (!tags.length) continue;
+    comTag.push(f);
+    for (const t of tags) {
+      const m = t.match(/src="([^"]*sync\.js[^"]*)"/);
+      const url = m ? m[1] : '';
+      const v = url.match(/\?v=([0-9]+)/);
+      if (v) versoes.add(v[1]);
+      else semVersao.push(f + ' -> ' + url);
+    }
+  }
+  return { paginas: paginas.length, comTag, semVersao, versoes: [...versoes] };
+}
+
 function gerar(raiz, argumentos = []) {
   const r = spawnSync('php', ['api/gerar.php', ...argumentos], { cwd: raiz, encoding: 'utf8' });
   return { estado: r.status, saida: (r.stdout || '') + (r.stderr || '') };
@@ -1567,6 +1598,20 @@ function testesDeGeracao(raiz, dados) {
         .test(notRevertido));
   }
 
+  // O reverter devolve as páginas a partir das cópias em
+  // data/publicacao/anterior/, e essas cópias trazem o que a página era antes.
+  // A versão do js/sync.js vive FORA das regiões geradas, por isso faz parte do
+  // que o reverter tem de devolver intacto. Medido num cenário real: um
+  // reverter feito com cópias guardadas ANTES de um deploy traz de volta as
+  // tags sem versão, e a publicação seguinte parte desse ficheiro — a versão
+  // ficava perdida.
+  {
+    const r = referenciasSync(raiz);
+    verificar('reverter: as páginas voltaram com o sync.js versionado',
+      r.comTag.length >= 17 && r.semVersao.length === 0,
+      r.comTag.length + ' páginas, sem versão: ' + (r.semVersao.join(' | ') || 'nenhuma'));
+  }
+
   // ---- Deixar a cópia no estado bom, com a fixture gerada --------
   fs.writeFileSync(idx, htmlBom);
   fs.writeFileSync(not, notBom);
@@ -1575,6 +1620,33 @@ function testesDeGeracao(raiz, dados) {
   escreverDados(raiz, dados);
   g = gerar(raiz);
   verificar('geração final para os testes de browser', g.estado === 0, g.saida.trim());
+
+  // ---- A versão do sync.js sobrevive a uma publicação completa ----
+  // A tag não é escrita por nenhum modelo nem pelo gerador: vive no HTML, fora
+  // das marcas, e a publicação substitui só as regiões entre marcas. Isto
+  // mede-o depois do caminho real do botão Publicar agora.
+  {
+    const r = referenciasSync(raiz);
+    verificar('publicar: as páginas que carregam o sync.js, depois de publicar',
+      r.comTag.length >= 17, r.comTag.length + ' de ' + r.paginas + ' páginas');
+    verificar('publicar: nenhuma referência executável ao sync.js sem versão',
+      r.semVersao.length === 0, r.semVersao.join(' | ') || 'nenhuma');
+    verificar('publicar: uma só versão do sync.js em todas as páginas',
+      r.versoes.length === 1, r.versoes.join(' | ') || '(nenhuma)');
+    // Donde vem a tag: do HTML, e de nenhum outro sítio. Nenhum modelo do E1
+    // escreve um <script src=…>, por isso a geração não tem como recriar uma
+    // referência a um ficheiro JS — com ou sem versão. Os dois <script> que
+    // existem nos modelos são type="application/ld+json", dados estruturados
+    // sem src. Um modelo que passasse a escrever um src faz isto falhar.
+    const modelos = fs.readdirSync(path.join(raiz, 'modelos')).filter((f) => f.endsWith('.php'));
+    const comSrc = modelos.filter((f) =>
+      /<script[^>]*\ssrc\s*=/i.test(fs.readFileSync(path.join(raiz, 'modelos', f), 'utf8')));
+    verificar('publicar: nenhum modelo do E1 escreve um <script src=…>',
+      modelos.length > 0 && comSrc.length === 0,
+      modelos.length + ' modelos, com src: ' + (comSrc.join(', ') || 'nenhum'));
+    verificar('publicar: o api/noticia.php (E2) também não escreve um <script src=…>',
+      !/<script[^>]*\ssrc\s*=/i.test(fs.readFileSync(path.join(raiz, 'api', 'noticia.php'), 'utf8')));
+  }
 }
 
 // ---------------------------------------------------------------------
@@ -2068,6 +2140,60 @@ async function testarSincronizacaoAoVivo(browser, url, publicar, opcoes = {}) {
     pedidosNoArranque, pedidosTotal: pedidos.length,
     navegacoesNoArranque, navegacoesTotal: navegacoes.length,
   };
+}
+
+// Sonda do deploy de um script — a regressão medida num telemóvel real.
+//
+// Depois de um deploy, o Chrome continuou a executar o js/sync.js antigo da sua
+// própria cache HTTP: o .js saía sem Cache-Control, o ↻ normal não revalida
+// subrecursos frescos, e o ramo de JS do service worker fazia fetch() sem
+// cache: 'no-store' — pelo que o "network-first" passava pela cache do browser
+// e ainda guardava a cópia velha na cache do service worker. O Safari, com
+// outra heurística, buscou o ficheiro novo e funcionou.
+//
+// Mede-se o que interessa: com o service worker a controlar, um js/sync.js
+// alterado no servidor chega à página na navegação seguinte, pelo mesmo
+// endereço. A marca é acrescentada ao fim do ficheiro, que é um IIFE e continua
+// a funcionar.
+async function testarScriptNovoChega(browser, url, raiz) {
+  const ficheiro = path.join(raiz, 'js', 'sync.js');
+  const original = fs.readFileSync(ficheiro, 'utf8');
+  const ctx = await browser.newContext({
+    javaScriptEnabled: true,
+    extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+  });
+  const pg = await ctx.newPage();
+  const resultado = { controlado: false, antes: null, depois: null, naCache: 'não medido' };
+  try {
+    await pg.goto(url + '/index.html', { waitUntil: 'load', timeout: 20000 });
+    await pg.evaluate(async () => {
+      await navigator.serviceWorker.register('/sw.js');
+      await navigator.serviceWorker.ready;
+    });
+    await pg.goto(url + '/index.html', { waitUntil: 'load', timeout: 20000 });
+    resultado.controlado = await pg.evaluate(() => !!navigator.serviceWorker.controller);
+    resultado.antes = await pg.evaluate(() => window.JSC_MARCA_DO_TESTE || null);
+
+    fs.writeFileSync(ficheiro, original + '\nwindow.JSC_MARCA_DO_TESTE = "CHEGOU";\n');
+    await pg.goto(url + '/index.html', { waitUntil: 'load', timeout: 20000 });
+    resultado.depois = await pg.evaluate(() => window.JSC_MARCA_DO_TESTE || null);
+    resultado.naCache = await pg.evaluate(async () => {
+      for (const n of await caches.keys()) {
+        const c = await caches.open(n);
+        for (const req of await c.keys()) {
+          if (req.url.indexOf('/js/sync.js') !== -1) {
+            const t = await (await c.match(req)).text();
+            return t.indexOf('JSC_MARCA_DO_TESTE') !== -1 ? 'nova' : 'velha';
+          }
+        }
+      }
+      return 'ausente';
+    });
+  } finally {
+    fs.writeFileSync(ficheiro, original);
+    await ctx.close();
+  }
+  return resultado;
 }
 
 // Sonda do funcionamento offline. Mede-se com uma navegação a sério e com a
@@ -3970,8 +4096,8 @@ async function testarAdminHistoria(browser, url) {
         /jsc_painel_local/.test(fonteSync));
 
       // -- R3 e R4: o sw.js --
-      verificar('sw.js: a cache subiu para jsc-v19',
-        /CACHE_NAME = 'jsc-v19'/.test(fonteSw));
+      verificar('sw.js: a cache subiu para jsc-v20',
+        /CACHE_NAME = 'jsc-v20'/.test(fonteSw));
       verificar('sw.js: o activate apaga as caches antigas, com skipWaiting e clients.claim',
         /k !== CACHE_NAME[\s\S]{0,80}caches\.delete\(k\)/.test(fonteSw)
         && /self\.skipWaiting\(\)/.test(fonteSw) && /self\.clients\.claim\(\)/.test(fonteSw));
@@ -3981,6 +4107,31 @@ async function testarAdminHistoria(browser, url) {
         /fetch\(e\.request, \{ cache: 'no-store' \}\)/.test(fonteSw));
       verificar('sw.js: o offline.html continua a ser o último recurso',
         /caches\.match\('\/offline\.html'\)/.test(fonteSw));
+
+      // -- C1: o ramo de JS/CSS também recusa a cache HTTP do browser --
+      verificar('sw.js: o ramo de JS/CSS pede com cache no-store',
+        /endsWith\('\.js'\)[\s\S]{0,1400}?fetch\(e\.request, \{ cache: 'no-store' \}\)/.test(fonteSw));
+      verificar('sw.js: o ramo de JS/CSS mantém a cópia guardada como recurso offline',
+        /endsWith\('\.js'\)[\s\S]{0,1600}?\.catch\(\(\) => caches\.match\(e\.request\)\)/.test(fonteSw));
+      // Ficam dois pedidos sem política, ambos de propósito: a rede de segurança
+      // do ramo das páginas, para um browser que recuse o init, e o cache-first
+      // das imagens, que não foi tocado. Um terceiro seria regressão.
+      const semPolitica = (fonteSw.match(/fetch\(e\.request\)(?!,)/g) || []).length;
+      verificar('sw.js: só dois pedidos sem política de cache, e ambos intencionais',
+        semPolitica === 2, semPolitica + ' ocorrência(s)');
+      verificar('sw.js: nenhum dos dois ramos network-first pede sem política',
+        /fetch\(e\.request, \{ cache: 'no-store' \}\)/.test(fonteSw)
+        && (fonteSw.match(/fetch\(e\.request, \{ cache: 'no-store' \}\)/g) || []).length === 2,
+        (fonteSw.match(/fetch\(e\.request, \{ cache: 'no-store' \}\)/g) || []).length + ' com no-store');
+
+      // -- C4: o sync.js versionado em todas as páginas que o carregam --
+      const ref = referenciasSync(raiz);
+      verificar('C4: há páginas a carregar o sync.js — a medição é válida',
+        ref.comTag.length >= 17, ref.comTag.length + ' páginas');
+      verificar('C4: nenhuma página carrega o sync.js sem versão',
+        ref.semVersao.length === 0, 'sem versão: ' + (ref.semVersao.join(' | ') || 'nenhuma'));
+      verificar('C4: a versão do sync.js é a mesma em todas as páginas',
+        ref.versoes.length === 1, ref.versoes.join(' | ') || '(nenhuma)');
 
       // -- R2 no E2: a notícia individual não é um .html, logo o .htaccess não
       // a apanha. Declara o cabeçalho ela própria.
@@ -4048,9 +4199,21 @@ async function testarAdminHistoria(browser, url) {
           /no-store/.test(load.cc), 'cache-control: ' + (load.cc || '(nenhum)'));
         verificar('R2: o /api/auth.php mantém o no-store — a regra não toca em .php',
           /no-store/.test(auth.cc), 'cache-control: ' + (auth.cc || '(nenhum)'));
-        verificar('R2: o CSS e as imagens mantêm a política de sempre',
-          /max-age=604800/.test(css.cc) && /max-age=2592000/.test(img.cc),
-          'css: ' + css.cc + ' · imagem: ' + img.cc);
+        // C3: o JS e o CSS passam a revalidar. O "access plus 1 week" do
+        // mod_expires deixa de valer para o CSS, de propósito; as imagens ficam
+        // com o mês de cache.
+        const js = await cabecalhos('/js/sync.js?v=20261006');
+        const swjs = await cabecalhos('/sw.js');
+        verificar('C3: o JS sai com Cache-Control no-cache',
+          js.cc === 'no-cache', 'cache-control: ' + (js.cc || '(nenhum)'));
+        verificar('C3: o CSS sai com Cache-Control no-cache',
+          css.cc === 'no-cache', 'cache-control: ' + (css.cc || '(nenhum)'));
+        verificar('C3: o próprio sw.js revalida',
+          swjs.cc === 'no-cache', 'cache-control: ' + (swjs.cc || '(nenhum)'));
+        verificar('C3: o JS continua a trazer ETag, para o 304 vazio',
+          js.etag !== '', 'etag: ' + (js.etag || '(nenhum)'));
+        verificar('C3: as imagens mantêm a política de sempre — um mês',
+          /max-age=2592000/.test(img.cc), 'imagem: ' + (img.cc || '(nenhum)'));
 
         // A notícia individual, que vem do api/noticia.php por reescrita
         // interna. O <FilesMatch "\.html$"> não lhe chega: o ficheiro servido é
@@ -4128,11 +4291,22 @@ async function testarAdminHistoria(browser, url) {
       // -- O offline continua a funcionar --
       escreverDados(raiz, dados);
       gerar(raiz);
+      // O script novo chega pelo mesmo endereço, com o service worker a controlar.
+      const dep = await testarScriptNovoChega(browser, srv.url, raiz);
+      verificar('deploy de script: o service worker controla a página — a medição é válida',
+        dep.controlado, 'controlado=' + dep.controlado);
+      verificar('deploy de script: antes da alteração a marca não existe',
+        dep.antes === null, 'marca: ' + dep.antes);
+      verificar('deploy de script: um js/sync.js alterado no servidor chega na navegação seguinte',
+        dep.depois === 'CHEGOU', 'marca: ' + dep.depois);
+      verificar('deploy de script: e é a versão nova que fica na cache do service worker',
+        dep.naCache === 'nova', 'na cache: ' + dep.naCache);
+
       const offVisitada = await testarOffline(browser, srv.url, '/index.html');
       verificar('offline: o service worker controla a página',
         offVisitada.controlado, 'caches: ' + JSON.stringify(offVisitada.nomes));
-      verificar('offline: só existe a cache jsc-v19 — as antigas foram apagadas',
-        offVisitada.nomes.length === 1 && offVisitada.nomes[0] === 'jsc-v19',
+      verificar('offline: só existe a cache jsc-v20 — as antigas foram apagadas',
+        offVisitada.nomes.length === 1 && offVisitada.nomes[0] === 'jsc-v20',
         JSON.stringify(offVisitada.nomes));
       verificar('offline: o offline.html está na cache, pronto para o último recurso',
         offVisitada.temOffline === 200, 'estado na cache: ' + offVisitada.temOffline);
