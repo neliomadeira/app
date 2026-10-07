@@ -2931,18 +2931,31 @@ function abrirEditorClass(escalao, teamKey) {
       <button class="btn-save" onclick="salvarEditorClass()">Guardar classificação</button>`);
 }
 
+// Havia aqui um esc() local que trocava as aspas por &quot;, e o seu resultado
+// ia depois pelo jscEsc() — que volta a escapar o & dessa entidade. Escape a
+// dobrar, e só para nomes com aspas duplas: um & sozinho passava uma única vez e
+// voltava bem, mas o &quot; introduzido pelo esc() virava &amp;quot;.
+//
+// E não era cosmético. O salvarEditorClass() lê o .value destes inputs e grava-o
+// tal e qual; o browser descodifica as entidades do atributo, pelo que
+//     Sporting "B"   ->  aparecia e ficava gravado como   Sporting &quot;B&quot;
+// Medido em Chromium: com o escape a dobrar o campo mostrava a entidade à vista;
+// com o jscEsc sozinho mostra as aspas.
+//
+// O jscEsc() faz tudo o que o esc() fazia e mais — escapa & < > " ' —, pelo que
+// isto é mais seguro, não menos. O || '' mantém o que o esc() fazia com null e
+// undefined: um campo vazio continua vazio.
 function _edClassRowHTML(t) {
   const num = (v) => v == null ? 0 : v;
-  const esc = (s) => String(s || '').replace(/"/g, '&quot;');
   return `<tr>
-    <td><input class="form-input ed-equipa" value="${jscEsc(esc(t.equipa))}" placeholder="Nome da equipa" style="min-width:170px"></td>
+    <td><input class="form-input ed-equipa" value="${jscEsc(t.equipa || '')}" placeholder="Nome da equipa" style="min-width:170px"></td>
     <td><input class="form-input ed-j"  type="number" min="0" value="${jscEsc(num(t.j))}"  style="width:56px"></td>
     <td><input class="form-input ed-v"  type="number" min="0" value="${jscEsc(num(t.v))}"  style="width:56px"></td>
     <td><input class="form-input ed-e"  type="number" min="0" value="${jscEsc(num(t.e))}"  style="width:56px"></td>
     <td><input class="form-input ed-d"  type="number" min="0" value="${jscEsc(num(t.d))}"  style="width:56px"></td>
     <td><input class="form-input ed-gm" type="number" min="0" value="${jscEsc(num(t.gm))}" style="width:56px"></td>
     <td><input class="form-input ed-gs" type="number" min="0" value="${jscEsc(num(t.gs))}" style="width:56px"></td>
-    <td><input class="form-input ed-forma" value="${jscEsc(esc(t.forma))}" placeholder="VVEDV" maxlength="5" style="width:76px;text-transform:uppercase"></td>
+    <td><input class="form-input ed-forma" value="${jscEsc(t.forma || '')}" placeholder="VVEDV" maxlength="5" style="width:76px;text-transform:uppercase"></td>
     <td><button type="button" class="btn-sm" style="color:#c00" title="Remover linha"
       onclick="this.closest('tr').remove()">&#x2715;</button></td>
   </tr>`;

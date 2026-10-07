@@ -2108,6 +2108,59 @@ async function testarSelectsDeEscalao(browser, url) {
   return { ...d, erros };
 }
 
+// Sonda do editor de classificações.
+//
+// O nome da equipa passava por um esc() local que trocava " por &quot;, e o
+// resultado ia depois pelo jscEsc(), que volta a escapar o & dessa entidade.
+// Escape a dobrar, e só em nomes com aspas duplas — um & sozinho passava uma vez
+// e voltava bem. E não era cosmético: o salvarEditorClass() lê o .value do input
+// e grava-o tal e qual, pelo que Sporting "B" ficava gravado como
+// Sporting &quot;B&quot;. Os outros casos — & , acentos, texto normal — já
+// estavam certos antes, e estão aqui para garantir que continuam.
+//
+// Mede-se o que importa: o que aparece no campo, o que fica gravado depois de
+// Guardar, e se o atributo continua escapado no HTML.
+async function testarEditorClassificacoes(browser, url) {
+  const nomes = [
+    'Sporting "B"',
+    'Loulé & Quarteira',
+    'Associação União Atlético',
+    'Sport Campinense',
+    '<img src=x onerror=alert(1)>',
+  ];
+  const ctx = await browser.newContext({
+    javaScriptEnabled: true,
+    extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+  });
+  const pg = await ctx.newPage();
+  const erros = [];
+  pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+  await pg.goto(url + '/admin/', { waitUntil: 'networkidle', timeout: 20000 });
+
+  const d = await pg.evaluate((nomes) => {
+    const CHAVE = 'fpf_class_Sub-13';
+    localStorage.setItem(CHAVE, JSON.stringify(nomes.map((n, i) => ({
+      equipa: n, j: 1, v: 1, e: 0, d: 0, gm: 2, gs: 1, forma: 'V',
+    }))));
+    abrirEditorClass('Sub-13', null);
+
+    const inputs = Array.from(document.querySelectorAll('#edClassTable .ed-equipa'));
+    const mostrado = inputs.map((i) => i.value);
+    const atributo = inputs.map((i) => (i.outerHTML.match(/value="([^"]*)"/) || [])[1]);
+    // Uma injeção de HTML não pode ter criado elementos dentro da tabela.
+    const tabela = document.getElementById('edClassTable');
+    const injetou = !!tabela.querySelector('img');
+
+    salvarEditorClass();
+    let gravado = [];
+    try { gravado = JSON.parse(localStorage.getItem(CHAVE) || '[]').map((r) => r.equipa); } catch (_) {}
+    return { mostrado, atributo, injetou, gravado };
+  }, nomes);
+
+  await ctx.close();
+  return { nomes, ...d, erros };
+}
+
 // Sonda do service worker — a correcção J2 do Bloco 10.
 //
 // Antes, o ramo dos documentos guardava na cache tudo o que o servidor
@@ -4472,6 +4525,43 @@ async function testarAdminHistoria(browser, url) {
 
       verificar('sem erros de JavaScript no painel durante a medição',
         e.erros.length === 0, e.erros.join(' / '));
+    }
+
+    // ---- Editor de classificações: o nome da equipa ----------------
+    console.log('\neditor de classificações: o nome da equipa');
+    {
+      const fonte = fs.readFileSync(path.join(raiz, 'admin', 'js', 'admin.js'), 'utf8');
+      verificar('admin.js: o esc() local do editor de classificações desapareceu',
+        !/const esc = \(s\) => String\(s \|\| ''\)\.replace/.test(fonte));
+      verificar('admin.js: já não há jscEsc(esc(…)) — escape a dobrar',
+        !/jscEsc\(esc\(/.test(fonte),
+        (fonte.match(/jscEsc\(esc\(/g) || []).length + ' ocorrência(s)');
+      verificar('admin.js: o nome e a forma continuam escapados, com o jscEsc sozinho',
+        /class="form-input ed-equipa" value="\$\{jscEsc\(t\.equipa \|\| ''\)\}"/.test(fonte)
+        && /class="form-input ed-forma" value="\$\{jscEsc\(t\.forma \|\| ''\)\}"/.test(fonte));
+
+      const c = await testarEditorClassificacoes(browser, srv.url);
+      const rotulos = ['aspas', '&', 'acentos', 'normal', 'injeção de HTML'];
+      c.nomes.forEach((nome, i) => {
+        verificar('editor (' + rotulos[i] + '): o campo mostra o nome tal como está nos dados',
+          c.mostrado[i] === nome,
+          'esperava ' + JSON.stringify(nome) + ', mostrou ' + JSON.stringify(c.mostrado[i]));
+        verificar('editor (' + rotulos[i] + '): Guardar devolve o nome intacto aos dados',
+          c.gravado[i] === nome,
+          'esperava ' + JSON.stringify(nome) + ', gravou ' + JSON.stringify(c.gravado[i]));
+      });
+      // O atributo continua escapado no HTML — é isso que o mantém seguro.
+      verificar('editor: as aspas vão escapadas no atributo value',
+        /&quot;/.test(c.atributo[0]), 'atributo: ' + c.atributo[0]);
+      verificar('editor: o & vai escapado no atributo value, uma vez e não duas',
+        c.atributo[1] === 'Loulé &amp; Quarteira', 'atributo: ' + c.atributo[1]);
+      verificar('editor: o < e o > vão escapados no atributo value',
+        /&lt;img/.test(c.atributo[4]) && /&gt;/.test(c.atributo[4]),
+        'atributo: ' + c.atributo[4]);
+      verificar('editor: a injeção de HTML não criou nenhum elemento na tabela',
+        c.injetou === false);
+      verificar('editor: sem erros de JavaScript no painel durante a medição',
+        c.erros.length === 0, c.erros.join(' / '));
     }
 
     // ---- Orçamento do payload antes de publicar -------------------
