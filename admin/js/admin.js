@@ -3628,6 +3628,12 @@ window.previewColarClass = function() {
     const r=jogos.filter(j=>j.estado==='Realizado').length, a=jogos.filter(j=>j.estado==='Agendado').length;
     const scRe=/sport campinense|js campinense|campinense/i;
     const nSC=jogos.filter(j=>scRe.test(j.casa)||scRe.test(j.fora)).length;
+    // Devolve MARKUP, e por isso é inserido directamente lá em baixo, sem
+    // jscEsc() à volta — envolvê-lo escapava os < e os > e a pré-visualização
+    // mostrava o código da imagem em texto, em vez do logótipo. O endereço já vai
+    // tratado aqui pelo jscEscUrl(), que escapa as aspas e recusa javascript:,
+    // vbscript: e data: que não seja de imagem; uma URL recusada dá src="" e o
+    // onerror esconde a imagem. Sem logótipo não há tag nenhuma.
     const logoImg = (url) => url ? `<img src="${jscEscUrl(url)}" style="width:18px;height:18px;object-fit:contain;vertical-align:middle;margin-right:5px" onerror="this.style.display='none'">` : '';
     const unresolvedHint = _lastJogosUnresolved > 0
       ? `<p style="background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:10px;font-size:0.78rem;color:#7a5700;margin:0 0 10px">
@@ -3652,9 +3658,9 @@ window.previewColarClass = function() {
         const sc=scRe.test(j.casa+' '+j.fora);
         return `<tr style="background:${jscEsc(sc?'rgba(255,209,0,0.1)':i%2===0?'#f9f9f9':'#fff')}">
           <td style="padding:4px 8px;white-space:nowrap">${jscEsc(j.data)}</td>
-          <td style="padding:4px 8px">${jscEsc(logoImg(j.logoCasa))}${jscEsc(j.casa)}</td>
+          <td style="padding:4px 8px">${logoImg(j.logoCasa)}${jscEsc(j.casa)}</td>
           <td style="padding:4px 8px;text-align:center;font-weight:700">${jscEsc(j.gcasa!=null?j.gcasa+'–'+j.gfora:'–')}</td>
-          <td style="padding:4px 8px">${jscEsc(logoImg(j.logoFora))}${jscEsc(j.fora)}</td>
+          <td style="padding:4px 8px">${logoImg(j.logoFora)}${jscEsc(j.fora)}</td>
           <td style="padding:4px 8px;text-align:center">${jscEsc(j.hora)}</td>
           <td style="padding:4px 8px;font-size:0.75rem">${jscEsc(j.local)}</td>
           <td style="padding:4px 8px;text-align:center;font-size:0.75rem;color:${jscEsc(j.estado==='Realizado'?'#22a75e':'#888')}">${jscEsc(j.estado)}</td>

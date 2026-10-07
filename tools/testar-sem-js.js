@@ -2108,6 +2108,65 @@ async function testarSelectsDeEscalao(browser, url) {
   return { ...d, erros };
 }
 
+// Sonda da pré-visualização da importação de jogos — o logótipo das equipas.
+//
+// O logoImg() devolve uma tag <img> já construída, com o endereço tratado pelo
+// jscEscUrl(). O resultado ia envolvido em jscEsc(), que escapa os < e os >: a
+// pré-visualização mostrava o código da imagem em texto em vez do logótipo.
+//
+// Mede-se com a colagem a sério: semeiam-se logótipos no db_logos, cola-se o
+// texto dos jogos, chama-se o previewColarClass() e olha-se para o DOM.
+async function testarPreviaDeJogos(browser, url) {
+  const URL_BOA = 'https://exemplo.test/logos/equipa-casa.png';
+  const URL_MA  = 'javascript:alert(1)';
+  const URL_XSS = 'https://exemplo.test/y.png" onerror="window.__JSC_XSS=1';
+  const ctx = await browser.newContext({
+    javaScriptEnabled: true,
+    extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+  });
+  const pg = await ctx.newPage();
+  const erros = [];
+  pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+  await pg.goto(url + '/admin/', { waitUntil: 'networkidle', timeout: 20000 });
+
+  const d = await pg.evaluate((u) => {
+    // teste equipa fora fica DE PROPÓSITO sem logótipo.
+    localStorage.setItem('db_logos', JSON.stringify({
+      'teste equipa casa': u.boa,
+      'teste equipa mau': u.ma,
+      'teste equipa xss': u.xss,
+    }));
+    // Pelo caminho real do painel: é o abrirColar() que põe o modo em 'jogos'.
+    abrirColar('Sub-13', 'jogos', '');
+    const ta = document.getElementById('colarClassTA');
+    ta.value = [
+      'TESTE EQUIPA CASA', '01 mar 2026', '2-1', 'TESTE EQUIPA FORA', 'Campo Teste',
+      'TESTE EQUIPA MAU',  '02 mar 2026', '1-0', 'TESTE EQUIPA XSS',  'Campo Teste',
+    ].join('\n');
+    previewColarClass();
+
+    const div = document.getElementById('colarClassPreview');
+    const imgs = Array.from(div.querySelectorAll('img'));
+    const linhas = Array.from(div.querySelectorAll('tbody tr')).map((tr) => ({
+      texto: tr.textContent.replace(/\s+/g, ' ').trim(),
+      imgs: tr.querySelectorAll('img').length,
+      srcs: Array.from(tr.querySelectorAll('img')).map((i) => i.getAttribute('src')),
+    }));
+    return {
+      markupComoTexto: /<img|&lt;img/.test(div.textContent),
+      nImgs: imgs.length,
+      srcs: imgs.map((i) => i.getAttribute('src')),
+      onerros: imgs.map((i) => i.getAttribute('onerror')),
+      linhas,
+      xssDisparou: typeof window.__JSC_XSS !== 'undefined',
+      preview: div.textContent.replace(/\s+/g, ' ').trim().slice(0, 240),
+    };
+  }, { boa: URL_BOA, ma: URL_MA, xss: URL_XSS });
+
+  await ctx.close();
+  return { URL_BOA, URL_MA, URL_XSS, ...d, erros };
+}
+
 // Sonda do editor de classificações.
 //
 // O nome da equipa passava por um esc() local que trocava " por &quot;, e o
@@ -4562,6 +4621,60 @@ async function testarAdminHistoria(browser, url) {
         c.injetou === false);
       verificar('editor: sem erros de JavaScript no painel durante a medição',
         c.erros.length === 0, c.erros.join(' / '));
+    }
+
+    // ---- Pré-visualização da importação de jogos: o logótipo --------
+    console.log('\nimportação de jogos: o logótipo na pré-visualização');
+    {
+      const fonte = fs.readFileSync(path.join(raiz, 'admin', 'js', 'admin.js'), 'utf8');
+      verificar('admin.js: o logoImg() já não vai envolvido em jscEsc()',
+        !/jscEsc\(logoImg\(/.test(fonte),
+        (fonte.match(/jscEsc\(logoImg\(/g) || []).length + ' ocorrência(s)');
+      verificar('admin.js: as duas células inserem o markup do logótipo directamente',
+        (fonte.match(/\$\{logoImg\(j\.logo(Casa|Fora)\)\}/g) || []).length === 2);
+      verificar('admin.js: o endereço do logótipo continua a passar pelo jscEscUrl',
+        /<img src="\$\{jscEscUrl\(url\)\}"/.test(fonte));
+      verificar('admin.js: o nome da equipa ao lado do logótipo continua escapado',
+        /\$\{logoImg\(j\.logoCasa\)\}\$\{jscEsc\(j\.casa\)\}/.test(fonte)
+        && /\$\{logoImg\(j\.logoFora\)\}\$\{jscEsc\(j\.fora\)\}/.test(fonte));
+
+      const p = await testarPreviaDeJogos(browser, srv.url);
+      verificar('a pré-visualização reconheceu os dois jogos — a medição é válida',
+        p.linhas.length === 2, p.linhas.length + ' linhas · ' + p.preview.slice(0, 120));
+
+      if (p.linhas.length === 2) {
+        // 1. O logótipo aparece como imagem, não como texto.
+        verificar('o logótipo aparece como <img> e não como código em texto',
+          p.markupComoTexto === false, 'texto da prévia: ' + p.preview.slice(0, 140));
+        verificar('a equipa com logótipo normal tem a imagem com o endereço certo',
+          p.srcs.includes(p.URL_BOA), JSON.stringify(p.srcs));
+
+        // 2. Sem logótipo não há imagem, e o nome continua lá.
+        verificar('a equipa sem logótipo não produz nenhuma <img>',
+          p.linhas[0].imgs === 1, 'imagens na primeira linha: ' + p.linhas[0].imgs);
+        verificar('e o nome da equipa sem logótipo continua visível',
+          p.linhas[0].texto.indexOf('TESTE EQUIPA FORA') !== -1, p.linhas[0].texto);
+
+        // 3. URL maliciosa: recusada, sem javascript: em nenhum src.
+        verificar('uma URL javascript: é recusada e dá src vazio',
+          p.srcs.filter((x) => x === '').length === 1, JSON.stringify(p.srcs));
+        verificar('nenhum src contém javascript:, vbscript: ou data: de não-imagem',
+          p.srcs.every((x) => !/^\s*(javascript|vbscript)\s*:/i.test(x || '')
+            && !(/^\s*data\s*:/i.test(x || '') && !/^\s*data:image\//i.test(x || ''))),
+          JSON.stringify(p.srcs));
+
+        // 4. Injeção pelo campo do logótipo: nada escapa do atributo.
+        verificar('uma URL com aspas não cria elementos a mais',
+          p.nImgs === 3, p.nImgs + ' imagens, esperava 3');
+        verificar('nenhuma imagem ganhou um onerror estranho ao do projeto',
+          p.onerros.every((o) => o === "this.style.display='none'"),
+          JSON.stringify(p.onerros));
+        verificar('a injeção pelo campo do logótipo não executou nada',
+          p.xssDisparou === false);
+      }
+
+      verificar('sem erros de JavaScript no painel durante a medição',
+        p.erros.length === 0, p.erros.join(' / '));
     }
 
     // ---- Orçamento do payload antes de publicar -------------------
