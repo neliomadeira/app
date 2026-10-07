@@ -838,7 +838,7 @@ document.getElementById('btnNovoAtleta')?.addEventListener('click', () => {
     <div class="modal-row">
       <div class="modal-field"><label>Nome completo</label><input type="text" class="form-input" id="mNome" placeholder="Nome do atleta" /></div>
       <div class="modal-field"><label>Escalão</label>
-        <select class="form-input" id="mEscalao">${jscEsc(_escOpts(''))}</select>
+        <select class="form-input" id="mEscalao">${_escOpts('')}</select>
       </div>
     </div>
     <div class="modal-row">
@@ -975,7 +975,7 @@ window.editAtleta = function (id) {
         <input type="text" class="form-input" id="mNome" value="${jscEsc(a.nome)}" />
       </div>
       <div class="modal-field"><label>Escalão</label>
-        <select class="form-input" id="mEscalao">${jscEsc(_escOpts(a.escalao))}</select>
+        <select class="form-input" id="mEscalao">${_escOpts(a.escalao)}</select>
       </div>
     </div>
     <div class="modal-row">
@@ -2332,12 +2332,22 @@ window.removeMensagem = function (id) {
 
 // Returns sorted <option> elements from DB.escaloes; falls back to defaults when empty.
 // Pass includeAll=true to prepend a "Todos" option.
+// Devolve MARKUP: uma cadeia de <option>. Quem a usa insere-a como HTML, e por
+// isso NÃO a envolve em jscEsc() — envolvê-la escapava os < e os > e o browser
+// passava a ver texto; um <select> não mostra texto, e o campo Escalão abria
+// vazio em sete formulários do painel. Pior: ao guardar um registo existente, um
+// select sem opções devolve "" e apagava o escalão que lá estava.
+//
+// O escape faz-se aqui, onde é devido: no NOME, que é texto dentro da opção. O
+// ' selected' é um literal do código e não precisa de escape nenhum. A opção
+// continua sem atributo value, pelo que select.value devolve o nome tal como
+// está nos dados — o formato não muda.
 function _escOpts(current, includeAll) {
   let nomes = DB.escaloes.map(e => e.nome)
     .sort((a,b) => (parseInt(a.replace(/\D/g,''))||0) - (parseInt(b.replace(/\D/g,''))||0));
   if (!nomes.length) nomes = ['Sub-9','Sub-11','Sub-13','Sub-15','Sub-17','Sub-19'];
   if (includeAll) nomes = ['Todos', ...nomes];
-  return nomes.map(n => `<option${jscEsc(n===current?' selected':'')}>${n}</option>`).join('');
+  return nomes.map(n => `<option${n===current?' selected':''}>${jscEsc(n)}</option>`).join('');
 }
 
 // Refreshes all static escalão selects/tabs (plantelEscalao, filterJogoEscalao, atletasEscalaoTabs)
@@ -2351,7 +2361,7 @@ function _refreshEscalaoSelects() {
   const jogoFilter = document.getElementById('filterJogoEscalao');
   if (jogoFilter) {
     const cur = jogoFilter.value;
-    jogoFilter.innerHTML = `<option value="">Todos os escalões</option>${jscEsc(_escOpts(cur))}`;
+    jogoFilter.innerHTML = `<option value="">Todos os escalões</option>${_escOpts(cur)}`;
     if (!jogoFilter.value) jogoFilter.value = '';
   }
   const atTabs = document.getElementById('atletasEscalaoTabs');
@@ -2533,7 +2543,7 @@ document.getElementById('btnNovoJogo')?.addEventListener('click', () => {
   openModal('Novo Jogo', `
     <div class="modal-row">
       <div class="modal-field"><label>Escalão *</label>
-        <select id="mJEscalao">${jscEsc(_escOpts(''))}</select>
+        <select id="mJEscalao">${_escOpts('')}</select>
       </div>
       <div class="modal-field"><label>Data *</label><input type="date" id="mJData" /></div>
     </div>
@@ -2613,7 +2623,7 @@ window.editJogo = function (id) {
   openModal('Editar Jogo', `
     <div class="modal-row">
       <div class="modal-field"><label>Escalão</label>
-        <select id="mJEscalao">${jscEsc(_escOpts(j.escalao))}</select>
+        <select id="mJEscalao">${_escOpts(j.escalao)}</select>
       </div>
       <div class="modal-field"><label>Data</label><input type="date" id="mJData" value="${jscEsc(j.data)}" /></div>
     </div>
@@ -4716,7 +4726,7 @@ function editTreinador(idx) {
     </div>
     <div class="modal-row">
       <div class="modal-field"><label>Escalão</label>
-        <select class="form-input" id="mTEscalao">${jscEsc(_escOpts(t.escalao, true))}</select></div>
+        <select class="form-input" id="mTEscalao">${_escOpts(t.escalao, true)}</select></div>
       <div class="modal-field"><label>Desde (ano)</label>
         <input class="form-input" id="mTDesde" value="${jscEsc(t.desde)}" /></div>
     </div>
@@ -4839,7 +4849,7 @@ function editEvento(idx) {
           ${['Jogo','Torneio','Treino','Reunião','Outro'].map(t => `<option ${jscEsc(e.tipo===t?'selected':'')}>${jscEsc(t)}</option>`).join('')}
         </select></div>
       <div class="modal-field"><label>Escalão</label>
-        <select class="form-input" id="mEvEscalao">${jscEsc(_escOpts(e.escalao, true))}</select></div>
+        <select class="form-input" id="mEvEscalao">${_escOpts(e.escalao, true)}</select></div>
     </div>
     <div class="modal-row">
       <div class="modal-field"><label>Data</label>

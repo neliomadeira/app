@@ -2015,6 +2015,99 @@ async function testarOrcamentoDoPayload(browser, url) {
   return { ...d, erros };
 }
 
+// Sonda dos selects de Escalão do painel.
+//
+// Os sete selects de escalão eram construídos com o markup do _escOpts()
+// envolvido em jscEsc(): os < e os > ficavam escapados, o browser via texto, e um
+// <select> não mostra texto — o campo Escalão abria VAZIO. E num select sem
+// opções o .value é "", pelo que guardar um registo existente apagava o escalão
+// que lá estava, mesmo sem tocar no campo.
+//
+// Mede-se no painel a sério, abrindo cada formulário e contando as opções.
+async function testarSelectsDeEscalao(browser, url) {
+  const ctx = await browser.newContext({
+    javaScriptEnabled: true,
+    extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+  });
+  const pg = await ctx.newPage();
+  const erros = [];
+  pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+  await pg.goto(url + '/admin/', { waitUntil: 'networkidle', timeout: 20000 });
+
+  const d = await pg.evaluate(() => {
+    const ler = (id) => {
+      const el = document.getElementById(id);
+      if (!el) return { existe: false, n: -1, nomes: [], valor: null };
+      return {
+        existe: true,
+        n: el.options.length,
+        nomes: Array.from(el.options).map((o) => o.textContent),
+        valor: el.value,
+        comMarkupVisivel: /&lt;option|<option/.test(el.textContent),
+      };
+    };
+    const r = { noDB: (DB.escaloes || []).map((e) => e.nome) };
+
+    document.getElementById('btnNovoAtleta').click();
+    r.novoAtleta = ler('mEscalao');
+    closeModal();
+
+    DB.atletas.unshift({ id: 99001, nome: 'TESTE ATLETA SELECT', escalao: 'Sub-13' });
+    editAtleta(99001);
+    r.editarAtleta = ler('mEscalao');
+    closeModal();
+
+    _refreshEscalaoSelects();
+    r.filtroJogos = ler('filterJogoEscalao');
+
+    document.getElementById('btnNovoJogo').click();
+    r.novoJogo = ler('mJEscalao');
+    closeModal();
+
+    DB.jogos.unshift({ id: 99002, escalao: 'Sub-15', data: '2026-01-01', casa: 'A', fora: 'B' });
+    editJogo(99002);
+    r.editarJogo = ler('mJEscalao');
+    closeModal();
+
+    editTreinador(-1);
+    r.novoMembro = ler('mTEscalao');
+    closeModal();
+
+    DB.treinadores.unshift({ id: 99003, nome: 'TESTE MEMBRO SELECT', cargo: 'Treinador',
+      escalao: 'Sub-17', desde: '2026', telefone: '', email: '', foto: '', ativo: true });
+    editTreinador(0);
+    r.editarMembro = ler('mTEscalao');
+    // Guardar sem tocar no campo: o escalão não pode desaparecer.
+    salvarTreinador(0);
+    r.escalaoDepoisDeGuardar = DB.treinadores[0].escalao;
+
+    editEvento(-1);
+    r.novoEvento = ler('mEvEscalao');
+    closeModal();
+
+    DB.agenda.unshift({ id: 99004, titulo: 'TESTE EVENTO SELECT', escalao: 'Sub-19',
+      data: '2026-01-01', tipo: 'Jogo' });
+    editEvento(0);
+    r.editarEvento = ler('mEvEscalao');
+    closeModal();
+
+    // Um nome de escalão com & : o escape passou a ser no texto da opção, e o
+    // valor devolvido tem de continuar a ser o nome tal como está nos dados.
+    DB.escaloes.unshift({ nome: 'TESTE A & B', designacao: '' });
+    editTreinador(-1);
+    const sel = document.getElementById('mTEscalao');
+    const opt = Array.from(sel.options).find((o) => o.textContent.indexOf('&') !== -1);
+    r.comAmp = opt ? { texto: opt.textContent, html: opt.innerHTML } : null;
+    sel.value = 'TESTE A & B';
+    r.valorComAmp = sel.value;
+    closeModal();
+
+    return r;
+  });
+  await ctx.close();
+  return { ...d, erros };
+}
+
 // Sonda do service worker — a correcção J2 do Bloco 10.
 //
 // Antes, o ramo dos documentos guardava na cache tudo o que o servidor
@@ -4326,6 +4419,59 @@ async function testarAdminHistoria(browser, url) {
       // Volta a pôr a fixture completa para o resto dos testes.
       escreverDados(raiz, dados);
       gerar(raiz);
+    }
+
+    // ---- Os selects de Escalão do painel ---------------------------
+    console.log('\nselects de Escalão no painel');
+    {
+      const fonte = fs.readFileSync(path.join(raiz, 'admin', 'js', 'admin.js'), 'utf8');
+      verificar('admin.js: nenhuma chamada a _escOpts() vai escapada em jscEsc()',
+        !/jscEsc\(_escOpts\(/.test(fonte),
+        (fonte.match(/jscEsc\(_escOpts\(/g) || []).length + ' ocorrência(s)');
+      verificar('admin.js: as sete chamadas a _escOpts() inserem markup directamente',
+        (fonte.match(/\$\{_escOpts\(/g) || []).length === 7,
+        (fonte.match(/\$\{_escOpts\(/g) || []).length + ' de 7');
+      verificar('admin.js: o _escOpts escapa o nome do escalão, não o literal selected',
+        /<option\$\{n===current\?' selected':''\}>\$\{jscEsc\(n\)\}<\/option>/.test(fonte));
+
+      const e = await testarSelectsDeEscalao(browser, srv.url);
+      const N = e.noDB.length;
+      verificar(`o painel tem ${N} escalões para oferecer — a medição é válida`,
+        N >= 8, e.noDB.join(', '));
+
+      const checar = (nome, s, esperadas, selecionado) => {
+        verificar(nome + ': o select existe e tem opções',
+          s.existe && s.n === esperadas, 'opções: ' + s.n + ', esperava ' + esperadas);
+        verificar(nome + ': nenhum markup de <option> visível como texto',
+          s.existe && s.comMarkupVisivel === false, 'texto: ' + (s.nomes || []).join('|'));
+        if (selecionado !== undefined) {
+          verificar(nome + ': a opção certa vem selecionada',
+            s.valor === selecionado, 'valor: ' + JSON.stringify(s.valor));
+        }
+      };
+
+      checar('Novo Atleta',    e.novoAtleta,   N);
+      checar('Editar Atleta',  e.editarAtleta, N, 'Sub-13');
+      checar('filtro de Jogos', e.filtroJogos, N + 1, '');
+      checar('Novo Jogo',      e.novoJogo,     N);
+      checar('Editar Jogo',    e.editarJogo,   N, 'Sub-15');
+      checar('Novo Membro',    e.novoMembro,   N + 1, 'Todos');
+      checar('Editar Membro',  e.editarMembro, N + 1, 'Sub-17');
+      checar('Novo Evento',    e.novoEvento,   N + 1);
+      checar('Editar Evento',  e.editarEvento, N + 1, 'Sub-19');
+
+      verificar('guardar um membro existente NÃO apaga o escalão',
+        e.escalaoDepoisDeGuardar === 'Sub-17',
+        'ficou: ' + JSON.stringify(e.escalaoDepoisDeGuardar));
+
+      verificar('um escalão chamado "TESTE A & B" aparece com o & correcto',
+        e.comAmp && e.comAmp.texto === 'TESTE A & B' && e.comAmp.html === 'TESTE A &amp; B',
+        JSON.stringify(e.comAmp));
+      verificar('e o valor devolvido pelo select é o nome tal como está nos dados',
+        e.valorComAmp === 'TESTE A & B', JSON.stringify(e.valorComAmp));
+
+      verificar('sem erros de JavaScript no painel durante a medição',
+        e.erros.length === 0, e.erros.join(' / '));
     }
 
     // ---- Orçamento do payload antes de publicar -------------------
