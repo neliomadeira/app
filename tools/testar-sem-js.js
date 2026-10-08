@@ -2108,6 +2108,90 @@ async function testarSelectsDeEscalao(browser, url) {
   return { ...d, erros };
 }
 
+// Sonda do transporte do proxy — o api/buscar.php.
+//
+// No alojamento real o proxy respondia "Nao foi possivel obter o endereco":
+// allow_url_fopen desligado e sem a extensão cURL, o PHP não tinha nenhum meio
+// de fazer o pedido. Passou a usar cURL quando existe, com o stream como
+// alternativa.
+//
+// Mede-se contra um servidor local, porque através do api/proxy.php não é
+// possível: a allowlist desse endpoint só aceita domínios reais. O caminho sem
+// cURL mede-se a sério, com -d disable_functions=curl_init.
+async function testarTransporteDoProxy(raiz) {
+  const http = require('http');
+  const GRANDE = 5 * 1024 * 1024;
+  const servidor = http.createServer((req, res) => {
+    const u = req.url.split('?')[0];
+    if (u === '/ok') {
+      const corpo = 'INICIO-OK...' + 'x'.repeat(600);
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(corpo);
+    } else if (u === '/redir') {
+      res.writeHead(302, { Location: '/ok' }); res.end();
+    } else if (u === '/redir-fora') {
+      res.writeHead(302, { Location: 'https://exemplo.test/x' }); res.end();
+    } else if (u === '/grande') {
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end('INICIO-GRANDE'.padEnd(GRANDE, 'y'));
+    } else if (u === '/erro') {
+      res.writeHead(404, { 'Content-Type': 'text/html' }); res.end('nao existe');
+    } else {
+      res.writeHead(500); res.end('?');
+    }
+  });
+  await new Promise((ok) => servidor.listen(0, '127.0.0.1', ok));
+  const base = 'http://127.0.0.1:' + servidor.address().port;
+
+  // execFile e NÃO spawnSync: o spawnSync bloqueia o event loop do Node, e com
+  // ele bloqueado este servidor não consegue responder ao PHP — as duas vias
+  // esperavam o tempo limite e desistiam. O teste media o seu próprio bloqueio.
+  const execFile = require('util').promisify(require('child_process').execFile);
+  const correr = async (args) => {
+    try {
+      const { stdout } = await execFile('php', args, { cwd: raiz, timeout: 60000 });
+      return JSON.parse((stdout || '').trim().split('\n').pop());
+    } catch (e) {
+      try { return JSON.parse(((e.stdout || '')).trim().split('\n').pop()); }
+      catch (_) { return { erroDoHarness: ((e.stdout || '') + (e.stderr || e.message || '')).slice(0, 200) }; }
+    }
+  };
+  const buscar = (caminho, ini = []) =>
+    correr([...ini, 'tools/teste-buscar.php', base + caminho]);
+  const dominio = (url, lista) =>
+    correr(['tools/teste-buscar.php', '--dominio', url, lista]);
+
+  // O cURL do PHP honra as variáveis http_proxy do ambiente, e este contentor
+  // tem um proxy de saída: sem isto, um pedido a 127.0.0.1 seria entregue a ele.
+  const LOCAL = ['-d', 'disable_functions='];
+  const SEM_CURL = ['-d', 'disable_functions=curl_init'];
+  const LISTA = 'zerozero.pt,afalgarve.pt';
+  const r = {
+    comCurl:         await buscar('/ok'),
+    semCurl:         await buscar('/ok', SEM_CURL),
+    semNada:         await buscar('/ok', [...SEM_CURL, '-d', 'allow_url_fopen=0']),
+    redirect:        await buscar('/redir'),
+    redirectSemCurl: await buscar('/redir', SEM_CURL),
+    redirectFora:    await buscar('/redir-fora'),
+    grande:          await buscar('/grande'),
+    grandeSemCurl:   await buscar('/grande', SEM_CURL),
+    erro404:         await buscar('/erro'),
+    dominios: {
+      zz:         await dominio('https://www.zerozero.pt/equipa/x', LISTA),
+      zzRaiz:     await dominio('https://zerozero.pt/x', LISTA),
+      af:         await dominio('https://www.afalgarve.pt/x', LISTA),
+      fpf:        await dominio('https://www.fpf.pt/x', LISTA),
+      parecido:   await dominio('https://naozerozero.pt/x', LISTA),
+      sufixo:     await dominio('https://zerozero.pt.mau.test/x', LISTA),
+      esquema:    await dominio('file:///etc/passwd', LISTA),
+      porta:      await dominio('https://www.zerozero.pt:8080/x', LISTA),
+      utilizador: await dominio('https://u:p@www.zerozero.pt/x', LISTA),
+    },
+  };
+  await new Promise((ok) => servidor.close(ok));
+  return r;
+}
+
 // Sonda do api/proxy.php — a sessão do painel tem de ser reconhecida.
 //
 // O endpoint estava na raiz do site, o único dos catorze endpoints autenticados
@@ -4690,6 +4774,105 @@ async function testarAdminHistoria(browser, url) {
         c.erros.length === 0, c.erros.join(' / '));
     }
 
+    // ---- O transporte do proxy: cURL e a alternativa ----------------
+    console.log('\napi/buscar.php: cURL, alternativa por stream, redirects e tecto');
+    {
+      const t = await testarTransporteDoProxy(raiz);
+      const MAX = 3145728;
+
+      // 1. Com cURL.
+      verificar('com cURL: busca uma página e devolve 200',
+        t.comCurl.via === 'curl' && t.comCurl.codigo === 200 && t.comCurl.inicio === 'INICIO-OK...',
+        JSON.stringify(t.comCurl).slice(0, 140));
+
+      // 2. Sem cURL: a alternativa por stream.
+      verificar('sem cURL: a alternativa por stream faz o mesmo pedido',
+        t.semCurl.temCurl === false && t.semCurl.via === 'stream'
+        && t.semCurl.codigo === 200 && t.semCurl.inicio === 'INICIO-OK...',
+        JSON.stringify(t.semCurl).slice(0, 140));
+
+      // 3. Sem cURL e sem allow_url_fopen: o erro diz a verdade.
+      verificar('sem cURL e sem allow_url_fopen: o erro nomeia as duas causas',
+        !!t.semNada.erro && /cURL/.test(t.semNada.erro) && /allow_url_fopen/.test(t.semNada.erro),
+        JSON.stringify(t.semNada).slice(0, 180));
+
+      // 4. Redirects: devolvidos, não seguidos.
+      verificar('com cURL: um 302 é devolvido com o Location, e NÃO é seguido',
+        t.redirect.codigo === 302 && /\/ok$/.test(t.redirect.destino || '')
+        && t.redirect.bytes === 0,
+        JSON.stringify(t.redirect).slice(0, 140));
+      verificar('sem cURL: o 302 também é devolvido sem ser seguido',
+        t.redirectSemCurl.codigo === 302 && /\/ok$/.test(t.redirectSemCurl.destino || ''),
+        JSON.stringify(t.redirectSemCurl).slice(0, 140));
+      verificar('um Location para fora é devolvido como está, para o ciclo o validar',
+        t.redirectFora.codigo === 302 && t.redirectFora.destino === 'https://exemplo.test/x',
+        JSON.stringify(t.redirectFora).slice(0, 140));
+
+      // 5. Tecto de 3 MB.
+      verificar('com cURL: 5 MB são cortados nos 3 MB e marcados como truncados',
+        t.grande.codigo === 200 && t.grande.bytes === MAX && t.grande.truncado === true,
+        't.grande bytes=' + t.grande.bytes + ' truncado=' + t.grande.truncado);
+      verificar('sem cURL: o mesmo tecto de 3 MB',
+        t.grandeSemCurl.codigo === 200 && t.grandeSemCurl.bytes === MAX
+        && t.grandeSemCurl.truncado === true,
+        't.grandeSemCurl bytes=' + t.grandeSemCurl.bytes);
+
+      // 6. Um erro do site de origem chega como código, não como falha.
+      verificar('um 404 do site de origem é devolvido como código 404',
+        t.erro404.codigo === 404 && !t.erro404.erro, JSON.stringify(t.erro404).slice(0, 120));
+
+      // 7. A allowlist, estreitada e à prova de nomes parecidos.
+      const d = t.dominios;
+      verificar('allowlist: www.zerozero.pt, zerozero.pt e www.afalgarve.pt entram',
+        d.zz.permitido === true && d.zzRaiz.permitido === true && d.af.permitido === true,
+        JSON.stringify(d).slice(0, 160));
+      verificar('allowlist: o fpf.pt já NÃO entra — a lista foi estreitada',
+        d.fpf.permitido === false);
+      verificar('allowlist: um domínio que só termina no mesmo texto não entra',
+        d.parecido.permitido === false);
+      verificar('allowlist: um domínio que começa pelo permitido não entra',
+        d.sufixo.permitido === false);
+      verificar('allowlist: esquema que não é http/https não entra',
+        d.esquema.permitido === false);
+      verificar('allowlist: porta fora da 80/443 não entra',
+        d.porta.permitido === false);
+      verificar('allowlist: endereço com utilizador e password não entra',
+        d.utilizador.permitido === false);
+
+      // 8. A fonte: as protecções e as opções pedidas.
+      const fonteBuscar = fs.readFileSync(path.join(raiz, 'api', 'buscar.php'), 'utf8');
+      verificar('buscar.php: o cURL não segue redirects por si',
+        /CURLOPT_FOLLOWLOCATION => false/.test(fonteBuscar));
+      verificar('buscar.php: tempos de ligação e total, e User-Agent de browser',
+        /CURLOPT_CONNECTTIMEOUT => JSC_BUSCAR_CONEXAO_S/.test(fonteBuscar)
+        && /CURLOPT_TIMEOUT        => JSC_BUSCAR_TOTAL_S/.test(fonteBuscar)
+        && /CURLOPT_USERAGENT      => JSC_BUSCAR_AGENTE/.test(fonteBuscar));
+      verificar('buscar.php: verificação de certificado activa nos dois caminhos',
+        /CURLOPT_SSL_VERIFYPEER => true/.test(fonteBuscar)
+        && /CURLOPT_SSL_VERIFYHOST => 2/.test(fonteBuscar)
+        && /'verify_peer'      => true/.test(fonteBuscar)
+        && /'verify_peer_name' => true/.test(fonteBuscar));
+      verificar('buscar.php: protocolos limitados a http e https',
+        /CURLOPT_PROTOCOLS_STR, 'http,https'/.test(fonteBuscar)
+        && /CURLPROTO_HTTP \| CURLPROTO_HTTPS/.test(fonteBuscar));
+      verificar('buscar.php: não escreve nada em disco',
+        !/file_put_contents|fwrite|rename\(|unlink\(|mkdir\(/.test(fonteBuscar));
+      verificar('buscar.php: o tecto declarado é de 3 MB',
+        /const JSC_BUSCAR_MAX_BYTES = 3145728;/.test(fonteBuscar));
+      verificar('tools/teste-buscar.php só corre na linha de comandos',
+        /PHP_SAPI !== 'cli'/.test(fs.readFileSync(path.join(raiz, 'tools', 'teste-buscar.php'), 'utf8')));
+
+      // 9. O painel mostra o erro real do nosso proxy.
+      const fonteAdmin2 = fs.readFileSync(path.join(raiz, 'admin', 'js', 'admin.js'), 'utf8');
+      verificar('o painel lê o corpo do erro do proxy local em vez de o descartar',
+        /erroLocal = \(await res\.text\(\)\)/.test(fonteAdmin2)
+        && /throw new Error\('O servidor respondeu: ' \+ erroLocal/.test(fonteAdmin2));
+      verificar('o painel já não mostra o genérico "fetch falhou"',
+        !/fetch falhou/.test(fonteAdmin2));
+      verificar('o pedido ao proxy local leva credentials same-origin',
+        /fetch\(proxyUrl, \{ signal: ctrl\.signal, credentials: 'same-origin' \}\)/.test(fonteAdmin2));
+    }
+
     // ---- O api/proxy.php e a sessão do painel -----------------------
     console.log('\napi/proxy.php: a sessão do painel');
     {
@@ -4701,12 +4884,17 @@ async function testarAdminHistoria(browser, url) {
       const fonteProxy = fs.readFileSync(path.join(raiz, 'api', 'proxy.php'), 'utf8');
       verificar('api/proxy.php carrega o sessao.php da mesma pasta',
         /require_once __DIR__ \. '\/sessao\.php';/.test(fonteProxy));
-      verificar('api/proxy.php mantém as cinco protecções',
+      // As quatro decisões que o endpoint guarda. O tecto de bytes passou para o
+      // transporte, no api/buscar.php, e é medido lá — com 5 MB a sério.
+      verificar('api/proxy.php mantém as quatro decisões de segurança',
         /jsc_pode\('importar'\)/.test(fonteProxy)
         && /jsc_dominio_permitido\(\$url, \$DOMINIOS\)/.test(fonteProxy)
         && /jsc_dominio_permitido\(\$destino, \$DOMINIOS\)/.test(fonteProxy)
-        && /jsc_endereco_publico\(\$host\)/.test(fonteProxy)
-        && /JSC_MAX_BYTES/.test(fonteProxy));
+        && /jsc_endereco_publico\(\$host\)/.test(fonteProxy));
+      verificar('api/proxy.php carrega o transporte do api/buscar.php',
+        /require_once __DIR__ \. '\/buscar\.php';/.test(fonteProxy));
+      verificar('api/proxy.php: a allowlist ficou nos dois domínios',
+        /\$DOMINIOS = \['zerozero\.pt', 'afalgarve\.pt'\];/.test(fonteProxy));
       verificar('api/proxy.php não tem nenhuma instrução de escrita',
         !/file_put_contents|fwrite|rename\(|unlink\(|mkdir\(/.test(fonteProxy));
 

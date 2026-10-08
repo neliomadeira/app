@@ -1212,13 +1212,24 @@ async function _fetchViaProxy(url) {
     `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
   ];
 
-  const tryFetch = async (proxyUrl, timeout) => {
+  // O que o NOSSO proxy respondeu quando recusou. Antes, um !res.ok devolvia
+  // null e a resposta era descartada sem ser lida: o painel dizia "fetch
+  // falhou" e o servidor tinha explicado o motivo em texto simples. Foi assim
+  // que um "Precisa de sessao no painel" ficou invisível durante dias.
+  let erroLocal = '';
+
+  const tryFetch = async (proxyUrl, timeout, guardarErro) => {
     const ctrl = new AbortController();
     const tid = setTimeout(() => ctrl.abort(), timeout);
     try {
-      const res = await fetch(proxyUrl, { signal: ctrl.signal });
+      const res = await fetch(proxyUrl, { signal: ctrl.signal, credentials: 'same-origin' });
       clearTimeout(tid);
-      if (!res.ok) return null;
+      if (!res.ok) {
+        if (guardarErro) {
+          try { erroLocal = (await res.text()).trim().slice(0, 300); } catch (_) {}
+        }
+        return null;
+      }
       const text = await res.text();
       // If api/proxy.php is not being executed (served as raw text by a static
       // server), its response starts with "<?php". Reject and fall through to
@@ -1229,7 +1240,7 @@ async function _fetchViaProxy(url) {
   };
 
   // Try local proxy first (fast, reliable)
-  const local = await tryFetch(localProxy, 15000);
+  const local = await tryFetch(localProxy, 15000, true);
   if (local) return local;
 
   // Fall back to external CORS proxies
@@ -1239,6 +1250,11 @@ async function _fetchViaProxy(url) {
       const text = await tryFetch(proxy, 12000);
       if (text) return text;
     } catch(e) { lastErr = e.message || lastErr; }
+  }
+  // O que o nosso servidor disse vale mais do que qualquer texto genérico.
+  if (erroLocal) {
+    throw new Error('O servidor respondeu: ' + erroLocal
+      + ' — se precisares, abre a página no browser, copia a tabela e cola aqui.');
   }
   throw new Error('Não foi possível aceder à página automaticamente — o site pode bloquear robôs, ou o servidor ainda não tem PHP ativo. Solução: abre a página no browser, seleciona a tabela, copia (Ctrl+C) e cola aqui (Ctrl+V).');
 }
@@ -1300,7 +1316,8 @@ async function _zzFetchAndFill(url, taId, htmlDocSetter, onDone) {
   try {
     html = await _fetchViaProxy(url);
   } catch(e) {
-    ta.placeholder = 'Cola aqui manualmente (fetch falhou)';
+    // O motivo fica à vista no campo, e não só num aviso que desaparece.
+    ta.placeholder = 'Cola aqui manualmente — ' + (e.message || 'a busca falhou');
     showToast(e.message, 'red');
     return;
   }
