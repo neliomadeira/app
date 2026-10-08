@@ -2108,6 +2108,73 @@ async function testarSelectsDeEscalao(browser, url) {
   return { ...d, erros };
 }
 
+// Sonda do api/proxy.php — a sessão do painel tem de ser reconhecida.
+//
+// O endpoint estava na raiz do site, o único dos catorze endpoints autenticados
+// fora de api/. No alojamento real a raiz não via a sessão: com o Admin
+// autenticado no mesmo browser, o /api/auth.php?acao=estado devolvia a sessão e
+// o /proxy.php respondia "Precisa de sessao no painel". Mudou de pasta, e isto
+// fixa a propriedade que importa — a sessão criada pelo api/auth.php é a mesma
+// que o api/proxy.php lê — mais o portão que o protege.
+//
+// Sem browser: cookies tratados à mão, de propósito, para a partilha do
+// JSCSESSAO entre os dois endpoints ficar explícita no teste.
+async function testarProxyAutenticado(url) {
+  const r = { passos: [] };
+  const cookieDe = (res) => {
+    const sc = res.headers.get('set-cookie') || '';
+    const m = sc.match(/JSCSESSAO=([^;]+)/);
+    return m ? 'JSCSESSAO=' + m[1] : null;
+  };
+  const pedir = async (caminho, opcoes = {}) => {
+    const h = { 'X-Forwarded-Proto': 'https' };
+    if (opcoes.cookie) h['Cookie'] = opcoes.cookie;
+    if (opcoes.corpo) { h['Content-Type'] = 'application/json'; h['X-JSC-Painel'] = '1'; }
+    const res = await fetch(url + caminho, {
+      method: opcoes.corpo ? 'POST' : 'GET',
+      headers: h,
+      body: opcoes.corpo ? JSON.stringify(opcoes.corpo) : undefined,
+      redirect: 'manual',
+    });
+    const texto = await res.text();
+    return { estado: res.status, texto, cookie: cookieDe(res) };
+  };
+  const ZZ = '/api/proxy.php?url=' + encodeURIComponent('https://www.zerozero.pt/equipa/x');
+
+  // 1. Sem sessão nenhuma.
+  r.semSessao = await pedir(ZZ);
+
+  // 2. Super Admin: criar a conta e guardar o cookie.
+  const criar = await pedir('/api/auth.php?acao=criar-primeiro',
+    { corpo: { utilizador: 'Admin', password: 'Teste12345ab', nome: 'Admin' } });
+  r.criou = criar.estado === 200 && /"ok":true/.test(criar.texto);
+  const cookieAdmin = criar.cookie;
+  r.cookieAdmin = !!cookieAdmin;
+
+  // 3. O painel vê a sessão (o controlo: é a medição de referência).
+  const estado = await pedir('/api/auth.php?acao=estado', { cookie: cookieAdmin });
+  r.painelVeSessao = /"sessao":\{/.test(estado.texto) && /super-admin/.test(estado.texto);
+
+  // 4. O MESMO cookie no api/proxy.php: tem de passar o portão.
+  r.comAdmin = await pedir(ZZ, { cookie: cookieAdmin });
+
+  // 5. Domínio fora da allowlist, já com sessão válida.
+  r.foraDaLista = await pedir('/api/proxy.php?url=' + encodeURIComponent('https://exemplo.test/x'),
+    { cookie: cookieAdmin });
+
+  // 6. Um perfil sem a capacidade importar.
+  const criarCom = await pedir('/api/auth.php?acao=criar-utilizador',
+    { cookie: cookieAdmin,
+      corpo: { utilizador: 'ComunicaTeste', password: 'Teste12345ab', nome: 'Com', perfil: 'comunicacao' } });
+  r.criouComunicacao = /"ok":true/.test(criarCom.texto);
+  const entrar = await pedir('/api/auth.php?acao=entrar',
+    { corpo: { utilizador: 'ComunicaTeste', password: 'Teste12345ab' } });
+  r.entrouComunicacao = /"ok":true/.test(entrar.texto);
+  r.semCapacidade = await pedir(ZZ, { cookie: entrar.cookie });
+
+  return r;
+}
+
 // Sonda da pré-visualização da importação de jogos — o logótipo das equipas.
 //
 // O logoImg() devolve uma tag <img> já construída, com o endereço tratado pelo
@@ -4621,6 +4688,67 @@ async function testarAdminHistoria(browser, url) {
         c.injetou === false);
       verificar('editor: sem erros de JavaScript no painel durante a medição',
         c.erros.length === 0, c.erros.join(' / '));
+    }
+
+    // ---- O api/proxy.php e a sessão do painel -----------------------
+    console.log('\napi/proxy.php: a sessão do painel');
+    {
+      const naRaiz = fs.existsSync(path.join(raiz, 'proxy.php'));
+      const emApi  = fs.existsSync(path.join(raiz, 'api', 'proxy.php'));
+      verificar('o proxy vive em api/proxy.php e já não na raiz do site',
+        emApi && !naRaiz, 'api/proxy.php=' + emApi + ' raiz=' + naRaiz);
+
+      const fonteProxy = fs.readFileSync(path.join(raiz, 'api', 'proxy.php'), 'utf8');
+      verificar('api/proxy.php carrega o sessao.php da mesma pasta',
+        /require_once __DIR__ \. '\/sessao\.php';/.test(fonteProxy));
+      verificar('api/proxy.php mantém as cinco protecções',
+        /jsc_pode\('importar'\)/.test(fonteProxy)
+        && /jsc_dominio_permitido\(\$url, \$DOMINIOS\)/.test(fonteProxy)
+        && /jsc_dominio_permitido\(\$destino, \$DOMINIOS\)/.test(fonteProxy)
+        && /jsc_endereco_publico\(\$host\)/.test(fonteProxy)
+        && /JSC_MAX_BYTES/.test(fonteProxy));
+      verificar('api/proxy.php não tem nenhuma instrução de escrita',
+        !/file_put_contents|fwrite|rename\(|unlink\(|mkdir\(/.test(fonteProxy));
+
+      const fonteAdmin = fs.readFileSync(path.join(raiz, 'admin', 'js', 'admin.js'), 'utf8');
+      verificar('o painel chama ../api/proxy.php',
+        /`\.\.\/api\/proxy\.php\?url=\$\{encodeURIComponent\(url\)\}`/.test(fonteAdmin));
+      verificar('nenhum ficheiro do projeto chama ainda o proxy na raiz',
+        !/['"`]\.\.\/proxy\.php|['"`]\/proxy\.php/.test(fonteAdmin));
+
+      if (srv.modo !== 'apache') {
+        console.log('  (comportamento saltado: sem Apache não há PHP a servir)');
+      } else {
+        const ficheiroUtils = path.join(raiz, 'data', 'utilizadores.json');
+        const haviaUtils = fs.existsSync(ficheiroUtils);
+        try {
+          const p = await testarProxyAutenticado(srv.url);
+          verificar('sem sessão: 401 e a mensagem do painel',
+            p.semSessao.estado === 401 && /Precisa de sessao no painel/.test(p.semSessao.texto),
+            p.semSessao.estado + ' · ' + p.semSessao.texto.slice(0, 60));
+          verificar('a conta de Super Admin foi criada e deu cookie — a medição é válida',
+            p.criou && p.cookieAdmin, 'criou=' + p.criou + ' cookie=' + p.cookieAdmin);
+          verificar('o api/auth.php vê a sessão desse cookie (controlo)',
+            p.painelVeSessao === true);
+          verificar('O MESMO cookie é reconhecido pelo api/proxy.php',
+            p.comAdmin.estado !== 401 && !/Precisa de sessao/.test(p.comAdmin.texto),
+            p.comAdmin.estado + ' · ' + p.comAdmin.texto.slice(0, 60));
+          verificar('e passa também a verificação de capacidade importar',
+            !/nao pode importar/.test(p.comAdmin.texto), p.comAdmin.texto.slice(0, 60));
+          verificar('um domínio fora da allowlist é recusado com 403, já com sessão',
+            p.foraDaLista.estado === 403 && /Dominio nao permitido/.test(p.foraDaLista.texto),
+            p.foraDaLista.estado + ' · ' + p.foraDaLista.texto.slice(0, 60));
+          verificar('um perfil sem a capacidade importar foi criado e entrou — medição válida',
+            p.criouComunicacao && p.entrouComunicacao,
+            'criou=' + p.criouComunicacao + ' entrou=' + p.entrouComunicacao);
+          verificar('esse perfil recebe 403 do api/proxy.php, não o conteúdo',
+            p.semCapacidade.estado === 403 && /nao pode importar/.test(p.semCapacidade.texto),
+            p.semCapacidade.estado + ' · ' + p.semCapacidade.texto.slice(0, 60));
+        } finally {
+          // As contas são da medição: não ficam para os testes seguintes.
+          if (!haviaUtils) { try { fs.unlinkSync(ficheiroUtils); } catch (_) {} }
+        }
+      }
     }
 
     // ---- Pré-visualização da importação de jogos: o logótipo --------

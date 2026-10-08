@@ -1200,7 +1200,12 @@ function _extractDate(str) {
 
 async function _fetchViaProxy(url) {
   // Try our own server-side proxy first (no CORS issues, no third-party limits)
-  const localProxy = `../proxy.php?url=${encodeURIComponent(url)}`;
+  //
+  // O endpoint vive em api/, com os outros treze endpoints autenticados. Estava
+  // na raiz, e no alojamento real a raiz não via a sessão do painel: o Buscar
+  // recebia "Precisa de sessao no painel" com o Admin autenticado no mesmo
+  // browser. Ver o cabeçalho do api/proxy.php.
+  const localProxy = `../api/proxy.php?url=${encodeURIComponent(url)}`;
   const externalProxies = [
     `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     `https://corsproxy.io/?${encodeURIComponent(url)}`,
@@ -1215,8 +1220,9 @@ async function _fetchViaProxy(url) {
       clearTimeout(tid);
       if (!res.ok) return null;
       const text = await res.text();
-      // If proxy.php is not being executed (served as raw text by a static server),
-      // its response starts with "<?php". Reject and fall through to external proxies.
+      // If api/proxy.php is not being executed (served as raw text by a static
+      // server), its response starts with "<?php". Reject and fall through to
+      // external proxies.
       if (text.trimStart().startsWith('<?php')) return null;
       return text.length >= 500 ? text : null;
     } catch(e) { clearTimeout(tid); return null; }

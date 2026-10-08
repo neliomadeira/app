@@ -11,9 +11,24 @@
 // sem validar o destino: um domínio permitido que redirecionasse para
 // http://127.0.0.1/ ou para a rede interna do alojamento era seguido, e o
 // conteúdo devolvido a quem pedisse. O endereço é público e não pede token.
+//
+// PORQUE VIVE EM api/. Estava na raiz do site, e era o único dos catorze
+// endpoints autenticados fora desta pasta. No alojamento real isso bastou para
+// o deixar sem sessão: o painel entrava, o /api/auth.php?acao=estado devolvia
+// a sessão do Admin, e o /proxy.php na raiz respondia "Precisa de sessao no
+// painel" com o mesmo cookie. Nunca foi o código — reproduzido no Apache do
+// projeto, o proxy via a sessão criada pelo api/auth.php e passava a
+// verificação. É a raiz que difere do /api/ no servidor: ou o cookie não lhe
+// chega, ou a sessão é lida de outro armazenamento, por o PHP dessa pasta ser
+// outro. Aqui dentro corre sob o mesmo handler e lê as mesmas sessões que o
+// resto das APIs, e o site deixa de ter PHP na raiz.
+//
+// A lógica de segurança é a mesma, linha por linha: sessão obrigatória,
+// capacidade importar, allowlist verificada em cada salto, destino tem de ser
+// um endereço público e tecto de bytes na resposta.
 // =====================================================
 
-require_once __DIR__ . '/api/sessao.php';
+require_once __DIR__ . '/sessao.php';
 
 // Só o painel usa isto, e chama-o da mesma origem. Sem esta verificação
 // qualquer pessoa na internet podia usar o servidor do clube para ir
