@@ -2928,11 +2928,17 @@ function renderClassSyncRows() {
 let _edClassCtx = null; // { escalao, teamKey }
 
 function abrirEditorClass(escalao, teamKey) {
-  _edClassCtx = { escalao, teamKey };
   const key = teamStorageKey(escalao, teamKey, 'class');
   let rows = [];
   try { rows = JSON.parse(localStorage.getItem(key) || '[]'); } catch(e) {}
   if (!rows.length) rows = [{ equipa: 'Sport Campinense', j:0, v:0, e:0, d:0, gm:0, gs:0, forma:'' }];
+  // As linhas tal como foram abertas ficam guardadas: o formulário só tem oito
+  // campos, e o salvarEditorClass() funde o que se escreveu por cima delas. Sem
+  // isto, o que não está no formulário era apagado — medido: abrir e guardar
+  // sem tocar em nada perdia o logo, o pts, o pts1fase, o dg e qualquer campo
+  // futuro, e na classificação pública o clube caía de 29 para 23 pontos, do
+  // primeiro para o segundo lugar.
+  _edClassCtx = { escalao, teamKey, originais: rows };
 
   const cfg  = loadClassConfig();
   const tNome = teamKey ? (cfg[escalao]?.teams?.[teamKey]?.nome || teamKey) : '';
@@ -2968,9 +2974,14 @@ function abrirEditorClass(escalao, teamKey) {
 // O jscEsc() faz tudo o que o esc() fazia e mais — escapa & < > " ' —, pelo que
 // isto é mais seguro, não menos. O || '' mantém o que o esc() fazia com null e
 // undefined: um campo vazio continua vazio.
-function _edClassRowHTML(t) {
+// O segundo argumento vem de graça do rows.map(_edClassRowHTML) lá acima: é o
+// índice da linha em _edClassCtx.originais, e é por ele que o guardar reencontra
+// a linha de origem. Pelo índice e não pelo nome, porque o nome é justamente o
+// que se edita neste formulário. As linhas criadas pelo botão "+ Adicionar
+// equipa" chamam sem índice e ficam sem o atributo: não têm origem nenhuma.
+function _edClassRowHTML(t, i) {
   const num = (v) => v == null ? 0 : v;
-  return `<tr>
+  return `<tr${typeof i === 'number' ? ` data-idx="${jscEsc(i)}"` : ''}>
     <td><input class="form-input ed-equipa" value="${jscEsc(t.equipa || '')}" placeholder="Nome da equipa" style="min-width:170px"></td>
     <td><input class="form-input ed-j"  type="number" min="0" value="${jscEsc(num(t.j))}"  style="width:56px"></td>
     <td><input class="form-input ed-v"  type="number" min="0" value="${jscEsc(num(t.v))}"  style="width:56px"></td>
@@ -3001,6 +3012,8 @@ function salvarEditorClass() {
   if (!_edClassCtx) return;
   const { escalao, teamKey } = _edClassCtx;
 
+  const originais = _edClassCtx.originais || [];
+
   const rows = [];
   document.querySelectorAll('#edClassTable tbody tr').forEach(tr => {
     const g = (cls) => tr.querySelector('.' + cls);
@@ -3008,14 +3021,32 @@ function salvarEditorClass() {
     if (!equipa) return;
     const n = (cls) => Math.max(0, parseInt(g(cls).value, 10) || 0);
     const forma = g('ed-forma').value.trim().toUpperCase().replace(/[^VED]/g, '').slice(0, 5);
-    rows.push({
+    // A linha de origem, pelo data-idx. Apagar linhas não desalinha nada: o
+    // índice vem do atributo, não da posição. Uma linha nova não tem origem,
+    // e o base fica vazio — exactamente o que acontecia antes a todas.
+    const idx  = tr.dataset.idx;
+    const base = idx !== undefined && originais[idx] ? originais[idx] : {};
+    // O logo, o pts1fase e qualquer campo que o formulário não edite passam
+    // intactos por aqui.
+    const linha = Object.assign({}, base, {
       equipa,
-      abrev: _abrevEquipa(equipa),
       j: n('ed-j'), v: n('ed-v'), e: n('ed-e'), d: n('ed-d'),
       gm: n('ed-gm'), gs: n('ed-gs'),
       forma,
       sc: /campinense/i.test(equipa),
     });
+    // O abrev deriva do nome: só se recalcula se o nome mudou. Assim um "J.S"
+    // vindo da colagem não passa a "JC" só por se abrir o editor.
+    if (!base.abrev || base.equipa !== equipa) linha.abrev = _abrevEquipa(equipa);
+    // O dg e o pts também derivam de campos que o formulário edita, e guardá-los
+    // como estavam seria pior do que perdê-los: um pts antigo continuaria a
+    // valer na página pública, que prefere o pts guardado quando é maior do que
+    // V×3+E. Recalculam-se, e só nas linhas que já os usavam, para não
+    // acrescentar campos a quem não os tinha. O pts1fase, esse, é dado próprio:
+    // vem do base e é ele que entra na soma.
+    if ('dg' in base)  linha.dg  = linha.gm - linha.gs;
+    if ('pts' in base) linha.pts = linha.v * 3 + linha.e + (base.pts1fase || 0);
+    rows.push(linha);
   });
 
   if (!rows.length) { showToast('Adicione pelo menos uma equipa', 'red'); return; }

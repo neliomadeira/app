@@ -2216,6 +2216,113 @@ async function testarContagemDecrescente(browser, url) {
   return { antes, depois, erros };
 }
 
+// Sondas do editor manual de classificação.
+//
+// O formulário tem oito campos, e o guardar reconstruía a linha só a partir
+// deles: tudo o que não estava no formulário era apagado. Medido numa gravação
+// sem tocar em nada: perdiam-se o logo, o pts, o pts1fase, o dg e um campo
+// inventado (serie), e o abrev era reescrito ("J.S" → "JC"). Na classificação
+// pública o clube caía de 29 para 23 pontos e do primeiro para o segundo lugar.
+//
+// Passou a fundir sobre a linha de origem, reencontrada pelo data-idx do <tr> —
+// pelo índice e não pelo nome, que é justamente o que se edita ali.
+//
+// Mede-se a conduzir o painel a sério: abrirEditorClass(), mexer nos inputs
+// como uma pessoa mexe, salvarEditorClass(), e ler o que ficou no localStorage.
+async function testarEditorPreservaCampos(browser, url, semente, modos) {
+  const saida = {};
+  for (const modo of modos) {
+    const ctx = await browser.newContext({
+      javaScriptEnabled: true,
+      extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+    });
+    const pg = await ctx.newPage();
+    const erros = [];
+    pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+    await pg.goto(url + '/admin/', { waitUntil: 'networkidle', timeout: 20000 });
+    const d = await pg.evaluate((a) => {
+      const CHAVE = 'fpf_class_Sub-17';
+      localStorage.setItem('jsc_painel_local', '1');
+      localStorage.setItem(CHAVE, JSON.stringify(a.semente));
+      abrirEditorClass('Sub-17', null);
+      const trs = () => Array.from(document.querySelectorAll('#edClassTable tbody tr'));
+      const idxAbertura = trs().map((tr) => tr.dataset.idx === undefined ? '(sem)' : tr.dataset.idx);
+
+      if (a.modo === 'renomear') {
+        trs()[0].querySelector('.ed-equipa').value = 'Juventude Sport Campinense';
+      }
+      if (a.modo === 'numeros') {
+        // Clube: uma vitória passa a derrota e menos cinco golos marcados.
+        const t0 = trs()[0];
+        t0.querySelector('.ed-v').value  = '6';
+        t0.querySelector('.ed-d').value  = '2';
+        t0.querySelector('.ed-gm').value = '20';
+        // E uma linha que nunca teve dg nem pts.
+        trs()[2].querySelector('.ed-gm').value = '7';
+      }
+      if (a.modo === 'remover-meio') trs()[1].remove();
+      if (a.modo === 'adicionar') {
+        edClassAddRow();
+        const novo = trs()[3];
+        novo.querySelector('.ed-equipa').value = 'TESTE NOVA';
+        novo.querySelector('.ed-j').value  = '4';
+        novo.querySelector('.ed-v').value  = '3';
+        novo.querySelector('.ed-e').value  = '1';
+        novo.querySelector('.ed-gm').value = '9';
+        novo.querySelector('.ed-gs').value = '2';
+      }
+      salvarEditorClass();
+      let linhas = [];
+      try { linhas = JSON.parse(localStorage.getItem(CHAVE) || '[]'); } catch (_) {}
+      return { idxAbertura, linhas };
+    }, { modo, semente });
+    await ctx.close();
+    saida[modo] = { ...d, erros };
+  }
+  return saida;
+}
+
+// A consequência pública, medida de ponta a ponta: pontos e posição na
+// classificação de resultados.html, antes e depois de abrir e guardar o editor
+// sem tocar em nada.
+async function testarEditorNaoPerdePontos(browser, url, semente) {
+  const ctx = await browser.newContext({
+    javaScriptEnabled: true,
+    extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+  });
+  await ctx.addInitScript((d) => {
+    try {
+      if (sessionStorage.getItem('jsc_semeado_editor')) return;
+      sessionStorage.setItem('jsc_semeado_editor', '1');
+      localStorage.setItem('jsc_painel_local', '1');
+      localStorage.setItem('fpf_class_Sub-17', JSON.stringify(d));
+    } catch (_) {}
+  }, semente);
+  const pg = await ctx.newPage();
+  const erros = [];
+  pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+
+  const lerTabela = async () => {
+    await pg.goto(url + '/resultados.html', { waitUntil: 'load', timeout: 20000 });
+    await pg.waitForTimeout(600);
+    return pg.evaluate(() => Array.from(document.querySelectorAll('#classTable tr')).map((tr, i) => {
+      const td = tr.querySelectorAll('td');
+      return {
+        pos: i + 1,
+        equipa: ((tr.querySelector('.team-cell span:last-child') || {}).textContent || '').replace(' ★', '').trim(),
+        pts: td[td.length - 2].textContent.trim(),
+      };
+    }));
+  };
+
+  const antes = await lerTabela();
+  await pg.goto(url + '/admin/', { waitUntil: 'networkidle', timeout: 20000 });
+  await pg.evaluate(() => { abrirEditorClass('Sub-17', null); salvarEditorClass(); });
+  const depois = await lerTabela();
+  await ctx.close();
+  return { antes, depois, erros };
+}
+
 // Sonda do emblema do clube na classificação de resultados.html.
 //
 // A linha do Campinense aparecia com o escudo amarelo "JC" em vez do logótipo.
@@ -5012,6 +5119,141 @@ async function testarAdminHistoria(browser, url) {
         'antes=' + c.antes.seg + ' depois=' + c.depois.seg);
       verificar('página inicial: sem erros de JavaScript na contagem',
         c.erros.length === 0, c.erros.join(' / '));
+    }
+
+    // ---- O editor manual de classificação ---------------------------
+    console.log('\no editor de classificação: guardar não pode apagar campos');
+    {
+      const fonteAdm = fs.readFileSync(path.join(raiz, 'admin', 'js', 'admin.js'), 'utf8')
+        .replace(/^\s*\/\/.*$/gm, '');
+      verificar('admin.js: as linhas abertas ficam guardadas no _edClassCtx',
+        /_edClassCtx = \{ escalao, teamKey, originais: rows \};/.test(fonteAdm));
+      verificar('admin.js: o <tr> leva o índice da linha de origem',
+        /function _edClassRowHTML\(t, i\)/.test(fonteAdm)
+        && /data-idx="\$\{jscEsc\(i\)\}"/.test(fonteAdm));
+      verificar('admin.js: o guardar funde sobre a linha de origem em vez de a reconstruir',
+        /const base = idx !== undefined && originais\[idx\] \? originais\[idx\] : \{\};/.test(fonteAdm)
+        && /const linha = Object\.assign\(\{\}, base, \{/.test(fonteAdm));
+      verificar('admin.js: o abrev só se recalcula se o nome mudou',
+        /if \(!base\.abrev \|\| base\.equipa !== equipa\) linha\.abrev = _abrevEquipa\(equipa\);/.test(fonteAdm));
+      verificar('admin.js: o dg e o pts recalculam-se, e só onde já existiam',
+        /if \('dg' in base\)\s+linha\.dg\s+= linha\.gm - linha\.gs;/.test(fonteAdm)
+        && /if \('pts' in base\) linha\.pts = linha\.v \* 3 \+ linha\.e \+ \(base\.pts1fase \|\| 0\);/.test(fonteAdm));
+
+      const LOGO_SC = 'https://exemplo.test/logos/sc.png';
+      const LOGO_TL = 'https://exemplo.test/logos/tl.png';
+      // r0: linha completa, como fica depois de uma colagem com logótipo e com
+      //     pontos da 1ª fase escritos na pré-visualização. O serie é um campo
+      //     inventado, para medir se um campo futuro sobrevive.
+      // r1: completa, sem pts1fase, já com o sc: false que o editor acrescenta.
+      // r2: mínima, sem dg, sem pts, sem logo e sem sc.
+      const SEMENTE = [
+        { equipa: 'J.S. Campinense', abrev: 'J.S', j: 10, v: 7, e: 2, d: 1, gm: 25, gs: 8,
+          dg: 17, pts: 29, pts1fase: 6, forma: 'VVEVD', logo: LOGO_SC, sc: true, serie: 'A' },
+        { equipa: 'TESTE LOULETANO', abrev: 'TL', j: 10, v: 8, e: 1, d: 1, gm: 22, gs: 9,
+          dg: 13, pts: 25, forma: 'VVVEV', logo: LOGO_TL, sc: false },
+        { equipa: 'TESTE QUARTEIRENSE', abrev: 'TQ', j: 10, v: 1, e: 1, d: 8, gm: 5, gs: 24,
+          forma: 'DDDED' },
+      ];
+      // Comparação campo a campo, sem depender da ordem das chaves.
+      const canon = (o) => JSON.stringify(Object.keys(o || {}).sort().reduce((a, k) => {
+        a[k] = o[k]; return a;
+      }, {}));
+
+      const ed = await testarEditorPreservaCampos(browser, srv.url, SEMENTE,
+        ['nada', 'renomear', 'numeros', 'remover-meio', 'adicionar']);
+
+      // 1. abrir e guardar sem alterar nada
+      verificar('medição válida: a abertura numerou as três linhas por ordem',
+        JSON.stringify(ed.nada.idxAbertura) === JSON.stringify(['0', '1', '2']),
+        JSON.stringify(ed.nada.idxAbertura));
+      verificar('guardar sem tocar em nada: a linha do clube fica exactamente igual',
+        canon(ed.nada.linhas[0]) === canon(SEMENTE[0]),
+        'ficou: ' + canon(ed.nada.linhas[0]));
+      verificar('guardar sem tocar em nada: a segunda linha fica exactamente igual',
+        canon(ed.nada.linhas[1]) === canon(SEMENTE[1]),
+        'ficou: ' + canon(ed.nada.linhas[1]));
+      verificar('guardar sem tocar em nada: na linha mínima a única diferença é o sc que o editor já acrescentava',
+        canon(ed.nada.linhas[2]) === canon({ ...SEMENTE[2], sc: false }),
+        'ficou: ' + canon(ed.nada.linhas[2]));
+
+      // 2, 3, 4. logo, pts1fase e campos futuros
+      verificar('o logo sobrevive intacto',
+        ed.nada.linhas[0].logo === LOGO_SC && ed.nada.linhas[1].logo === LOGO_TL,
+        JSON.stringify([ed.nada.linhas[0].logo, ed.nada.linhas[1].logo]));
+      verificar('o pts1fase sobrevive intacto',
+        ed.nada.linhas[0].pts1fase === 6, 'pts1fase: ' + ed.nada.linhas[0].pts1fase);
+      verificar('um campo que o formulário não conhece sobrevive intacto',
+        ed.nada.linhas[0].serie === 'A', 'serie: ' + ed.nada.linhas[0].serie);
+      verificar('e não aparece em quem não o tinha',
+        !('serie' in ed.nada.linhas[1]) && !('pts1fase' in ed.nada.linhas[1])
+        && !('dg' in ed.nada.linhas[2]) && !('pts' in ed.nada.linhas[2]),
+        JSON.stringify(Object.keys(ed.nada.linhas[2])));
+
+      // 5. o abrev mantém-se se o nome não mudou
+      verificar('nome igual: o abrev "J.S" da colagem não passa a "JC"',
+        ed.nada.linhas[0].abrev === 'J.S', 'abrev: ' + ed.nada.linhas[0].abrev);
+
+      // 6. o abrev recalcula-se se o nome mudou
+      verificar('nome mudado: o abrev acompanha',
+        ed.renomear.linhas[0].equipa === 'Juventude Sport Campinense'
+        && ed.renomear.linhas[0].abrev === 'JSC',
+        JSON.stringify([ed.renomear.linhas[0].equipa, ed.renomear.linhas[0].abrev]));
+      verificar('nome mudado: o logo, o pts1fase e o serie continuam na linha',
+        ed.renomear.linhas[0].logo === LOGO_SC
+        && ed.renomear.linhas[0].pts1fase === 6
+        && ed.renomear.linhas[0].serie === 'A',
+        canon(ed.renomear.linhas[0]));
+
+      // 7 e 8. dg e pts recalculados
+      verificar('números editados: o dg é gm − gs',
+        ed.numeros.linhas[0].dg === 12, 'dg: ' + ed.numeros.linhas[0].dg + ' (esperado 20 − 8)');
+      verificar('números editados: o pts é V×3 + E + pts1fase',
+        ed.numeros.linhas[0].pts === 26, 'pts: ' + ed.numeros.linhas[0].pts + ' (esperado 18 + 2 + 6)');
+      verificar('números editados: quem não tinha dg nem pts continua sem eles',
+        !('dg' in ed.numeros.linhas[2]) && !('pts' in ed.numeros.linhas[2])
+        && ed.numeros.linhas[2].gm === 7,
+        canon(ed.numeros.linhas[2]));
+
+      // 9. apagar uma linha não desalinha os índices
+      verificar('linha do meio apagada: ficam duas, e cada uma com os seus campos',
+        ed['remover-meio'].linhas.length === 2
+        && canon(ed['remover-meio'].linhas[0]) === canon(SEMENTE[0])
+        && canon(ed['remover-meio'].linhas[1]) === canon({ ...SEMENTE[2], sc: false }),
+        JSON.stringify(ed['remover-meio'].linhas.map((r) => r.equipa)));
+      verificar('e a que sobrou não herdou o logo nem o pts da linha apagada',
+        !('logo' in ed['remover-meio'].linhas[1]) && !('pts' in ed['remover-meio'].linhas[1])
+        && ed['remover-meio'].linhas[1].abrev === 'TQ',
+        canon(ed['remover-meio'].linhas[1]));
+
+      // 10. linha nova
+      verificar('linha nova: entra só com os campos do formulário',
+        ed.adicionar.linhas.length === 4
+        && canon(ed.adicionar.linhas[3]) === canon({
+          equipa: 'TESTE NOVA', abrev: 'TN', j: 4, v: 3, e: 1, d: 0, gm: 9, gs: 2,
+          forma: '', sc: false,
+        }),
+        'ficou: ' + canon(ed.adicionar.linhas[3]));
+      verificar('linha nova: as que já existiam não se mexeram',
+        canon(ed.adicionar.linhas[0]) === canon(SEMENTE[0])
+        && canon(ed.adicionar.linhas[1]) === canon(SEMENTE[1]));
+
+      verificar('painel: sem erros de JavaScript em nenhum dos cinco cenários',
+        Object.values(ed).every((c) => c.erros.length === 0),
+        Object.values(ed).map((c) => c.erros.join(' ')).join(' | '));
+
+      // 11. a classificação pública não perde pontos nem posição
+      const pub = await testarEditorNaoPerdePontos(browser, srv.url, SEMENTE);
+      verificar('medição válida: a classificação pública desenhou as três linhas',
+        pub.antes.length === 3, JSON.stringify(pub.antes));
+      verificar('a classificação pública tem os pontos da 1ª fase antes de guardar',
+        pub.antes[0].equipa === 'J.S. Campinense' && pub.antes[0].pts === '29',
+        JSON.stringify(pub.antes));
+      verificar('abrir e guardar o editor não muda pontos nem posições na página pública',
+        JSON.stringify(pub.depois) === JSON.stringify(pub.antes),
+        'antes: ' + JSON.stringify(pub.antes) + ' depois: ' + JSON.stringify(pub.depois));
+      verificar('página pública: sem erros de JavaScript na medição',
+        pub.erros.length === 0, pub.erros.join(' / '));
     }
 
     // ---- O emblema do clube na classificação ------------------------
