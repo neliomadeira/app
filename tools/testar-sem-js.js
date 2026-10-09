@@ -2216,6 +2216,60 @@ async function testarContagemDecrescente(browser, url) {
   return { antes, depois, erros };
 }
 
+// Sonda do emblema do clube na classificação de resultados.html.
+//
+// A linha do Campinense aparecia com o escudo amarelo "JC" em vez do logótipo.
+// O db_logos só tem as chaves com a grafia que o ZeroZero escreveu na colagem
+// ("js campinense"), e o nome do clube é justamente o que se renomeia no painel
+// ("J.S. Campinense"): a procura é por igualdade exacta de string, logo não
+// batia. As outras equipas, que ninguém renomeia, continuavam a resolver.
+//
+// Mede-se no browser, por cenário, cada um com o seu contexto limpo. As linhas
+// são semeadas como o editor de classificação as grava: sem campo logo.
+// O endereço local images/logo.svg existe de verdade no servidor de teste, pelo
+// que o escudo tem de ficar escondido — é isso que prova que a imagem carregou.
+async function testarEmblemaDoClube(browser, url, cenarios) {
+  const saida = {};
+  for (const c of cenarios) {
+    const ctx = await browser.newContext({
+      javaScriptEnabled: true,
+      extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+    });
+    await ctx.addInitScript((d) => {
+      try {
+        if (sessionStorage.getItem('jsc_semeado_emblema')) return;
+        sessionStorage.setItem('jsc_semeado_emblema', '1');
+        localStorage.setItem('jsc_painel_local', '1');
+        localStorage.setItem('fpf_class_Sub-17', JSON.stringify(d.linhas));
+        localStorage.setItem('db_logos', JSON.stringify(d.logos));
+        if (d.clube) localStorage.setItem('dados_clube', JSON.stringify(d.clube));
+        else localStorage.removeItem('dados_clube');
+      } catch (_) {}
+    }, c);
+    const pg = await ctx.newPage();
+    const erros = [];
+    pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+    await pg.goto(url + '/resultados.html', { waitUntil: 'load', timeout: 20000 });
+    await pg.waitForTimeout(700);
+    const linhas = await pg.evaluate(() => Array.from(document.querySelectorAll('#classTable tr')).map((tr) => {
+      const img = tr.querySelector('img.team-logo');
+      const badge = tr.querySelector('span.team-badge');
+      return {
+        equipa: (tr.querySelector('.team-cell span:last-child') || {}).textContent || '',
+        src: img ? img.getAttribute('src') : null,
+        // O onerror do <img> revela o escudo quando a imagem não carrega: é
+        // por isto que "tem src" não basta para dizer que o emblema aparece.
+        escudoVisivel: !!badge && badge.style.display !== 'none',
+        escudoTexto: badge ? badge.textContent.trim() : null,
+        escudoSC: !!badge && / team-badge--sc/.test(' ' + badge.className),
+      };
+    }));
+    await ctx.close();
+    saida[c.nome] = { linhas, erros };
+  }
+  return saida;
+}
+
 // Sonda do transporte do proxy — o api/buscar.php.
 //
 // No alojamento real o proxy respondia "Nao foi possivel obter o endereco":
@@ -4958,6 +5012,98 @@ async function testarAdminHistoria(browser, url) {
         'antes=' + c.antes.seg + ' depois=' + c.depois.seg);
       verificar('página inicial: sem erros de JavaScript na contagem',
         c.erros.length === 0, c.erros.join(' / '));
+    }
+
+    // ---- O emblema do clube na classificação ------------------------
+    console.log('\nresultados.html: o emblema do clube na classificação');
+    {
+      // Sem as linhas comentadas: a asserção de baixo passava com a correcção
+      // comentada — medido, ao repor o defeito de propósito.
+      const fonteRes2 = fs.readFileSync(path.join(raiz, 'js', 'resultados.js'), 'utf8')
+        .replace(/^\s*\/\/.*$/gm, '');
+      verificar('resultados.js: o recurso só se aplica à linha do clube',
+        /if \(!logo && t\.sc === true\) logo = logoDoClube\(\);/.test(fonteRes2));
+      verificar('resultados.js: o emblema vem do dados_clube.logo, com o ficheiro local como recurso',
+        /logoDoClube\(\) \{[\s\S]*?dados_clube[\s\S]*?return 'images\/logo\.svg';/.test(fonteRes2));
+      verificar('resultados.js: a procura por nome no db_logos fica como estava',
+        /logosMap\[\(t\.equipa \|\| ''\)\.toLowerCase\(\)\]/.test(fonteRes2));
+      verificar('resultados.js: a página não escreve nada nos dados',
+        !/setItem\('db_logos'|setItem\('fpf_class_|setItem\('dados_clube'/.test(fonteRes2));
+
+      const OUTRO = 'https://exemplo.test/logos/outro.png';
+      const ZZ_SC = 'https://exemplo.test/logos/zz-campinense.png';
+      const linha = (equipa, abrev, sc, extra) => Object.assign({
+        equipa, abrev, j: 5, v: sc ? 4 : 2, e: 1, d: sc ? 0 : 2,
+        gm: 10, gs: 4, forma: 'VVEVV',
+      }, sc ? { sc: true } : {}, extra || {});
+      // Em todos os cenários: uma equipa com chave no db_logos e outra sem
+      // nenhuma — o recurso do clube não lhes pode tocar.
+      const outras = () => [
+        linha('TESTE LOULETANO', 'TL', false),
+        linha('TESTE QUARTEIRENSE', 'TQ', false),
+      ];
+      const logosBase = { 'teste louletano': OUTRO };
+
+      const e = await testarEmblemaDoClube(browser, srv.url, [
+        { nome: 'sem-entrada', linhas: [linha('J.S. Campinense', 'JC', true), ...outras()],
+          logos: logosBase, clube: null },
+        { nome: 'grafia-diferente', linhas: [linha('JS Campinense', 'JC', true), ...outras()],
+          logos: Object.assign({ 'j.s. campinense': ZZ_SC }, logosBase), clube: null },
+        { nome: 'clube-configurado', linhas: [linha('J.S. Campinense', 'JC', true), ...outras()],
+          logos: logosBase, clube: { logo: 'images/logo.png' } },
+        { nome: 'recurso-local', linhas: [linha('J.S. Campinense', 'JC', true), ...outras()],
+          logos: logosBase, clube: { logo: 'x.png' } },
+        { nome: 'logo-proprio', linhas: [linha('J.S. Campinense', 'JC', true, { logo: ZZ_SC }), ...outras()],
+          logos: logosBase, clube: { logo: 'images/logo.png' } },
+      ]);
+      const sc = (n) => e[n].linhas.find((r) => r.equipa.indexOf('Campinense') !== -1);
+      const outra = (n, nome) => e[n].linhas.find((r) => r.equipa.indexOf(nome) !== -1);
+
+      verificar('medição válida: os cinco cenários desenharam as três linhas',
+        Object.keys(e).length === 5 && Object.values(e).every((c) => c.linhas.length === 3),
+        JSON.stringify(Object.keys(e).map((k) => e[k].linhas.length)));
+
+      verificar('J.S. Campinense sem entrada no db_logos: aparece o emblema do clube',
+        sc('sem-entrada').src === 'images/logo.svg',
+        'src: ' + sc('sem-entrada').src);
+      verificar('e o escudo "JC" deixa de aparecer — a imagem carregou mesmo',
+        sc('sem-entrada').escudoVisivel === false && sc('sem-entrada').escudoTexto === 'JC',
+        JSON.stringify(sc('sem-entrada')));
+
+      verificar('JS Campinense com a chave noutra grafia: aparece o emblema do clube',
+        sc('grafia-diferente').src === 'images/logo.svg',
+        'src: ' + sc('grafia-diferente').src);
+      verificar('grafia diferente: o escudo amarelo não volta',
+        sc('grafia-diferente').escudoVisivel === false);
+
+      verificar('com dados_clube.logo configurado, é esse o endereço usado',
+        sc('clube-configurado').src === 'images/logo.png',
+        'src: ' + sc('clube-configurado').src);
+      verificar('configurado: o escudo fica escondido — a imagem carregou',
+        sc('clube-configurado').escudoVisivel === false);
+
+      verificar('sem dados_clube.logo utilizável, o recurso é images/logo.svg',
+        sc('recurso-local').src === 'images/logo.svg',
+        'src: ' + sc('recurso-local').src);
+
+      verificar('uma linha do clube que já tenha logótipo próprio mantém-no',
+        sc('logo-proprio').src === ZZ_SC, 'src: ' + sc('logo-proprio').src);
+
+      verificar('as outras equipas continuam iguais: a que tem chave mantém o logótipo',
+        Object.keys(e).every((n) => outra(n, 'LOULETANO').src === OUTRO),
+        JSON.stringify(Object.keys(e).map((n) => outra(n, 'LOULETANO').src)));
+      verificar('a que não tem chave continua com o escudo normal, sem imagem',
+        Object.keys(e).every((n) => outra(n, 'QUARTEIRENSE').src === null
+          && outra(n, 'QUARTEIRENSE').escudoVisivel === true
+          && outra(n, 'QUARTEIRENSE').escudoSC === false),
+        JSON.stringify(outra('sem-entrada', 'QUARTEIRENSE')));
+      verificar('o emblema do clube não chega a nenhuma equipa de terceiros',
+        Object.keys(e).every((n) => e[n].linhas
+          .filter((r) => r.equipa.indexOf('Campinense') === -1)
+          .every((r) => !/images\/logo\./.test(r.src || ''))));
+      verificar('classificação: sem erros de JavaScript em nenhum cenário',
+        Object.values(e).every((c) => c.erros.length === 0),
+        Object.values(e).map((c) => c.erros.join(' ')).join(' | '));
     }
 
     // ---- O transporte do proxy: cURL e a alternativa ----------------

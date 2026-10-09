@@ -32,6 +32,18 @@ function isSC(name) {
   return /sport campinense|js campinense|campinense/i.test(name || '');
 }
 
+// Emblema do próprio clube. O escudo do Campinense não tem de vir de uma
+// recolha de terceiros: é o que o painel configurar em dados_clube.logo, com o
+// ficheiro local como recurso. Mesmo padrão do js/site-config.js, que já troca
+// os .logo__img pelo logótipo configurado e volta ao images/logo.svg se falhar.
+function logoDoClube() {
+  try {
+    const clube = JSON.parse(localStorage.getItem('dados_clube') || '{}');
+    if (clube.logo && clube.logo.length > 10) return clube.logo;
+  } catch (e) {}
+  return 'images/logo.svg';
+}
+
 // Bloco de equipas de um jogo: para jogos do Campinense mostra só o
 // adversário com etiqueta Casa/Fora; caso contrário mostra as duas equipas
 function jogoEquipasHtml(j) {
@@ -169,7 +181,14 @@ function renderClass(escalao) {
       ? t.pts                          // stored value already includes Phase 1
       : fase2Pts + (t.pts1fase || 0);  // add Phase 1 carry-over if entered separately
     // Resolve logo: stored per-row, or from global db_logos lookup
-    const logo = t.logo || logosMap[(t.equipa || '').toLowerCase()] || '';
+    let logo = t.logo || logosMap[(t.equipa || '').toLowerCase()] || '';
+    // A linha do clube não tinha por onde resolver: o db_logos só guarda as
+    // chaves com a grafia que o ZeroZero escreveu na colagem, e o nome do clube
+    // é justamente o que se renomeia no painel — "J.S. Campinense" não bate com
+    // a chave "js campinense". Sem logótipo, aparecia o escudo amarelo "JC" em
+    // vez do emblema. A procura por nome fica como está: isto é só o recurso
+    // final, e só para a linha do clube, que o markSCRows()/isSC() já marcou.
+    if (!logo && t.sc === true) logo = logoDoClube();
     return { ...t, pts: totalPts, dg: t.gm - t.gs, logo };
   }).sort((a,b) => b.pts - a.pts || b.dg - a.dg || b.gm - a.gm);
 
