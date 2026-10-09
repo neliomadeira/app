@@ -2108,6 +2108,114 @@ async function testarSelectsDeEscalao(browser, url) {
   return { ...d, erros };
 }
 
+// Sonda dos logótipos das equipas no resultados.html.
+//
+// O jogoLogo() devolve uma tag <img> já construída, com o endereço tratado pelo
+// jscEscUrl(). Nos Próximos Jogos e nos Últimos Resultados o resultado ia
+// envolvido em jscEsc(), e a tag aparecia como texto na página — mas só nas
+// linhas onde nenhuma das equipas é o Campinense, porque o ramo do Campinense
+// insere o markup directamente. Era por isso que a classificação à esquerda
+// aparecia bem e a lista de jogos não.
+async function testarLogotiposDeJogos(browser, url) {
+  const LOGO = 'https://exemplo.test/logos/equipa.png';
+  const MAU  = 'javascript:alert(1)';
+  const ctx = await browser.newContext({
+    javaScriptEnabled: true,
+    extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+  });
+  // A marca do painel impede o js/sync.js de sobrepor a semente.
+  await ctx.addInitScript((d) => {
+    try {
+      if (sessionStorage.getItem('jsc_semeado_jogos')) return;
+      sessionStorage.setItem('jsc_semeado_jogos', '1');
+      localStorage.setItem('jsc_painel_local', '1');
+      localStorage.setItem('db_jogos', JSON.stringify(d.jogos));
+    } catch (_) {}
+  }, { jogos: [
+    // Próximos: entre terceiros (com logótipo nos dois), com o Campinense,
+    // entre terceiros sem logótipo nenhum, e um com endereço malicioso.
+    { id:1, escalao:'Sub-17', data:'2099-03-01', hora:'15:00', casa:'TESTE LOULETANO', fora:'TESTE QUARTEIRENSE', estado:'Agendado', logoCasa:LOGO, logoFora:LOGO },
+    { id:2, escalao:'Sub-17', data:'2099-03-02', hora:'16:00', casa:'Sport Campinense', fora:'TESTE LAGOS',       estado:'Agendado', logoCasa:'',   logoFora:LOGO },
+    { id:3, escalao:'Sub-17', data:'2099-03-03', hora:'17:00', casa:'TESTE OLHANENSE',  fora:'TESTE FARENSE',      estado:'Agendado', logoCasa:'',   logoFora:'' },
+    { id:4, escalao:'Sub-17', data:'2099-03-04', hora:'18:00', casa:'TESTE MAU',        fora:'TESTE PIOR',         estado:'Agendado', logoCasa:MAU,  logoFora:MAU },
+    // Últimos: o mesmo padrão, já realizados.
+    { id:5, escalao:'Sub-17', data:'2020-02-01', hora:'15:00', casa:'TESTE LOULETANO', fora:'TESTE QUARTEIRENSE', estado:'Realizado', gcasa:2, gfora:1, logoCasa:LOGO, logoFora:LOGO },
+    { id:6, escalao:'Sub-17', data:'2020-02-02', hora:'16:00', casa:'Sport Campinense', fora:'TESTE LAGOS',       estado:'Realizado', gcasa:3, gfora:0, logoCasa:'', logoFora:LOGO },
+  ] });
+
+  const pg = await ctx.newPage();
+  const erros = [];
+  pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+  await pg.goto(url + '/resultados.html', { waitUntil: 'load', timeout: 20000 });
+  await pg.waitForTimeout(900);
+
+  const d = await pg.evaluate(() => {
+    const ver = (id) => {
+      const el = document.getElementById(id);
+      if (!el) return { existe: false };
+      const imgs = Array.from(el.querySelectorAll('img.jogo-team-logo'));
+      return {
+        existe: true,
+        linhas: el.querySelectorAll('.jogo-item').length,
+        imgs: imgs.length,
+        srcs: imgs.map((i) => i.getAttribute('src')),
+        markupVisivel: /<img|&lt;img/.test(el.textContent),
+        texto: el.textContent.replace(/\s+/g, ' ').trim(),
+      };
+    };
+    return { prox: ver('proximosJogos'), ultimos: ver('resultadosJogos') };
+  });
+  await ctx.close();
+  return { LOGO, MAU, ...d, erros };
+}
+
+// Sonda da contagem decrescente do "Próximo Jogo" na página inicial.
+//
+// As quatro caixas vinham do cdBox(), que devolve markup, e iam envolvidas em
+// jscEsc(): apareciam como texto, e os <span id="jdDias"> nunca existiam — o
+// setN() do temporizador não encontrava nada e a contagem nunca contava, em
+// silêncio, porque tem um if (el).
+async function testarContagemDecrescente(browser, url) {
+  const ctx = await browser.newContext({
+    javaScriptEnabled: true,
+    extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+  });
+  await ctx.addInitScript(() => {
+    try {
+      if (sessionStorage.getItem('jsc_semeado_cd')) return;
+      sessionStorage.setItem('jsc_semeado_cd', '1');
+      localStorage.setItem('jsc_painel_local', '1');
+      const cfg = JSON.parse(localStorage.getItem('site_config') || '{}');
+      cfg.jogoDestaqueAtivo = true;
+      localStorage.setItem('site_config', JSON.stringify(cfg));
+      localStorage.setItem('db_agenda', JSON.stringify([{
+        id: 97001, titulo: 'TESTE JOGO DESTAQUE', tipo: 'Jogo', estado: 'Agendado',
+        data: '2099-05-04', hora: '20:30', local: 'TESTE CAMPO', escalao: 'Sub-17',
+      }]));
+    } catch (_) {}
+  });
+  const pg = await ctx.newPage();
+  const erros = [];
+  pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+  await pg.goto(url + '/index.html', { waitUntil: 'load', timeout: 20000 });
+  await pg.waitForTimeout(600);
+
+  const ler = () => pg.evaluate(() => {
+    const w = document.getElementById('jogoDestaqueWidget');
+    const val = (id) => { const e = document.getElementById(id); return e ? e.textContent : null; };
+    return {
+      caixas: w ? w.querySelectorAll('div[style*="min-width:52px"]').length : -1,
+      markupVisivel: w ? /<div|&lt;div/.test(w.textContent) : false,
+      dias: val('jdDias'), horas: val('jdHoras'), min: val('jdMin'), seg: val('jdSeg'),
+    };
+  });
+  const antes = await ler();
+  await pg.waitForTimeout(1400);
+  const depois = await ler();
+  await ctx.close();
+  return { antes, depois, erros };
+}
+
 // Sonda do transporte do proxy — o api/buscar.php.
 //
 // No alojamento real o proxy respondia "Nao foi possivel obter o endereco":
@@ -4771,6 +4879,84 @@ async function testarAdminHistoria(browser, url) {
       verificar('editor: a injeção de HTML não criou nenhum elemento na tabela',
         c.injetou === false);
       verificar('editor: sem erros de JavaScript no painel durante a medição',
+        c.erros.length === 0, c.erros.join(' / '));
+    }
+
+    // ---- Logótipos das equipas no resultados.html -------------------
+    console.log('\nresultados.html: o logótipo das equipas nos jogos');
+    {
+      const fonteRes = fs.readFileSync(path.join(raiz, 'js', 'resultados.js'), 'utf8');
+      verificar('resultados.js: o jogoLogo() já não vai envolvido em jscEsc()',
+        !/jscEsc\(jogoLogo\(/.test(fonteRes),
+        (fonteRes.match(/jscEsc\(jogoLogo\(/g) || []).length + ' ocorrência(s)');
+      verificar('resultados.js: os três sítios inserem o markup directamente',
+        (fonteRes.match(/\$\{jogoLogo\(/g) || []).length === 3);
+      verificar('resultados.js: o nome da equipa continua escapado ao lado do logótipo',
+        /\$\{jogoLogo\(j\.logoCasa, j\.casa\)\}\$\{jscEsc\(j\.casa\)\}/.test(fonteRes)
+        && /\$\{jogoLogo\(j\.logoFora, j\.fora\)\}\$\{jscEsc\(j\.fora\)\}/.test(fonteRes)
+        && /\$\{jogoLogo\(advLogo, adversario\)\}\$\{jscEsc\(adversario\)\}/.test(fonteRes));
+      verificar('resultados.js: o endereço do logótipo continua a passar pelo jscEscUrl',
+        /<img src="\$\{jscEscUrl\(resolved\)\}"/.test(fonteRes));
+
+      const g = await testarLogotiposDeJogos(browser, srv.url);
+      // Próximos: 4 jogos. Logótipos esperados: 2 do jogo entre terceiros com
+      // logo, 1 do jogo do Campinense (só o adversário), 0 do jogo sem logo,
+      // 0 do jogo com endereço recusado pelo jscEscUrl.
+      verificar('próximos: os quatro jogos foram desenhados — a medição é válida',
+        g.prox.linhas === 4, 'linhas: ' + g.prox.linhas);
+      verificar('próximos: nenhum markup aparece como texto',
+        g.prox.markupVisivel === false, g.prox.texto.slice(0, 150));
+      verificar('próximos: entre terceiros desenham-se os dois logótipos',
+        g.prox.srcs.filter((x) => x === g.LOGO).length === 3,
+        'srcs: ' + JSON.stringify(g.prox.srcs));
+      verificar('próximos: um jogo sem logótipo não produz nenhuma imagem',
+        g.prox.texto.indexOf('TESTE OLHANENSE') !== -1
+        && g.prox.texto.indexOf('TESTE FARENSE') !== -1,
+        g.prox.texto.slice(0, 150));
+      verificar('próximos: um endereço javascript: é recusado e não gera imagem',
+        g.prox.srcs.every((x) => !/^\s*javascript:/i.test(x || '')),
+        'srcs: ' + JSON.stringify(g.prox.srcs));
+      verificar('próximos: os nomes das equipas aparecem como texto normal',
+        g.prox.texto.indexOf('TESTE LOULETANO') !== -1
+        && g.prox.texto.indexOf('TESTE QUARTEIRENSE') !== -1);
+
+      verificar('últimos: os dois resultados foram desenhados — a medição é válida',
+        g.ultimos.linhas === 2, 'linhas: ' + g.ultimos.linhas);
+      verificar('últimos: nenhum markup aparece como texto',
+        g.ultimos.markupVisivel === false, g.ultimos.texto.slice(0, 150));
+      verificar('últimos: entre terceiros desenham-se os dois logótipos, e um no do Campinense',
+        g.ultimos.srcs.filter((x) => x === g.LOGO).length === 3,
+        'srcs: ' + JSON.stringify(g.ultimos.srcs));
+      verificar('resultados.html: sem erros de JavaScript',
+        g.erros.length === 0, g.erros.join(' / '));
+    }
+
+    // ---- Contagem decrescente do Próximo Jogo -----------------------
+    console.log('\npágina inicial: a contagem decrescente do Próximo Jogo');
+    {
+      const fonteMain = fs.readFileSync(path.join(raiz, 'js', 'main.js'), 'utf8');
+      verificar('main.js: o cdBox() já não vai envolvido em jscEsc()',
+        !/jscEsc\(cdBox\(/.test(fonteMain),
+        (fonteMain.match(/jscEsc\(cdBox\(/g) || []).length + ' ocorrência(s)');
+      verificar('main.js: as quatro caixas inserem o markup directamente',
+        (fonteMain.match(/\$\{cdBox\('jd(Dias|Horas|Min|Seg)'/g) || []).length === 4);
+      verificar('main.js: o id e a etiqueta continuam escapados dentro do cdBox',
+        /<span id="\$\{jscEsc\(id\)\}"/.test(fonteMain)
+        && /text-transform:uppercase">\$\{jscEsc\(label\)\}<\/span>/.test(fonteMain));
+
+      const c = await testarContagemDecrescente(browser, srv.url);
+      verificar('contagem: as quatro caixas existem no DOM',
+        c.antes.caixas === 4, 'caixas: ' + c.antes.caixas);
+      verificar('contagem: nenhum markup aparece como texto no widget',
+        c.antes.markupVisivel === false);
+      verificar('contagem: os quatro spans com id existem e já têm número',
+        [c.antes.dias, c.antes.horas, c.antes.min, c.antes.seg]
+          .every((v) => typeof v === 'string' && /^\d{2,}$/.test(v)),
+        JSON.stringify(c.antes));
+      verificar('contagem: os segundos mudam — o temporizador está a contar',
+        c.depois.seg !== c.antes.seg,
+        'antes=' + c.antes.seg + ' depois=' + c.depois.seg);
+      verificar('página inicial: sem erros de JavaScript na contagem',
         c.erros.length === 0, c.erros.join(' / '));
     }
 

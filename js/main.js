@@ -582,7 +582,13 @@ document.addEventListener('DOMContentLoaded', () => {
               <span style="color:rgba(255,255,255,0.6);font-size:0.82rem">${jscEsc(jogo.hora || '')} &nbsp;·&nbsp; ${jscEsc(jogo.local || '')}</span>
             </div>
             <div style="display:flex;gap:8px" aria-label="Contagem decrescente para o jogo">
-              ${jscEsc(cdBox('jdDias','Dias'))}${jscEsc(cdBox('jdHoras','Horas'))}${jscEsc(cdBox('jdMin','Min'))}${jscEsc(cdBox('jdSeg','Seg'))}
+              <!-- O cdBox() devolve markup e entra directamente. Envolvido em
+                   jscEsc() — e estava — as quatro caixas apareciam como texto
+                   HTML, e havia mais: os <span id="jdDias"> nunca chegavam a
+                   existir, pelo que o setN() do cdTick não encontrava nada e a
+                   contagem nunca contava. Em silêncio, porque o setN tem um
+                   if (el). O id e a etiqueta já vão escapados dentro do helper. -->
+              ${cdBox('jdDias','Dias')}${cdBox('jdHoras','Horas')}${cdBox('jdMin','Min')}${cdBox('jdSeg','Seg')}
             </div>
             ${jogo.escalao && jogo.escalao !== 'Todos' ? `<span style="background:rgba(255,215,0,0.15);color:#FFD700;padding:4px 12px;border-radius:20px;font-size:0.78rem;font-weight:700">${jscEsc(jogo.escalao)}</span>` : ''}
             <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">

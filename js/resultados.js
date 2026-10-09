@@ -46,12 +46,19 @@ function jogoEquipasHtml(j) {
         <span class="jogo-lado jogo-lado--${jscEsc(emCasa ? 'casa' : 'fora')}">${jscEsc(emCasa ? 'Casa' : 'Fora')}</span>
       </div>`;
   }
+  // O jogoLogo() devolve markup e entra directamente, como no ramo de cima.
+  // Envolvido em jscEsc() — e estava — os < e os > ficavam escapados e a tag
+  // aparecia como texto na página: nos Próximos Jogos e nos Últimos Resultados,
+  // em toda a linha onde nenhuma das equipas é o Campinense. O ramo do
+  // Campinense sempre esteve certo, e a classificação também, logo abaixo: o
+  // defeito era só aqui. O nome da equipa continua escapado como texto, e o
+  // endereço do logótipo continua a passar pelo jscEscUrl() dentro do helper.
   return `
       <div class="jogo-equipas">
-        <span class="jogo-equipa">${jscEsc(jogoLogo(j.logoCasa, j.casa))}${jscEsc(j.casa)}</span>
+        <span class="jogo-equipa">${jogoLogo(j.logoCasa, j.casa)}${jscEsc(j.casa)}</span>
         <div class="jogo-equipa-row">
           <span class="vs">vs</span>
-          <span class="jogo-equipa">${jscEsc(jogoLogo(j.logoFora, j.fora))}${jscEsc(j.fora)}</span>
+          <span class="jogo-equipa">${jogoLogo(j.logoFora, j.fora)}${jscEsc(j.fora)}</span>
         </div>
       </div>`;
 }
