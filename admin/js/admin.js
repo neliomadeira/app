@@ -3754,9 +3754,20 @@ window.guardarColarClass = function() {
     const final = markSCRows(rows);
 
     // Save logos to db_logos (team name → logo URL)
+    //
+    // Só se grava quando esta colagem traz algo de novo. A gravação era
+    // incondicional, e uma colagem sem imagens — um copiar de texto simples, ou
+    // o AF Algarve — deixava a chave como "{}" num painel onde ela nem existia.
+    // Um "{}" não é inofensivo: a publicação entrega-o, e o js/sync.js
+    // substituía por ele o mapa dos visitantes. Medido: os logótipos de todas as
+    // equipas de terceiros desapareciam da classificação pública.
     const logos = JSON.parse(localStorage.getItem('db_logos') || '{}');
-    final.forEach(r => { if (r.logo) logos[r.equipa.toLowerCase()] = r.logo; });
-    localStorage.setItem('db_logos', JSON.stringify(logos));
+    let novosLogos = 0;
+    final.forEach(r => {
+      const chave = r.equipa.toLowerCase();
+      if (r.logo && logos[chave] !== r.logo) { logos[chave] = r.logo; novosLogos++; }
+    });
+    if (novosLogos) localStorage.setItem('db_logos', JSON.stringify(logos));
 
     localStorage.setItem(teamStorageKey(_colarEscalao, _colarTeam, 'class'), JSON.stringify(final));
     teamCfg.lastSync = now;

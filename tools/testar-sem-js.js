@@ -2216,6 +2216,110 @@ async function testarContagemDecrescente(browser, url) {
   return { antes, depois, erros };
 }
 
+// Sondas do mapa de logótipos das equipas — o db_logos.
+//
+// Os logótipos de todas as equipas de terceiros desapareceram da classificação
+// pública depois de uma publicação. A cadeia, medida de ponta a ponta: uma
+// colagem de classificação sem imagens gravava db_logos = "{}" num painel onde
+// a chave não existia; o api/conteudo.php publicava essa chave vazia, que em
+// JSON vira "logos": []; e o js/sync.js, cujo teste era só "if (data.logos)",
+// aceitava o [] — verdadeiro em JavaScript — e substituía por ele o mapa do
+// visitante. O emblema do clube continuava a aparecer, por ter recurso próprio,
+// e os terceiros ficavam com o escudo das iniciais.
+//
+// Três guardas, uma por elo, e uma sonda por elo.
+
+// Elo 1: a colagem da classificação, conduzida a sério no painel.
+async function testarColagemLogos(browser, url, cenarios) {
+  const saida = {};
+  for (const c of cenarios) {
+    const ctx = await browser.newContext({
+      javaScriptEnabled: true,
+      extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+    });
+    const pg = await ctx.newPage();
+    const erros = [];
+    pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+    await pg.goto(url + '/admin/', { waitUntil: 'networkidle', timeout: 20000 });
+    const d = await pg.evaluate((a) => {
+      localStorage.setItem('jsc_painel_local', '1');
+      if (a.logosAntes === null) localStorage.removeItem('db_logos');
+      else localStorage.setItem('db_logos', JSON.stringify(a.logosAntes));
+      const antes = localStorage.getItem('db_logos');
+      abrirColar('Sub-17', 'class', '');
+      document.getElementById('colarClassTA').value = a.texto;
+      previewColarClass();
+      const reconhecidas = document.querySelectorAll('[data-pts1fase]').length;
+      guardarColarClass();
+      let linhas = [];
+      try { linhas = JSON.parse(localStorage.getItem('fpf_class_Sub-17') || '[]'); } catch (_) {}
+      return { antes, depois: localStorage.getItem('db_logos'), reconhecidas,
+        logosNasLinhas: linhas.map((r) => r.equipa + '=' + (r.logo || '(sem)')) };
+    }, c);
+    await ctx.close();
+    saida[c.nome] = { ...d, erros };
+  }
+  return saida;
+}
+
+// Elo 2: a projeção pública, calculada pelo PHP do próprio pacote.
+async function testarPublicacaoLogos(raiz) {
+  const execFile = require('util').promisify(require('child_process').execFile);
+  const casos = {
+    ausente:      'null',
+    vazio:        '[]',
+    comEntradas:  "['teste louletano' => 'https://exemplo.test/logos/tl.png']",
+  };
+  const saida = {};
+  for (const [nome, valor] of Object.entries(casos)) {
+    const php = "require 'api/conteudo.php';"
+      + '$c = [' + "'publicadoEm' => '2026-10-09T12:00:00Z', 'agenda' => [['id'=>1,'titulo'=>'T']]"
+      + (valor === 'null' ? '' : ", 'logos' => " + valor) + '];'
+      + '$p = jsc_conteudo_publico($c);'
+      + "echo json_encode(['tem' => array_key_exists('logos', \$p), 'chaves' => array_keys(\$p), 'corpo' => \$p]);";
+    const { stdout } = await execFile('php', ['-r', php], { cwd: raiz, timeout: 60000 });
+    saida[nome] = JSON.parse(stdout);
+  }
+  return saida;
+}
+
+// Elo 3: o que o js/sync.js escreve no visitante, dado o corpo que o servidor
+// entrega. O corpo é o que o PHP produziu de facto, não uma imitação.
+async function testarSyncLogos(browser, url, cenarios) {
+  const saida = {};
+  for (const c of cenarios) {
+    const ctx = await browser.newContext({
+      javaScriptEnabled: true,
+      extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+    });
+    // Guarda de uma vez: o sync recarrega a página quando há conteúdo novo, e
+    // sem isto o initScript voltava a semear — a sonda media a sua semente.
+    await ctx.addInitScript((d) => {
+      try {
+        if (sessionStorage.getItem('jsc_semente_logos')) return;
+        sessionStorage.setItem('jsc_semente_logos', '1');
+        if (d === null) localStorage.removeItem('db_logos');
+        else localStorage.setItem('db_logos', JSON.stringify(d));
+      } catch (_) {}
+    }, c.logosAntes);
+    await ctx.route('**/api/load.php*', (r) => r.fulfill({
+      status: 200, contentType: 'application/json', body: c.corpo,
+    }));
+    const pg = await ctx.newPage();
+    const erros = [];
+    pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+    await pg.goto(url + '/resultados.html', { waitUntil: 'load', timeout: 20000 });
+    await pg.waitForTimeout(1500);
+    const d = await pg.evaluate(() => ({
+      logos: localStorage.getItem('db_logos'),
+      agenda: localStorage.getItem('db_agenda'),
+    }));
+    await ctx.close();
+    saida[c.nome] = { ...d, erros };
+  }
+  return saida;
+}
+
 // Sondas do editor manual de classificação.
 //
 // O formulário tem oito campos, e o guardar reconstruía a linha só a partir
@@ -5119,6 +5223,105 @@ async function testarAdminHistoria(browser, url) {
         'antes=' + c.antes.seg + ' depois=' + c.depois.seg);
       verificar('página inicial: sem erros de JavaScript na contagem',
         c.erros.length === 0, c.erros.join(' / '));
+    }
+
+    // ---- O mapa de logótipos das equipas ----------------------------
+    console.log('\no db_logos: um mapa vazio não apaga os logótipos de ninguém');
+    {
+      const semComent = (rel) => fs.readFileSync(path.join(raiz, rel), 'utf8')
+        .replace(/^\s*\/\/.*$/gm, '');
+      verificar('admin.js: a colagem só grava o db_logos quando traz algo de novo',
+        /if \(novosLogos\) localStorage\.setItem\('db_logos'/.test(semComent('admin/js/admin.js')));
+      verificar('sync.js: o db_logos só é substituído por um mapa com chaves',
+        /if \(data\.logos && typeof data\.logos === 'object'\s*&& Object\.keys\(data\.logos\)\.length\) ls\('db_logos', data\.logos\);/
+          .test(semComent('js/sync.js')));
+      verificar('conteudo.php: a chave logos vazia não sai na projeção',
+        /unset\(\$fora\['logos'\]\);/.test(fs.readFileSync(path.join(raiz, 'api/conteudo.php'), 'utf8')));
+
+      const TL = 'https://exemplo.test/logos/tl.png';
+      const TQ = 'https://exemplo.test/logos/tq.png';
+      const NOVO_TL = 'https://exemplo.test/logos/tl-novo.png';
+      // Tabela do ZeroZero, separada por tabulações. Uma versão sem imagens e
+      // uma com os tokens [img:...] que o parser reconhece.
+      const SEM_IMAGENS = '1\tTESTE LOULETANO\t10\t6\t2\t2\t20\t12\t8\t20\n'
+                        + '2\tTESTE QUARTEIRENSE\t10\t3\t2\t5\t12\t18\t-6\t11\n';
+      const COM_IMAGENS = '1\t[img:' + NOVO_TL + ']\tTESTE LOULETANO\t10\t6\t2\t2\t20\t12\t8\t20\n'
+                        + '2\t[img:' + TQ + ']\tTESTE QUARTEIRENSE\t10\t3\t2\t5\t12\t18\t-6\t11\n';
+
+      const col = await testarColagemLogos(browser, srv.url, [
+        { nome: 'sem-imagens',  logosAntes: { 'teste louletano': TL }, texto: SEM_IMAGENS },
+        { nome: 'com-imagens',  logosAntes: { 'teste louletano': TL }, texto: COM_IMAGENS },
+        { nome: 'sem-imagens-e-sem-mapa', logosAntes: null, texto: SEM_IMAGENS },
+      ]);
+
+      verificar('medição válida: as duas colagens foram reconhecidas',
+        col['sem-imagens'].reconhecidas === 2 && col['com-imagens'].reconhecidas === 2,
+        JSON.stringify([col['sem-imagens'].reconhecidas, col['com-imagens'].reconhecidas]));
+      verificar('db_logos existente + colagem sem imagens: o mapa fica como estava',
+        col['sem-imagens'].depois === JSON.stringify({ 'teste louletano': TL }),
+        'ficou: ' + col['sem-imagens'].depois);
+      verificar('e sem mapa nenhum, uma colagem sem imagens não cria o "{}"',
+        col['sem-imagens-e-sem-mapa'].depois === null,
+        'ficou: ' + col['sem-imagens-e-sem-mapa'].depois);
+      verificar('db_logos existente + colagem com logótipos: actualiza e acrescenta',
+        JSON.parse(col['com-imagens'].depois || '{}')['teste louletano'] === NOVO_TL
+        && JSON.parse(col['com-imagens'].depois || '{}')['teste quarteirense'] === TQ,
+        'ficou: ' + col['com-imagens'].depois);
+      verificar('e as linhas guardadas levam o logótipo da colagem',
+        col['com-imagens'].logosNasLinhas.join(' | ').indexOf(NOVO_TL) !== -1,
+        col['com-imagens'].logosNasLinhas.join(' | '));
+      verificar('painel: sem erros de JavaScript nas colagens',
+        Object.values(col).every((c) => c.erros.length === 0),
+        Object.values(col).map((c) => c.erros.join(' ')).join(' | '));
+
+      const pub = await testarPublicacaoLogos(raiz);
+      verificar('publicação sem logos: a chave não aparece',
+        pub.ausente.tem === false);
+      verificar('publicação com logos vazio: a chave também não aparece',
+        pub.vazio.tem === false, 'chaves: ' + JSON.stringify(pub.vazio.chaves));
+      verificar('publicação com logos válidos: a chave aparece com as entradas',
+        pub.comEntradas.tem === true
+        && pub.comEntradas.corpo.logos['teste louletano'] === TL,
+        JSON.stringify(pub.comEntradas.corpo.logos));
+      verificar('a publicação normal continua a sair inteira',
+        pub.vazio.chaves.indexOf('publicadoEm') !== -1 && pub.vazio.chaves.indexOf('agenda') !== -1
+        && JSON.stringify(pub.comEntradas.chaves.filter((k) => k !== 'logos'))
+           === JSON.stringify(pub.vazio.chaves),
+        'com logos: ' + JSON.stringify(pub.comEntradas.chaves)
+        + ' / vazio: ' + JSON.stringify(pub.vazio.chaves));
+
+      const sinc = await testarSyncLogos(browser, srv.url, [
+        { nome: 'vazio-sobre-existente',  logosAntes: { 'teste louletano': TL },
+          corpo: JSON.stringify({ publicadoEm: '2026-10-09T12:00:00Z', logos: [] }) },
+        { nome: 'vazio-objeto-sobre-existente', logosAntes: { 'teste louletano': TL },
+          corpo: JSON.stringify({ publicadoEm: '2026-10-09T12:01:00Z', logos: {} }) },
+        { nome: 'validos-sobre-existente', logosAntes: { 'teste louletano': TL },
+          corpo: JSON.stringify({ publicadoEm: '2026-10-09T12:02:00Z',
+            logos: { 'teste louletano': NOVO_TL, 'teste quarteirense': TQ } }) },
+        { nome: 'visitante-novo-servidor-sem-logos', logosAntes: null,
+          corpo: JSON.stringify({ publicadoEm: '2026-10-09T12:03:00Z',
+            agenda: [{ id: 1, titulo: 'TESTE EVENTO' }] }) },
+      ]);
+
+      verificar('publicação com logos=[] não apaga os logótipos do visitante',
+        sinc['vazio-sobre-existente'].logos === JSON.stringify({ 'teste louletano': TL }),
+        'ficou: ' + sinc['vazio-sobre-existente'].logos);
+      verificar('nem com logos={}',
+        sinc['vazio-objeto-sobre-existente'].logos === JSON.stringify({ 'teste louletano': TL }),
+        'ficou: ' + sinc['vazio-objeto-sobre-existente'].logos);
+      verificar('publicação com logos válidos sincroniza normalmente',
+        JSON.parse(sinc['validos-sobre-existente'].logos || '{}')['teste louletano'] === NOVO_TL
+        && JSON.parse(sinc['validos-sobre-existente'].logos || '{}')['teste quarteirense'] === TQ,
+        'ficou: ' + sinc['validos-sobre-existente'].logos);
+      verificar('visitante novo e servidor sem logos: não se inventa nada',
+        sinc['visitante-novo-servidor-sem-logos'].logos === null,
+        'ficou: ' + sinc['visitante-novo-servidor-sem-logos'].logos);
+      verificar('e o resto da publicação chega mesmo assim — a medição é válida',
+        /TESTE EVENTO/.test(sinc['visitante-novo-servidor-sem-logos'].agenda || ''),
+        'agenda: ' + sinc['visitante-novo-servidor-sem-logos'].agenda);
+      verificar('páginas públicas: sem erros de JavaScript na sincronização',
+        Object.values(sinc).every((c) => c.erros.length === 0),
+        Object.values(sinc).map((c) => c.erros.join(' ')).join(' | '));
     }
 
     // ---- O editor manual de classificação ---------------------------

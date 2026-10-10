@@ -163,7 +163,14 @@
         if (data.siteLegal)      ls('site_legal',          data.siteLegal);
         if (data.emailConfig)    ls('email_config',        data.emailConfig);
         if (data.fbPosts)        ls('fb_posts',            data.fbPosts);
-        if (data.logos)          ls('db_logos',            data.logos);
+        // Um mapa de logótipos vazio não substitui o que o visitante tem. O
+        // teste era só "if (data.logos)", e em JavaScript um [] — que é o que o
+        // PHP produz de um {} — é verdadeiro: uma publicação feita a partir de
+        // um painel sem logótipos apagava os de todos os visitantes. A segunda
+        // guarda é no servidor, que já não publica a chave vazia; esta protege
+        // de uma publicação antiga que a tenha.
+        if (data.logos && typeof data.logos === 'object'
+            && Object.keys(data.logos).length) ls('db_logos', data.logos);
         if (data.classConfig)    ls('fpf_sync_config',     data.classConfig);
         if (data.classData && typeof data.classData === 'object') {
           Object.keys(data.classData).forEach(function (k) {

@@ -1722,6 +1722,16 @@ function jsc_conteudo_publico(array $conteudo, $agora = null) {
         $tal_e_qual($chave);
     }
 
+    // O mapa de logótipos das equipas é a excepção: um mapa vazio não é
+    // conteúdo, é a ausência dele. Publicado, chegava ao js/sync.js como
+    // "logos": [] e substituía o mapa que o visitante já tinha — e a
+    // classificação pública ficava sem nenhum logótipo de terceiros. Fica
+    // de fora, e o visitante guarda o que tem. Só esta chave: as outras
+    // podem precisar de um valor vazio para apagar o que estava lá.
+    if (isset($fora['logos']) && (!is_array($fora['logos']) || !$fora['logos'])) {
+        unset($fora['logos']);
+    }
+
     $juntar('classData', jsc_class_data_publica(isset($conteudo['classData']) ? $conteudo['classData'] : null));
 
     return $fora;
