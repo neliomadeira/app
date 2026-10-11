@@ -2216,6 +2216,90 @@ async function testarContagemDecrescente(browser, url) {
   return { antes, depois, erros };
 }
 
+// Sonda do botão «✎ Manual» do cabeçalho do escalão.
+//
+// Passava sempre a série vazia, escrita no markup, e abria fpf_class_<escalao>
+// mesmo com séries configuradas. A página pública lê a série: o
+// renderTeamSelector() põe o teamActivo na única série e esconde a barra.
+// Medido em produção e reproduzido aqui: escrever a forma por este botão criava
+// um fpf_class_Sub-17 paralelo com uma linha "Sport Campinense", a série ficava
+// intacta, e a classificação pública continuava com zero círculos de forma.
+//
+// Clica-se no botão a sério, encontrado pelo rótulo, para a medição ser do que
+// o painel oferece a quem o usa — e não da função que lhe está por baixo.
+async function testarBotaoManual(browser, url, cenarios) {
+  const saida = {};
+  for (const c of cenarios) {
+    const ctx = await browser.newContext({
+      javaScriptEnabled: true,
+      extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+    });
+    const pg = await ctx.newPage();
+    const erros = [];
+    pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+    await pg.goto(url + '/admin/', { waitUntil: 'networkidle', timeout: 20000 });
+
+    const noPainel = await pg.evaluate((a) => {
+      localStorage.setItem('jsc_painel_local', '1');
+      Object.keys(localStorage).filter((k) => k.indexOf('fpf_class_') === 0)
+        .forEach((k) => localStorage.removeItem(k));
+      Object.entries(a.chaves).forEach(([k, v]) => localStorage.setItem(k, JSON.stringify(v)));
+      localStorage.setItem('fpf_sync_config', JSON.stringify(a.cfg));
+      renderClassSyncRows();
+
+      // O cabeçalho do escalão é a linha azul; o «Manual» é o único botão com
+      // esse rótulo, e os «✎» das séries estão nas linhas de baixo.
+      // Só os botões do Sub-17: a tabela lista todos os escalões, e os outros
+      // — sem séries — também têm o seu «Manual». Sem este filtro a sonda
+      // contava quatro "Manual" e media outra coisa; medido ao falhar.
+      const doSub17 = (b) => /abrirEditorClass\('Sub-17'/.test(b.getAttribute('onclick') || '');
+      const botoes = Array.from(document.querySelectorAll('#fpfSyncRows button')).filter(doSub17);
+      const manual = botoes.filter((b) => /Manual/.test(b.textContent));
+      const porSerie = botoes.filter((b) => !/Manual/.test(b.textContent)
+        && /abrirEditorClass\('Sub-17','.+'\)/.test(b.getAttribute('onclick') || ''));
+      const r = {
+        temManual: manual.length === 1,
+        nManual: manual.length,
+        onclickManual: manual.length ? manual[0].getAttribute('onclick') : null,
+        nBotoesPorSerie: porSerie.length,
+      };
+      if (!manual.length) return r;
+
+      manual[0].click();
+      r.ctxEditor = { escalao: _edClassCtx.escalao, teamKey: _edClassCtx.teamKey };
+      r.chaveDoEditor = _edClassCtx.teamKey
+        ? 'fpf_class_' + _edClassCtx.escalao + '__' + _edClassCtx.teamKey
+        : 'fpf_class_' + _edClassCtx.escalao;
+      r.nomesNoEditor = Array.from(document.querySelectorAll('#edClassTable .ed-equipa')).map((i) => i.value);
+      const campo = document.querySelector('#edClassTable .ed-forma');
+      if (campo) campo.value = 'VVEDV';
+      salvarEditorClass();
+      r.chavesDepois = {};
+      Object.keys(localStorage).filter((k) => k.indexOf('fpf_class_') === 0).sort().forEach((k) => {
+        try {
+          r.chavesDepois[k] = JSON.parse(localStorage.getItem(k)).map((x) => x.equipa + '=' + JSON.stringify(x.forma));
+        } catch (_) { r.chavesDepois[k] = '(ilegível)'; }
+      });
+      return r;
+    }, c);
+
+    let publico = null;
+    await pg.goto(url + '/resultados.html', { waitUntil: 'load', timeout: 20000 });
+    await pg.waitForTimeout(700);
+    publico = await pg.evaluate(() => ({
+      teamActivo: typeof teamActivo !== 'undefined' ? teamActivo : '(?)',
+      chaveDaPagina: typeof teamActivo !== 'undefined' && teamActivo
+        ? 'fpf_class_' + escalaoActivo + '__' + teamActivo
+        : 'fpf_class_' + escalaoActivo,
+      linhas: document.querySelectorAll('#classTable tr').length,
+      pontos: document.querySelectorAll('#classTable .forma-dot').length,
+    }));
+    await ctx.close();
+    saida[c.nome] = { ...noPainel, publico, erros };
+  }
+  return saida;
+}
+
 // Sondas do classData na publicação, e da coluna Forma.
 //
 // O payload do Publicar levava sempre classData, e levava null quando o
@@ -5442,6 +5526,85 @@ async function testarAdminHistoria(browser, url) {
         'antes=' + c.antes.seg + ' depois=' + c.depois.seg);
       verificar('página inicial: sem erros de JavaScript na contagem',
         c.erros.length === 0, c.erros.join(' / '));
+    }
+
+    // ---- O botão «✎ Manual» do cabeçalho do escalão -----------------
+    console.log('\no «Manual» do escalão abre a classificação que a página lê');
+    {
+      const fonteManual = fs.readFileSync(path.join(raiz, 'admin', 'js', 'admin.js'), 'utf8')
+        .replace(/^\s*\/\/.*$/gm, '');
+      verificar('admin.js: o botão do cabeçalho segue as séries configuradas',
+        /\$\{teamKeys\.length <= 1 \? `<button/.test(fonteManual)
+        && /abrirEditorClass\('\$\{escalao\}','\$\{teamKeys\[0\] \|\| ''\}'\)/.test(fonteManual)
+        && !/abrirEditorClass\('\$\{escalao\}',''\)/.test(fonteManual));
+
+      const linha = (nome, abrev, v, forma) => ({
+        equipa: nome, abrev, j: 10, v, e: 0, d: 10 - v, gm: 20 + v, gs: 10, dg: 10 + v,
+        pts: v * 3, forma, sc: /campinense/i.test(nome),
+      });
+      const TRES = [linha('J.S. Campinense', 'JC', 8, ''), linha('TESTE A', 'TA', 6, ''), linha('TESTE B', 'TB', 4, '')];
+      const DOZE = Array.from({ length: 12 }, (_, i) =>
+        linha(i === 0 ? 'J.S. Campinense' : 'TESTE EQUIPA ' + (i + 1), i === 0 ? 'JC' : 'T' + (i + 1), 12 - i, ''));
+      const SERIE = 'Liga_1_Algarve_Futeb';
+
+      const bm = await testarBotaoManual(browser, srv.url, [
+        // Sem séries: o botão continua a abrir a classificação do escalão.
+        { nome: 'zero-series', cfg: { 'Sub-17': {} },
+          chaves: { 'fpf_class_Sub-17': TRES } },
+        // Uma série: tem de abrir a série, que é o que a página lê.
+        { nome: 'uma-serie', cfg: { 'Sub-17': { teams: { [SERIE]: { nome: 'Liga 1 Algarve Futebol 11' } } } },
+          chaves: { ['fpf_class_Sub-17__' + SERIE]: DOZE } },
+        // Várias séries: o botão do cabeçalho não aparece.
+        { nome: 'duas-series', cfg: { 'Sub-17': { teams: { A: { nome: 'Série A' }, B: { nome: 'Série B' } } } },
+          chaves: { 'fpf_class_Sub-17__A': TRES, 'fpf_class_Sub-17__B': TRES } },
+      ]);
+
+      // Zero séries
+      verificar('zero séries: o «Manual» existe e abre fpf_class_<escalão>',
+        bm['zero-series'].temManual === true
+        && bm['zero-series'].chaveDoEditor === 'fpf_class_Sub-17'
+        && bm['zero-series'].nomesNoEditor.length === 3,
+        bm['zero-series'].onclickManual + ' · ' + bm['zero-series'].chaveDoEditor);
+      verificar('zero séries: guardar escreve nessa chave e mais nenhuma',
+        JSON.stringify(Object.keys(bm['zero-series'].chavesDepois)) === JSON.stringify(['fpf_class_Sub-17'])
+        && bm['zero-series'].chavesDepois['fpf_class_Sub-17'][0] === 'J.S. Campinense="VVEDV"',
+        JSON.stringify(bm['zero-series'].chavesDepois));
+      verificar('zero séries: o botão abre a mesma chave que a página usa',
+        bm['zero-series'].chaveDoEditor === bm['zero-series'].publico.chaveDaPagina,
+        bm['zero-series'].chaveDoEditor + ' vs ' + bm['zero-series'].publico.chaveDaPagina);
+      verificar('zero séries: a forma escrita aparece na classificação pública',
+        bm['zero-series'].publico.pontos === 5,
+        JSON.stringify(bm['zero-series'].publico));
+
+      // Uma série
+      verificar('uma série: o «Manual» existe e abre fpf_class_<escalão>__<série>',
+        bm['uma-serie'].temManual === true
+        && bm['uma-serie'].chaveDoEditor === 'fpf_class_Sub-17__' + SERIE
+        && bm['uma-serie'].nomesNoEditor.length === 12,
+        bm['uma-serie'].onclickManual + ' · ' + bm['uma-serie'].chaveDoEditor
+        + ' · linhas: ' + bm['uma-serie'].nomesNoEditor.length);
+      verificar('uma série: não se cria nenhuma classificação paralela',
+        JSON.stringify(Object.keys(bm['uma-serie'].chavesDepois))
+          === JSON.stringify(['fpf_class_Sub-17__' + SERIE]),
+        JSON.stringify(Object.keys(bm['uma-serie'].chavesDepois)));
+      verificar('uma série: o botão abre a mesma chave que a página usa',
+        bm['uma-serie'].chaveDoEditor === bm['uma-serie'].publico.chaveDaPagina,
+        bm['uma-serie'].chaveDoEditor + ' vs ' + bm['uma-serie'].publico.chaveDaPagina);
+      verificar('uma série: a forma escrita aparece na classificação pública',
+        bm['uma-serie'].publico.pontos === 5 && bm['uma-serie'].publico.linhas === 12,
+        JSON.stringify(bm['uma-serie'].publico));
+
+      // Várias séries
+      verificar('duas séries: o «Manual» do cabeçalho não aparece',
+        bm['duas-series'].temManual === false && bm['duas-series'].nManual === 0,
+        'botões "Manual": ' + bm['duas-series'].nManual);
+      verificar('duas séries: cada série continua a ter o seu «✎»',
+        bm['duas-series'].nBotoesPorSerie === 2,
+        'botões por série: ' + bm['duas-series'].nBotoesPorSerie);
+
+      verificar('painel: sem erros de JavaScript em nenhum dos três cenários',
+        Object.values(bm).every((c) => c.erros.length === 0),
+        Object.values(bm).map((c) => c.erros.join(' ')).join(' | '));
     }
 
     // ---- O classData na publicação, e a coluna Forma ----------------

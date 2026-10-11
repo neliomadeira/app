@@ -2861,6 +2861,21 @@ function teamStorageKey(escalao, teamKey, tipo) {
 }
 
 // ── Render sync rows ──────────────────────────────
+// O botão «✎ Manual» do cabeçalho passava sempre a série vazia, escrita no
+// markup, e abria fpf_class_<escalao> mesmo quando o escalão tem séries
+// configuradas. Mas a página pública lê a série: o renderTeamSelector() põe o
+// teamActivo na única série e esconde a barra, pelo que a resultados.html lê
+// fpf_class_<escalao>__<série> e nada na interface o diz. Medido em produção e
+// reproduzido: com uma série configurada, escrever a forma por este botão
+// criava fpf_class_Sub-17 com uma linha "Sport Campinense" — um array paralelo
+// que a página nunca lê — e a classificação pública continuava com 12 equipas
+// e zero círculos de forma.
+//
+// Agora o botão segue a configuração: sem séries abre o escalão, com uma série
+// abre essa série, e com várias não aparece — aí cada linha tem o seu «✎», e
+// editar "o escalão" não quer dizer nada quando há duas tabelas. O
+// abrirEditorClass(), o salvarEditorClass() e o teamStorageKey() ficam como
+// estavam: a chave certa chega-lhes por aqui.
 function renderClassSyncRows() {
   const tbody = document.getElementById('fpfSyncRows');
   if (!tbody) return;
@@ -2883,8 +2898,8 @@ function renderClassSyncRows() {
             onclick="abrirColar('${escalao}','class','')">&#128203; Colar classificação</button>
           <button class="btn-sm" style="background:var(--yellow);color:#001b4d;border:none;font-weight:700"
             onclick="abrirColar('${escalao}','jogos','')">&#128197; Colar jogos</button>
-          <button class="btn-sm" style="background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3)"
-            onclick="abrirEditorClass('${escalao}','')">&#9998; Manual</button>
+          ${teamKeys.length <= 1 ? `<button class="btn-sm" style="background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3)"
+            onclick="abrirEditorClass('${escalao}','${teamKeys[0] || ''}')">&#9998; Manual</button>` : ''}
           <button class="btn-sm" style="background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3)"
             title="Para escalões com várias equipas/séries (ex: equipa A e B)"
             onclick="adicionarEquipa('${escalao}')">+ Equipa / Série</button>
