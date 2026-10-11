@@ -3657,11 +3657,11 @@ window.previewColarClass = function() {
       <div style="font-size:0.8rem;font-weight:700;margin-bottom:8px;color:#7a5700">&#43; Pontos da 1ª Fase (carregados para a 2ª fase)</div>
       <p style="font-size:0.75rem;color:#888;margin:0 0 10px">Se este for a 2ª fase de uma competição, insere os pontos carregados de cada equipa. Deixa em branco se não aplicável.</p>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px">
-        ${marked.map((r,i)=>`<label style="display:flex;align-items:center;gap:6px;font-size:0.8rem">
+        ${marked.map((r)=>`<label style="display:flex;align-items:center;gap:6px;font-size:0.8rem">
           <span style="flex:1;font-weight:${jscEsc(r.sc?700:400)}">${jscEsc(r.equipa)}</span>
           <input type="number" min="0" max="99" placeholder="0"
             style="width:52px;padding:3px 6px;border:1px solid #ddd;border-radius:4px;font-size:0.8rem;text-align:center"
-            data-pts1fase="${i}" value="${jscEsc(r.pts1fase||'')}">
+            data-pts1fase="${jscEsc(r.equipa)}" value="${jscEsc(r.pts1fase||'')}">
         </label>`).join('')}
       </div>
     </div>
@@ -3743,12 +3743,58 @@ window.guardarColarClass = function() {
     const rows = parsePastedTable(ta.value);
     if (!rows.length) { showToast('Nenhum dado válido para guardar', 'red'); return; }
 
-    // Read pts1fase inputs from the preview section
-    const pts1Inputs = document.querySelectorAll('[data-pts1fase]');
-    pts1Inputs.forEach(inp => {
-      const idx = parseInt(inp.dataset.pts1fase);
-      const val = parseInt(inp.value);
-      if (!isNaN(val) && val > 0 && rows[idx]) rows[idx].pts1fase = val;
+    // Correspondência pelo nome da equipa, em minúsculas, e nada mais: sem
+    // aproximações. Uma equipa cuja grafia mude conta como nova.
+    const chaveEquipa = (n) => (n || '').toLowerCase();
+
+    // Pontos da 1ª fase escritos na pré-visualização.
+    //
+    // O input era identificado pela posição na pré-visualização, e o guardar
+    // reinterpreta o texto da área de colagem: bastava o texto mudar entre
+    // Pré-visualizar e Guardar — e muda, porque a pré-visualização é manual,
+    // o textarea não tem oninput — para os números irem para outra equipa.
+    // Medido: pré-visualizado [Louletano, Quarteirense, Campinense] com
+    // [6, 3, 9] e guardado na ordem inversa, os 6 do Louletano ficaram no
+    // Campinense e os 9 do Campinense no Louletano. Passa pelo nome, e cada
+    // linha recebe no máximo um valor do formulário.
+    const comValorDoFormulario = new Set();
+    document.querySelectorAll('[data-pts1fase]').forEach(inp => {
+      const val = parseInt(inp.value, 10);
+      if (isNaN(val) || val <= 0) return;
+      const nome = chaveEquipa(inp.dataset.pts1fase);
+      const alvo = rows.findIndex((r, i) => !comValorDoFormulario.has(i) && chaveEquipa(r.equipa) === nome);
+      if (alvo !== -1) { rows[alvo].pts1fase = val; comValorDoFormulario.add(alvo); }
+    });
+
+    // Herdar da classificação guardada o que esta colagem não traz.
+    //
+    // A colagem reconstruía as linhas de raiz e gravava por cima: o pts1fase
+    // desaparecia e o forma ficava vazio, porque o _makeClassRow() escreve
+    // sempre forma: '' — o ZeroZero não dá a forma, e ela só pode ter vindo do
+    // editor manual. São os dois únicos campos que a colagem não sabe produzir,
+    // e por isso os únicos que se herdam. O pts, o dg, o j, o v, o e, o d, o
+    // gm, o gs e o logo continuam a vir da colagem, que é a fonte de verdade
+    // para eles.
+    //
+    // Cada linha antiga é consumida uma só vez: se a colagem trouxer duas
+    // linhas com o mesmo nome, a segunda não recebe o que já foi para a
+    // primeira.
+    let guardadas = [];
+    try {
+      guardadas = JSON.parse(
+        localStorage.getItem(teamStorageKey(_colarEscalao, _colarTeam, 'class')) || '[]');
+    } catch (e) {}
+    const porNome = {};
+    guardadas.forEach(g => {
+      const k = chaveEquipa(g.equipa);
+      (porNome[k] || (porNome[k] = [])).push(g);
+    });
+    rows.forEach(r => {
+      const fila   = porNome[chaveEquipa(r.equipa)];
+      const antiga = fila && fila.length ? fila.shift() : null;
+      if (!antiga) return;   // equipa nova: entra sem herdar nada
+      if (r.pts1fase == null && antiga.pts1fase != null) r.pts1fase = antiga.pts1fase;
+      if (!r.forma && antiga.forma) r.forma = antiga.forma;
     });
 
     const final = markSCRows(rows);

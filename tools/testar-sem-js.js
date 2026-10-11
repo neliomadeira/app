@@ -2216,6 +2216,54 @@ async function testarContagemDecrescente(browser, url) {
   return { antes, depois, erros };
 }
 
+// Sonda da colagem da classificação: o pts1fase e o forma.
+//
+// A colagem reconstruía as linhas de raiz e gravava por cima das guardadas: o
+// pts1fase desaparecia e o forma ficava vazio — o _makeClassRow() escreve
+// sempre forma: '', porque o ZeroZero não a dá e ela só pode ter vindo do
+// editor manual. São os dois campos que a colagem não sabe produzir, e passaram
+// a ser herdados da linha guardada com o mesmo nome.
+//
+// E os pontos da 1ª fase escritos na pré-visualização iam para a equipa errada
+// se o texto mudasse entre Pré-visualizar e Guardar: o input era identificado
+// pela posição e o guardar reinterpreta o texto. Passou a ser pelo nome.
+//
+// Conduz-se o painel a sério: abrirColar, previewColarClass, escrever nos
+// inputs, trocar o texto se o cenário o pedir, guardarColarClass.
+async function testarColagemPreserva(browser, url, cenarios) {
+  const saida = {};
+  for (const c of cenarios) {
+    const ctx = await browser.newContext({
+      javaScriptEnabled: true,
+      extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+    });
+    const pg = await ctx.newPage();
+    const erros = [];
+    pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+    await pg.goto(url + '/admin/', { waitUntil: 'networkidle', timeout: 20000 });
+    const d = await pg.evaluate((a) => {
+      localStorage.setItem('jsc_painel_local', '1');
+      localStorage.setItem('fpf_class_Sub-17', JSON.stringify(a.guardadas));
+      abrirColar('Sub-17', 'class', '');
+      const ta = document.getElementById('colarClassTA');
+      ta.value = a.texto;
+      previewColarClass();
+      const inputs = Array.from(document.querySelectorAll('[data-pts1fase]'));
+      const ordemPrevisao = inputs.map((i) => i.closest('label').querySelector('span').textContent.trim());
+      const atributos     = inputs.map((i) => i.dataset.pts1fase);
+      if (a.pts1) inputs.forEach((inp, i) => { if (a.pts1[i] != null) inp.value = String(a.pts1[i]); });
+      if (a.textoAntesDeGuardar) ta.value = a.textoAntesDeGuardar;
+      guardarColarClass();
+      let linhas = [];
+      try { linhas = JSON.parse(localStorage.getItem('fpf_class_Sub-17') || '[]'); } catch (_) {}
+      return { ordemPrevisao, atributos, linhas };
+    }, c);
+    await ctx.close();
+    saida[c.nome] = { ...d, erros };
+  }
+  return saida;
+}
+
 // Sondas do mapa de logótipos das equipas — o db_logos.
 //
 // Os logótipos de todas as equipas de terceiros desapareceram da classificação
@@ -5223,6 +5271,127 @@ async function testarAdminHistoria(browser, url) {
         'antes=' + c.antes.seg + ' depois=' + c.depois.seg);
       verificar('página inicial: sem erros de JavaScript na contagem',
         c.erros.length === 0, c.erros.join(' / '));
+    }
+
+    // ---- A colagem da classificação: pts1fase e forma ---------------
+    console.log('\na colagem da classificação não apaga o pts1fase nem a forma');
+    {
+      const fonteAdm3 = fs.readFileSync(path.join(raiz, 'admin', 'js', 'admin.js'), 'utf8')
+        .replace(/^\s*\/\/.*$/gm, '');
+      verificar('admin.js: o input da 1ª fase é identificado pelo nome da equipa',
+        /data-pts1fase="\$\{jscEsc\(r\.equipa\)\}"/.test(fonteAdm3)
+        && !/data-pts1fase="\$\{i\}"/.test(fonteAdm3));
+      verificar('admin.js: o valor do formulário é aplicado por nome, não por posição',
+        /chaveEquipa\(r\.equipa\) === nome/.test(fonteAdm3)
+        && !/rows\[idx\]\.pts1fase = val/.test(fonteAdm3));
+      verificar('admin.js: a herança é por nome em minúsculas e consome a linha antiga',
+        /const chaveEquipa = \(n\) => \(n \|\| ''\)\.toLowerCase\(\);/.test(fonteAdm3)
+        && /const antiga = fila && fila\.length \? fila\.shift\(\) : null;/.test(fonteAdm3));
+      verificar('admin.js: herdam-se só o pts1fase e a forma',
+        /if \(r\.pts1fase == null && antiga\.pts1fase != null\) r\.pts1fase = antiga\.pts1fase;/.test(fonteAdm3)
+        && /if \(!r\.forma && antiga\.forma\) r\.forma = antiga\.forma;/.test(fonteAdm3)
+        && !/antiga\.(pts|dg|j|v|e|d|gm|gs|logo)\b/.test(fonteAdm3));
+
+      // A classificação já guardada: pts1fase da caixa da 1ª fase e forma do
+      // editor manual, que é o único sítio que a escreve com conteúdo.
+      const GUARDADAS = [
+        { equipa: 'TESTE LOULETANO',    abrev: 'TL', j: 10, v: 6, e: 2, d: 2, gm: 20, gs: 12, dg: 8,  pts: 26, pts1fase: 6, forma: 'VVEVD', sc: false },
+        { equipa: 'TESTE QUARTEIRENSE', abrev: 'TQ', j: 10, v: 3, e: 2, d: 5, gm: 12, gs: 18, dg: -6, pts: 14, pts1fase: 3, forma: 'DDEVD', sc: false },
+        { equipa: 'J.S. Campinense',    abrev: 'JC', j: 10, v: 7, e: 2, d: 1, gm: 25, gs: 8,  dg: 17, pts: 32, pts1fase: 9, forma: 'VVVVV', sc: true },
+      ];
+      // Linhas sem a coluna da posição, para não entrar no achado lateral do
+      // "Pts primeiro" do parser, que fica para diagnóstico separado.
+      const ln = (nome, j, v, e, d, gm, gs, pts) => [nome, j, v, e, d, gm, gs, gm - gs, pts].join('\t');
+      const TL   = ln('TESTE LOULETANO', 10, 6, 2, 2, 20, 12, 20);
+      const TQ   = ln('TESTE QUARTEIRENSE', 10, 3, 2, 5, 12, 18, 11);
+      const SC   = ln('J.S. Campinense', 10, 7, 2, 1, 25, 8, 23);
+      const SC2  = ln('JS Campinense', 10, 7, 2, 1, 25, 8, 23);
+      const NOVA = ln('TESTE NOVA EQUIPA', 10, 2, 1, 7, 8, 22, 7);
+      const TL2  = ln('TESTE LOULETANO', 9, 4, 1, 4, 14, 15, 13);
+      const txt = (...l) => l.join('\n') + '\n';
+
+      const cp = await testarColagemPreserva(browser, srv.url, [
+        { nome: 'mesma-ordem',  guardadas: GUARDADAS, texto: txt(TL, TQ, SC) },
+        { nome: 'ordem-invertida', guardadas: GUARDADAS, texto: txt(SC, TQ, TL) },
+        { nome: 'equipa-nova',  guardadas: GUARDADAS, texto: txt(TL, TQ, SC, NOVA) },
+        { nome: 'equipa-removida', guardadas: GUARDADAS, texto: txt(TL, SC) },
+        { nome: 'grafia-alterada', guardadas: GUARDADAS, texto: txt(TL, TQ, SC2) },
+        { nome: 'nomes-repetidos', guardadas: GUARDADAS, texto: txt(TL, TL2, SC) },
+        { nome: 'texto-trocado-depois-da-previsao', guardadas: GUARDADAS, texto: txt(TL, TQ, SC),
+          pts1: [6, 3, 9], textoAntesDeGuardar: txt(SC, TQ, TL) },
+      ]);
+      const de = (n, equipa) => cp[n].linhas.find((l) => l.equipa === equipa) || {};
+      const resumo = (n) => JSON.stringify(cp[n].linhas.map(
+        (l) => l.equipa + '=' + ('pts1fase' in l ? l.pts1fase : '(sem)') + '/' + (l.forma || '(vazia)')));
+
+      verificar('medição válida: a pré-visualização identifica os inputs pelo nome',
+        JSON.stringify(cp['mesma-ordem'].atributos)
+          === JSON.stringify(['TESTE LOULETANO', 'TESTE QUARTEIRENSE', 'J.S. Campinense']),
+        JSON.stringify(cp['mesma-ordem'].atributos));
+
+      verificar('mesma classificação, mesma ordem: o pts1fase mantém-se em cada equipa',
+        de('mesma-ordem', 'TESTE LOULETANO').pts1fase === 6
+        && de('mesma-ordem', 'TESTE QUARTEIRENSE').pts1fase === 3
+        && de('mesma-ordem', 'J.S. Campinense').pts1fase === 9, resumo('mesma-ordem'));
+      verificar('mesma classificação, mesma ordem: a forma mantém-se em cada equipa',
+        de('mesma-ordem', 'TESTE LOULETANO').forma === 'VVEVD'
+        && de('mesma-ordem', 'TESTE QUARTEIRENSE').forma === 'DDEVD'
+        && de('mesma-ordem', 'J.S. Campinense').forma === 'VVVVV', resumo('mesma-ordem'));
+      verificar('e os números da colagem é que valem: pts, dg, j, v, e, d, gm, gs',
+        JSON.stringify(de('mesma-ordem', 'TESTE LOULETANO')) ===
+        JSON.stringify({ equipa: 'TESTE LOULETANO', abrev: 'TES', j: 10, v: 6, e: 2, d: 2,
+          gm: 20, gs: 12, dg: 8, pts: 20, forma: 'VVEVD', pts1fase: 6 }),
+        JSON.stringify(de('mesma-ordem', 'TESTE LOULETANO')));
+
+      verificar('ordem invertida: nada muda de equipa',
+        de('ordem-invertida', 'TESTE LOULETANO').pts1fase === 6
+        && de('ordem-invertida', 'TESTE LOULETANO').forma === 'VVEVD'
+        && de('ordem-invertida', 'J.S. Campinense').pts1fase === 9
+        && de('ordem-invertida', 'J.S. Campinense').forma === 'VVVVV', resumo('ordem-invertida'));
+
+      verificar('equipa nova: entra sem pts1fase e com a forma vazia',
+        cp['equipa-nova'].linhas.length === 4
+        && !('pts1fase' in de('equipa-nova', 'TESTE NOVA EQUIPA'))
+        && de('equipa-nova', 'TESTE NOVA EQUIPA').forma === '', resumo('equipa-nova'));
+      verificar('e as outras continuam com o que era delas',
+        de('equipa-nova', 'TESTE QUARTEIRENSE').pts1fase === 3
+        && de('equipa-nova', 'TESTE QUARTEIRENSE').forma === 'DDEVD', resumo('equipa-nova'));
+
+      verificar('equipa removida: sai da tabela e as que ficam não herdam o que era dela',
+        cp['equipa-removida'].linhas.length === 2
+        && !cp['equipa-removida'].linhas.some((l) => l.equipa === 'TESTE QUARTEIRENSE')
+        && de('equipa-removida', 'TESTE LOULETANO').pts1fase === 6
+        && de('equipa-removida', 'J.S. Campinense').pts1fase === 9, resumo('equipa-removida'));
+
+      verificar('grafia alterada: conta como equipa nova, sem correspondência aproximada',
+        !('pts1fase' in de('grafia-alterada', 'JS Campinense'))
+        && de('grafia-alterada', 'JS Campinense').forma === ''
+        && !cp['grafia-alterada'].linhas.some((l) => l.equipa === 'J.S. Campinense'),
+        resumo('grafia-alterada'));
+      verificar('e as restantes não são afectadas pela mudança de grafia',
+        de('grafia-alterada', 'TESTE LOULETANO').pts1fase === 6
+        && de('grafia-alterada', 'TESTE QUARTEIRENSE').pts1fase === 3, resumo('grafia-alterada'));
+
+      verificar('medição válida: duas linhas com o mesmo nome foram reconhecidas',
+        cp['nomes-repetidos'].linhas.filter((l) => l.equipa === 'TESTE LOULETANO').length === 2,
+        resumo('nomes-repetidos'));
+      verificar('nomes repetidos: só a primeira herda — a linha antiga consome-se uma vez',
+        (() => {
+          const d = cp['nomes-repetidos'].linhas.filter((l) => l.equipa === 'TESTE LOULETANO');
+          return d[0].pts1fase === 6 && d[0].forma === 'VVEVD'
+            && !('pts1fase' in d[1]) && d[1].forma === '';
+        })(), resumo('nomes-repetidos'));
+
+      verificar('texto trocado entre Pré-visualizar e Guardar: os pontos ficam na equipa certa',
+        de('texto-trocado-depois-da-previsao', 'TESTE LOULETANO').pts1fase === 6
+        && de('texto-trocado-depois-da-previsao', 'TESTE QUARTEIRENSE').pts1fase === 3
+        && de('texto-trocado-depois-da-previsao', 'J.S. Campinense').pts1fase === 9,
+        'pré-visualizado ' + JSON.stringify(cp['texto-trocado-depois-da-previsao'].ordemPrevisao)
+        + ' com [6,3,9] → ' + resumo('texto-trocado-depois-da-previsao'));
+
+      verificar('painel: sem erros de JavaScript em nenhuma das colagens',
+        Object.values(cp).every((c) => c.erros.length === 0),
+        Object.values(cp).map((c) => c.erros.join(' ')).join(' | '));
     }
 
     // ---- O mapa de logótipos das equipas ----------------------------
