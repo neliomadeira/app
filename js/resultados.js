@@ -21,8 +21,14 @@ function fmtData(str) {
 
 function calcPts(v, e) { return v * 3 + e; }
 
+// O String(forma || '') não é defensivo por gosto: com a chave forma ausente
+// — uma linha vinda de um db.json mais antigo, de uma reposição de backup ou de
+// outra importação — o forma.split() lançava, o map inteiro do tbody morria e a
+// classificação pública ficava sem NENHUMA linha. Medido: 0 linhas no DOM e
+// "Cannot read properties of undefined (reading 'split')" na consola. Agora
+// uma linha sem forma dá uma célula vazia e as outras desenham-se.
 function formaHTML(forma) {
-  return forma.split('').map(f => {
+  return String(forma || '').split('').map(f => {
     const cls = f==='V'?'v':f==='E'?'e':'d';
     return `<span class="forma-dot forma-dot--${jscEsc(cls)}">${jscEsc(f)}</span>`;
   }).join('');

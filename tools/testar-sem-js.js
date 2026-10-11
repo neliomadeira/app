@@ -2216,6 +2216,177 @@ async function testarContagemDecrescente(browser, url) {
   return { antes, depois, erros };
 }
 
+// Sondas do classData na publicação, e da coluna Forma.
+//
+// O payload do Publicar levava sempre classData, e levava null quando o
+// browser não tinha nenhuma chave fpf_class_* — publicar de outro computador,
+// do telemóvel ou de outro perfil. O api/save.php funde o que recebe com o que
+// está gravado, pelo que esse null substituía a classificação publicada por
+// nada: a projeção pública deixava de levar classData, o js/sync.js não
+// escrevia, e os visitantes ficavam para sempre com as linhas antigas.
+//
+// E no outro extremo da cadeia, uma linha sem a chave forma fazia o
+// formaHTML() lançar no split e a classificação pública ficava sem nenhuma
+// linha — a tabela inteira, por uma letra que faltava.
+
+// O que o botão Publicar envia de facto: intercepta-se o POST.
+async function testarPayloadClassData(browser, url, casos) {
+  const saida = {};
+  for (const c of casos) {
+    const ctx = await browser.newContext({
+      javaScriptEnabled: true,
+      extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+    });
+    let corpo = null;
+    await ctx.route('**/api/save.php*', (rota) => {
+      corpo = rota.request().postData();
+      return rota.fulfill({ status: 200, contentType: 'application/json',
+        body: JSON.stringify({ ok: true, savedAt: '2026-10-11T12:00:00Z',
+          alteradas: [], gerados: [], avisos: [] }) });
+    });
+    const pg = await ctx.newPage();
+    pg.on('dialog', (d) => d.accept());
+    const erros = [];
+    pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+    await pg.goto(url + '/admin/', { waitUntil: 'networkidle', timeout: 20000 });
+    await pg.evaluate((a) => {
+      localStorage.setItem('jsc_painel_local', '1');
+      Object.keys(localStorage).filter((k) => k.indexOf('fpf_class_') === 0)
+        .forEach((k) => localStorage.removeItem(k));
+      if (a.linhas) localStorage.setItem('fpf_class_Sub-17', JSON.stringify(a.linhas));
+    }, c);
+    await pg.evaluate(() => publicarNoServidor());
+    await pg.waitForTimeout(1200);
+    await ctx.close();
+    const d = corpo ? JSON.parse(corpo) : null;
+    saida[c.nome] = {
+      houvePost: !!corpo,
+      temChave: !!d && ('classData' in d),
+      valor: d ? d.classData : undefined,
+      erros,
+    };
+  }
+  return saida;
+}
+
+// E do outro lado: o servidor preserva a classificação quando o pedido não
+// menciona o classData? Mede-se contra o api/save.php a sério, com sessão.
+//
+// Em cópia e servidor próprios, não no do resto da bateria: este caminho cria
+// uma conta de Admin e PUBLICA — reescreve o data/db.json e regenera as páginas
+// —, e isso tirava o chão aos testes seguintes. Medido: a sonda do
+// api/proxy.php passou a falhar, porque contava com o criar-primeiro a poder
+// correr do zero.
+async function testarSavePreservaClassData(raizOriginal) {
+  const copia = fs.mkdtempSync(path.join(os.tmpdir(), 'jsc-save-'));
+  fs.cpSync(raizOriginal, copia, {
+    recursive: true,
+    filter: (origem) => !/[\\/](node_modules|\.git)([\\/]|$)/.test(origem),
+  });
+  const srvProprio = await arrancarServidor({ raiz: copia, portaHttp: 8095, portaPhp: 8094 });
+  if (srvProprio.modo !== 'apache') {
+    if (srvProprio.parar) await srvProprio.parar();
+    fs.rmSync(copia, { recursive: true, force: true });
+    return { semApache: true };
+  }
+  try {
+    return await _medirSaveClassData(srvProprio.url);
+  } finally {
+    if (srvProprio.parar) await srvProprio.parar();
+    fs.rmSync(copia, { recursive: true, force: true });
+  }
+}
+
+async function _medirSaveClassData(url) {
+  const cookieDe = (res) => {
+    const m = (res.headers.get('set-cookie') || '').match(/JSCSESSAO=([^;]+)/);
+    return m ? 'JSCSESSAO=' + m[1] : null;
+  };
+  const pedir = async (caminho, opcoes = {}) => {
+    const h = { 'X-Forwarded-Proto': 'https' };
+    if (opcoes.cookie) h['Cookie'] = opcoes.cookie;
+    if (opcoes.corpo) { h['Content-Type'] = 'application/json'; h['X-JSC-Painel'] = '1'; }
+    const res = await fetch(url + caminho, {
+      method: opcoes.corpo ? 'POST' : 'GET', headers: h,
+      body: opcoes.corpo ? JSON.stringify(opcoes.corpo) : undefined, redirect: 'manual',
+    });
+    return { estado: res.status, texto: await res.text(), cookie: cookieDe(res) };
+  };
+
+  const CREDENCIAIS = { utilizador: 'Admin', password: 'Teste12345ab' };
+  let sessao = await pedir('/api/auth.php?acao=criar-primeiro',
+    { corpo: { ...CREDENCIAIS, nome: 'Admin' } });
+  if (!/"ok":true/.test(sessao.texto)) {
+    sessao = await pedir('/api/auth.php?acao=entrar', { corpo: CREDENCIAIS });
+  }
+  const cookie = sessao.cookie;
+  const r = { entrou: !!cookie && /"ok":true/.test(sessao.texto) };
+
+  const LINHAS = [
+    { equipa: 'TESTE SAVE A', abrev: 'TSA', j: 1, v: 1, e: 0, d: 0, gm: 2, gs: 0, dg: 2, pts: 3, forma: 'V' },
+    { equipa: 'TESTE SAVE B', abrev: 'TSB', j: 1, v: 0, e: 0, d: 1, gm: 0, gs: 2, dg: -2, pts: 0, forma: 'D' },
+  ];
+  const formas = (corpo) => {
+    try {
+      const d = JSON.parse(corpo);
+      const c = (d.classData || {})['fpf_class_Sub-17'];
+      return c ? c.map((x) => x.equipa + '=' + JSON.stringify(x.forma)) : null;
+    } catch (_) { return null; }
+  };
+
+  // 1. Publicar com a classificação.
+  r.comClassData = await pedir('/api/save.php',
+    { cookie, corpo: { publicadoEm: new Date().toISOString(), classData: { 'fpf_class_Sub-17': LINHAS } } });
+  r.depoisDeGravar = formas((await pedir('/api/load.php')).texto);
+
+  // 2. Publicar sem mencionar o classData: tem de ficar como está.
+  r.semClassData = await pedir('/api/save.php',
+    { cookie, corpo: { publicadoEm: new Date().toISOString() } });
+  r.depoisDeOmitir = formas((await pedir('/api/load.php')).texto);
+
+  // 3. E com null, que é o que se deixou de enviar: fica registado o que o
+  //    servidor faz com ele, para a propriedade não depender só do painel.
+  r.comNull = await pedir('/api/save.php',
+    { cookie, corpo: { publicadoEm: new Date().toISOString(), classData: null } });
+  r.depoisDoNull = formas((await pedir('/api/load.php')).texto);
+
+  return r;
+}
+
+// A coluna Forma, no browser.
+async function testarColunaForma(browser, url, linhas) {
+  const ctx = await browser.newContext({
+    javaScriptEnabled: true,
+    extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+  });
+  await ctx.addInitScript((d) => {
+    try {
+      if (sessionStorage.getItem('jsc_semeado_forma')) return;
+      sessionStorage.setItem('jsc_semeado_forma', '1');
+      localStorage.setItem('jsc_painel_local', '1');
+      localStorage.setItem('fpf_class_Sub-17', JSON.stringify(d));
+    } catch (_) {}
+  }, linhas);
+  const pg = await ctx.newPage();
+  const erros = [];
+  pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+  await pg.goto(url + '/resultados.html', { waitUntil: 'load', timeout: 20000 });
+  await pg.waitForTimeout(700);
+  const d = await pg.evaluate(() => Array.from(document.querySelectorAll('#classTable tr')).map((tr) => {
+    const cel = tr.querySelector('td .forma');
+    const pontos = cel ? Array.from(cel.querySelectorAll('.forma-dot')) : [];
+    return {
+      equipa: ((tr.querySelector('.team-cell span:last-child') || {}).textContent || '').replace(' ★', '').trim(),
+      pontos: pontos.length,
+      letras: pontos.map((p) => p.textContent).join(''),
+      classes: pontos.map((p) => p.className.replace('forma-dot ', '')),
+      altura: pontos.length ? pontos[0].offsetHeight : 0,
+    };
+  }));
+  await ctx.close();
+  return { linhas: d, erros };
+}
+
 // Sonda da colagem da classificação: o pts1fase e o forma.
 //
 // A colagem reconstruía as linhas de raiz e gravava por cima das guardadas: o
@@ -5271,6 +5442,101 @@ async function testarAdminHistoria(browser, url) {
         'antes=' + c.antes.seg + ' depois=' + c.depois.seg);
       verificar('página inicial: sem erros de JavaScript na contagem',
         c.erros.length === 0, c.erros.join(' / '));
+    }
+
+    // ---- O classData na publicação, e a coluna Forma ----------------
+    console.log('\npublicar de um browser sem a classificação não a pode apagar');
+    {
+      const semComentAdm = fs.readFileSync(path.join(raiz, 'admin', 'js', 'admin.js'), 'utf8')
+        .replace(/^\s*\/\/.*$/gm, '');
+      verificar('admin.js: o classData só entra no pedido quando este browser o tem',
+        /if \(Object\.keys\(classData\)\.length\) dados\.classData = classData;/.test(semComentAdm)
+        && !/classData:\s+Object\.keys\(classData\)\.length \? classData : null,\s*\n\s*\};/.test(semComentAdm));
+
+      const LINHAS = [
+        { equipa: 'TESTE PAYLOAD', abrev: 'TP', j: 1, v: 1, e: 0, d: 0, gm: 2, gs: 0, dg: 2, pts: 3, forma: 'V' },
+      ];
+      const pay = await testarPayloadClassData(browser, srv.url, [
+        { nome: 'com-chaves', linhas: LINHAS },
+        { nome: 'sem-chaves', linhas: null },
+      ]);
+      verificar('medição válida: as duas publicações enviaram o pedido',
+        pay['com-chaves'].houvePost && pay['sem-chaves'].houvePost,
+        JSON.stringify([pay['com-chaves'].houvePost, pay['sem-chaves'].houvePost]));
+      verificar('browser com a classificação: o classData vai no pedido com as linhas',
+        pay['com-chaves'].temChave
+        && pay['com-chaves'].valor['fpf_class_Sub-17'][0].forma === 'V',
+        JSON.stringify(pay['com-chaves'].valor));
+      verificar('browser sem chaves fpf_class_: o campo é omitido, não vai como null',
+        pay['sem-chaves'].temChave === false && pay['sem-chaves'].valor === undefined,
+        'temChave: ' + pay['sem-chaves'].temChave + ' valor: ' + JSON.stringify(pay['sem-chaves'].valor));
+      verificar('painel: sem erros de JavaScript nas publicações',
+        Object.values(pay).every((c) => c.erros.length === 0),
+        Object.values(pay).map((c) => c.erros.join(' ')).join(' | '));
+
+      // O outro lado: o servidor, com sessão, pelo api/save.php a sério, em
+      // cópia e servidor próprios — este caminho publica.
+      const sv = await testarSavePreservaClassData(raiz);
+      if (sv.semApache) {
+        console.log('  (comportamento saltado: sem Apache não há PHP a servir)');
+      } else {
+      verificar('medição válida: há sessão de painel para publicar',
+        sv.entrou === true, JSON.stringify(sv.entrou));
+      verificar('publicar com classData grava a classificação',
+        /"ok":true/.test(sv.comClassData.texto)
+        && JSON.stringify(sv.depoisDeGravar) === JSON.stringify(['TESTE SAVE A="V"', 'TESTE SAVE B="D"']),
+        sv.comClassData.estado + ' ' + sv.comClassData.texto.slice(0, 120)
+        + ' → ' + JSON.stringify(sv.depoisDeGravar));
+      verificar('publicar SEM mencionar o classData mantém a classificação publicada',
+        /"ok":true/.test(sv.semClassData.texto)
+        && JSON.stringify(sv.depoisDeOmitir) === JSON.stringify(sv.depoisDeGravar),
+        JSON.stringify(sv.depoisDeOmitir));
+      // Esta fica como registo do porquê da correcção no painel: com null, o
+      // servidor apaga — e é por isso que o pedido deixou de o enviar.
+      verificar('e um classData null apaga-a — a razão de o painel deixar de o enviar',
+        sv.depoisDoNull === null, JSON.stringify(sv.depoisDoNull));
+      }
+    }
+
+    console.log('\na coluna Forma na classificação pública');
+    {
+      const semComentRes = fs.readFileSync(path.join(raiz, 'js', 'resultados.js'), 'utf8')
+        .replace(/^\s*\/\/.*$/gm, '');
+      verificar('resultados.js: o formaHTML tolera uma forma ausente',
+        /return String\(forma \|\| ''\)\.split\(''\)/.test(semComentRes));
+
+      const COM = [
+        { equipa: 'J.S. Campinense', abrev: 'JC', j: 10, v: 7, e: 2, d: 1, gm: 25, gs: 8, dg: 17, pts: 23, forma: 'VVVVV', sc: true },
+        { equipa: 'TESTE LOULETANO', abrev: 'TL', j: 10, v: 6, e: 2, d: 2, gm: 20, gs: 12, dg: 8, pts: 20, forma: 'VVEDV', sc: false },
+        { equipa: 'TESTE QUARTEIRENSE', abrev: 'TQ', j: 10, v: 3, e: 2, d: 5, gm: 12, gs: 18, dg: -6, pts: 11, forma: 'DDEVD', sc: false },
+      ];
+      const SEM = [COM[0], (() => { const c = { ...COM[1] }; delete c.forma; return c; })(), COM[2]];
+
+      const com = await testarColunaForma(browser, srv.url, COM);
+      const umDe = (r, equipa) => r.linhas.find((l) => l.equipa === equipa) || {};
+      verificar('com forma: cada equipa mostra os seus cinco círculos',
+        com.linhas.length === 3
+        && umDe(com, 'J.S. Campinense').letras === 'VVVVV'
+        && umDe(com, 'TESTE LOULETANO').letras === 'VVEDV'
+        && umDe(com, 'TESTE QUARTEIRENSE').letras === 'DDEVD',
+        JSON.stringify(com.linhas.map((l) => l.equipa + '=' + l.letras)));
+      verificar('e cada círculo tem a classe do resultado e altura visível',
+        JSON.stringify(umDe(com, 'TESTE LOULETANO').classes)
+          === JSON.stringify(['forma-dot--v', 'forma-dot--v', 'forma-dot--e', 'forma-dot--d', 'forma-dot--v'])
+        && umDe(com, 'TESTE LOULETANO').altura > 0,
+        JSON.stringify(umDe(com, 'TESTE LOULETANO')));
+
+      const sem = await testarColunaForma(browser, srv.url, SEM);
+      verificar('uma linha sem a chave forma não impede a tabela de ser desenhada',
+        sem.linhas.length === 3, 'linhas: ' + sem.linhas.length);
+      verificar('a linha sem forma fica com a célula vazia e as outras intactas',
+        umDe(sem, 'TESTE LOULETANO').pontos === 0
+        && umDe(sem, 'J.S. Campinense').letras === 'VVVVV'
+        && umDe(sem, 'TESTE QUARTEIRENSE').letras === 'DDEVD',
+        JSON.stringify(sem.linhas.map((l) => l.equipa + '=' + l.pontos)));
+      verificar('classificação pública: sem exceções de JavaScript',
+        com.erros.length === 0 && sem.erros.length === 0,
+        com.erros.concat(sem.erros).join(' | '));
     }
 
     // ---- A colagem da classificação: pts1fase e forma ---------------

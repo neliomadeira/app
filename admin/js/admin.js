@@ -5342,8 +5342,20 @@ async function publicarNoServidor() {
     fbPosts:        ls('fb_posts'),
     logos:          ls('db_logos'),
     classConfig:    ls('fpf_sync_config'),
-    classData:      Object.keys(classData).length ? classData : null,
   };
+  // As classificações só entram no pedido quando este browser as tem.
+  //
+  // Iam sempre, e iam como null quando não havia nenhuma chave fpf_class_* —
+  // publicar de outro computador, do telemóvel ou de outro perfil do browser.
+  // O api/save.php funde o que recebe com o que está gravado, pelo que esse
+  // null substituía a classificação publicada por nada: a projeção pública
+  // deixava de levar classData, o js/sync.js não escrevia, e os visitantes
+  // ficavam para sempre com as linhas que já tinham. Medido: coluna Forma
+  // vazia em todas as equipas, sem cache pelo meio, e a publicar outra vez não
+  // resolvia. Uma chave ausente significa "inalterada" para o servidor, que é
+  // exactamente o que se quer aqui.
+  if (Object.keys(classData).length) dados.classData = classData;
+
   // ---- O payload cabe no que o servidor aceita? ---------------------
   // As imagens não são enviadas como ficheiros: o compressImage() reduz-as no
   // browser e guarda-as como data: URI DENTRO deste JSON. Por isso o limite que
