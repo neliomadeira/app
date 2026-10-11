@@ -2994,6 +2994,12 @@ function abrirEditorClass(escalao, teamKey) {
 // a linha de origem. Pelo índice e não pelo nome, porque o nome é justamente o
 // que se edita neste formulário. As linhas criadas pelo botão "+ Adicionar
 // equipa" chamam sem índice e ficam sem o atributo: não têm origem nenhuma.
+// O campo Forma tinha placeholder="VVEDV" — uma sequência de forma válida. Um
+// campo vazio aparecia com "VVEDV" em cinzento e lia-se como valor gravado: foi
+// isto que nos levou três diagnósticos a perseguir uma perda de dados que não
+// existia, até medir que input.value era "" e o VVEDV era a sugestão. O mesmo
+// valia para o "0" da caixa dos pontos da 1ª fase. As sugestões passaram a ser
+// inconfundíveis com um valor: "ex: VVEDV" e "—".
 function _edClassRowHTML(t, i) {
   const num = (v) => v == null ? 0 : v;
   return `<tr${typeof i === 'number' ? ` data-idx="${jscEsc(i)}"` : ''}>
@@ -3004,7 +3010,7 @@ function _edClassRowHTML(t, i) {
     <td><input class="form-input ed-d"  type="number" min="0" value="${jscEsc(num(t.d))}"  style="width:56px"></td>
     <td><input class="form-input ed-gm" type="number" min="0" value="${jscEsc(num(t.gm))}" style="width:56px"></td>
     <td><input class="form-input ed-gs" type="number" min="0" value="${jscEsc(num(t.gs))}" style="width:56px"></td>
-    <td><input class="form-input ed-forma" value="${jscEsc(t.forma || '')}" placeholder="VVEDV" maxlength="5" style="width:76px;text-transform:uppercase"></td>
+    <td><input class="form-input ed-forma" value="${jscEsc(t.forma || '')}" placeholder="ex: VVEDV" maxlength="5" style="width:76px;text-transform:uppercase"></td>
     <td><button type="button" class="btn-sm" style="color:#c00" title="Remover linha"
       onclick="this.closest('tr').remove()">&#x2715;</button></td>
   </tr>`;
@@ -3674,7 +3680,7 @@ window.previewColarClass = function() {
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px">
         ${marked.map((r)=>`<label style="display:flex;align-items:center;gap:6px;font-size:0.8rem">
           <span style="flex:1;font-weight:${jscEsc(r.sc?700:400)}">${jscEsc(r.equipa)}</span>
-          <input type="number" min="0" max="99" placeholder="0"
+          <input type="number" min="0" max="99" placeholder="—"
             style="width:52px;padding:3px 6px;border:1px solid #ddd;border-radius:4px;font-size:0.8rem;text-align:center"
             data-pts1fase="${jscEsc(r.equipa)}" value="${jscEsc(r.pts1fase||'')}">
         </label>`).join('')}

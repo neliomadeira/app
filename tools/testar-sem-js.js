@@ -2216,6 +2216,67 @@ async function testarContagemDecrescente(browser, url) {
   return { antes, depois, erros };
 }
 
+// Sonda das sugestões dos campos do editor e da colagem.
+//
+// O campo Forma tinha placeholder="VVEDV" — uma sequência de forma válida. Um
+// campo vazio aparecia com "VVEDV" em cinzento e lia-se como valor gravado: a
+// coluna Forma do site parecia estar preenchida no painel e vazia na página, e
+// foram três diagnósticos a perseguir uma perda de dados que não existia, até
+// medir que input.value era "" e o VVEDV era a sugestão. O mesmo valia para o
+// "0" da caixa dos pontos da 1ª fase.
+//
+// A regra que isto fixa: nenhuma sugestão destes campos pode ser um valor
+// válido para o campo onde está.
+async function testarSugestoesDosCampos(browser, url) {
+  const SERIE = 'Liga_1_Algarve_Futeb';
+  const LINHAS = [
+    { equipa: 'TESTE SEM FORMA', abrev: 'TSF', j: 10, v: 8, e: 1, d: 1, gm: 25, gs: 8, dg: 17, pts: 25, forma: '' },
+    { equipa: 'TESTE COM FORMA', abrev: 'TCF', j: 10, v: 6, e: 2, d: 2, gm: 20, gs: 12, dg: 8, pts: 20, forma: 'VVEDV' },
+  ];
+  const ctx = await browser.newContext({
+    javaScriptEnabled: true,
+    extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+  });
+  const pg = await ctx.newPage();
+  const erros = [];
+  pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+  await pg.goto(url + '/admin/', { waitUntil: 'networkidle', timeout: 20000 });
+
+  const d = await pg.evaluate((a) => {
+    localStorage.setItem('jsc_painel_local', '1');
+    localStorage.setItem('fpf_class_Sub-17__' + a.serie, JSON.stringify(a.linhas));
+    localStorage.setItem('fpf_sync_config', JSON.stringify({
+      'Sub-17': { teams: { [a.serie]: { nome: 'Liga 1 Algarve Futebol Juvenis' } } },
+    }));
+
+    // 1. O campo Forma do editor manual.
+    abrirEditorClass('Sub-17', a.serie);
+    const ler = (i) => ({
+      valor: i.value,
+      placeholder: i.getAttribute('placeholder'),
+      // O que uma pessoa vê: o valor, ou a sugestão quando o campo está vazio.
+      oQueSeVe: i.value === '' ? i.getAttribute('placeholder') : i.value,
+    });
+    const forma = Array.from(document.querySelectorAll('#edClassTable .ed-forma')).map(ler);
+    closeModal();
+
+    // 2. A caixa dos pontos da 1ª fase, na pré-visualização da colagem.
+    abrirColar('Sub-17', 'class', a.serie);
+    document.getElementById('colarClassTA').value =
+      'TESTE SEM FORMA\t10\t8\t1\t1\t25\t8\t17\t25\n'
+      + 'TESTE COM FORMA\t10\t6\t2\t2\t20\t12\t8\t20\n';
+    previewColarClass();
+    const inputs = Array.from(document.querySelectorAll('[data-pts1fase]'));
+    if (inputs[1]) inputs[1].value = '6';   // um preenchido, para comparar
+    const pts1 = inputs.map(ler);
+
+    return { forma, pts1 };
+  }, { serie: SERIE, linhas: LINHAS });
+
+  await ctx.close();
+  return { ...d, erros };
+}
+
 // Sonda do botão «✎ Manual» do cabeçalho do escalão.
 //
 // Passava sempre a série vazia, escrita no markup, e abria fpf_class_<escalao>
@@ -5526,6 +5587,49 @@ async function testarAdminHistoria(browser, url) {
         'antes=' + c.antes.seg + ' depois=' + c.depois.seg);
       verificar('página inicial: sem erros de JavaScript na contagem',
         c.erros.length === 0, c.erros.join(' / '));
+    }
+
+    // ---- As sugestões dos campos: vazio tem de parecer vazio --------
+    console.log('\nos campos do editor: uma sugestão não pode parecer um valor');
+    {
+      const fonteSug = fs.readFileSync(path.join(raiz, 'admin', 'js', 'admin.js'), 'utf8')
+        .replace(/^\s*\/\/.*$/gm, '');
+      verificar('admin.js: a sugestão do campo Forma já não é uma forma válida',
+        /class="form-input ed-forma"[^>]*placeholder="ex: VVEDV"/.test(fonteSug)
+        && !/class="form-input ed-forma"[^>]*placeholder="VVEDV"/.test(fonteSug));
+      verificar('admin.js: a sugestão dos pontos da 1ª fase já não é um número',
+        /placeholder="—"\s*\n\s*style="width:52px/.test(fonteSug));
+
+      const sg = await testarSugestoesDosCampos(browser, srv.url);
+      const FORMA_VALIDA = /^[VED]{1,5}$/;
+      const NUMERO = /^\d+$/;
+
+      verificar('medição válida: dois campos de forma e dois de pontos da 1ª fase',
+        sg.forma.length === 2 && sg.pts1.length === 2,
+        JSON.stringify([sg.forma.length, sg.pts1.length]));
+
+      verificar('Forma: a sugestão não é uma sequência de forma válida',
+        !FORMA_VALIDA.test(sg.forma[0].placeholder || ''),
+        'placeholder: ' + JSON.stringify(sg.forma[0].placeholder));
+      verificar('Forma: um campo vazio não mostra nada que se leia como valor',
+        sg.forma[0].valor === '' && !FORMA_VALIDA.test(sg.forma[0].oQueSeVe || ''),
+        'vazio mostra ' + JSON.stringify(sg.forma[0].oQueSeVe));
+      verificar('Forma: o vazio distingue-se do preenchido',
+        sg.forma[1].valor === 'VVEDV' && sg.forma[0].oQueSeVe !== sg.forma[1].oQueSeVe,
+        JSON.stringify(sg.forma.map((x) => x.oQueSeVe)));
+
+      verificar('Pontos da 1ª fase: a sugestão não é um número',
+        !NUMERO.test(sg.pts1[0].placeholder || ''),
+        'placeholder: ' + JSON.stringify(sg.pts1[0].placeholder));
+      verificar('Pontos da 1ª fase: um campo vazio não mostra nada que se leia como valor',
+        sg.pts1[0].valor === '' && !NUMERO.test(sg.pts1[0].oQueSeVe || ''),
+        'vazio mostra ' + JSON.stringify(sg.pts1[0].oQueSeVe));
+      verificar('Pontos da 1ª fase: o vazio distingue-se do preenchido',
+        sg.pts1[1].valor === '6' && sg.pts1[0].oQueSeVe !== sg.pts1[1].oQueSeVe,
+        JSON.stringify(sg.pts1.map((x) => x.oQueSeVe)));
+
+      verificar('painel: sem erros de JavaScript na medição das sugestões',
+        sg.erros.length === 0, sg.erros.join(' | '));
     }
 
     // ---- O botão «✎ Manual» do cabeçalho do escalão -----------------
