@@ -2216,6 +2216,50 @@ async function testarContagemDecrescente(browser, url) {
   return { antes, depois, erros };
 }
 
+// Sonda da ordem dos escalões na resultados.html.
+//
+// Os separadores estavam na ordem Sub-17, Sub-15, Sub-13, Sub-19, Sub-11, que
+// não é ordem nenhuma. Passam a estar por idade, do mais velho para o mais
+// novo. Mede-se em desktop e em telemóvel, e confirma-se que o escalão
+// selecionado continua a ser o que o js/resultados.js abre por omissão e que
+// clicar num separador continua a mudar de escalão.
+async function testarOrdemDosEscaloes(browser, url, largura) {
+  const ctx = await browser.newContext({
+    javaScriptEnabled: true,
+    viewport: { width: largura, height: 900 },
+    extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+  });
+  await ctx.addInitScript(() => {
+    try { localStorage.setItem('jsc_painel_local', '1'); } catch (_) {}
+  });
+  const pg = await ctx.newPage();
+  const erros = [];
+  pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+  await pg.goto(url + '/resultados.html', { waitUntil: 'load', timeout: 20000 });
+  await pg.waitForTimeout(500);
+
+  const ler = () => pg.evaluate(() => {
+    const tabs = Array.from(document.querySelectorAll('.tabs-inner .tab'));
+    return {
+      ordem: tabs.map((b) => b.dataset.escalao),
+      textos: tabs.map((b) => b.textContent.trim()),
+      ativo: (tabs.find((b) => b.classList.contains('active')) || {}).dataset
+        ? tabs.find((b) => b.classList.contains('active')).dataset.escalao : null,
+      escalaoActivo: typeof escalaoActivo !== 'undefined' ? escalaoActivo : null,
+      // Nenhum separador pode ficar escondido ou com altura zero.
+      visiveis: tabs.filter((b) => b.offsetWidth > 0 && b.offsetHeight > 0).length,
+    };
+  });
+
+  const inicial = await ler();
+  // Clicar no primeiro separador e ver se a navegação continua a funcionar.
+  await pg.click('.tabs-inner .tab[data-escalao="Sub-19"]');
+  await pg.waitForTimeout(300);
+  const depoisDoClique = await ler();
+  await ctx.close();
+  return { inicial, depoisDoClique, erros };
+}
+
 // Sonda do parser da classificação: o caso AABV.
 //
 // A tabela da Liga 1 do Algarve tem 12 equipas e a pré-visualização dizia 11:
@@ -5697,6 +5741,36 @@ async function testarAdminHistoria(browser, url) {
         'antes=' + c.antes.seg + ' depois=' + c.depois.seg);
       verificar('página inicial: sem erros de JavaScript na contagem',
         c.erros.length === 0, c.erros.join(' / '));
+    }
+
+    // ---- A ordem dos escalões na resultados.html --------------------
+    console.log('\nresultados.html: os escalões por idade, do mais velho ao mais novo');
+    {
+      const ORDEM = ['Sub-19', 'Sub-17', 'Sub-15', 'Sub-13', 'Sub-11'];
+      const html = fs.readFileSync(path.join(raiz, 'resultados.html'), 'utf8');
+      const noFicheiro = (html.match(/data-escalao="(Sub-\d+)"/g) || [])
+        .map((x) => x.replace(/.*"(Sub-\d+)".*/, '$1'));
+      verificar('resultados.html: os separadores estão por idade no ficheiro',
+        JSON.stringify(noFicheiro) === JSON.stringify(ORDEM), JSON.stringify(noFicheiro));
+
+      for (const largura of [1440, 390]) {
+        const e = await testarOrdemDosEscaloes(browser, srv.url, largura);
+        const onde = largura === 1440 ? 'desktop' : 'telemóvel';
+        verificar(onde + ': a ordem desenhada é Sub-19 → Sub-17 → Sub-15 → Sub-13 → Sub-11',
+          JSON.stringify(e.inicial.ordem) === JSON.stringify(ORDEM),
+          JSON.stringify(e.inicial.ordem));
+        verificar(onde + ': os cinco separadores estão visíveis',
+          e.inicial.visiveis === 5, 'visíveis: ' + e.inicial.visiveis);
+        verificar(onde + ': o selecionado é o que a página abre por omissão',
+          e.inicial.ativo === e.inicial.escalaoActivo && e.inicial.ativo === 'Sub-17',
+          'activo=' + e.inicial.ativo + ' escalaoActivo=' + e.inicial.escalaoActivo);
+        verificar(onde + ': clicar no Sub-19 muda o escalão e a marca de selecionado',
+          e.depoisDoClique.ativo === 'Sub-19' && e.depoisDoClique.escalaoActivo === 'Sub-19'
+          && JSON.stringify(e.depoisDoClique.ordem) === JSON.stringify(ORDEM),
+          JSON.stringify(e.depoisDoClique));
+        verificar(onde + ': sem erros de JavaScript',
+          e.erros.length === 0, e.erros.join(' | '));
+      }
     }
 
     // ---- A classificação colada: o caso AABV ------------------------

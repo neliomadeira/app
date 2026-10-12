@@ -102,12 +102,17 @@
   </div>
 
   <!-- TABS -->
+  <!-- Por idade, do mais velho para o mais novo. Estavam na ordem
+       Sub-17, Sub-15, Sub-13, Sub-19, Sub-11, que não é ordem nenhuma. O
+       active continua no Sub-17 porque é o escalão que o js/resultados.js abre
+       por omissão (escalaoActivo); mudar o primeiro separador não muda o que
+       se vê ao chegar à página. -->
   <div class="tabs-bar">
     <div class="container tabs-inner">
+      <button class="tab" data-escalao="Sub-19">Sub-19</button>
       <button class="tab active" data-escalao="Sub-17">Sub-17</button>
       <button class="tab" data-escalao="Sub-15">Sub-15</button>
       <button class="tab" data-escalao="Sub-13">Sub-13</button>
-      <button class="tab" data-escalao="Sub-19">Sub-19</button>
       <button class="tab" data-escalao="Sub-11">Sub-11</button>
     </div>
   </div>
