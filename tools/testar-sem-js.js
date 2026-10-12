@@ -2216,6 +2216,38 @@ async function testarContagemDecrescente(browser, url) {
   return { antes, depois, erros };
 }
 
+// Sonda do parser da classificação: o caso AABV.
+//
+// A tabela da Liga 1 do Algarve tem 12 equipas e a pré-visualização dizia 11:
+// a AABV desaparecia, porque são quatro maiúsculas e o parser recusava-as como
+// se fossem a sigla da coluna. E, perdida essa linha, a posição da seguinte
+// deixava de ser retirada da sequência — o corte dependia de "linhas aceites
+// até agora + 1" — a leitura J-primeiro falhava a sanidade e o recurso
+// "Pts primeiro" lia a POSIÇÃO como pontos: AEF Faro com 8, Ginásio de Tavira
+// com 9, Montenegro com 10, Ferreiras com 11.
+async function testarClassificacaoColada(browser, url, casos) {
+  const ctx = await browser.newContext({
+    javaScriptEnabled: true,
+    extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+  });
+  const pg = await ctx.newPage();
+  const erros = [];
+  pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+  await pg.goto(url + '/admin/', { waitUntil: 'networkidle', timeout: 20000 });
+  const lidos = await pg.evaluate((cs) => {
+    localStorage.setItem('jsc_painel_local', '1');
+    return cs.map((c) => {
+      try {
+        return parsePastedTable(c.texto).map((x) => ({
+          equipa: x.equipa, j: x.j, v: x.v, e: x.e, d: x.d, gm: x.gm, gs: x.gs, pts: x.pts,
+        }));
+      } catch (e) { return [{ erro: e.message }]; }
+    });
+  }, casos);
+  await ctx.close();
+  return { lidos, erros };
+}
+
 // Sonda do despacho dos parsers de jogos.
 //
 // O parsePastedJogos() oferece a colagem ao parseZZJogos() primeiro, e este
@@ -5665,6 +5697,102 @@ async function testarAdminHistoria(browser, url) {
         'antes=' + c.antes.seg + ' depois=' + c.depois.seg);
       verificar('página inicial: sem erros de JavaScript na contagem',
         c.erros.length === 0, c.erros.join(' / '));
+    }
+
+    // ---- A classificação colada: o caso AABV ------------------------
+    console.log('\na classificação colada: 12 equipas, e a AABV é uma delas');
+    {
+      const fonteCls = fs.readFileSync(path.join(raiz, 'admin', 'js', 'admin.js'), 'utf8')
+        .replace(/^\s*\/\/.*$/gm, '');
+      verificar('admin.js: a linha de maiúsculas só é sigla se o nome vier a seguir',
+        /if \(_isNameWord\(seguinte\) && !\/\^\\\[img:\/\.test\(seguinte\)\) continue;/.test(fonteCls));
+      verificar('admin.js: a única parte textual de uma linha pode ser o nome',
+        /const textuais = parts\.filter\(_isNameWordSozinho\);/.test(fonteCls)
+        && /if \(textuais\.length === 1\) nameIdx = parts\.indexOf\(textuais\[0\]\);/.test(fonteCls));
+      verificar('admin.js: a posição retira-se pelo conteúdo, não pelo contador de linhas',
+        /const coerente = \(x\) => x\.length >= 7 && Math\.abs\(x\[0\] - \(x\[1\] \+ x\[2\] \+ x\[3\]\)\) <= 2;/.test(fonteCls)
+        && /if \(coerente\(semPosicao\) && !coerente\(seq\)\) seq = semPosicao;/.test(fonteCls));
+
+      // A tabela real da Liga 1 do Algarve: posição, nome, J, V, E, D, GM, GS,
+      // DG e Pts, separados por tabulação — a forma que o Nélio cola.
+      const TABELA = [
+        [1,  'Portimonense B',       11, 8, 2, 1, 30,  8],
+        [2,  'Imortal DC',           11, 8, 1, 2, 28, 10],
+        [3,  'Louletano',            11, 7, 2, 2, 25, 12],
+        [4,  'Quarteirense',         11, 6, 3, 2, 22, 13],
+        [5,  'Farense B',            11, 6, 1, 4, 20, 15],
+        [6,  'Silves',               11, 5, 2, 4, 18, 16],
+        [7,  'AABV',                 11, 4, 3, 4, 16, 17],
+        [8,  'AEF Faro',             11, 4, 1, 6, 14, 20],
+        [9,  'Ginásio de Tavira',    11, 3, 2, 6, 12, 22],
+        [10, 'Montenegro',           11, 2, 3, 6, 10, 24],
+        [11, 'Ferreiras',            11, 2, 1, 8,  8, 26],
+        [12, 'Juventude Campinense', 11, 1, 1, 9,  6, 30],
+      ];
+      const PTS = (r) => r[3] * 3 + r[4];
+      const tabela = TABELA.map((r) =>
+        [r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[6] - r[7], PTS(r)].join('\t')).join('\n') + '\n';
+
+      const cl = await testarClassificacaoColada(browser, srv.url, [
+        { texto: tabela },
+        // Controlo: aqui as maiúsculas SÃO a sigla da coluna, ao lado do nome.
+        { texto: '1\tOLH\tOlhanense\t11\t8\t2\t1\t30\t8\t22\t26\n'
+               + '2\tFAR\tFarense B\t11\t7\t2\t2\t25\t12\t13\t23\n' },
+        // Controlo: a sigla em linha própria, seguida do nome.
+        { texto: '1\nOLH\nOlhanense\t11\t8\t2\t1\t30\t8\t22\t26\n' },
+        // Controlo: sem posição, e o primeiro número é um J pequeno legítimo.
+        { texto: 'TESTE JOVEM\t3\t1\t1\t1\t5\t4\t1\t4\n' },
+        // Controlo: cabeçalho "Pts primeiro" continua a ser respeitado.
+        { texto: 'P\tJ\tV\tE\tD\tGM\tGS\tDG\n'
+               + 'Portimonense B\t26\t11\t8\t2\t1\t30\t8\t22\n'
+               + 'Imortal DC\t23\t11\t7\t2\t2\t25\t12\t13\n' },
+      ]);
+      const [doze, siglaAoLado, siglaEmLinha, jPequeno, ptsPrimeiro] = cl.lidos;
+
+      verificar('a tabela real dá 12 equipas',
+        doze.length === 12, 'deu ' + doze.length
+        + ' · faltam ' + JSON.stringify(TABELA.map((t) => t[1]).filter((n) => !doze.some((x) => x.equipa === n))));
+      verificar('a 7.ª equipa é a AABV',
+        (doze[6] || {}).equipa === 'AABV', 'veio ' + JSON.stringify((doze[6] || {}).equipa));
+      verificar('J = V + E + D em todas as 12',
+        doze.length === 12 && doze.every((x) => x.j === x.v + x.e + x.d),
+        JSON.stringify(doze.filter((x) => x.j !== x.v + x.e + x.d)));
+      verificar('nenhuma equipa recebe a sua posição como pontos',
+        doze.every((x) => {
+          const origem = TABELA.find((t) => t[1] === x.equipa);
+          return !origem || x.pts !== origem[0] || x.pts === PTS(origem);
+        }),
+        JSON.stringify(doze.filter((x) => {
+          const origem = TABELA.find((t) => t[1] === x.equipa);
+          return origem && x.pts === origem[0] && x.pts !== PTS(origem);
+        }).map((x) => x.equipa + ' Pts=' + x.pts)));
+      verificar('e as cinco do fim têm os pontos certos, não 8, 9, 10, 11 e 12',
+        ['AEF Faro', 'Ginásio de Tavira', 'Montenegro', 'Ferreiras', 'Juventude Campinense']
+          .every((nome) => {
+            const x = doze.find((y) => y.equipa === nome);
+            const origem = TABELA.find((t) => t[1] === nome);
+            return x && x.pts === PTS(origem);
+          }),
+        JSON.stringify(doze.slice(7).map((x) => x.equipa + '=' + x.pts)));
+
+      verificar('controlo: a sigla ao lado do nome não entra no nome',
+        siglaAoLado.length === 2 && siglaAoLado[0].equipa === 'Olhanense'
+        && siglaAoLado[1].equipa === 'Farense B' && siglaAoLado[0].pts === 26,
+        JSON.stringify(siglaAoLado));
+      verificar('controlo: a sigla em linha própria, seguida do nome, continua a ser saltada',
+        siglaEmLinha.length === 1 && siglaEmLinha[0].equipa === 'Olhanense',
+        JSON.stringify(siglaEmLinha));
+      verificar('controlo: um primeiro número pequeno e legítimo não é retirado',
+        jPequeno.length === 1 && jPequeno[0].j === 3 && jPequeno[0].v === 1
+        && jPequeno[0].e === 1 && jPequeno[0].d === 1 && jPequeno[0].pts === 4,
+        JSON.stringify(jPequeno));
+      verificar('controlo: o cabeçalho "Pts primeiro" continua a ser respeitado',
+        ptsPrimeiro.length === 2 && ptsPrimeiro[0].pts === 26 && ptsPrimeiro[0].j === 11
+        && ptsPrimeiro[1].pts === 23 && ptsPrimeiro[1].j === 11,
+        JSON.stringify(ptsPrimeiro));
+
+      verificar('painel: sem erros de JavaScript nas colagens de classificação',
+        cl.erros.length === 0, cl.erros.join(' | '));
     }
 
     // ---- O despacho dos parsers de jogos ----------------------------

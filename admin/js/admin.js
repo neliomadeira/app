@@ -3234,7 +3234,25 @@ window.fecharColarClass = function() {
 function _makeClassRow(nome, nums, rowCount, ptsFirst) {
   // Strip optional leading position number (1, 2, 3…) if sequential
   let seq = nums;
-  if (seq.length >= 8 && seq[0] === rowCount + 1) seq = seq.slice(1);
+  if (seq.length >= 8 && seq[0] === rowCount + 1) {
+    seq = seq.slice(1);
+  } else if (!ptsFirst && seq.length >= 8 && seq[0] >= 1 && seq[0] <= 30) {
+    // A posição só era retirada quando coincidia com "as linhas aceites até
+    // agora + 1". Perdida uma linha — a AABV —, a seguinte trazia a posição 8
+    // com o contador em 6, a posição ficava na sequência, a leitura J-primeiro
+    // falhava a sanidade e o recurso "Pts primeiro" lia a POSIÇÃO como pontos.
+    // Medido: AEF Faro com 8 pontos, Ginásio de Tavira com 9, Montenegro com
+    // 10, Ferreiras com 11 — as posições de cada uma.
+    //
+    // Agora decide-se pelo próprio conteúdo: retira-se o primeiro número
+    // quando a leitura SEM ele é coerente (J = V+E+D) e a leitura COM ele não
+    // é. Se as duas forem plausíveis, não se mexe — sem heurística a decidir
+    // por nós. E não se aplica quando o cabeçalho disse "Pts primeiro", onde o
+    // primeiro número é mesmo os pontos.
+    const coerente = (x) => x.length >= 7 && Math.abs(x[0] - (x[1] + x[2] + x[3])) <= 2;
+    const semPosicao = seq.slice(1);
+    if (coerente(semPosicao) && !coerente(seq)) seq = semPosicao;
+  }
   if (seq.length < 7) return null;
   let j, v, e, d, gm, gs, pts;
   if (ptsFirst) {
@@ -3284,6 +3302,26 @@ function _isNameWord(p) {
   return p.replace(/[^a-zA-ZÀ-ž\s\-]/g, '').trim().length > 1;
 }
 
+// O mesmo, mas sem recusar duas a quatro maiúsculas.
+//
+// O _isNameWord() recusa-as porque na forma em bloco a sigla da coluna vem ao
+// lado do nome — "OLH  Olhanense" — e sem essa recusa o nome sairia "OLH
+// Olhanense". Mas há clubes cujo nome É quatro maiúsculas: a AABV, 7.ª da Liga
+// 1 do Algarve, desaparecia da colagem. Medido: a pré-visualização dizia 11
+// equipas em 12, e a partir daí os pontos de todas as seguintes passavam a ser
+// a POSIÇÃO delas, porque a posição deixava de ser retirada da sequência.
+//
+// Este ajudante usa-se só onde o contexto já provou que não há outro candidato
+// a nome: numa linha tabular sem nenhuma palavra de nome, ou numa linha
+// isolada de maiúsculas que não é seguida por um nome.
+function _isNameWordSozinho(p) {
+  if (!p) return false;
+  if (/^[-+]?\d+$/.test(p)) return false;
+  if (/^[\u{1F1E0}-\u{1F1FF}]{2}/u.test(p)) return false;
+  if (/^\[img:/.test(p)) return false;
+  return p.replace(/[^a-zA-ZÀ-ž0-9\s\-\.]/g, '').trim().length > 1;
+}
+
 function parsePastedTable(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   const rows  = [];
@@ -3305,7 +3343,8 @@ function parsePastedTable(text) {
   let pendingPos  = null; // position number seen alone on its own line
   let pendingLogo = '';   // [img:...] seen alone on its own line
   let pendingName = '';   // team name seen alone on its own line
-  for (const line of lines) {
+  for (let iLinha = 0; iLinha < lines.length; iLinha++) {
+    const line = lines[iLinha];
     // Standalone position number (1–30) → hold for the next team line
     if (/^\d{1,2}$/.test(line) && parseInt(line) <= 30) {
       pendingPos = parseInt(line); pendingName = ''; continue;
@@ -3315,7 +3354,16 @@ function parsePastedTable(text) {
       pendingLogo = line.slice(5, -1); continue;
     }
     // Standalone team abbreviation (SLB, SCP...) → ignore, keep pendings
-    if (/^[A-ZÁÉÍÓÚ]{2,4}$/.test(line)) continue;
+    //
+    // Só é sigla se o contexto o provar: a seguir tem de vir o nome, numa
+    // linha de texto. Sem essa prova, estas maiúsculas são o próprio nome —
+    // é o caso da AABV — e saltá-las fazia desaparecer a equipa.
+    if (/^[A-ZÁÉÍÓÚ]{2,4}$/.test(line)) {
+      const seguinte = lines[iLinha + 1] || '';
+      if (_isNameWord(seguinte) && !/^\[img:/.test(seguinte)) continue;
+      if (pendingPos !== null && !pendingName) pendingName = line;
+      continue;
+    }
 
     let parts = line.includes('\t')
       ? line.split('\t').map(p => p.trim())
@@ -3340,7 +3388,14 @@ function parsePastedTable(text) {
       return true;
     });
 
-    const nameIdx = parts.findIndex(_isNameWord);
+    let nameIdx = parts.findIndex(_isNameWord);
+    // Nenhuma palavra de nome, mas uma única parte textual na linha? Então é
+    // ela o nome: é assim que a AABV entra, sem tocar nas linhas onde a sigla
+    // vem ao lado do nome, que têm duas partes textuais e já encontram nome.
+    if (nameIdx < 0 && !pendingName) {
+      const textuais = parts.filter(_isNameWordSozinho);
+      if (textuais.length === 1) nameIdx = parts.indexOf(textuais[0]);
+    }
     let name, endIdx;
     if (nameIdx < 0) {
       // Stats-only line: use the name collected from previous lines (ZeroZero block layout)
@@ -3410,6 +3465,12 @@ function parsePastedTable(text) {
     if (i < lines.length && /^\[img:https?:\/\//.test(lines[i])) {
       logoUrl3 = lines[i].slice(5, -1); i++;
     }
+    // TODO: a mesma armadilha da sigla que se corrigiu na Estratégia 1 continua
+    // aqui, e esta estratégia tem ainda a sua própria exigência de posições
+    // sequenciais (lines[i] === rows.length + 1), pelo que uma linha perdida
+    // dessincroniza o resto. Medido: a tabela de 12 equipas colada um valor por
+    // linha dá 6 equipas, perdendo tudo a partir da AABV. Fica para bloco
+    // próprio, por decisão do Nélio: a forma tabular é a que ele usa.
     if (i < lines.length && /^[A-ZÁÉÍÓÚ]{2,4}$/.test(lines[i])) i++;
     // Collect name tokens (non-numeric, non-[img] lines)
     const nameTokens = [];
