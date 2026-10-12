@@ -95,6 +95,29 @@ function jogoLogo(url, nome) {
     : '';
 }
 
+// O local do jogo, no rodapé do cartão. Só se mostra se for um local.
+//
+// As duas condições de sempre: menos de três caracteres não é um recinto, e uma
+// sigla de duas a quatro maiúsculas é um código, não um nome. A terceira é
+// nova: quando o local é o nome de uma das equipas do jogo, o cartão mostrava o
+// nome duas vezes — "Silves … Silves", "Portimonense B … Portimonense B" —, com
+// o nome a vir do jogoEquipasHtml() e o local a repeti-lo logo abaixo. Vem do
+// parseMultiLineJogos(), que toma a linha seguinte à equipa visitante como
+// recinto quando não consegue provar que ela é do jogo seguinte, e numa
+// listagem do ZeroZero ou do AF Algarve essa linha é muitas vezes uma equipa.
+//
+// A comparação é de igualdade, sobre o texto aparado e sem olhar a maiúsculas.
+// Nada de contenção: um "Estádio Municipal de Silves" num jogo contra o Silves
+// é um local a sério e continua a aparecer. Isto é só apresentação — o campo
+// local fica no db_jogos tal como está, e o parser não é tocado.
+function jogoLocalHtml(j) {
+  const local = (j.local || '').trim();
+  if (local.length <= 2 || /^[A-Z]{2,4}$/.test(local)) return '';
+  const igual = (outro) => (outro || '').trim().toLowerCase() === local.toLowerCase();
+  if (igual(j.casa) || igual(j.fora)) return '';
+  return `<div class="jogo-meta">${jscEsc(local)}</div>`;
+}
+
 function scClass(name) {
   return isSC(name) ? ' jogo-equipa--sc' : '';
 }
@@ -261,7 +284,7 @@ function renderJogos(escalao) {
           <div class="jogo-divider"></div>
           <div class="jogo-info">
             ${jogoEquipasHtml(j)}
-            ${j.local && j.local.length > 2 && !/^[A-Z]{2,4}$/.test(j.local) ? `<div class="jogo-meta">${jscEsc(j.local)}</div>` : ''}
+            ${jogoLocalHtml(j)}
           </div>
           <div class="jogo-resultado">
             <div class="resultado-placar">${jscEsc(j.gcasa)}–${jscEsc(j.gfora)}</div>
@@ -294,7 +317,7 @@ function renderJogos(escalao) {
           <div class="jogo-divider"></div>
           <div class="jogo-info">
             ${jogoEquipasHtml(j)}
-            ${j.local && j.local.length > 2 && !/^[A-Z]{2,4}$/.test(j.local) ? `<div class="jogo-meta">${jscEsc(j.local)}</div>` : ''}
+            ${jogoLocalHtml(j)}
           </div>
           <div class="jogo-agendado">
             <div class="jogo-hora">${jscEsc(j.hora)}</div>

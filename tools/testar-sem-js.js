@@ -2216,6 +2216,49 @@ async function testarContagemDecrescente(browser, url) {
   return { antes, depois, erros };
 }
 
+// Sonda do local no cartão de jogo.
+//
+// Cada cartão mostrava o nome da equipa duas vezes — "Silves … Silves",
+// "Portimonense B … Portimonense B" —, uma do jogoEquipasHtml() e outra do
+// .jogo-meta, que mostra o j.local. O local vinha com o nome de uma equipa do
+// parseMultiLineJogos(), que toma a linha seguinte à equipa visitante como
+// recinto quando não consegue provar que ela é do jogo seguinte. Medido com um
+// db_jogos em que casa e fora são sempre diferentes: a repetição era toda do
+// local. A correcção é de apresentação — o jogoLocalHtml() não desenha o local
+// quando ele é igual a uma das equipas — e o parser e os dados ficam como estão.
+async function testarLocalDosJogos(browser, url, jogos) {
+  const ctx = await browser.newContext({
+    javaScriptEnabled: true,
+    extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+  });
+  await ctx.addInitScript((d) => {
+    try {
+      if (sessionStorage.getItem('jsc_semeado_local')) return;
+      sessionStorage.setItem('jsc_semeado_local', '1');
+      localStorage.setItem('jsc_painel_local', '1');
+      localStorage.setItem('db_jogos', JSON.stringify(d));
+    } catch (_) {}
+  }, jogos);
+  const pg = await ctx.newPage();
+  const erros = [];
+  pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+  await pg.goto(url + '/resultados.html', { waitUntil: 'load', timeout: 20000 });
+  await pg.waitForTimeout(700);
+  const d = await pg.evaluate(() => {
+    const ler = (id) => Array.from(document.querySelectorAll('#' + id + ' .jogo-item')).map((it) => {
+      const meta = it.querySelector('.jogo-meta');
+      return {
+        equipas: Array.from(it.querySelectorAll('.jogo-equipa')).map((e) => e.textContent.trim()),
+        meta: meta ? meta.textContent.trim() : null,
+        texto: it.textContent.replace(/\s+/g, ' ').trim(),
+      };
+    });
+    return { prox: ler('proximosJogos'), ultimos: ler('resultadosJogos') };
+  });
+  await ctx.close();
+  return { ...d, erros };
+}
+
 // Sonda das sugestões dos campos do editor e da colagem.
 //
 // O campo Forma tinha placeholder="VVEDV" — uma sequência de forma válida. Um
@@ -5587,6 +5630,76 @@ async function testarAdminHistoria(browser, url) {
         'antes=' + c.antes.seg + ' depois=' + c.depois.seg);
       verificar('página inicial: sem erros de JavaScript na contagem',
         c.erros.length === 0, c.erros.join(' / '));
+    }
+
+    // ---- O local no cartão de jogo ----------------------------------
+    console.log('\nos cartões de jogo: o local não repete o nome da equipa');
+    {
+      const fonteLocal = fs.readFileSync(path.join(raiz, 'js', 'resultados.js'), 'utf8')
+        .replace(/^\s*\/\/.*$/gm, '');
+      verificar('resultados.js: o local passa por um ajudante só dele',
+        (fonteLocal.match(/\$\{jogoLocalHtml\(j\)\}/g) || []).length === 2
+        && /function jogoLocalHtml\(j\) \{/.test(fonteLocal));
+      verificar('resultados.js: as duas validações de sempre continuam lá',
+        /local\.length <= 2 \|\| \/\^\[A-Z\]\{2,4\}\$\/\.test\(local\)/.test(fonteLocal));
+      verificar('resultados.js: compara por igualdade, não por contenção',
+        /=== local\.toLowerCase\(\)/.test(fonteLocal)
+        && !/local\.indexOf|includes\(local\)|local\.includes/.test(fonteLocal));
+
+      const JOGOS = [
+        // 1. local igual à equipa visitante, num jogo do clube.
+        { id: 1, escalao: 'Sub-17', data: '2099-03-01', hora: '15:00', casa: 'Sport Campinense',
+          fora: 'TESTE SILVES', estado: 'Agendado', local: 'TESTE SILVES' },
+        // 2. local igual à equipa da casa, entre terceiros.
+        { id: 2, escalao: 'Sub-17', data: '2099-03-02', hora: '16:00', casa: 'TESTE PORTIMONENSE B',
+          fora: 'TESTE GUIA FC', estado: 'Agendado', local: 'TESTE PORTIMONENSE B' },
+        // 3. local a sério.
+        { id: 3, escalao: 'Sub-17', data: '2099-03-03', hora: '17:00', casa: 'Sport Campinense',
+          fora: 'TESTE OLHANENSE', estado: 'Agendado', local: 'Estádio Municipal de Loulé' },
+        // 4. local que CONTÉM o nome da equipa: é um recinto, e fica.
+        { id: 4, escalao: 'Sub-17', data: '2099-03-04', hora: '18:00', casa: 'Sport Campinense',
+          fora: 'TESTE SILVES', estado: 'Agendado', local: 'Estádio Municipal de TESTE SILVES' },
+        // 5 e 6. o mesmo nos Últimos Resultados.
+        { id: 5, escalao: 'Sub-17', data: '2020-02-01', hora: '15:00', casa: 'Sport Campinense',
+          fora: 'TESTE SILVES', estado: 'Realizado', gcasa: 2, gfora: 1, local: 'TESTE SILVES' },
+        { id: 6, escalao: 'Sub-17', data: '2020-02-02', hora: '16:00', casa: 'TESTE PORTIMONENSE B',
+          fora: 'TESTE GUIA FC', estado: 'Realizado', gcasa: 1, gfora: 1, local: 'Estádio da Mata' },
+      ];
+
+      const lj = await testarLocalDosJogos(browser, srv.url, JOGOS);
+      const metas = (lista) => lista.map((l) => l.meta);
+      const repetidos = (lista) => lista.filter((l) => l.meta
+        && l.equipas.some((e) => e.trim().toLowerCase() === l.meta.trim().toLowerCase()));
+
+      verificar('medição válida: quatro próximos e dois resultados desenhados',
+        lj.prox.length === 4 && lj.ultimos.length === 2,
+        JSON.stringify([lj.prox.length, lj.ultimos.length]));
+
+      verificar('local igual à equipa visitante: o local não aparece',
+        lj.prox[0].meta === null, JSON.stringify(lj.prox[0]));
+      verificar('local igual à equipa da casa: o local não aparece',
+        lj.prox[1].meta === null, JSON.stringify(lj.prox[1]));
+      verificar('local a sério: continua visível',
+        lj.prox[2].meta === 'Estádio Municipal de Loulé', JSON.stringify(lj.prox[2].meta));
+      verificar('local que contém o nome da equipa: é um recinto, e continua visível',
+        lj.prox[3].meta === 'Estádio Municipal de TESTE SILVES', JSON.stringify(lj.prox[3].meta));
+
+      verificar('Próximos Jogos: nenhum cartão repete o nome da equipa',
+        repetidos(lj.prox).length === 0, JSON.stringify(repetidos(lj.prox).map((l) => l.texto)));
+      verificar('Últimos Resultados: igual — o repetido sai, o recinto fica',
+        lj.ultimos.length === 2 && repetidos(lj.ultimos).length === 0
+        && metas(lj.ultimos).indexOf('Estádio da Mata') !== -1,
+        JSON.stringify(lj.ultimos.map((l) => l.texto)));
+
+      verificar('e os nomes das equipas continuam todos visíveis',
+        lj.prox[0].texto.indexOf('TESTE SILVES') !== -1
+        && lj.prox[1].texto.indexOf('TESTE PORTIMONENSE B') !== -1
+        && lj.prox[1].texto.indexOf('TESTE GUIA FC') !== -1
+        && lj.ultimos.some((l) => l.texto.indexOf('TESTE SILVES') !== -1),
+        JSON.stringify(lj.prox.map((l) => l.texto)));
+
+      verificar('resultados.html: sem erros de JavaScript',
+        lj.erros.length === 0, lj.erros.join(' | '));
     }
 
     // ---- As sugestões dos campos: vazio tem de parecer vazio --------
