@@ -2580,8 +2580,15 @@ async function testarApagarClassBase(browser, url, cenarios) {
         cabecalhoAntes: cabecalho(),
         antes: fotografia(),
       };
-      if (!r.nBotoes) return r;
+      // Sem botão não há clique, e os campos do "depois" ficam explícitos em
+      // vez de ausentes: uma asserção que leia depois[...] falha em vez de
+      // lançar, e nenhuma passa por o clique nunca ter acontecido. Medido na
+      // verificação negativa: a bateria morria com um TypeError, e o teste do
+      // cabeçalho passava porque !/11 eq./.test(undefined) é verdadeiro.
+      r.clicou = false;
+      if (!r.nBotoes) { r.depois = null; r.cabecalhoDepois = '(sem clique)'; r.botaoFicou = 0; return r; }
       doEscalao(a.escalao)[0].click();
+      r.clicou = true;
       r.depois = fotografia();
       r.cabecalhoDepois = cabecalho();
       r.botaoFicou = doEscalao(a.escalao).length;
@@ -6400,7 +6407,10 @@ async function testarAdminHistoria(browser, url) {
         ac['sem-base'].nBotoes === 0 && ac.confirmar.nBotoesOutro === 0,
         'sem-base: ' + ac['sem-base'].nBotoes + ' · Sub-17: ' + ac.confirmar.nBotoesOutro);
       verificar('o cabeçalho mostrava a contagem antiga e deixa de a mostrar',
-        /11 eq\./.test(ac.confirmar.cabecalhoAntes) && !/11 eq\./.test(ac.confirmar.cabecalhoDepois),
+        ac.confirmar.clicou === true
+        && /11 eq\./.test(ac.confirmar.cabecalhoAntes)
+        && /Sub-15/.test(ac.confirmar.cabecalhoDepois)
+        && !/11 eq\./.test(ac.confirmar.cabecalhoDepois),
         ac.confirmar.cabecalhoAntes + ' -> ' + ac.confirmar.cabecalhoDepois);
       verificar('pede confirmação, e diz o que não é afetado',
         /Apagar a classificação de Sub-15 \(11 equipas\)/.test(ac.confirmar.dialogos[0] || '')
@@ -6408,24 +6418,30 @@ async function testarAdminHistoria(browser, url) {
         && /Os jogos NÃO são afetados/.test(ac.confirmar.dialogos[0] || ''),
         JSON.stringify((ac.confirmar.dialogos[0] || '').slice(0, 200)));
       verificar('cancelar não altera nada',
-        JSON.stringify(ac.cancelar.antes) === JSON.stringify(ac.cancelar.depois),
+        ac.cancelar.clicou === true
+        && JSON.stringify(ac.cancelar.antes) === JSON.stringify(ac.cancelar.depois),
         JSON.stringify(ac.cancelar.antes) + ' vs ' + JSON.stringify(ac.cancelar.depois));
       verificar('confirmar deixa a classificação do escalão com zero linhas',
-        ac.confirmar.antes['fpf_class_Sub-15'] === 11 && ac.confirmar.depois['fpf_class_Sub-15'] === 0,
-        'antes ' + ac.confirmar.antes['fpf_class_Sub-15'] + ' · depois ' + ac.confirmar.depois['fpf_class_Sub-15']);
+        ac.confirmar.clicou === true
+        && ac.confirmar.antes['fpf_class_Sub-15'] === 11
+        && (ac.confirmar.depois || {})['fpf_class_Sub-15'] === 0,
+        'antes ' + ac.confirmar.antes['fpf_class_Sub-15'] + ' · depois ' + JSON.stringify((ac.confirmar.depois || {})['fpf_class_Sub-15']));
       verificar('confirmar não toca na série, no outro escalão, nos jogos nem no db_jogos',
-        ac.confirmar.depois['fpf_class_Sub-15__' + SERIE] === 12
-        && ac.confirmar.depois['fpf_class_Sub-17__' + S17] === 12
-        && ac.confirmar.depois['fpf_jogos_Sub-15'] === 1
-        && ac.confirmar.depois['db_jogos'] === 1,
+        ac.confirmar.clicou === true
+        && (ac.confirmar.depois || {})['fpf_class_Sub-15__' + SERIE] === 12
+        && (ac.confirmar.depois || {})['fpf_class_Sub-17__' + S17] === 12
+        && (ac.confirmar.depois || {})['fpf_jogos_Sub-15'] === 1
+        && (ac.confirmar.depois || {})['db_jogos'] === 1,
         JSON.stringify(ac.confirmar.depois));
       verificar('confirmar mantém o teams e a série no fpf_sync_config',
-        /LIga_1_Algarve_Futeb/.test(ac.confirmar.depois['fpf_sync_config'] || '')
-        && /"nTeams":12/.test((ac.confirmar.depois['fpf_sync_config'] || '').replace(/\s/g, ''))
-        && !/"nTeams":11/.test((ac.confirmar.depois['fpf_sync_config'] || '').replace(/\s/g, '')),
-        ac.confirmar.depois['fpf_sync_config']);
+        ac.confirmar.clicou === true
+        && /LIga_1_Algarve_Futeb/.test((ac.confirmar.depois || {})['fpf_sync_config'] || '')
+        && /"nTeams":12/.test(((ac.confirmar.depois || {})['fpf_sync_config'] || '').replace(/\s/g, ''))
+        && !/"nTeams":11/.test(((ac.confirmar.depois || {})['fpf_sync_config'] || '').replace(/\s/g, '')),
+        (ac.confirmar.depois || {})['fpf_sync_config']);
       verificar('o botão desaparece depois de apagar',
-        ac.confirmar.botaoFicou === 0, 'botões: ' + ac.confirmar.botaoFicou);
+        ac.confirmar.clicou === true && ac.confirmar.botaoFicou === 0,
+        'clicou: ' + ac.confirmar.clicou + ' · botões: ' + ac.confirmar.botaoFicou);
       verificar('a publicação leva fpf_class_Sub-15 como lista vazia',
         !!ac.confirmar.payloadClassData
         && Array.isArray(ac.confirmar.payloadClassData['fpf_class_Sub-15'])
