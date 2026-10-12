@@ -3669,10 +3669,58 @@ function parsePastedJogos(text) {
   return _attachJogoLogos(parseSingleLineJogos(raw, next));
 }
 
+// Cabeçalhos e rodapés que aparecem no meio de uma lista de jogos colada.
+const JSC_CABECALHO_LISTA = /^(jornada|jorn\.|classificação|classificacao|calendário|calendario|resultados|época|epoca|competição|competicao|fase|série|serie|grupo)\b/i;
+// Palavras por que um recinto começa. Serve só onde não há estrutura para
+// validar — no último jogo da colagem —, e nunca para recusar no meio da lista.
+const JSC_PALAVRA_RECINTO = /^(estádio|estadio|campo|complexo|parque|pavilhão|pavilhao|polidesportivo|centro|zona|municipal|relvado|sintético|sintetico)\b/i;
+
+// O local de um jogo só se grava com evidência de que a linha é um recinto.
+//
+// O parseMultiLineJogos() tomava lines[d+3] sempre que não conseguia provar que
+// essa linha pertencia ao jogo seguinte. Medido, gravava três classes de lixo:
+// o nome da equipa do próprio jogo (o "Silves … Silves" que se via nos
+// cartões), um cabeçalho de jornada ou um rodapé, e — a pior — o nome da equipa
+// do jogo SEGUINTE, que não é uma repetição visível, é o nome de outro clube
+// atribuído a este jogo.
+//
+// Em caso de dúvida fica vazio: a página não mostra nada e ninguém é induzido
+// em erro. O campo local do db_jogos e o parser dos jogos ficam como estão.
+function _localDeJogo(bruto, casa, fora, nomesDeEquipa, ehUltimoDaLista) {
+  const local = (bruto || '').trim();
+  // As rejeições de sempre, agora também aqui e não só na apresentação.
+  if (local.length <= 2) return '';
+  if (/^[A-ZÁÉÍÓÚ]{2,4}$/.test(local)) return '';
+  if (parseDate(local) || parseTime(local) || parseScore(local)) return '';
+  const baixo = local.toLowerCase();
+  // Igual a uma das equipas deste jogo.
+  if (baixo === (casa || '').trim().toLowerCase()) return '';
+  if (baixo === (fora || '').trim().toLowerCase()) return '';
+  // Igual ao nome de qualquer equipa desta colagem — resolve a casa do jogo
+  // seguinte, que entrava quando havia uma linha a mais entre blocos.
+  if (nomesDeEquipa && nomesDeEquipa.has(baixo)) return '';
+  // Cabeçalho ou rodapé da lista.
+  if (JSC_CABECALHO_LISTA.test(local)) return '';
+  // No último jogo não há próxima data para provar que a linha sobra deste
+  // bloco: aí exige-se que pareça um recinto. No meio da lista a estrutura já
+  // prova, e mantém-se permissivo — um recinto com nome fora desta lista de
+  // palavras continua a entrar.
+  if (ehUltimoDaLista && !JSC_PALAVRA_RECINTO.test(local)) return '';
+  return local;
+}
+
 function parseMultiLineJogos(lines, next) {
   const jogos = [];
   const dateIdxs = [];
   for (let i=0;i<lines.length;i++) { if(parseDate(lines[i])&&/^\d{1,2}[\s\/\-]/.test(lines[i])) dateIdxs.push(i); }
+  // Primeira passagem: todos os nomes de equipa desta colagem. A casa é a linha
+  // antes da data e a visitante a segunda depois.
+  const nomesDeEquipa = new Set();
+  for (const d of dateIdxs) {
+    if (d < 1 || d + 2 >= lines.length) continue;
+    nomesDeEquipa.add(lines[d-1].trim().toLowerCase());
+    nomesDeEquipa.add(lines[d+2].trim().toLowerCase());
+  }
   for (const d of dateIdxs) {
     if(d<1||d+2>=lines.length) continue;
     const home=lines[d-1].trim(), dateStr=parseDate(lines[d]), mid=lines[d+1].trim(), away=lines[d+2].trim(), venueRaw=lines[d+3]||'';
@@ -3680,7 +3728,7 @@ function parseMultiLineJogos(lines, next) {
     if(parseDate(home)||parseDate(away)||parseTime(home)||parseScore(home)) continue;
     const nextDateIdx=dateIdxs.find(i=>i>d);
     const venueIsGame=nextDateIdx!==undefined&&nextDateIdx<=d+4;
-    const local=(!venueIsGame&&venueRaw&&!parseDate(venueRaw)&&!parseTime(venueRaw)&&!parseScore(venueRaw))?venueRaw.trim():'';
+    const local = venueIsGame ? '' : _localDeJogo(venueRaw, home, away, nomesDeEquipa, nextDateIdx === undefined);
     jogos.push({ id:next(),casa:home,fora:away,gcasa:scoreObj?scoreObj.gcasa:null,gfora:scoreObj?scoreObj.gfora:null,data:dateStr,hora:timeObj||'15:00',local,estado:scoreObj?'Realizado':'Agendado' });
   }
   return jogos;

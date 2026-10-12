@@ -5869,6 +5869,82 @@ async function testarAdminHistoria(browser, url) {
         cl.erros.length === 0, cl.erros.join(' | '));
     }
 
+    // ---- O local no parseMultiLineJogos -----------------------------
+    console.log('\no local de um jogo só se grava com evidência de recinto');
+    {
+      const fonteLoc = fs.readFileSync(path.join(raiz, 'admin', 'js', 'admin.js'), 'utf8')
+        .replace(/^\s*\/\/.*$/gm, '');
+      verificar('admin.js: o local passa por um ajudante com as sete regras',
+        /function _localDeJogo\(bruto, casa, fora, nomesDeEquipa, ehUltimoDaLista\)/.test(fonteLoc)
+        && /const local = venueIsGame \? '' : _localDeJogo\(venueRaw, home, away, nomesDeEquipa, nextDateIdx === undefined\);/.test(fonteLoc));
+      verificar('admin.js: recusa as equipas do jogo e as da colagem',
+        /if \(baixo === \(casa \|\| ''\)\.trim\(\)\.toLowerCase\(\)\) return '';/.test(fonteLoc)
+        && /if \(baixo === \(fora \|\| ''\)\.trim\(\)\.toLowerCase\(\)\) return '';/.test(fonteLoc)
+        && /if \(nomesDeEquipa && nomesDeEquipa\.has\(baixo\)\) return '';/.test(fonteLoc));
+      verificar('admin.js: recusa cabeçalhos e exige palavra de recinto no último jogo',
+        /if \(JSC_CABECALHO_LISTA\.test\(local\)\) return '';/.test(fonteLoc)
+        && /if \(ehUltimoDaLista && !JSC_PALAVRA_RECINTO\.test\(local\)\) return '';/.test(fonteLoc));
+
+      const t = (...l) => l.join('\n') + '\n';
+      const SC = 'Sport Campinense', S = 'TESTE SILVES', G = 'TESTE GUIA FC', O = 'TESTE OLHANENSE';
+      const E1 = 'Estádio Municipal de Silves', E2 = 'Campo Zona Verde', E3 = 'Estádio das Eiras';
+
+      const CASOS = [
+        { nome: 'local igual à equipa da casa fica vazio',
+          texto: t(SC, '12 Out 2025', '15:00', S, SC, G, '19 Out 2025', '11:00', SC),
+          espera: [{ casa: SC, fora: S, local: '' }, { casa: G, fora: SC, local: '' }] },
+        { nome: 'local igual à equipa visitante fica vazio',
+          texto: t(SC, '12 Out 2025', '15:00', S, S, G, '19 Out 2025', '11:00', SC),
+          espera: [{ casa: SC, fora: S, local: '' }, { casa: G, fora: SC, local: '' }] },
+        // Aqui a linha a mais é o nome de uma equipa que a colagem traz noutro
+        // jogo: a estrutura não a distingue de um recinto, o nome é que a
+        // denuncia.
+        { nome: 'local igual a uma equipa de outro jogo fica vazio',
+          texto: t(SC, '12 Out 2025', '15:00', S, G, O, '26 Out 2025', '15:00', G),
+          espera: [{ casa: SC, fora: S, local: '' }, { casa: O, fora: G, local: '' }] },
+        { nome: 'local "Jornada 5" fica vazio',
+          texto: t(SC, '12 Out 2025', '15:00', S, 'Jornada 5', G, '19 Out 2025', '11:00', SC),
+          espera: [{ casa: SC, fora: S, local: '' }, { casa: G, fora: SC, local: '' }] },
+        { nome: 'recintos reais preservados nos três jogos',
+          texto: t(SC, '12 Out 2025', '15:00', S, E1,
+                   G,  '19 Out 2025', '11:00', SC, E2,
+                   SC, '26 Out 2025', '15:00', O, E3),
+          espera: [{ casa: SC, fora: S, local: E1 }, { casa: G, fora: SC, local: E2 },
+                   { casa: SC, fora: O, local: E3 }] },
+        { nome: 'último jogo com recinto real guarda o recinto',
+          texto: t(SC, '12 Out 2025', '15:00', S, E1, G, '19 Out 2025', '11:00', SC, E3),
+          espera: [{ casa: SC, fora: S, local: E1 }, { casa: G, fora: SC, local: E3 }] },
+        { nome: 'último jogo sem recinto não inventa local',
+          texto: t(SC, '12 Out 2025', '15:00', S, E1, G, '19 Out 2025', '11:00', SC),
+          espera: [{ casa: SC, fora: S, local: E1 }, { casa: G, fora: SC, local: '' }] },
+        { nome: 'rodapé no fim da colagem não vira local',
+          texto: t(SC, '12 Out 2025', '15:00', S, E1, G, '19 Out 2025', '11:00', SC, 'Classificação'),
+          espera: [{ casa: SC, fora: S, local: E1 }, { casa: G, fora: SC, local: '' }] },
+      ];
+
+      const lc = await testarColagemDeJogos(browser, srv.url, CASOS);
+      CASOS.forEach((c, i) => {
+        const obtido = lc.lidos[i] || [];
+        const bate = obtido.length === c.espera.length && c.espera.every((e, k) => {
+          const o = obtido[k] || {};
+          return o.casa === e.casa && o.fora === e.fora && (o.local || '') === e.local;
+        });
+        verificar(c.nome, bate,
+          'obtido: ' + JSON.stringify(obtido.map((o) => o.casa + ' vs ' + o.fora + ' | ' + (o.local || '(vazio)')))
+          + ' esperado: ' + JSON.stringify(c.espera.map((e) => e.casa + ' vs ' + e.fora + ' | ' + (e.local || '(vazio)'))));
+      });
+
+      // Guarda: a regra do local não pode mexer nas equipas, datas nem horas.
+      const tres = lc.lidos[4] || [];
+      verificar('guarda: nos três jogos as datas e as horas ficam certas',
+        tres.length === 3
+        && tres[0].hora === '15:00' && tres[1].hora === '11:00' && tres[2].hora === '15:00'
+        && tres.every((j) => j.estado === 'Agendado'),
+        JSON.stringify(tres));
+      verificar('painel: sem erros de JavaScript nas colagens de jogos com recinto',
+        lc.erros.length === 0, lc.erros.join(' | '));
+    }
+
     // ---- O despacho dos parsers de jogos ----------------------------
     console.log('\na colagem de jogos: a casa e a visitante nunca são deslocadas');
     {
