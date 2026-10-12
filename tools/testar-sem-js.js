@@ -2216,6 +2216,41 @@ async function testarContagemDecrescente(browser, url) {
   return { antes, depois, erros };
 }
 
+// Sonda do despacho dos parsers de jogos.
+//
+// O parsePastedJogos() oferece a colagem ao parseZZJogos() primeiro, e este
+// assumia que a data abre o bloco — data, [hora], casa, resultado ou «–», fora
+// — com o passo do resultado opcional. Numa colagem do AF Algarve, que tem a
+// casa ANTES da data (casa, data, hora, fora, recinto), lia a visitante como
+// casa e o RECINTO como visitante, e a equipa da casa desaparecia. Medido em
+// sete formas; o parseMultiLineJogos() lia-as todas bem, incluindo o recinto.
+//
+// Passou a exigir uma de duas provas: resultado ou separador entre as equipas,
+// ou a data a abrir o bloco. Mede-se pelo despacho, que é o que o painel usa.
+async function testarColagemDeJogos(browser, url, casos) {
+  const ctx = await browser.newContext({
+    javaScriptEnabled: true,
+    extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+  });
+  const pg = await ctx.newPage();
+  const erros = [];
+  pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+  await pg.goto(url + '/admin/', { waitUntil: 'networkidle', timeout: 20000 });
+  const lidos = await pg.evaluate((cs) => {
+    localStorage.setItem('jsc_painel_local', '1');
+    return cs.map((c) => {
+      try {
+        return parsePastedJogos(c.texto).map((j) => ({
+          casa: j.casa, fora: j.fora, local: j.local || '', estado: j.estado,
+          gcasa: j.gcasa, gfora: j.gfora, hora: j.hora,
+        }));
+      } catch (e) { return [{ erro: e.message }]; }
+    });
+  }, casos);
+  await ctx.close();
+  return { lidos, erros };
+}
+
 // Sonda do local no cartão de jogo.
 //
 // Cada cartão mostrava o nome da equipa duas vezes — "Silves … Silves",
@@ -5630,6 +5665,106 @@ async function testarAdminHistoria(browser, url) {
         'antes=' + c.antes.seg + ' depois=' + c.depois.seg);
       verificar('página inicial: sem erros de JavaScript na contagem',
         c.erros.length === 0, c.erros.join(' / '));
+    }
+
+    // ---- O despacho dos parsers de jogos ----------------------------
+    console.log('\na colagem de jogos: a casa e a visitante nunca são deslocadas');
+    {
+      const fonteDesp = fs.readFileSync(path.join(raiz, 'admin', 'js', 'admin.js'), 'utf8')
+        .replace(/^\s*\/\/.*$/gm, '');
+      verificar('admin.js: o parseZZJogos exige uma das duas provas',
+        /const abreBloco = !antes \|\| !!parseDate\(antes\) \|\| !!parseTime\(antes\)/.test(fonteDesp)
+        && /if \(!separador && !abreBloco\) continue;/.test(fonteDesp));
+      verificar('admin.js: o resultado e o separador ficam registados como prova',
+        /if \(sc\) \{ score = sc; separador = true; j\+\+; \}/.test(fonteDesp)
+        && /else if \(\/\^\[-–\]\$\/\.test\(lines\[j\]\.trim\(\)\)\) \{ separador = true; j\+\+; \}/.test(fonteDesp));
+
+      const t = (...l) => l.join('\n') + '\n';
+      const SC = 'Sport Campinense', S = 'TESTE SILVES', G = 'TESTE GUIA FC', O = 'TESTE OLHANENSE';
+      const E1 = 'Estádio Municipal de Silves', E2 = 'Campo Zona Verde', E3 = 'Estádio das Eiras';
+      const RECINTOS = [E1, E2, E3];
+      const EQUIPAS = [SC, S, G, O];
+
+      // A matriz medida: sete formas do AF Algarve (casa antes da data) e
+      // quatro do ZeroZero (data a abrir o bloco), que são os controlos.
+      const CASOS = [
+        { nome: 'AF: agendado sem recinto',
+          texto: t(SC, '12 Out 2025', '15:00', S),
+          espera: [{ casa: SC, fora: S, local: '', estado: 'Agendado' }] },
+        { nome: 'AF: agendado com Estádio Municipal',
+          texto: t(SC, '12 Out 2025', '15:00', S, E1),
+          espera: [{ casa: SC, fora: S, local: E1, estado: 'Agendado' }] },
+        { nome: 'AF: agendado com Campo Zona Verde',
+          texto: t(G, '19 Out 2025', '11:00', SC, E2),
+          espera: [{ casa: G, fora: SC, local: E2, estado: 'Agendado' }] },
+        { nome: 'AF: realizado com resultado',
+          texto: t(SC, '12 Out 2025', '2-1', S, E1),
+          espera: [{ casa: SC, fora: S, local: E1, estado: 'Realizado' }] },
+        { nome: 'AF: vários jogos seguidos',
+          texto: t(SC, '12 Out 2025', '15:00', S, E1,
+                   G,  '19 Out 2025', '11:00', SC, E2,
+                   SC, '26 Out 2025', '15:00', O, E3),
+          espera: [{ casa: SC, fora: S, local: E1, estado: 'Agendado' },
+                   { casa: G, fora: SC, local: E2, estado: 'Agendado' },
+                   { casa: SC, fora: O, local: E3, estado: 'Agendado' }] },
+        { nome: 'AF: cabeçalho Jornada entre jogos',
+          texto: t('Jornada 6', SC, '12 Out 2025', '15:00', S, E1,
+                   'Jornada 7', G, '19 Out 2025', '11:00', SC, E2),
+          espera: [{ casa: SC, fora: S, local: E1, estado: 'Agendado' },
+                   { casa: G, fora: SC, local: E2, estado: 'Agendado' }] },
+        { nome: 'AF: último jogo da colagem, sem recinto',
+          texto: t(SC, '12 Out 2025', '15:00', S, E1,
+                   G,  '19 Out 2025', '11:00', SC),
+          espera: [{ casa: SC, fora: S, local: E1, estado: 'Agendado' },
+                   { casa: G, fora: SC, local: '', estado: 'Agendado' }] },
+        // Controlos do ZeroZero: já passavam antes da regra e não podem regredir.
+        { nome: 'ZeroZero: agendado com separador',
+          texto: t('12 Out 2025', '15:00', SC, '–', S),
+          espera: [{ casa: SC, fora: S, estado: 'Agendado' }] },
+        { nome: 'ZeroZero: realizado com resultado',
+          texto: t('12 Out 2025', SC, '2-1', S),
+          espera: [{ casa: SC, fora: S, estado: 'Realizado' }] },
+        { nome: 'ZeroZero: três jogos seguidos',
+          texto: t('12 Out 2025', '15:00', SC, '–', S,
+                   '19 Out 2025', '11:00', G, '–', SC,
+                   '26 Out 2025', '15:00', SC, '–', O),
+          espera: [{ casa: SC, fora: S, estado: 'Agendado' },
+                   { casa: G, fora: SC, estado: 'Agendado' },
+                   { casa: SC, fora: O, estado: 'Agendado' }] },
+        { nome: 'ZeroZero: sem separador, a data abre o bloco',
+          texto: t('12 Out 2025', '15:00', SC, S),
+          espera: [{ casa: SC, fora: S, estado: 'Agendado' }] },
+      ];
+
+      const cj = await testarColagemDeJogos(browser, srv.url, CASOS);
+      const baixo = (x) => (x || '').trim().toLowerCase();
+      const eRecinto = (x) => RECINTOS.some((r) => baixo(r) === baixo(x));
+      const eEquipa = (x) => EQUIPAS.some((e) => baixo(e) === baixo(x));
+      const todos = [];
+
+      CASOS.forEach((c, i) => {
+        const obtido = cj.lidos[i] || [];
+        todos.push(...obtido);
+        const bate = obtido.length === c.espera.length && c.espera.every((e, k) => {
+          const o = obtido[k] || {};
+          return o.casa === e.casa && o.fora === e.fora && o.estado === e.estado
+            && (e.local === undefined || o.local === e.local);
+        });
+        verificar(c.nome, bate,
+          'obtido: ' + JSON.stringify(obtido) + ' esperado: ' + JSON.stringify(c.espera));
+      });
+
+      verificar('medição válida: as onze formas deram jogos',
+        CASOS.every((c, i) => (cj.lidos[i] || []).length > 0),
+        JSON.stringify(CASOS.map((c, i) => c.nome + '=' + (cj.lidos[i] || []).length)));
+      verificar('nenhum recinto virou equipa, em forma nenhuma',
+        todos.every((j) => !eRecinto(j.casa) && !eRecinto(j.fora)),
+        JSON.stringify(todos.filter((j) => eRecinto(j.casa) || eRecinto(j.fora))));
+      verificar('nenhum nome de equipa virou local, em forma nenhuma',
+        todos.every((j) => !eEquipa(j.local)),
+        JSON.stringify(todos.filter((j) => eEquipa(j.local))));
+      verificar('painel: sem erros de JavaScript nas colagens',
+        cj.erros.length === 0, cj.erros.join(' | '));
     }
 
     // ---- O local no cartão de jogo ----------------------------------

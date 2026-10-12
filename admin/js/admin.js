@@ -3484,16 +3484,50 @@ function parseZZJogos(lines, next) {
       casa = lines[j].trim(); j++;
     }
     // score or separator
+    // O resultado ou o separador entre as duas equipas é a primeira das duas
+    // provas de que esta data abre um bloco deste formato. Guarda-se.
+    let separador = false;
     if (j < lines.length) {
       const sc = parseScore(lines[j]);
-      if (sc) { score = sc; j++; }
-      else if (/^[-–]$/.test(lines[j].trim())) j++; // separator
+      if (sc) { score = sc; separador = true; j++; }
+      else if (/^[-–]$/.test(lines[j].trim())) { separador = true; j++; } // separator
     }
     // away team
     if (j < lines.length && !parseDate(lines[j]) && !parseScore(lines[j]) && !parseTime(lines[j]) && !junkRe.test(lines[j])) {
       fora = lines[j].trim(); j++;
     }
     if (!casa || !fora || casa === fora) continue;
+
+    // ---- O bloco é mesmo deste formato? --------------------------------
+    // Este parser assume que a data ABRE o bloco: data, [hora], casa,
+    // resultado ou «–», fora. O despacho oferece-lhe sempre a colagem
+    // primeiro, e o passo do resultado era opcional — bastava a linha
+    // seguinte não ser data, hora nem resultado para ser aceite como equipa.
+    //
+    // Resultado, medido: numa colagem do AF Algarve, que tem a casa ANTES da
+    // data (casa, data, hora, fora, recinto), este parser lia a visitante como
+    // casa e o RECINTO como visitante — "casa=TESTE SILVES,
+    // fora=Estádio Municipal de Silves" — e a equipa da casa desaparecia. Sem
+    // recinto não havia linha para ler e o bloco era recusado, pelo que só as
+    // colagens COM recinto eram roubadas. O parseMultiLineJogos() lê essas
+    // formas corretamente, incluindo o recinto.
+    //
+    // Exige-se agora uma de duas provas, e chega uma:
+    //   1. houve resultado ou separador entre as duas equipas — existe sempre
+    //      numa linha do ZeroZero e nunca na forma do AF Algarve;
+    //   2. a data abre o bloco: não tem nada antes, ou o que tem é data, hora,
+    //      resultado ou um cabeçalho já reconhecido pelo junkRe.
+    //
+    // Medido nas treze formas de colagem da matriz: as seis do ZeroZero
+    // continuam aceites — incluindo a que não tem separador, que a segunda
+    // prova salva — e as sete do AF Algarve passam todas para o
+    // parseMultiLineJogos(). Sem as duas provas, a forma sem separador deixava
+    // de ser reconhecida por ninguém.
+    const antes = i > 0 ? lines[i - 1].trim() : '';
+    const abreBloco = !antes || !!parseDate(antes) || !!parseTime(antes)
+                   || !!parseScore(antes) || junkRe.test(antes);
+    if (!separador && !abreBloco) continue;
+
     jogos.push({ id: next(), casa, fora, gcasa: score?.gcasa ?? null, gfora: score?.gfora ?? null,
       data: d, hora, local: '', estado: score ? 'Realizado' : 'Agendado' });
   }
