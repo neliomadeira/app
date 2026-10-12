@@ -3715,6 +3715,98 @@ function _attachJogoLogos(jogos) {
   return jogos;
 }
 
+// ── (C) e (F): a marca do lado em que o clube joga ───────────────────────
+//
+// O AF Algarve publica o calendário do clube com (C) quando o clube joga em
+// casa e (F) quando joga fora, colado ao nome. Nenhum dos quatro parsers a
+// tratava, e medido na sonda das dez formas o estrago era triplo:
+//   1. a marca ficava no nome — "Silves (F)" nunca bate com a chave do
+//      db_logos e é isso que o visitante lê;
+//   2. com (F) na casa, os lados ficavam trocados: o clube jogava fora e era
+//      gravado como equipa da casa;
+//   3. nos realizados o resultado invertia-se com eles — um 0-2 fora passava a
+//      ler-se como derrota em casa.
+// E quando a fonte escreve só a marca, sem repetir o nome, o campo ficava
+// "(F)" e o nome do clube desaparecia: são os 19 registos de Classe B que
+// medimos nos 22 jogos sem série.
+//
+// A marca diz o lado da equipa do campo onde está: (C) na casa confirma, (F)
+// na casa quer dizer que essa equipa joga fora. Serve para as duas leituras da
+// fonte — a marca no clube e a marca em cada uma das duas equipas — porque em
+// ambas descreve o lado de quem a traz. Duas marcas iguais são contraditórias
+// e não decidem nada: tiram-se e os lados ficam como vieram.
+//
+// Nada se inventa: o nome só se reconstrói onde a marca estava sozinha, e o
+// adversário, a data, a hora e o recinto vêm intactos da colagem.
+const JSC_MARCA_LADO = /\(\s*[CF]\s*\)/ig;
+
+function _nomeDoClube() {
+  try {
+    const d = JSON.parse(localStorage.getItem('dados_clube') || '{}');
+    if (d && typeof d.nome === 'string' && d.nome.trim()) return d.nome.trim();
+  } catch (e) {}
+  return 'Juventude Sport Campinense';
+}
+
+function _semMarcaLado(s) {
+  return String(s == null ? '' : s).replace(JSC_MARCA_LADO, '').replace(/\s{2,}/g, ' ').trim();
+}
+
+function _marcaLadoDe(s) {
+  const m = String(s == null ? '' : s).match(/\(\s*([CF])\s*\)/i);
+  return m ? m[1].toUpperCase() : '';
+}
+
+function _aplicarMarcasCasaFora(jogos) {
+  const clube  = _nomeDoClube();
+  const ehClube = (x) => /campinense/i.test(x || '');
+  const saida = [];
+  for (const j of jogos) {
+    const mCasa = _marcaLadoDe(j.casa), mFora = _marcaLadoDe(j.fora);
+    // A marca pode ter vindo sozinha na linha do recinto, e aí o
+    // _localDeJogo() já a descartou — e bem, porque não é um recinto. O parser
+    // guarda-a neste campo transitório para não se perder o lado, e ele morre
+    // aqui: nunca chega ao db_jogos.
+    const mLocal = _marcaLadoDe(j.local) || j._marcaLocal || '';
+    delete j._marcaLocal;
+    if (!mCasa && !mFora && !mLocal) { saida.push(j); continue; }
+
+    // A marca nunca fica em casa, fora ou local.
+    j.casa  = _semMarcaLado(j.casa);
+    j.fora  = _semMarcaLado(j.fora);
+    j.local = _semMarcaLado(j.local);
+
+    // Campo que era só a marca: a marca diz que a linha é a do clube.
+    if (!j.casa && mCasa) j.casa = clube;
+    if (!j.fora && mFora) j.fora = clube;
+
+    let trocar = false;
+    if (mCasa && mFora) {
+      if (mCasa === 'F' && mFora === 'C') trocar = true;    // os dois concordam: estão trocados
+    } else if (mCasa) {
+      trocar = mCasa === 'F';
+    } else if (mFora) {
+      trocar = mFora === 'C';
+    } else if (mLocal) {
+      // A marca ficou no recinto. Refere-se ao clube, e só decide quando o
+      // clube está identificado por nome num dos dois campos e no outro não.
+      if (ehClube(j.casa) && !ehClube(j.fora))      trocar = mLocal === 'F';
+      else if (ehClube(j.fora) && !ehClube(j.casa)) trocar = mLocal === 'C';
+    }
+
+    if (trocar) {
+      const c = j.casa; j.casa = j.fora; j.fora = c;
+      if (j.estado === 'Realizado') { const g = j.gcasa; j.gcasa = j.gfora; j.gfora = g; }
+    }
+
+    // Sem os dois nomes não há jogo: acontece quando os dois campos eram só a
+    // marca, e aí não há nada por onde reconstruir o adversário.
+    if (!j.casa || !j.fora || j.casa.toLowerCase() === j.fora.toLowerCase()) continue;
+    saida.push(j);
+  }
+  return saida;
+}
+
 function parsePastedJogos(text) {
   // Substituir tokens [img:...] pelos nomes das equipas (via classificação importada)
   text = _resolveImgTeamTokens(text);
@@ -3725,11 +3817,11 @@ function parsePastedJogos(text) {
   const dateFirstLines = raw.filter((l,i) => parseDate(l) && !parseScore(l) && /^\d{1,2}/.test(l) && i+1<raw.length && !parseDate(raw[i+1]) && !parseScore(raw[i+1]));
   if (dateFirstLines.length > 0) {
     const zzResult = parseZZJogos(raw, next);
-    if (zzResult.length > 0) return _attachJogoLogos(zzResult);
+    if (zzResult.length > 0) return _attachJogoLogos(_aplicarMarcasCasaFora(zzResult));
   }
   const dateOnlyLines = raw.filter(l=>/^\d{1,2}\s+[A-Za-zÀ-ž]{3,}(\s+\d{4})?$/.test(l)&&parseDate(l));
-  if (dateOnlyLines.length > 0) return _attachJogoLogos(parseMultiLineJogos(raw, next));
-  return _attachJogoLogos(parseSingleLineJogos(raw, next));
+  if (dateOnlyLines.length > 0) return _attachJogoLogos(_aplicarMarcasCasaFora(parseMultiLineJogos(raw, next)));
+  return _attachJogoLogos(_aplicarMarcasCasaFora(parseSingleLineJogos(raw, next)));
 }
 
 // Cabeçalhos e rodapés que aparecem no meio de uma lista de jogos colada.
@@ -3755,10 +3847,14 @@ function _localDeJogo(bruto, casa, fora, nomesDeEquipa, ehUltimoDaLista) {
   if (local.length <= 2) return '';
   if (/^[A-ZÁÉÍÓÚ]{2,4}$/.test(local)) return '';
   if (parseDate(local) || parseTime(local) || parseScore(local)) return '';
-  const baixo = local.toLowerCase();
+  // As comparações correm sem a marca do lado: nesta altura os nomes ainda a
+  // trazem, e "Silves" contra "Silves (C)" não batia — o nome da equipa voltava
+  // a entrar como recinto, que é exatamente o que este guarda existe para
+  // impedir. Medido na sonda das marcas.
+  const baixo = _semMarcaLado(local).toLowerCase();
   // Igual a uma das equipas deste jogo.
-  if (baixo === (casa || '').trim().toLowerCase()) return '';
-  if (baixo === (fora || '').trim().toLowerCase()) return '';
+  if (baixo === _semMarcaLado(casa).toLowerCase()) return '';
+  if (baixo === _semMarcaLado(fora).toLowerCase()) return '';
   // Igual ao nome de qualquer equipa desta colagem — resolve a casa do jogo
   // seguinte, que entrava quando havia uma linha a mais entre blocos.
   if (nomesDeEquipa && nomesDeEquipa.has(baixo)) return '';
@@ -3781,8 +3877,13 @@ function parseMultiLineJogos(lines, next) {
   const nomesDeEquipa = new Set();
   for (const d of dateIdxs) {
     if (d < 1 || d + 2 >= lines.length) continue;
+    // Com e sem a marca do lado: o _localDeJogo() compara sem ela, e uma
+    // equipa que venha como "Silves (C)" tem de ser reconhecida quando a linha
+    // do recinto diz só "Silves".
     nomesDeEquipa.add(lines[d-1].trim().toLowerCase());
     nomesDeEquipa.add(lines[d+2].trim().toLowerCase());
+    nomesDeEquipa.add(_semMarcaLado(lines[d-1]).toLowerCase());
+    nomesDeEquipa.add(_semMarcaLado(lines[d+2]).toLowerCase());
   }
   for (const d of dateIdxs) {
     if(d<1||d+2>=lines.length) continue;
@@ -3792,7 +3893,10 @@ function parseMultiLineJogos(lines, next) {
     const nextDateIdx=dateIdxs.find(i=>i>d);
     const venueIsGame=nextDateIdx!==undefined&&nextDateIdx<=d+4;
     const local = venueIsGame ? '' : _localDeJogo(venueRaw, home, away, nomesDeEquipa, nextDateIdx === undefined);
-    jogos.push({ id:next(),casa:home,fora:away,gcasa:scoreObj?scoreObj.gcasa:null,gfora:scoreObj?scoreObj.gfora:null,data:dateStr,hora:timeObj||'15:00',local,estado:scoreObj?'Realizado':'Agendado' });
+    const marcaLocal = _marcaLadoDe(venueRaw);
+    const jogo = { id:next(),casa:home,fora:away,gcasa:scoreObj?scoreObj.gcasa:null,gfora:scoreObj?scoreObj.gfora:null,data:dateStr,hora:timeObj||'15:00',local,estado:scoreObj?'Realizado':'Agendado' };
+    if (marcaLocal) jogo._marcaLocal = marcaLocal;
+    jogos.push(jogo);
   }
   return jogos;
 }

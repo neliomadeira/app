@@ -2327,6 +2327,44 @@ async function testarColagemDeJogos(browser, url, casos) {
   return { lidos, erros };
 }
 
+// Sonda das marcas (C) e (F) na colagem de jogos.
+//
+// O AF Algarve publica o calendário do clube com (C) quando o clube joga em
+// casa e (F) quando joga fora, colado ao nome. Nenhum dos quatro parsers a
+// tratava: a marca ficava no nome — e "Silves (F)" nunca bate com a chave do
+// db_logos —, com (F) na casa os lados ficavam trocados, e nos realizados o
+// resultado invertia-se com eles. Quando a fonte escreve só a marca, o campo
+// ficava "(F)" e o nome do clube desaparecia.
+//
+// Mede-se pelo despacho, que é o que o painel usa, e com o dados_clube semeado
+// para provar de onde vem o nome reconstruído.
+async function testarMarcasCasaFora(browser, url, casos) {
+  const ctx = await browser.newContext({
+    javaScriptEnabled: true,
+    extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+  });
+  const pg = await ctx.newPage();
+  const erros = [];
+  pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+  await pg.goto(url + '/admin/', { waitUntil: 'networkidle', timeout: 20000 });
+  const lidos = await pg.evaluate((cs) => {
+    localStorage.setItem('jsc_painel_local', '1');
+    return cs.map((c) => {
+      if (c.clube === null) localStorage.removeItem('dados_clube');
+      else localStorage.setItem('dados_clube', JSON.stringify({ nome: c.clube || 'Juventude Sport Campinense' }));
+      try {
+        return parsePastedJogos(c.texto).map((j) => ({
+          casa: j.casa, fora: j.fora, local: j.local || '', estado: j.estado,
+          gcasa: j.gcasa, gfora: j.gfora, hora: j.hora, data: j.data,
+          campos: Object.keys(j).sort().join(','),
+        }));
+      } catch (e) { return [{ erro: e.message }]; }
+    });
+  }, casos);
+  await ctx.close();
+  return { lidos, erros };
+}
+
 // Sonda do local no cartão de jogo.
 //
 // Cada cartão mostrava o nome da equipa duas vezes — "Silves … Silves",
@@ -5987,10 +6025,18 @@ async function testarAdminHistoria(browser, url) {
       verificar('admin.js: o local passa por um ajudante com as sete regras',
         /function _localDeJogo\(bruto, casa, fora, nomesDeEquipa, ehUltimoDaLista\)/.test(fonteLoc)
         && /const local = venueIsGame \? '' : _localDeJogo\(venueRaw, home, away, nomesDeEquipa, nextDateIdx === undefined\);/.test(fonteLoc));
-      verificar('admin.js: recusa as equipas do jogo e as da colagem',
-        /if \(baixo === \(casa \|\| ''\)\.trim\(\)\.toLowerCase\(\)\) return '';/.test(fonteLoc)
-        && /if \(baixo === \(fora \|\| ''\)\.trim\(\)\.toLowerCase\(\)\) return '';/.test(fonteLoc)
+      // As três recusas são as mesmas; o que mudou foi compararem-se sem a
+      // marca do lado, porque nesta altura os nomes ainda a trazem e
+      // "Silves" contra "Silves (C)" não batia. A comparação sem marca é
+      // mais forte, não mais fraca, e fica aqui fixada.
+      verificar('admin.js: recusa as equipas do jogo e as da colagem, sem a marca do lado',
+        /const baixo = _semMarcaLado\(local\)\.toLowerCase\(\);/.test(fonteLoc)
+        && /if \(baixo === _semMarcaLado\(casa\)\.toLowerCase\(\)\) return '';/.test(fonteLoc)
+        && /if \(baixo === _semMarcaLado\(fora\)\.toLowerCase\(\)\) return '';/.test(fonteLoc)
         && /if \(nomesDeEquipa && nomesDeEquipa\.has\(baixo\)\) return '';/.test(fonteLoc));
+      verificar('admin.js: a lista de nomes da colagem guarda-os com e sem a marca',
+        /nomesDeEquipa\.add\(_semMarcaLado\(lines\[d-1\]\)\.toLowerCase\(\)\);/.test(fonteLoc)
+        && /nomesDeEquipa\.add\(_semMarcaLado\(lines\[d\+2\]\)\.toLowerCase\(\)\);/.test(fonteLoc));
       verificar('admin.js: recusa cabeçalhos e exige palavra de recinto no último jogo',
         /if \(JSC_CABECALHO_LISTA\.test\(local\)\) return '';/.test(fonteLoc)
         && /if \(ehUltimoDaLista && !JSC_PALAVRA_RECINTO\.test\(local\)\) return '';/.test(fonteLoc));
@@ -6153,6 +6199,108 @@ async function testarAdminHistoria(browser, url) {
         JSON.stringify(todos.filter((j) => eEquipa(j.local))));
       verificar('painel: sem erros de JavaScript nas colagens',
         cj.erros.length === 0, cj.erros.join(' | '));
+    }
+
+    // ---- As marcas (C) e (F) na colagem de jogos --------------------
+    console.log('\na colagem trata (C) e (F) como o lado em que se joga');
+    {
+      const fonteMarcas = fs.readFileSync(path.join(raiz, 'admin', 'js', 'admin.js'), 'utf8')
+        .replace(/^\s*\/\/.*$/gm, '');
+      verificar('admin.js: a normalização corre nos quatro parsers, pelo despacho',
+        (fonteMarcas.match(/_aplicarMarcasCasaFora\(/g) || []).length >= 4
+        && /_attachJogoLogos\(_aplicarMarcasCasaFora\(zzResult\)\)/.test(fonteMarcas)
+        && /_attachJogoLogos\(_aplicarMarcasCasaFora\(parseMultiLineJogos\(raw, next\)\)\)/.test(fonteMarcas)
+        && /_attachJogoLogos\(_aplicarMarcasCasaFora\(parseSingleLineJogos\(raw, next\)\)\)/.test(fonteMarcas));
+      verificar('admin.js: ao trocar os lados troca também os golos',
+        /if \(j\.estado === 'Realizado'\) \{ const g = j\.gcasa; j\.gcasa = j\.gfora; j\.gfora = g; \}/.test(fonteMarcas));
+      verificar('admin.js: o nome do clube vem do dados_clube, não está escrito no parser',
+        /function _nomeDoClube\(\)/.test(fonteMarcas)
+        && /localStorage\.getItem\('dados_clube'\)/.test(fonteMarcas));
+
+      const SC = 'Juventude Sport Campinense';
+      const t = (...l) => l.join('\n');
+      const CASOS = [
+        { nome: '(C) agendado: o clube fica em casa, com hora e recinto',
+          texto: t(SC + ' (C)', '18 out 2026', '11:00', 'TESTE SILVES (F)', 'Estádio Municipal de Loulé'),
+          espera: [{ casa: SC, fora: 'TESTE SILVES', estado: 'Agendado', hora: '11:00', local: 'Estádio Municipal de Loulé' }] },
+        { nome: '(F) agendado: os lados trocam e o recinto fica',
+          texto: t(SC + ' (F)', '25 out 2026', '10:30', 'TESTE SILVES (C)', 'Campo Zona Verde'),
+          espera: [{ casa: 'TESTE SILVES', fora: SC, estado: 'Agendado', hora: '10:30', local: 'Campo Zona Verde' }] },
+        { nome: '(C) realizado: o resultado fica como veio',
+          texto: t(SC + ' (C)', '20 set 2026', '3-1', 'TESTE SILVES (F)', 'Estádio Municipal de Loulé'),
+          espera: [{ casa: SC, fora: 'TESTE SILVES', estado: 'Realizado', gcasa: 3, gfora: 1 }] },
+        { nome: '(F) realizado: trocam os lados e os golos com eles',
+          texto: t(SC + ' (F)', '27 set 2026', '0-2', 'TESTE FARO (C)', 'Campo de Faro'),
+          espera: [{ casa: 'TESTE FARO', fora: SC, estado: 'Realizado', gcasa: 2, gfora: 0 }] },
+        { nome: 'só a marca (F): o nome do clube é reconstruído, e joga fora',
+          texto: t('(F)', '1 nov 2026', '15:00', 'TESTE QUARTEIRENSE', 'Campo do Quarteirense'),
+          espera: [{ casa: 'TESTE QUARTEIRENSE', fora: SC, estado: 'Agendado', local: 'Campo do Quarteirense' }] },
+        { nome: 'só a marca (C) num realizado: o clube em casa, resultado intacto',
+          texto: t('(C)', '8 nov 2026', '2-0', 'TESTE LAGOA', 'Estádio Municipal de Loulé'),
+          espera: [{ casa: SC, fora: 'TESTE LAGOA', estado: 'Realizado', gcasa: 2, gfora: 0 }] },
+        { nome: 'três jogos seguidos com marcas alternadas',
+          texto: t(SC + ' (C)', '18 out 2026', '11:00', 'TESTE SILVES (F)', 'Estádio Municipal de Loulé',
+                   SC + ' (F)', '25 out 2026', '10:30', 'TESTE MESSINENSE (C)', 'Campo de Messines',
+                   SC + ' (C)', '1 nov 2026', '4-0', 'TESTE LAGOA (F)', 'Estádio Municipal de Loulé'),
+          espera: [{ casa: SC, fora: 'TESTE SILVES', estado: 'Agendado' },
+                   { casa: 'TESTE MESSINENSE', fora: SC, estado: 'Agendado' },
+                   { casa: SC, fora: 'TESTE LAGOA', estado: 'Realizado', gcasa: 4, gfora: 0 }] },
+        { nome: 'controlo: sem marcas, nada muda',
+          texto: t('18/10/2026', '11:00', SC, '-', 'TESTE SILVES'),
+          espera: [{ casa: SC, fora: 'TESTE SILVES', estado: 'Agendado', hora: '11:00' }] },
+        { nome: 'marca em minúsculas e com espaços conta igual',
+          texto: t(SC + ' ( f )', '18 out 2026', '11:00', 'TESTE SILVES (c)', 'Campo Zona Verde'),
+          espera: [{ casa: 'TESTE SILVES', fora: SC, estado: 'Agendado', local: 'Campo Zona Verde' }] },
+        { nome: 'marcas contraditórias não decidem nada, e saem do nome',
+          texto: t(SC + ' (C)', '18 out 2026', '11:00', 'TESTE SILVES (C)', 'Estádio Municipal de Loulé'),
+          espera: [{ casa: SC, fora: 'TESTE SILVES', estado: 'Agendado' }] },
+        { nome: 'a marca sozinha na linha do recinto decide o lado',
+          texto: t(SC, '27 set 2026', '1-3', 'TESTE FARO', '(F)'),
+          espera: [{ casa: 'TESTE FARO', fora: SC, estado: 'Realizado', gcasa: 3, gfora: 1, local: '' }] },
+        { nome: 'recinto igual ao nome de uma equipa marcada não entra como local',
+          texto: t('TESTE SILVES (C)', '18 out 2026', '11:00', SC + ' (F)', 'TESTE SILVES'),
+          espera: [{ casa: 'TESTE SILVES', fora: SC, estado: 'Agendado', local: '' }] },
+        { nome: 'o nome reconstruído vem do dados_clube',
+          clube: 'TESTE CLUBE DO PAINEL',
+          texto: t('(C)', '8 nov 2026', '15:00', 'TESTE LAGOA', 'Estádio Municipal de Loulé'),
+          espera: [{ casa: 'TESTE CLUBE DO PAINEL', fora: 'TESTE LAGOA', estado: 'Agendado' }] },
+        { nome: 'sem dados_clube o nome cai no do clube, e não em vazio',
+          clube: null,
+          texto: t('(C)', '8 nov 2026', '15:00', 'TESTE LAGOA', 'Estádio Municipal de Loulé'),
+          espera: [{ casa: SC, fora: 'TESTE LAGOA', estado: 'Agendado' }] },
+        { nome: 'os dois campos só com marcas: não há jogo por onde o reconstruir',
+          texto: t('(C)', '18 out 2026', '11:00', '(F)', 'Estádio Municipal de Loulé'),
+          espera: [] },
+      ];
+
+      const mc = await testarMarcasCasaFora(browser, srv.url, CASOS);
+      const todos = [];
+      CASOS.forEach((c, i) => {
+        const obtido = mc.lidos[i] || [];
+        todos.push(...obtido);
+        const bate = obtido.length === c.espera.length && c.espera.every((e, k) => {
+          const o = obtido[k] || {};
+          return Object.keys(e).every((campo) => o[campo] === e[campo]);
+        });
+        verificar(c.nome, bate,
+          'obtido: ' + JSON.stringify(obtido) + ' esperado: ' + JSON.stringify(c.espera));
+      });
+
+      const temMarca = (x) => /\(\s*[CF]\s*\)/i.test(String(x == null ? '' : x));
+      verificar('a marca nunca fica em casa, fora ou local — em nenhuma das formas',
+        todos.length > 0 && todos.every((j) => !temMarca(j.casa) && !temMarca(j.fora) && !temMarca(j.local)),
+        JSON.stringify(todos.filter((j) => temMarca(j.casa) || temMarca(j.fora) || temMarca(j.local))));
+      verificar('nenhum jogo fica sem nome em casa ou fora',
+        todos.every((j) => (j.casa || '').trim().length > 2 && (j.fora || '').trim().length > 2),
+        JSON.stringify(todos.filter((j) => (j.casa || '').trim().length <= 2 || (j.fora || '').trim().length <= 2)));
+      verificar('a data sobrevive em todas as formas',
+        todos.every((j) => /^\d{4}-\d{2}-\d{2}$/.test(j.data || '')),
+        JSON.stringify(todos.map((j) => j.data)));
+      verificar('o campo transitório da marca do recinto não chega aos dados',
+        todos.every((j) => !/_marcaLocal/.test(j.campos || '')),
+        JSON.stringify(todos.map((j) => j.campos).filter((c) => /_marcaLocal/.test(c || ''))));
+      verificar('painel: sem erros de JavaScript em nenhuma das quinze formas',
+        mc.erros.length === 0, mc.erros.join(' | '));
     }
 
     // ---- O local no cartão de jogo ----------------------------------
