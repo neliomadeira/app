@@ -6290,9 +6290,13 @@ async function testarAdminHistoria(browser, url) {
       verificar('a marca nunca fica em casa, fora ou local — em nenhuma das formas',
         todos.length > 0 && todos.every((j) => !temMarca(j.casa) && !temMarca(j.fora) && !temMarca(j.local)),
         JSON.stringify(todos.filter((j) => temMarca(j.casa) || temMarca(j.fora) || temMarca(j.local))));
+      // Contam-se letras, não caracteres: "(F)" tem três caracteres e passava
+      // por um nome. Medido na verificação negativa, onde este invariante
+      // passava com casa="(F)" à vista no resultado.
+      const letras = (x) => String(x == null ? '' : x).replace(/[^A-Za-zÀ-ÿ]/g, '').length;
       verificar('nenhum jogo fica sem nome em casa ou fora',
-        todos.every((j) => (j.casa || '').trim().length > 2 && (j.fora || '').trim().length > 2),
-        JSON.stringify(todos.filter((j) => (j.casa || '').trim().length <= 2 || (j.fora || '').trim().length <= 2)));
+        todos.length > 0 && todos.every((j) => letras(j.casa) >= 3 && letras(j.fora) >= 3),
+        JSON.stringify(todos.filter((j) => letras(j.casa) < 3 || letras(j.fora) < 3)));
       verificar('a data sobrevive em todas as formas',
         todos.every((j) => /^\d{4}-\d{2}-\d{2}$/.test(j.data || '')),
         JSON.stringify(todos.map((j) => j.data)));
