@@ -2887,6 +2887,15 @@ function renderClassSyncRows() {
     const teams    = escCfg.teams  || {};
     const teamKeys = Object.keys(teams);
 
+    // Linhas da classificação do escalão — a que se cola sem escolher série.
+    // Serve para decidir se o botão de apagar aparece: sem linhas não há nada
+    // para apagar, e depois de apagar o botão desaparece sozinho.
+    let nBase = 0;
+    try {
+      const b = JSON.parse(localStorage.getItem(teamStorageKey(escalao, '', 'class')) || '[]');
+      nBase = Array.isArray(b) ? b.length : 0;
+    } catch (e) {}
+
     const escLast = escCfg.lastSync
       ? `<span style="font-weight:400;font-size:0.7rem;opacity:0.8;margin-left:10px">últ. atualização: ${jscEsc(new Date(escCfg.lastSync).toLocaleDateString('pt-PT'))}${jscEsc(escCfg.nTeams ? ' ('+escCfg.nTeams+' eq.)' : '')}</span>`
       : '';
@@ -2900,6 +2909,9 @@ function renderClassSyncRows() {
             onclick="abrirColar('${escalao}','jogos','')">&#128197; Colar jogos</button>
           ${teamKeys.length <= 1 ? `<button class="btn-sm" style="background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3)"
             onclick="abrirEditorClass('${escalao}','${teamKeys[0] || ''}')">&#9998; Manual</button>` : ''}
+          ${nBase ? `<button class="btn-sm" style="background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3)"
+            title="Apaga apenas a classificação do escalão (${jscEsc(teamStorageKey(escalao, '', 'class'))}), a que foi colada sem série. As séries, os jogos e os outros escalões não são afetados."
+            onclick="apagarClassBase('${escalao}')">&#128465; Apagar classificação</button>` : ''}
           <button class="btn-sm" style="background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3)"
             title="Para escalões com várias equipas/séries (ex: equipa A e B)"
             onclick="adicionarEquipa('${escalao}')">+ Equipa / Série</button>
@@ -3184,6 +3196,57 @@ window.limparEquipa = function(escalao, tk) {
   saveClassConfig(cfg);
   renderClassSyncRows();
   showToast(`${escalao}: "${nome}" removida`, 'green');
+};
+
+// ── Apagar a classificação do escalão (a que se cola sem série) ──────────
+//
+// O ✕ de apagar só existia dentro do ciclo das séries: com zero séries o ciclo
+// não corre, sai a linha «Nenhuma equipa configurada» e não havia caminho
+// nenhum na interface para apagar uma classificação de escalão. Medido no
+// painel: o Sub-15 mostrava «últ. atualização: 12/10/2026 (11 eq.)» de uma
+// colagem antiga, e nada que a tirasse de lá.
+//
+// Grava-se [] em vez de remover a chave, e isto é deliberado. O js/sync.js
+// escreve as chaves que vêm no classData da publicação e nunca remove as que
+// deixaram de vir: uma chave removida desaparece do data/db.json, os visitantes
+// novos ficam limpos, mas quem já visitou o site fica com a tabela antiga no
+// localStorage para sempre. Com [] a chave viaja na publicação e substitui a
+// cópia de todos. O preço é uma chave vazia residual no db.json, que o
+// getDados() da resultados.html lê como zero linhas.
+//
+// A alternativa — o js/sync.js apagar o que não vem na publicação — é o espelho
+// dos defeitos corrigidos em 12b0b76 e 677c74b: um painel que publique sem uma
+// chave passaria a apagá-la a todos. Fica de fora.
+//
+// Ao contrário do limparEquipa(), isto não toca nos jogos: só na chave da
+// classificação do escalão.
+window.apagarClassBase = function (escalao) {
+  const key = teamStorageKey(escalao, '', 'class');
+  let n = 0;
+  try {
+    const atual = JSON.parse(localStorage.getItem(key) || '[]');
+    n = Array.isArray(atual) ? atual.length : 0;
+  } catch (e) {}
+  if (!n) { showToast(`${escalao}: não há classificação de escalão para apagar`, 'red'); return; }
+
+  const cfg    = loadClassConfig();
+  const series = Object.keys(cfg[escalao]?.teams || {});
+  if (!confirm(
+    `Apagar a classificação de ${escalao} (${n} equipas), a que foi colada sem série?\n\n`
+    + `Só é apagada a chave ${key}.\n`
+    + (series.length ? `As séries configuradas (${series.length}) NÃO são afetadas.\n` : '')
+    + `Os jogos NÃO são afetados.\n`
+    + `Os outros escalões NÃO são afetados.\n\n`
+    + `A eliminação só chega ao site público depois de Publicar.`
+  )) return;
+
+  localStorage.setItem(key, '[]');
+  const escCfg = cfg[escalao] || (cfg[escalao] = {});
+  delete escCfg.lastSync;   // só o nível base: o teams e cada série ficam intactos
+  delete escCfg.nTeams;
+  saveClassConfig(cfg);
+  renderClassSyncRows();
+  showToast(`${escalao}: classificação apagada — publique para o site público`, 'green');
 };
 
 // ── Modal unificado ───────────────────────────────

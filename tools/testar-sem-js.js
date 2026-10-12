@@ -2515,6 +2515,109 @@ async function testarBotaoManual(browser, url, cenarios) {
   return saida;
 }
 
+// Sonda do botão «Apagar classificação» do cabeçalho do escalão.
+//
+// Mede o caminho inteiro: o botão existe ou não existe conforme há linhas na
+// classificação do escalão; cancelar não toca em nada; confirmar grava [] e só
+// nessa chave; a publicação leva o [] no classData; e a página pública fica sem
+// linhas. Clica-se no botão a sério, encontrado pelo onclick, para medir o que
+// o painel oferece a quem o usa.
+async function testarApagarClassBase(browser, url, cenarios) {
+  const saida = {};
+  for (const c of cenarios) {
+    const ctx = await browser.newContext({
+      javaScriptEnabled: true,
+      extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+    });
+    let corpo = null;
+    await ctx.route('**/api/save.php*', (rota) => {
+      corpo = rota.request().postData();
+      return rota.fulfill({ status: 200, contentType: 'application/json',
+        body: JSON.stringify({ ok: true, savedAt: '2026-10-12T12:00:00Z',
+          alteradas: [], gerados: [], avisos: [] }) });
+    });
+    const pg = await ctx.newPage();
+    const erros = [];
+    const dialogos = [];
+    pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+    pg.on('dialog', (d) => {
+      dialogos.push(d.message());
+      // O confirm do apagar segue o cenário; os outros (publicar) aceitam-se.
+      if (/Apagar a classificação/.test(d.message()) && c.cancelar) return d.dismiss();
+      return d.accept();
+    });
+    await pg.goto(url + '/admin/', { waitUntil: 'networkidle', timeout: 20000 });
+
+    const noPainel = await pg.evaluate((a) => {
+      localStorage.setItem('jsc_painel_local', '1');
+      Object.keys(localStorage).filter((k) => k.indexOf('fpf_') === 0)
+        .forEach((k) => localStorage.removeItem(k));
+      Object.entries(a.chaves).forEach(([k, v]) => localStorage.setItem(k, JSON.stringify(v)));
+      localStorage.setItem('fpf_sync_config', JSON.stringify(a.cfg));
+      if (a.jogos) localStorage.setItem('db_jogos', JSON.stringify(a.jogos));
+      renderClassSyncRows();
+
+      const doEscalao = (esc) => Array.from(document.querySelectorAll('#fpfSyncRows button'))
+        .filter((b) => new RegExp("apagarClassBase\\('" + esc + "'\\)").test(b.getAttribute('onclick') || ''));
+      const cabecalho = () => {
+        const tr = Array.from(document.querySelectorAll('#fpfSyncRows tr'))
+          .find((t) => new RegExp("'" + a.escalao + "'").test(t.innerHTML) && /Colar classificação/.test(t.textContent));
+        return tr ? tr.textContent.replace(/\s+/g, ' ').trim() : '(não encontrado)';
+      };
+      const fotografia = () => {
+        const m = {};
+        Object.keys(localStorage).filter((k) => k.indexOf('fpf_') === 0).sort().forEach((k) => {
+          if (k === 'fpf_sync_config') { m[k] = localStorage.getItem(k); return; }
+          try { m[k] = JSON.parse(localStorage.getItem(k)).length; } catch (_) { m[k] = '(ilegível)'; }
+        });
+        m['db_jogos'] = JSON.parse(localStorage.getItem('db_jogos') || '[]').length;
+        return m;
+      };
+
+      const r = {
+        nBotoes: doEscalao(a.escalao).length,
+        nBotoesOutro: doEscalao(a.outroEscalao).length,
+        cabecalhoAntes: cabecalho(),
+        antes: fotografia(),
+      };
+      if (!r.nBotoes) return r;
+      doEscalao(a.escalao)[0].click();
+      r.depois = fotografia();
+      r.cabecalhoDepois = cabecalho();
+      r.botaoFicou = doEscalao(a.escalao).length;
+      return r;
+    }, c);
+
+    // O que o Publicar envia depois da operação.
+    await pg.evaluate(() => publicarNoServidor());
+    await pg.waitForTimeout(1200);
+    const payload = corpo ? JSON.parse(corpo) : null;
+
+    // E o que a página pública mostra.
+    await pg.goto(url + '/resultados.html', { waitUntil: 'load', timeout: 20000 });
+    await pg.waitForTimeout(600);
+    const publico = await pg.evaluate(async (a) => {
+      const ver = async (esc) => {
+        const tab = document.querySelector('.tab[data-escalao="' + esc + '"]');
+        if (tab) tab.click();
+        await new Promise((r) => setTimeout(r, 200));
+        return {
+          escalao: esc,
+          teamActivo: typeof teamActivo !== 'undefined' ? teamActivo : '(?)',
+          chave: typeof teamActivo !== 'undefined' && teamActivo
+            ? 'fpf_class_' + esc + '__' + teamActivo : 'fpf_class_' + esc,
+          linhas: document.querySelectorAll('#classTable tr').length,
+        };
+      };
+      return { alvo: await ver(a.escalao), outro: await ver(a.outroEscalao) };
+    }, c);
+
+    await ctx.close();
+    saida[c.nome] = { ...noPainel, dialogos, payloadClassData: payload ? payload.classData : null, publico, erros };
+  }
+  return saida;
+}
+
 // Sondas do classData na publicação, e da coluna Forma.
 //
 // O payload do Publicar levava sempre classData, e levava null quando o
@@ -6235,6 +6338,114 @@ async function testarAdminHistoria(browser, url) {
       verificar('painel: sem erros de JavaScript em nenhum dos três cenários',
         Object.values(bm).every((c) => c.erros.length === 0),
         Object.values(bm).map((c) => c.erros.join(' ')).join(' | '));
+    }
+
+    // ---- Apagar a classificação do escalão --------------------------
+    console.log('\no escalão com classificação base tem como a apagar');
+    {
+      const fonteApagar = fs.readFileSync(path.join(raiz, 'admin', 'js', 'admin.js'), 'utf8')
+        .replace(/^\s*\/\/.*$/gm, '');
+      verificar('admin.js: o botão aparece em função das linhas da classificação do escalão',
+        /\$\{nBase \? `<button/.test(fonteApagar)
+        && /onclick="apagarClassBase\('\$\{escalao\}'\)"/.test(fonteApagar));
+      verificar('admin.js: apagar grava [] e não remove a chave',
+        /localStorage\.setItem\(key, '\[\]'\);/.test(fonteApagar)
+        && !/removeItem\(teamStorageKey\(escalao, '', 'class'\)\)/.test(fonteApagar));
+      verificar('admin.js: apagar pede confirmação antes de gravar',
+        /if \(!confirm\(\s*`Apagar a classificação de/.test(fonteApagar));
+      verificar('admin.js: apagar limpa só lastSync e nTeams do nível base',
+        /delete escCfg\.lastSync;/.test(fonteApagar) && /delete escCfg\.nTeams;/.test(fonteApagar)
+        && !/delete escCfg\.teams/.test(fonteApagar));
+
+      const linha = (nome, v) => ({
+        equipa: nome, abrev: nome.slice(0, 3).toUpperCase(), j: 10, v, e: 0, d: 10 - v,
+        gm: 20 + v, gs: 10, dg: 10 + v, pts: v * 3, forma: '', sc: /campinense/i.test(nome),
+      });
+      const ONZE = Array.from({ length: 11 }, (_, i) => linha(i === 0 ? 'J.S. Campinense' : 'BASE ANTIGA ' + (i + 1), 11 - i));
+      const DOZE = Array.from({ length: 12 }, (_, i) => linha(i === 0 ? 'J.S. Campinense' : 'SÉRIE NOVA ' + (i + 1), 12 - i));
+      const SERIE  = 'LIga_1_Algarve_Futeb';
+      const S17    = 'Liga_1_Algarve_Futeb';
+      const JOGOS  = [{ id: 1, escalao: 'Sub-15', equipa: '', data: '2026-09-20', casa: 'A', fora: 'B', estado: 'Agendado' }];
+      // O estado real medido no data__db.json: base antiga de 11 + série de 12.
+      const cfgReal = {
+        'Sub-15': { lastSync: '2026-10-12T10:00:00Z', nTeams: 11,
+                    teams: { [SERIE]: { nome: 'Liga 1 Algarve Futebol Iniciados', lastSync: '2026-10-12T11:00:00Z', nTeams: 12 } } },
+        'Sub-17': { teams: { [S17]: { nome: 'Liga 1 Algarve Futebol 11', nTeams: 12 } } },
+      };
+      const chavesReais = {
+        'fpf_class_Sub-15': ONZE,
+        ['fpf_class_Sub-15__' + SERIE]: DOZE,
+        ['fpf_class_Sub-17__' + S17]: DOZE,
+        'fpf_jogos_Sub-15': [{ casa: 'A', fora: 'B', data: '2026-09-20', estado: 'Agendado' }],
+      };
+
+      const ac = await testarApagarClassBase(browser, srv.url, [
+        { nome: 'confirmar', escalao: 'Sub-15', outroEscalao: 'Sub-17', cfg: cfgReal, chaves: chavesReais, jogos: JOGOS },
+        { nome: 'cancelar',  escalao: 'Sub-15', outroEscalao: 'Sub-17', cfg: cfgReal, chaves: chavesReais, jogos: JOGOS, cancelar: true },
+        // Sem classificação de escalão não há o que apagar: o botão não existe.
+        { nome: 'sem-base',  escalao: 'Sub-15', outroEscalao: 'Sub-17',
+          cfg: { 'Sub-15': { teams: { [SERIE]: { nome: 'Série', nTeams: 12 } } } },
+          chaves: { ['fpf_class_Sub-15__' + SERIE]: DOZE }, jogos: JOGOS },
+        // Sem séries nenhumas: é aqui que a página pública lê a chave do escalão.
+        // O Sub-17 entra sem série nenhuma para servir de controlo: a página
+        // lê-lhe a chave do escalão, e ela tem de ficar com as 12 linhas.
+        { nome: 'sem-series', escalao: 'Sub-15', outroEscalao: 'Sub-17',
+          cfg: { 'Sub-15': { lastSync: '2026-10-12T10:00:00Z', nTeams: 11 } },
+          chaves: { 'fpf_class_Sub-15': ONZE, 'fpf_class_Sub-17': DOZE }, jogos: JOGOS },
+      ]);
+
+      verificar('o botão existe no escalão com classificação base',
+        ac.confirmar.nBotoes === 1, 'botões: ' + ac.confirmar.nBotoes);
+      verificar('o botão não existe no escalão sem classificação base',
+        ac['sem-base'].nBotoes === 0 && ac.confirmar.nBotoesOutro === 0,
+        'sem-base: ' + ac['sem-base'].nBotoes + ' · Sub-17: ' + ac.confirmar.nBotoesOutro);
+      verificar('o cabeçalho mostrava a contagem antiga e deixa de a mostrar',
+        /11 eq\./.test(ac.confirmar.cabecalhoAntes) && !/11 eq\./.test(ac.confirmar.cabecalhoDepois),
+        ac.confirmar.cabecalhoAntes + ' -> ' + ac.confirmar.cabecalhoDepois);
+      verificar('pede confirmação, e diz o que não é afetado',
+        /Apagar a classificação de Sub-15 \(11 equipas\)/.test(ac.confirmar.dialogos[0] || '')
+        && /séries configuradas \(1\) NÃO são afetadas/.test(ac.confirmar.dialogos[0] || '')
+        && /Os jogos NÃO são afetados/.test(ac.confirmar.dialogos[0] || ''),
+        JSON.stringify((ac.confirmar.dialogos[0] || '').slice(0, 200)));
+      verificar('cancelar não altera nada',
+        JSON.stringify(ac.cancelar.antes) === JSON.stringify(ac.cancelar.depois),
+        JSON.stringify(ac.cancelar.antes) + ' vs ' + JSON.stringify(ac.cancelar.depois));
+      verificar('confirmar deixa a classificação do escalão com zero linhas',
+        ac.confirmar.antes['fpf_class_Sub-15'] === 11 && ac.confirmar.depois['fpf_class_Sub-15'] === 0,
+        'antes ' + ac.confirmar.antes['fpf_class_Sub-15'] + ' · depois ' + ac.confirmar.depois['fpf_class_Sub-15']);
+      verificar('confirmar não toca na série, no outro escalão, nos jogos nem no db_jogos',
+        ac.confirmar.depois['fpf_class_Sub-15__' + SERIE] === 12
+        && ac.confirmar.depois['fpf_class_Sub-17__' + S17] === 12
+        && ac.confirmar.depois['fpf_jogos_Sub-15'] === 1
+        && ac.confirmar.depois['db_jogos'] === 1,
+        JSON.stringify(ac.confirmar.depois));
+      verificar('confirmar mantém o teams e a série no fpf_sync_config',
+        /LIga_1_Algarve_Futeb/.test(ac.confirmar.depois['fpf_sync_config'] || '')
+        && /"nTeams":12/.test((ac.confirmar.depois['fpf_sync_config'] || '').replace(/\s/g, ''))
+        && !/"nTeams":11/.test((ac.confirmar.depois['fpf_sync_config'] || '').replace(/\s/g, '')),
+        ac.confirmar.depois['fpf_sync_config']);
+      verificar('o botão desaparece depois de apagar',
+        ac.confirmar.botaoFicou === 0, 'botões: ' + ac.confirmar.botaoFicou);
+      verificar('a publicação leva fpf_class_Sub-15 como lista vazia',
+        !!ac.confirmar.payloadClassData
+        && Array.isArray(ac.confirmar.payloadClassData['fpf_class_Sub-15'])
+        && ac.confirmar.payloadClassData['fpf_class_Sub-15'].length === 0
+        && (ac.confirmar.payloadClassData['fpf_class_Sub-15__' + SERIE] || []).length === 12,
+        JSON.stringify(Object.keys(ac.confirmar.payloadClassData || {})));
+      verificar('sem séries: a página pública lê a chave do escalão e fica sem linhas',
+        ac['sem-series'].publico.alvo.chave === 'fpf_class_Sub-15'
+        && ac['sem-series'].publico.alvo.linhas === 0,
+        JSON.stringify(ac['sem-series'].publico.alvo));
+      verificar('sem séries: o Sub-17 continua intacto na página pública',
+        ac['sem-series'].publico.outro.linhas === 12,
+        JSON.stringify(ac['sem-series'].publico.outro));
+      verificar('com série: a página pública continua a ler a série, com as 12 linhas',
+        ac.confirmar.publico.alvo.chave === 'fpf_class_Sub-15__' + SERIE
+        && ac.confirmar.publico.alvo.linhas === 12,
+        JSON.stringify(ac.confirmar.publico.alvo));
+      verificar('painel: sem erros de JavaScript em nenhum dos quatro cenários',
+        Object.values(ac).every((c) => c.erros.length === 0),
+        Object.values(ac).map((c) => c.erros.join(' ')).join(' | '));
     }
 
     // ---- O classData na publicação, e a coluna Forma ----------------
