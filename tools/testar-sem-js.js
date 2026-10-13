@@ -6302,9 +6302,14 @@ async function testarAdminHistoria(browser, url) {
         && /JSC_PROVAS_COMPETICAO/.test(fonteMarcas));
       verificar('admin.js: as linhas de competição saem antes do despacho',
         /\.filter\(l => !_ehLinhaDeCompeticao\(l\)\)/.test(fonteMarcas));
+      // A rede de segurança usa a versão de CAMPO, não a de linha: a linha de
+      // um jogo do ZeroZero traz a competição lá dentro, e a função de linha
+      // tem de ser mais exigente para não apagar a linha inteira.
       verificar('admin.js: rede de segurança — competição num campo de equipa descarta o jogo',
-        /if \(_ehLinhaDeCompeticao\(j\.casa\) \|\| _ehLinhaDeCompeticao\(j\.fora\)\) continue;/.test(fonteMarcas)
-        && /if \(_ehLinhaDeCompeticao\(j\.local\)\) j\.local = '';/.test(fonteMarcas));
+        /if \(_ehTextoDeCompeticao\(j\.casa\) \|\| _ehTextoDeCompeticao\(j\.fora\)\) continue;/.test(fonteMarcas)
+        && /if \(_ehTextoDeCompeticao\(j\.local\)\) j\.local = '';/.test(fonteMarcas)
+        && /function _ehTextoDeCompeticao\(valor\)/.test(fonteMarcas)
+        && /function _ehLinhaDeCompeticao\(linha\)/.test(fonteMarcas));
 
       const CASOS_COMP = [
         { nome: 'competição como cabeçalho: o jogo sai inteiro',
@@ -6345,6 +6350,130 @@ async function testarAdminHistoria(browser, url) {
         JSON.stringify(todosComp.map((j) => j.casa + ' / ' + j.fora)));
       verificar('painel: sem erros de JavaScript nas formas com competição',
         cp.erros.length === 0, cp.erros.join(' | '));
+
+      // ---- A linha de jogo do ZeroZero, com o marcador do lado -------
+      //
+      // Forma real medida na colagem (campos separados por tabulação):
+      //   D \t 2026-10-11 \t 11:00 \t (F) \t Ginásio de Tavira \t
+      //   Ginásio de Tavira \t 4-2 \t AF Algarve Juniores C 1ª Divisão 1ª
+      //   Fase 2026/27 \t J3
+      //
+      // Antes: o parseSingleLineJogos lia o adversário como casa e a
+      // COMPETIÇÃO como visitante — "casa=Ginásio de Tavira, fora=AF Algarve
+      // Juniores C…" —, que é exactamente o que estava nos 3 registos de
+      // Classe C medidos em produção; e nos agendados punha o adversário no
+      // local. Depois do filtro de linha do cc8f7e7, a linha inteira deixou
+      // de ser reconhecida: o filtro apanhava-a por conter a competição.
+      //
+      // Agora o lado atribui-se pelo marcador — (C) o clube em casa, (F) o
+      // clube fora — e o resultado do ZeroZero NÃO é invertido, porque já vem
+      // na ordem casa-fora.
+      const lin = (...campos) => campos.join('\t');
+      const linP = (...campos) => campos.join(' | ');
+      const R1 = ['D', '2026-10-11', '11:00', '(F)', 'TESTE TAVIRA', 'TESTE TAVIRA', '4-2', COMP, 'J3'];
+      const R2 = ['D', '2026-10-04', '09:00', '(C)', 'TESTE SILVES', 'TESTE SILVES', '0-2', COMP, 'J2'];
+      const R3 = ['D', '2026-09-27', '11:00', '(F)', 'TESTE FARENSE B', 'TESTE FARENSE B', '4-0', COMP, 'J1'];
+
+      verificar('admin.js: a forma do ZeroZero atribui o lado e não inverte o resultado',
+        /function _jogoDeLinhaZZ\(parts, next\)/.test(fonteMarcas)
+        && /const casa = marca === 'C' \? clube : adversario;/.test(fonteMarcas)
+        && /const fora = marca === 'C' \? adversario : clube;/.test(fonteMarcas)
+        && /gcasa: score \? score\.gcasa : null,/.test(fonteMarcas));
+      verificar('admin.js: a jornada e a competição saem da linha',
+        /if \(\/\^J\\s\*\\d\{1,3\}\$\/i\.test\(p\)\) continue;/.test(fonteMarcas)
+        && /if \(_ehTextoDeCompeticao\(p\)\) continue;/.test(fonteMarcas));
+      verificar('admin.js: o filtro de linha poupa linhas com data, hora ou resultado',
+        /if \(campos\.length > 2\) return false;/.test(fonteMarcas)
+        && /if \(\/\\b\\d\{4\}-\\d\{2\}-\\d\{2\}\\b\/\.test\(t\)\) return false;/.test(fonteMarcas));
+
+      const CASOS_ZZ = [
+        { nome: 'ZZ real, (F) com 4-2: o adversário em casa e o resultado intacto',
+          texto: lin(...R1),
+          espera: [{ casa: 'TESTE TAVIRA', fora: SC, gcasa: 4, gfora: 2, estado: 'Realizado', local: '', data: '2026-10-11', hora: '11:00' }] },
+        { nome: 'ZZ real, (C) com 0-2: o clube em casa e o resultado intacto',
+          texto: lin(...R2),
+          espera: [{ casa: SC, fora: 'TESTE SILVES', gcasa: 0, gfora: 2, estado: 'Realizado', local: '', data: '2026-10-04' }] },
+        { nome: 'ZZ real, (F) com 4-0: o adversário em casa e o resultado intacto',
+          texto: lin(...R3),
+          espera: [{ casa: 'TESTE FARENSE B', fora: SC, gcasa: 4, gfora: 0, estado: 'Realizado', local: '', data: '2026-09-27' }] },
+        { nome: 'os três realizados na mesma colagem',
+          texto: [lin(...R1), lin(...R2), lin(...R3)].join('\n'),
+          espera: [{ casa: 'TESTE TAVIRA', fora: SC, gcasa: 4, gfora: 2 },
+                   { casa: SC, fora: 'TESTE SILVES', gcasa: 0, gfora: 2 },
+                   { casa: 'TESTE FARENSE B', fora: SC, gcasa: 4, gfora: 0 }] },
+        { nome: 'a mesma forma separada por barras',
+          texto: [linP(...R1), linP(...R2), linP(...R3)].join('\n'),
+          espera: [{ casa: 'TESTE TAVIRA', fora: SC, gcasa: 4, gfora: 2 },
+                   { casa: SC, fora: 'TESTE SILVES', gcasa: 0, gfora: 2 },
+                   { casa: 'TESTE FARENSE B', fora: SC, gcasa: 4, gfora: 0 }] },
+        { nome: 'agendado (C): o clube em casa, sem resultado e sem local',
+          texto: lin('', '2026-10-18', '11:00', '(C)', 'TESTE QUARTEIRENSE', 'TESTE QUARTEIRENSE', '', COMP, 'J4'),
+          espera: [{ casa: SC, fora: 'TESTE QUARTEIRENSE', estado: 'Agendado', hora: '11:00', local: '', gcasa: null, gfora: null }] },
+        { nome: 'agendado (F): o adversário em casa, sem resultado e sem local',
+          texto: lin('', '2026-10-25', '10:30', '(F)', 'TESTE MESSINENSE', 'TESTE MESSINENSE', '', COMP, 'J5'),
+          espera: [{ casa: 'TESTE MESSINENSE', fora: SC, estado: 'Agendado', hora: '10:30', local: '' }] },
+        { nome: 'recinto explícito na linha é preservado',
+          texto: lin(...R1, 'Estádio Municipal de Tavira'),
+          espera: [{ casa: 'TESTE TAVIRA', fora: SC, local: 'Estádio Municipal de Tavira' }] },
+        { nome: 'o adversário repetido conta uma vez',
+          texto: lin('D', '2026-10-04', '09:00', '(C)', 'TESTE SILVES', 'TESTE SILVES', 'TESTE SILVES', '0-2', COMP, 'J2'),
+          espera: [{ casa: SC, fora: 'TESTE SILVES', gcasa: 0, gfora: 2, local: '' }] },
+        { nome: 'controlo: sem marcador a linha cai no caminho genérico',
+          texto: lin('2026-10-04', 'TESTE SILVES', '0-2', SC),
+          espera: [{ casa: 'TESTE SILVES', fora: SC, gcasa: 0, gfora: 2 }] },
+      ];
+      const zz = await testarMarcasCasaFora(browser, srv.url, CASOS_ZZ);
+      const todosZZ = [];
+      CASOS_ZZ.forEach((c, i) => {
+        const obtido = zz.lidos[i] || [];
+        todosZZ.push(...obtido);
+        const bate = obtido.length === c.espera.length && c.espera.every((e, k) => {
+          const o = obtido[k] || {};
+          return Object.keys(e).every((campo) => o[campo] === e[campo]);
+        });
+        verificar(c.nome, bate, 'obtido: ' + JSON.stringify(obtido) + ' esperado: ' + JSON.stringify(c.espera));
+      });
+
+      const ehCompZZ = (x) => /af\s*algarve|divis[ãa]o|juniores|20\d\d\s*\//i.test(String(x == null ? '' : x));
+      verificar('nenhuma competição em casa, fora ou local na forma do ZeroZero',
+        todosZZ.length > 0 && todosZZ.every((j) => !ehCompZZ(j.casa) && !ehCompZZ(j.fora) && !ehCompZZ(j.local)),
+        JSON.stringify(todosZZ.filter((j) => ehCompZZ(j.casa) || ehCompZZ(j.fora) || ehCompZZ(j.local))));
+      verificar('a jornada nunca é equipa nem local',
+        todosZZ.every((j) => !/^J\s*\d{1,3}$/i.test((j.casa || '').trim())
+          && !/^J\s*\d{1,3}$/i.test((j.fora || '').trim())
+          && !/^J\s*\d{1,3}$/i.test((j.local || '').trim())),
+        JSON.stringify(todosZZ.map((j) => [j.casa, j.fora, j.local])));
+      verificar('o adversário nunca é usado como local',
+        todosZZ.every((j) => !j.local
+          || (j.local.toLowerCase() !== (j.casa || '').toLowerCase()
+           && j.local.toLowerCase() !== (j.fora || '').toLowerCase())),
+        JSON.stringify(todosZZ.filter((j) => j.local
+          && (j.local.toLowerCase() === (j.casa || '').toLowerCase()
+           || j.local.toLowerCase() === (j.fora || '').toLowerCase()))));
+
+      // A letra V/E/D da fonte é uma testemunha independente da orientação do
+      // resultado: se os lados ou os golos saíssem trocados, deixava de bater.
+      const FORMA = [
+        { letra: 'D', campos: R1 }, { letra: 'D', campos: R2 }, { letra: 'D', campos: R3 },
+        { letra: 'V', campos: ['V', '2026-09-20', '11:00', '(C)', 'TESTE LAGOA', 'TESTE LAGOA', '3-1', COMP, 'J0'] },
+        { letra: 'V', campos: ['V', '2026-09-13', '11:00', '(F)', 'TESTE GUIA', 'TESTE GUIA', '0-2', COMP, 'J0'] },
+        { letra: 'E', campos: ['E', '2026-09-06', '11:00', '(C)', 'TESTE ALVOR', 'TESTE ALVOR', '2-2', COMP, 'J0'] },
+      ];
+      const fz = await testarMarcasCasaFora(browser, srv.url,
+        FORMA.map((f) => ({ nome: f.letra, texto: lin(...f.campos) })));
+      const coerentes = FORMA.map((f, i) => {
+        const j = (fz.lidos[i] || [])[0];
+        if (!j) return f.letra + '=(sem jogo)';
+        const clubeEmCasa = /campinense/i.test(j.casa || '');
+        const gc = clubeEmCasa ? j.gcasa : j.gfora;
+        const go = clubeEmCasa ? j.gfora : j.gcasa;
+        const calc = gc > go ? 'V' : gc === go ? 'E' : 'D';
+        return calc === f.letra ? 'ok' : f.letra + '!=' + calc;
+      });
+      verificar('o resultado concorda com a letra V/E/D da fonte nas seis linhas',
+        coerentes.every((x) => x === 'ok'), JSON.stringify(coerentes));
+      verificar('painel: sem erros de JavaScript na forma do ZeroZero',
+        zz.erros.length === 0 && fz.erros.length === 0, (zz.erros.concat(fz.erros)).join(' | '));
 
       const temMarca = (x) => /\(\s*[CF]\s*\)/i.test(String(x == null ? '' : x));
       verificar('a marca nunca fica em casa, fora ou local — em nenhuma das formas',

@@ -3741,13 +3741,47 @@ const JSC_PROVAS_COMPETICAO = [
   /\bdistrital|nacional\b/i,
 ];
 
-function _ehLinhaDeCompeticao(linha) {
-  const t = String(linha == null ? '' : linha).trim();
+// Um CAMPO que é texto de competição: "AF Algarve Juniores C 1ª Divisão 1ª
+// Fase 2026/27". Duas provas independentes, para um nome de clube nunca entrar
+// aqui por acidente.
+function _ehTextoDeCompeticao(valor) {
+  const t = String(valor == null ? '' : valor).trim();
   if (t.length < 8) return false;                       // "Liga" sozinho não é
   if (parseDate(t) || parseTime(t) || parseScore(t)) return false;
   let provas = 0;
   for (const re of JSC_PROVAS_COMPETICAO) if (re.test(t)) provas++;
   return provas >= 2;
+}
+
+// Uma LINHA inteira que é só o título da competição, e por isso pode sair da
+// colagem antes de qualquer parser a ver.
+//
+// Tem de ser mais exigente do que o campo: a linha de um jogo do ZeroZero
+// traz a competição lá dentro — "D  2026-10-11  11:00  (F)  Ginásio de Tavira
+// Ginásio de Tavira  4-2  AF Algarve Juniores C 1ª Divisão 1ª Fase 2026/27
+// J3" — e a primeira versão desta função apagava a linha do jogo inteira.
+// Medido com as três linhas reais: nenhum jogo era reconhecido. Uma linha que
+// tenha em si uma data, uma hora ou um resultado é uma linha de dados, não um
+// cabeçalho.
+function _ehLinhaDeCompeticao(linha) {
+  const t = String(linha == null ? '' : linha).trim();
+  if (!_ehTextoDeCompeticao(t)) return false;
+  const campos = _camposDaLinha(t);
+  if (campos.length > 2) return false;                  // linha com estrutura de dados
+  for (const c of campos) if (parseDate(c) || parseTime(c) || parseScore(c)) return false;
+  if (/\b\d{4}-\d{2}-\d{2}\b/.test(t)) return false;     // data ISO em qualquer sítio
+  if (/\b\d{1,2}[h:]\d{2}\b/.test(t)) return false;       // hora em qualquer sítio
+  if (/(^|\s)\d{1,3}\s*[-–]\s*\d{1,3}(\s|$)/.test(t)) return false;  // resultado
+  return true;
+}
+
+// Os campos de uma linha colada: tabulações, ou " | " quando a fonte usa
+// barras, ou dois espaços ou mais.
+function _camposDaLinha(linha) {
+  const t = String(linha == null ? '' : linha);
+  if (t.indexOf('\t') !== -1) return t.split('\t').map((p) => p.trim());
+  if ((t.match(/\|/g) || []).length >= 2) return t.split('|').map((p) => p.trim());
+  return t.split(/\s{2,}/).map((p) => p.trim());
 }
 
 // ── (C) e (F): a marca do lado em que o clube joga ───────────────────────
@@ -3801,8 +3835,8 @@ function _aplicarMarcasCasaFora(jogos) {
     // competição, mas se alguma chegar aqui num campo de equipa o jogo não é
     // de confiança — guardá-lo punha o nome de uma competição onde devia
     // estar um clube, à vista do visitante. No recinto limpa-se e segue.
-    if (_ehLinhaDeCompeticao(j.casa) || _ehLinhaDeCompeticao(j.fora)) continue;
-    if (_ehLinhaDeCompeticao(j.local)) j.local = '';
+    if (_ehTextoDeCompeticao(j.casa) || _ehTextoDeCompeticao(j.fora)) continue;
+    if (_ehTextoDeCompeticao(j.local)) j.local = '';
     const mCasa = _marcaLadoDe(j.casa), mFora = _marcaLadoDe(j.fora);
     // A marca pode ter vindo sozinha na linha do recinto, e aí o
     // _localDeJogo() já a descartou — e bem, porque não é um recinto. O parser
@@ -3947,10 +3981,79 @@ function parseMultiLineJogos(lines, next) {
   return jogos;
 }
 
+// ── A linha de jogo do ZeroZero, com o marcador do lado ──────────────────
+//
+// Forma real, medida na colagem do ZeroZero (campos separados por tabulação):
+//
+//   D  2026-10-11  11:00  (F)  Ginásio de Tavira  Ginásio de Tavira  4-2
+//   AF Algarve Juniores C 1ª Divisão 1ª Fase 2026/27  J3
+//
+// Nove campos: a letra da forma (V/E/D), a data, a hora, o marcador do lado,
+// o adversário, o adversário outra vez normalizado, o resultado, a competição
+// e a jornada. O parseSingleLineJogos genérico lia o adversário como casa e a
+// COMPETIÇÃO como visitante — é a origem dos 3 registos de Classe C dos 22
+// jogos Sub-17 sem série —, e nos agendados punha o adversário no local.
+//
+// Aqui o lado não se troca: atribui-se. (C) é o clube em casa, (F) é o clube
+// fora, e o resultado do ZeroZero já vem na ordem casa-fora, pelo que NÃO é
+// invertido. Isto é diferente da forma do AF Algarve, em que o marcador vem
+// colado ao nome de cada equipa e a troca de lados arrasta os golos.
+//
+// A competição e a jornada saem; o adversário repetido conta uma vez; e o
+// local só se grava se houver um recinto explícito — o adversário nunca serve
+// de local, e em dúvida fica vazio.
+function _jogoDeLinhaZZ(parts, next) {
+  const soMarca = (x) => /^\(\s*([CF])\s*\)$/i.exec(String(x == null ? '' : x).trim());
+  let marca = '';
+  const restantes = [];
+  let dataStr = null, horaStr = null, score = null;
+  for (const p of parts) {
+    const m = soMarca(p);
+    if (m && !marca) { marca = m[1].toUpperCase(); continue; }
+    if (!dataStr && parseDate(p) && !parseScore(p)) { dataStr = parseDate(p); continue; }
+    if (!horaStr && parseTime(p)) { horaStr = parseTime(p); continue; }
+    if (!score && parseScore(p)) { score = parseScore(p); continue; }
+    if (/^[VED]$/i.test(p)) continue;                       // letra da forma
+    if (/^J\s*\d{1,3}$/i.test(p)) continue;                 // jornada: J1, J2, J3
+    if (/^[-–—]$/.test(p)) continue;
+    if (_ehTextoDeCompeticao(p)) continue;                  // competição
+    if (p) restantes.push(p);
+  }
+  if (!marca || !dataStr) return null;                      // não é esta forma
+
+  // O adversário vem repetido; conta uma vez, sem distinguir maiúsculas.
+  const vistos = {}, unicos = [];
+  for (const r of restantes) {
+    const k = r.toLowerCase();
+    if (vistos[k]) continue;
+    vistos[k] = true; unicos.push(r);
+  }
+  const recintos = unicos.filter((x) => JSC_PALAVRA_RECINTO.test(x));
+  const equipas  = unicos.filter((x) => !JSC_PALAVRA_RECINTO.test(x));
+  const adversario = equipas[0] || '';
+  if (!adversario) return null;
+
+  const clube = _nomeDoClube();
+  const casa = marca === 'C' ? clube : adversario;
+  const fora = marca === 'C' ? adversario : clube;
+  return {
+    id: next(), casa, fora,
+    gcasa: score ? score.gcasa : null,
+    gfora: score ? score.gfora : null,
+    data: dataStr, hora: horaStr || '15:00',
+    local: recintos[0] || '',
+    estado: score ? 'Realizado' : 'Agendado',
+  };
+}
+
 function parseSingleLineJogos(lines, next) {
   const jogos = [];
   for (const line of lines) {
-    let parts=line.includes('\t')?line.split('\t').map(p=>p.trim()):line.split(/\s{2,}/).map(p=>p.trim());
+    let parts=_camposDaLinha(line);
+    // A forma do ZeroZero com o marcador do lado tem regras próprias: o lado
+    // atribui-se pelo marcador e o resultado não se inverte.
+    const zz = _jogoDeLinhaZZ(parts, next);
+    if (zz) { jogos.push(zz); continue; }
     // Remove standalone dashes (score placeholder for unplayed games) and
     // junk tokens (h2h link text, estado words) so they are never mistaken
     // for a team name or local
