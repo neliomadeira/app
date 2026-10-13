@@ -52,12 +52,69 @@ function logoDoClube() {
 
 // Bloco de equipas de um jogo: para jogos do Campinense mostra só o
 // adversário com etiqueta Casa/Fora; caso contrário mostra as duas equipas
+// A marca (C)/(F) que o AF Algarve e o ZeroZero põem ao lado do nome nunca é
+// para ver: é informação de lado. Tira-se do que se mostra, e serve para
+// decidir o lado quando o nome do clube se perdeu e só ela ficou.
+const JSC_MARCA_LADO_VIS = /\(\s*[CF]\s*\)/ig;
+function semMarca(nome) {
+  return String(nome == null ? '' : nome).replace(JSC_MARCA_LADO_VIS, '').replace(/\s{2,}/g, ' ').trim();
+}
+function marcaDe(nome) {
+  const m = String(nome == null ? '' : nome).match(/\(\s*([CF])\s*\)/i);
+  return m ? m[1].toUpperCase() : '';
+}
+
+// Texto que nunca é uma equipa. O "h2h" é o rótulo da ligação "frente a
+// frente" do ZeroZero: entrou como nome numa colagem antiga e desenhava um
+// cartão ao lado do jogo verdadeiro — as linhas duplicadas que se viam em
+// Próximos Jogos. Medido com oito formas de registo: um h2h em cada lado do
+// jogo desenhava dois cartões a mais.
+const JSC_NAO_E_EQUIPA = /^(h2h|vs|realizado|agendado|adiado|adi|anulado|anu|cancelado|can|int|interrompido|encerrado)$/i;
+
+// Um registo só se desenha se tiver dois nomes de equipa a sério. Em dúvida
+// não se mostra: um cartão a menos é melhor do que um cartão com "h2h" ou com
+// "(C)" no lugar de um clube, que é o que o visitante lia.
+function jogoRenderavel(j) {
+  if (!j) return false;
+  const casa = semMarca(j.casa), fora = semMarca(j.fora);
+  // Um dos lados pode ser o clube cujo nome se perdeu, e aí a marca identifica-o.
+  const casaOk = casa.length >= 3 || (!casa && marcaDe(j.casa));
+  const foraOk = fora.length >= 3 || (!fora && marcaDe(j.fora));
+  if (!casaOk || !foraOk) return false;
+  if (JSC_NAO_E_EQUIPA.test(casa) || JSC_NAO_E_EQUIPA.test(fora)) return false;
+  if (casa && fora && casa.toLowerCase() === fora.toLowerCase()) return false;
+  return true;
+}
+
+// Duas coisas diferentes, e confundi-las desenhava um cartão sem adversário:
+// o CAMPO onde o clube está e o LADO em que joga. Num registo são são o mesmo
+// — o clube está em casa porque está no campo casa —, mas num registo em que
+// o nome do clube se perdeu e ficou só a marca, o campo é um e o lado é o que
+// a marca diz: com casa="(F)" o clube está no campo casa e joga fora, e o
+// adversário é o do campo fora. Medido: o cartão saía "13 Jan Fora 16:00",
+// sem nome nenhum, porque fui buscar o adversário ao campo do clube.
+//
+// Devolve null quando o clube não está no jogo — aí são dois terceiros e o
+// "vs" é a única apresentação possível.
+function clubeNoJogo(j) {
+  if (isSC(j.casa)) return { campo: 'casa', emCasa: true };
+  if (isSC(j.fora)) return { campo: 'fora', emCasa: false };
+  const mCasa = marcaDe(j.casa), mFora = marcaDe(j.fora);
+  if (!semMarca(j.casa) && mCasa) return { campo: 'casa', emCasa: mCasa === 'C' };
+  if (!semMarca(j.fora) && mFora) return { campo: 'fora', emCasa: mFora !== 'C' };
+  return null;
+}
+
 function jogoEquipasHtml(j) {
-  const scCasa = isSC(j.casa), scFora = isSC(j.fora);
-  if (scCasa || scFora) {
-    const emCasa    = scCasa;
-    const adversario = emCasa ? j.fora : j.casa;
-    const advLogo    = emCasa ? j.logoFora : j.logoCasa;
+  // Um só formato para todos os escalões e séries: com o clube no jogo mostra-se
+  // o adversário, o logótipo dele e a etiqueta do lado. O "vs" fica reservado
+  // aos jogos entre terceiros, onde é a única forma de dizer quem é quem.
+  const clube = clubeNoJogo(j);
+  if (clube) {
+    const emCasa     = clube.emCasa;
+    const noCampoCasa = clube.campo === 'casa';
+    const adversario = semMarca(noCampoCasa ? j.fora : j.casa);
+    const advLogo    = noCampoCasa ? j.logoFora : j.logoCasa;
     return `
       <div class="jogo-equipas">
         <span class="jogo-equipa">${jogoLogo(advLogo, adversario)}${jscEsc(adversario)}</span>
@@ -73,10 +130,10 @@ function jogoEquipasHtml(j) {
   // endereço do logótipo continua a passar pelo jscEscUrl() dentro do helper.
   return `
       <div class="jogo-equipas">
-        <span class="jogo-equipa">${jogoLogo(j.logoCasa, j.casa)}${jscEsc(j.casa)}</span>
+        <span class="jogo-equipa">${jogoLogo(j.logoCasa, semMarca(j.casa))}${jscEsc(semMarca(j.casa))}</span>
         <div class="jogo-equipa-row">
           <span class="vs">vs</span>
-          <span class="jogo-equipa">${jogoLogo(j.logoFora, j.fora)}${jscEsc(j.fora)}</span>
+          <span class="jogo-equipa">${jogoLogo(j.logoFora, semMarca(j.fora))}${jscEsc(semMarca(j.fora))}</span>
         </div>
       </div>`;
 }
@@ -260,9 +317,13 @@ function renderJogos(escalao) {
   const dados = getDados(escalao, teamActivo);
   if (!dados) return;
 
-  const realizados = dados.jogos.filter(j => j.estado === 'Realizado')
+  // O mesmo guarda nas duas listas: um cartão por jogo, e nada que não seja um
+  // jogo. Sem isto, Próximos Jogos mostrava linhas "h2h" ao lado do jogo
+  // verdadeiro, e Últimos Resultados fazia o mesmo.
+  const jogos = dados.jogos.filter(jogoRenderavel);
+  const realizados = jogos.filter(j => j.estado === 'Realizado')
     .sort((a,b) => b.data.localeCompare(a.data));
-  const agendados = dados.jogos.filter(j => j.estado === 'Agendado')
+  const agendados = jogos.filter(j => j.estado === 'Agendado')
     .sort((a,b) => a.data.localeCompare(b.data));
 
   // Resultados

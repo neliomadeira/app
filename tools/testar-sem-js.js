@@ -2396,10 +2396,13 @@ async function testarLocalDosJogos(browser, url, jogos) {
   const d = await pg.evaluate(() => {
     const ler = (id) => Array.from(document.querySelectorAll('#' + id + ' .jogo-item')).map((it) => {
       const meta = it.querySelector('.jogo-meta');
+      const lado = it.querySelector('.jogo-lado');
       return {
         equipas: Array.from(it.querySelectorAll('.jogo-equipa')).map((e) => e.textContent.trim()),
         meta: meta ? meta.textContent.trim() : null,
         texto: it.textContent.replace(/\s+/g, ' ').trim(),
+        etiqueta: lado ? lado.textContent.trim() : '',
+        temVS: !!it.querySelector('.vs'),
       };
     });
     return { prox: ler('proximosJogos'), ultimos: ler('resultadosJogos') };
@@ -5822,9 +5825,12 @@ async function testarAdminHistoria(browser, url) {
         (fonteRes.match(/jscEsc\(jogoLogo\(/g) || []).length + ' ocorrência(s)');
       verificar('resultados.js: os três sítios inserem o markup directamente',
         (fonteRes.match(/\$\{jogoLogo\(/g) || []).length === 3);
+      // O nome passou a ser mostrado sem a marca do lado, e por isso vai pelo
+      // semMarca() antes do jscEsc(). O escape é o mesmo e continua fixado
+      // aqui; o que mudou foi o que se escapa.
       verificar('resultados.js: o nome da equipa continua escapado ao lado do logótipo',
-        /\$\{jogoLogo\(j\.logoCasa, j\.casa\)\}\$\{jscEsc\(j\.casa\)\}/.test(fonteRes)
-        && /\$\{jogoLogo\(j\.logoFora, j\.fora\)\}\$\{jscEsc\(j\.fora\)\}/.test(fonteRes)
+        /\$\{jogoLogo\(j\.logoCasa, semMarca\(j\.casa\)\)\}\$\{jscEsc\(semMarca\(j\.casa\)\)\}/.test(fonteRes)
+        && /\$\{jogoLogo\(j\.logoFora, semMarca\(j\.fora\)\)\}\$\{jscEsc\(semMarca\(j\.fora\)\)\}/.test(fonteRes)
         && /\$\{jogoLogo\(advLogo, adversario\)\}\$\{jscEsc\(adversario\)\}/.test(fonteRes));
       verificar('resultados.js: o endereço do logótipo continua a passar pelo jscEscUrl',
         /<img src="\$\{jscEscUrl\(resolved\)\}"/.test(fonteRes));
@@ -6564,6 +6570,91 @@ async function testarAdminHistoria(browser, url) {
 
       verificar('resultados.html: sem erros de JavaScript',
         lj.erros.length === 0, lj.erros.join(' | '));
+    }
+
+    // ---- Um só formato nos cartões de jogo -------------------------
+    console.log('\nos cartões de jogo: um formato só, e nada que não seja um jogo');
+    {
+      const fonteUni = fs.readFileSync(path.join(raiz, 'js', 'resultados.js'), 'utf8')
+        .replace(/^\s*\/\/.*$/gm, '');
+      verificar('resultados.js: o campo onde o clube está e o lado em que joga são coisas distintas',
+        /function clubeNoJogo\(j\)/.test(fonteUni)
+        && /return \{ campo: 'casa', emCasa: mCasa === 'C' \};/.test(fonteUni)
+        && /return \{ campo: 'fora', emCasa: mFora !== 'C' \};/.test(fonteUni)
+        && /const noCampoCasa = clube\.campo === 'casa';/.test(fonteUni));
+      verificar('resultados.js: há um guarda do que é desenhável, aplicado às duas listas',
+        /function jogoRenderavel\(j\)/.test(fonteUni)
+        && /const jogos = dados\.jogos\.filter\(jogoRenderavel\);/.test(fonteUni)
+        && /JSC_NAO_E_EQUIPA/.test(fonteUni));
+      verificar('resultados.js: a marca sai dos nomes que se mostram',
+        /function semMarca\(nome\)/.test(fonteUni)
+        && /jscEsc\(semMarca\(j\.casa\)\)/.test(fonteUni)
+        && /jscEsc\(semMarca\(j\.fora\)\)/.test(fonteUni));
+
+      const SC = 'Sport Campinense';
+      const g = (id, dia, casa, fora, extra) => Object.assign({
+        id, escalao: 'Sub-17', data: '2099-04-' + String(dia).padStart(2, '0'), hora: '11:00',
+        casa, fora, estado: 'Agendado', local: '',
+      }, extra || {});
+      const UNI = [
+        g(1, 10, SC, 'TESTE SILVES'),                       // clube em casa
+        g(2, 11, 'TESTE FARO', SC),                         // clube fora
+        g(3, 12, '(C)', 'TESTE LAGOA'),                     // nome do clube perdido, joga em casa
+        g(4, 13, '(F)', 'TESTE GUIA'),                      // nome do clube perdido, joga fora
+        g(5, 14, SC + ' (C)', 'TESTE ALVOR (F)'),           // marca colada aos nomes
+        g(6, 15, 'h2h', 'TESTE SILVES'),                    // h2h como equipa
+        g(7, 16, 'TESTE SILVES', 'h2h'),                    // h2h do outro lado
+        g(8, 17, 'TESTE OLHAO', 'TESTE QUARTEIRA'),         // jogo entre terceiros
+        g(9, 18, SC, 'TESTE MESSINENSE', { estado: 'Realizado', gcasa: 2, gfora: 1 }),
+        g(10, 19, 'h2h', 'TESTE BOLIQUEIME', { estado: 'Realizado', gcasa: 1, gfora: 1 }),
+      ];
+      const un = await testarLocalDosJogos(browser, srv.url, UNI);
+
+      verificar('medição válida: os dois blocos foram desenhados',
+        un.prox.length > 0 && un.ultimos.length > 0,
+        JSON.stringify([un.prox.length, un.ultimos.length]));
+      verificar('um cartão por jogo: os registos h2h não desenham nada',
+        un.prox.length === 6 && un.ultimos.length === 1,
+        JSON.stringify({ prox: un.prox.map((c) => c.texto), ultimos: un.ultimos.map((c) => c.texto) }));
+      verificar('nenhum cartão mostra h2h',
+        un.prox.concat(un.ultimos).every((c) => !/h2h/i.test(c.texto)),
+        JSON.stringify(un.prox.concat(un.ultimos).filter((c) => /h2h/i.test(c.texto))));
+      verificar('nenhum cartão mostra (C) ou (F)',
+        un.prox.concat(un.ultimos).every((c) => !/\(\s*[CF]\s*\)/i.test(c.texto)),
+        JSON.stringify(un.prox.concat(un.ultimos).filter((c) => /\(\s*[CF]\s*\)/i.test(c.texto))));
+      verificar('(C) vira etiqueta CASA, com o adversário certo',
+        un.prox[2].etiqueta === 'Casa' && un.prox[2].temVS === false
+        && un.prox[2].texto.indexOf('TESTE LAGOA') !== -1,
+        JSON.stringify(un.prox[2]));
+      verificar('(F) vira etiqueta FORA, com o adversário certo',
+        un.prox[3].etiqueta === 'Fora' && un.prox[3].temVS === false
+        && un.prox[3].texto.indexOf('TESTE GUIA') !== -1,
+        JSON.stringify(un.prox[3]));
+      verificar('o clube em casa e o clube fora dão CASA e FORA',
+        un.prox[0].etiqueta === 'Casa' && un.prox[1].etiqueta === 'Fora',
+        JSON.stringify([un.prox[0].etiqueta, un.prox[1].etiqueta]));
+      verificar('a marca colada ao nome sai, e a etiqueta fica',
+        un.prox[4].etiqueta === 'Casa' && un.prox[4].texto.indexOf('TESTE ALVOR') !== -1
+        && !/\(F\)/.test(un.prox[4].texto),
+        JSON.stringify(un.prox[4]));
+      verificar('com o clube no jogo nunca aparece vs',
+        un.prox.filter((c) => c.etiqueta).every((c) => c.temVS === false),
+        JSON.stringify(un.prox.filter((c) => c.etiqueta && c.temVS)));
+      verificar('o jogo entre terceiros é o único com vs, e mostra as duas equipas',
+        un.prox.filter((c) => c.temVS).length === 1
+        && un.prox[5].temVS === true
+        && un.prox[5].texto.indexOf('TESTE OLHAO') !== -1
+        && un.prox[5].texto.indexOf('TESTE QUARTEIRA') !== -1,
+        JSON.stringify(un.prox.filter((c) => c.temVS).map((c) => c.texto)));
+      verificar('cada cartão com etiqueta mostra uma equipa só — a adversária',
+        un.prox.filter((c) => c.etiqueta).every((c) => c.equipas.length === 1),
+        JSON.stringify(un.prox.filter((c) => c.etiqueta).map((c) => c.equipas)));
+      verificar('Últimos Resultados segue o mesmo formato',
+        un.ultimos[0].etiqueta === 'Casa' && un.ultimos[0].temVS === false
+        && un.ultimos[0].texto.indexOf('TESTE MESSINENSE') !== -1,
+        JSON.stringify(un.ultimos[0]));
+      verificar('resultados.html: sem erros de JavaScript no formato único',
+        un.erros.length === 0, un.erros.join(' | '));
     }
 
     // ---- As sugestões dos campos: vazio tem de parecer vazio --------
