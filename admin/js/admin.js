@@ -3715,6 +3715,41 @@ function _attachJogoLogos(jogos) {
   return jogos;
 }
 
+// ── Linhas de competição: nunca são equipas nem recintos ─────────────────
+//
+// O AF Algarve escreve o nome da competição em linha própria no meio da lista
+// — "AF Algarve Juniores C 1ª Divisão 1ª Fase 2026/27" — e nenhum parser a
+// conhecia. O junkRe do parseZZJogos só recusa linhas que COMECEM por
+// "jornada", "competição" e companhia, e esta começa por "AF Algarve"; o
+// parseMultiLineJogos lê a linha pela posição relativa à data e não filtra
+// nada. Medido: o texto da competição ficava em fora, e noutra forma em local.
+//
+// E o "C" de "Juniores C" não é um marcador de casa: o _marcaLadoDe() exige
+// parênteses, pelo que já não o lia, e esta função garante que a linha também
+// nunca chega lá.
+//
+// Reconhece-se por duas provas independentes, para um nome de clube nunca
+// entrar aqui por acidente. "Juventude Sport Campinense" não tem nenhuma.
+const JSC_PROVAS_COMPETICAO = [
+  /\baf\s+algarve\b/i,
+  /\bassocia[çc][ãa]o\s+de\s+futebol\b/i,
+  /\b\d+\s*[ªaº°]?\s*(divis[ãa]o|fase)\b/i,
+  /\b(campeonato|ta[çc]a|superta[çc]a|liga)\b/i,
+  /\b20\d{2}\s*\/\s*\d{2,4}\b/,
+  /\b(juniores|juvenis|iniciados|infantis|benjamins|traquinas|petizes)\b/i,
+  /\bs[ée]rie\s+[A-Z0-9]\b/i,
+  /\bdistrital|nacional\b/i,
+];
+
+function _ehLinhaDeCompeticao(linha) {
+  const t = String(linha == null ? '' : linha).trim();
+  if (t.length < 8) return false;                       // "Liga" sozinho não é
+  if (parseDate(t) || parseTime(t) || parseScore(t)) return false;
+  let provas = 0;
+  for (const re of JSC_PROVAS_COMPETICAO) if (re.test(t)) provas++;
+  return provas >= 2;
+}
+
 // ── (C) e (F): a marca do lado em que o clube joga ───────────────────────
 //
 // O AF Algarve publica o calendário do clube com (C) quando o clube joga em
@@ -3762,6 +3797,12 @@ function _aplicarMarcasCasaFora(jogos) {
   const ehClube = (x) => /campinense/i.test(x || '');
   const saida = [];
   for (const j of jogos) {
+    // Rede de segurança: o filtro do parsePastedJogos já tirou as linhas de
+    // competição, mas se alguma chegar aqui num campo de equipa o jogo não é
+    // de confiança — guardá-lo punha o nome de uma competição onde devia
+    // estar um clube, à vista do visitante. No recinto limpa-se e segue.
+    if (_ehLinhaDeCompeticao(j.casa) || _ehLinhaDeCompeticao(j.fora)) continue;
+    if (_ehLinhaDeCompeticao(j.local)) j.local = '';
     const mCasa = _marcaLadoDe(j.casa), mFora = _marcaLadoDe(j.fora);
     // A marca pode ter vindo sozinha na linha do recinto, e aí o
     // _localDeJogo() já a descartou — e bem, porque não é um recinto. O parser
@@ -3810,7 +3851,12 @@ function _aplicarMarcasCasaFora(jogos) {
 function parsePastedJogos(text) {
   // Substituir tokens [img:...] pelos nomes das equipas (via classificação importada)
   text = _resolveImgTeamTokens(text);
-  const raw = text.split('\n').map(l=>l.trim()).filter(Boolean);
+  // As linhas de competição saem aqui, antes de qualquer parser as ver: assim
+  // não são consumidas como equipa nem como recinto, e os blocos ficam com a
+  // forma que os parsers esperam — o adversário, o clube, o resultado, a hora
+  // e o recinto continuam todos lá.
+  const raw = text.split('\n').map(l=>l.trim()).filter(Boolean)
+    .filter(l => !_ehLinhaDeCompeticao(l));
   const idBase = { v: Date.now() };
   const next = () => idBase.v++;
   // ZeroZero detection: date lines (DD/MM/YYYY or "22 mar 2026") followed by team names on separate lines

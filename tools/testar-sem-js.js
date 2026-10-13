@@ -6286,6 +6286,66 @@ async function testarAdminHistoria(browser, url) {
           'obtido: ' + JSON.stringify(obtido) + ' esperado: ' + JSON.stringify(c.espera));
       });
 
+      // ---- A linha da competição nunca é equipa nem recinto ----------
+      //
+      // O AF Algarve escreve o nome da competição em linha própria no meio da
+      // lista — "AF Algarve Juniores C 1ª Divisão 1ª Fase 2026/27". Nenhum
+      // parser a conhecia: o junkRe do parseZZJogos só recusa linhas que
+      // COMECEM por "jornada" ou "competição", e esta começa por "AF Algarve".
+      // Medido antes da correção: o título ficava em fora, e noutra forma em
+      // local. O "C" de "Juniores C" não é marcador de casa — o _marcaLadoDe()
+      // exige parênteses —, e há aqui um teste que o fixa.
+      const COMP = 'AF Algarve Juniores C 1ª Divisão 1ª Fase 2026/27';
+      verificar('admin.js: a linha de competição exige duas provas independentes',
+        /function _ehLinhaDeCompeticao\(linha\)/.test(fonteMarcas)
+        && /provas >= 2/.test(fonteMarcas)
+        && /JSC_PROVAS_COMPETICAO/.test(fonteMarcas));
+      verificar('admin.js: as linhas de competição saem antes do despacho',
+        /\.filter\(l => !_ehLinhaDeCompeticao\(l\)\)/.test(fonteMarcas));
+      verificar('admin.js: rede de segurança — competição num campo de equipa descarta o jogo',
+        /if \(_ehLinhaDeCompeticao\(j\.casa\) \|\| _ehLinhaDeCompeticao\(j\.fora\)\) continue;/.test(fonteMarcas)
+        && /if \(_ehLinhaDeCompeticao\(j\.local\)\) j\.local = '';/.test(fonteMarcas));
+
+      const CASOS_COMP = [
+        { nome: 'competição como cabeçalho: o jogo sai inteiro',
+          texto: t(COMP, SC + ' (C)', '20 set 2026', '3-1', 'TESTE SILVES', 'Estádio Municipal de Loulé'),
+          espera: [{ casa: SC, fora: 'TESTE SILVES', estado: 'Realizado', gcasa: 3, gfora: 1, local: 'Estádio Municipal de Loulé' }] },
+        { nome: 'competição entre dois jogos: os dois saem corretos',
+          texto: t(SC + ' (C)', '20 set 2026', '3-1', 'TESTE SILVES (F)', COMP,
+                   SC + ' (F)', '27 set 2026', '0-2', 'TESTE FARO (C)', 'Campo de Faro'),
+          espera: [{ casa: SC, fora: 'TESTE SILVES', estado: 'Realizado', gcasa: 3, gfora: 1 },
+                   { casa: 'TESTE FARO', fora: SC, estado: 'Realizado', gcasa: 2, gfora: 0, local: 'Campo de Faro' }] },
+        { nome: 'competição no ZeroZero: não entra em equipa nem em local',
+          texto: t('20/09/2026', SC, '3-1', 'TESTE SILVES', COMP),
+          espera: [{ casa: SC, fora: 'TESTE SILVES', estado: 'Realizado', local: '' }] },
+        { nome: 'controlo: um recinto com o nome de uma cidade não é competição',
+          texto: t(SC + ' (C)', '20 set 2026', '3-1', 'TESTE SILVES (F)', 'Estádio Municipal de Silves'),
+          espera: [{ casa: SC, fora: 'TESTE SILVES', estado: 'Realizado', local: 'Estádio Municipal de Silves' }] },
+        { nome: 'controlo: o nome do clube não é lido como competição',
+          texto: t(SC + ' (C)', '20 set 2026', '11:00', 'TESTE SILVES (F)', 'Campo Zona Verde'),
+          espera: [{ casa: SC, fora: 'TESTE SILVES', estado: 'Agendado', local: 'Campo Zona Verde' }] },
+      ];
+      const cp = await testarMarcasCasaFora(browser, srv.url, CASOS_COMP);
+      const ehComp = (x) => /af\s*algarve|divis[ãa]o|juniores|20\d\d\s*\//i.test(String(x == null ? '' : x));
+      const todosComp = [];
+      CASOS_COMP.forEach((c, i) => {
+        const obtido = cp.lidos[i] || [];
+        todosComp.push(...obtido);
+        const bate = obtido.length === c.espera.length && c.espera.every((e, k) => {
+          const o = obtido[k] || {};
+          return Object.keys(e).every((campo) => o[campo] === e[campo]);
+        });
+        verificar(c.nome, bate, 'obtido: ' + JSON.stringify(obtido) + ' esperado: ' + JSON.stringify(c.espera));
+      });
+      verificar('nenhuma competição ficou em casa, fora ou local',
+        todosComp.length > 0 && todosComp.every((j) => !ehComp(j.casa) && !ehComp(j.fora) && !ehComp(j.local)),
+        JSON.stringify(todosComp.filter((j) => ehComp(j.casa) || ehComp(j.fora) || ehComp(j.local))));
+      verificar('o C de «Juniores C» não é lido como marcador de casa',
+        todosComp.every((j) => j.casa !== '' && j.fora !== ''),
+        JSON.stringify(todosComp.map((j) => j.casa + ' / ' + j.fora)));
+      verificar('painel: sem erros de JavaScript nas formas com competição',
+        cp.erros.length === 0, cp.erros.join(' | '));
+
       const temMarca = (x) => /\(\s*[CF]\s*\)/i.test(String(x == null ? '' : x));
       verificar('a marca nunca fica em casa, fora ou local — em nenhuma das formas',
         todos.length > 0 && todos.every((j) => !temMarca(j.casa) && !temMarca(j.fora) && !temMarca(j.local)),
