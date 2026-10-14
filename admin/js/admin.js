@@ -5766,6 +5766,46 @@ function avaliarTamanhoDoPayload(corpo, dados) {
   return {};
 }
 
+// ---- Nunca publicar o vazio por cima do que o site tem --------------
+// O painel é a fonte: guarda o conteúdo no localStorage deste browser e
+// publica o que lá estiver. Quando esse armazém se perde — limpeza de dados
+// do site, despejo do browser por falta de espaço, outro perfil — o painel
+// arranca vazio e tem tudo o que precisa para publicar nada por cima de tudo.
+// Medido: 34 chaves reduzidas a três, e as três que ficaram são as que o
+// próprio painel recria sem dados (jsc_painel_local, jsc_noticias, jsc_theme).
+//
+// Duas guardas, e nenhuma delas é um confirm() de uma linha: aqui exige-se uma
+// palavra escrita, e no api/save.php exige-se que o pedido repita as áreas e as
+// contagens que o servidor tem gravadas. Falhar uma das duas recusa a
+// publicação inteira: o data/db.json não chega a ser tocado.
+const JSC_AREAS_CRITICAS = ['noticias', 'jogos', 'atletas', 'escaloes', 'treinadores',
+  'modalidades', 'patrocinadores', 'galeria', 'videos', 'agenda'];
+const JSC_PALAVRA_APAGAR = 'APAGAR';
+
+function jscConteudoVazio(v) {
+  if (v === null || v === undefined) return true;
+  if (Array.isArray(v)) return v.length === 0;
+  if (typeof v === 'string') return v.trim() === '';
+  if (typeof v === 'object') return Object.keys(v).length === 0;
+  return false;
+}
+
+function jscAreasCriticasVazias(dados) {
+  return JSC_AREAS_CRITICAS.filter(function (a) { return jscConteudoVazio(dados[a]); });
+}
+
+// A confirmação escrita. Um confirm() aceita-se com Enter sem ler; isto obriga
+// a escrever a palavra, e qualquer outra coisa — incluindo cancelar — recusa.
+function jscConfirmarEsvaziamento(titulo, linhas) {
+  const resposta = prompt(
+    titulo + '\n\n' + linhas.join('\n')
+    + '\n\nO site público passa a não ter este conteúdo.'
+    + '\nSe foi este browser que perdeu os dados, cancela:'
+    + '\no servidor ainda os tem e nada aqui os recupera.'
+    + '\n\nPara publicar mesmo assim, escreve ' + JSC_PALAVRA_APAGAR + ' em maiúsculas:', '');
+  return resposta !== null && resposta.trim() === JSC_PALAVRA_APAGAR;
+}
+
 async function publicarNoServidor() {
   if (MODO_LOCAL) {
     showToast('Modo local: publicar precisa de PHP a correr no servidor.', 'red');
@@ -5805,24 +5845,37 @@ async function publicarNoServidor() {
     treinadores:    DB.treinadores,
     patrocinadores: DB.patrocinadores,
     modalidades:    DB.modalidades,
-    modPosts:       ls('db_mod_posts'),
     jogos:          DB.jogos,
-    historia:       ls('db_historia'),
-    palmares:       ls('db_palmares'),
-    seniores:       ls('db_seniores'),
-    senioresInfo:   ls('db_seniores_info'),
-    siteConfig:     ls('site_config'),
-    dadosClube:     ls('dados_clube'),
-    sitePopup:      ls('site_popup'),
-    siteBanner:     ls('site_banner'),
-    siteAviso:      ls('site_aviso'),
-    siteCores:      ls('site_cores'),
-    siteLegal:      ls('site_legal'),
-    emailConfig:    ls('email_config'),
-    fbPosts:        ls('fb_posts'),
-    logos:          ls('db_logos'),
-    classConfig:    ls('fpf_sync_config'),
   };
+
+  // As áreas que vivem directamente no localStorage só entram no pedido quando
+  // este browser as tem — a mesma regra que o classData já seguia, e pela mesma
+  // razão. O ls() devolve null tanto para "está vazio" como para "não existe
+  // aqui", e esse null ia no pedido: publicar de outro computador, do telemóvel
+  // ou de um perfil novo apagava do site os logótipos, a história, o palmarés e
+  // a ficha do clube. Uma chave ausente significa "inalterada" para o servidor.
+  const JSC_CAMPOS_DO_ARMAZEM = {
+    modPosts:     'db_mod_posts',
+    historia:     'db_historia',
+    palmares:     'db_palmares',
+    seniores:     'db_seniores',
+    senioresInfo: 'db_seniores_info',
+    siteConfig:   'site_config',
+    dadosClube:   'dados_clube',
+    sitePopup:    'site_popup',
+    siteBanner:   'site_banner',
+    siteAviso:    'site_aviso',
+    siteCores:    'site_cores',
+    siteLegal:    'site_legal',
+    emailConfig:  'email_config',
+    fbPosts:      'fb_posts',
+    logos:        'db_logos',
+    classConfig:  'fpf_sync_config',
+  };
+  Object.keys(JSC_CAMPOS_DO_ARMAZEM).forEach(function (campo) {
+    const v = ls(JSC_CAMPOS_DO_ARMAZEM[campo]);
+    if (v !== null && v !== undefined) dados[campo] = v;
+  });
   // As classificações só entram no pedido quando este browser as tem.
   //
   // Iam sempre, e iam como null quando não havia nenhuma chave fpf_class_* —
@@ -5835,6 +5888,24 @@ async function publicarNoServidor() {
   // resolvia. Uma chave ausente significa "inalterada" para o servidor, que é
   // exactamente o que se quer aqui.
   if (Object.keys(classData).length) dados.classData = classData;
+
+  // ---- Pré-voo: um painel inteiro vazio é um armazém perdido ---------
+  // Não há razão legítima para publicar um site sem notícias, sem jogos, sem
+  // atletas, sem escalões e sem modalidades, todos ao mesmo tempo. Numa
+  // instalação nova o servidor também não tem nada e não há nada a perder,
+  // mas a palavra escrita fica pedida igual: é uma vez, e é o caso em que o
+  // erro custa o conteúdo todo.
+  const criticasVazias = jscAreasCriticasVazias(dados);
+  if (criticasVazias.length === JSC_AREAS_CRITICAS.length) {
+    if (!jscConfirmarEsvaziamento(
+      'Este painel não tem conteúdo nenhum: as ' + JSC_AREAS_CRITICAS.length
+        + ' áreas principais estão todas vazias.',
+      ['  • ' + criticasVazias.join(', ')]
+    )) {
+      showToast('Publicação cancelada. O site ficou exactamente como estava.', 'red');
+      return;
+    }
+  }
 
   // ---- O payload cabe no que o servidor aceita? ---------------------
   // As imagens não são enviadas como ficheiros: o compressImage() reduz-as no
@@ -5855,17 +5926,51 @@ async function publicarNoServidor() {
   }
   if (limite.avisar) showToast(limite.mensagem);
 
-  try {
-    const btn = document.querySelector('[onclick="publicarNoServidor()"]');
-    if (btn) { btn.disabled = true; btn.textContent = '⏳ A publicar...'; }
+  const btn = document.querySelector('[onclick="publicarNoServidor()"]');
+  const ocupado = (sim) => {
+    if (!btn) return;
+    btn.disabled = sim;
+    if (sim) btn.textContent = '⏳ A publicar...';
+    else btn.innerHTML = '&#128640; Publicar agora';
+  };
+  const enviar = async (confirmacao) => {
     const resp = await fetch('../api/save.php', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'same-origin',
-      body: corpo,
+      body: confirmacao
+        ? JSON.stringify(Object.assign({}, dados, { confirmarEsvaziar: confirmacao }))
+        : corpo,
     });
-    const json = await resp.json();
-    if (btn) { btn.disabled = false; btn.innerHTML = '&#128640; Publicar agora'; }
+    let json = {};
+    try { json = await resp.json(); } catch (_) {}
+    return { resp, json };
+  };
+
+  try {
+    ocupado(true);
+    let { resp, json } = await enviar(null);
+
+    // O servidor recusou porque esta publicação deixava vazio conteúdo que ele
+    // tem gravado, e disse quais as áreas e quantos registos. Só avança com a
+    // palavra escrita, e o segundo pedido leva essas contagens de volta: o
+    // servidor confere-as outra vez contra o data/db.json antes de gravar.
+    if (resp.status === 409 && json && json.codigo === 'esvaziamento'
+        && Array.isArray(json.esvaziamentos) && json.esvaziamentos.length) {
+      ocupado(false);
+      const linhas = json.esvaziamentos.map(function (e) {
+        return '  • ' + e.area + ': ' + e.antes + ' → ' + e.depois;
+      });
+      if (!jscConfirmarEsvaziamento(
+        'O site tem conteúdo que esta publicação deixaria vazio:', linhas)) {
+        showToast('Publicação cancelada. O site ficou exactamente como estava.', 'red');
+        return;
+      }
+      ocupado(true);
+      ({ resp, json } = await enviar(json.esvaziamentos));
+    }
+
+    ocupado(false);
     if (resp.ok && json.ok) {
       const ts = new Date().toLocaleString('pt-PT');
       localStorage.setItem('jsc_ultima_publicacao', ts);
@@ -5881,9 +5986,8 @@ async function publicarNoServidor() {
       showToast('❌ Erro ao publicar: ' + (json.error || resp.status), 'red');
     }
   } catch (e) {
+    ocupado(false);
     showToast('❌ Sem ligação ao servidor: ' + e.message, 'red');
-    const btn = document.querySelector('[onclick="publicarNoServidor()"]');
-    if (btn) { btn.disabled = false; btn.innerHTML = '&#128640; Publicar agora'; }
   }
 }
 window.publicarNoServidor = publicarNoServidor;

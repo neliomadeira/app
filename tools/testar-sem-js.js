@@ -2803,6 +2803,197 @@ async function _medirSaveClassData(url) {
   return r;
 }
 
+// ---- As duas guardas do Publicar, no painel a sério -----------------
+// O save.php é interceptado para não publicar nada: o que se mede aqui é o que
+// o painel faz — quantos pedidos saíram, se o segundo leva a confirmação, e se
+// uma palavra errada ou um cancelar travam tudo.
+async function testarPublicarVazio(browser, url, cenarios) {
+  const saida = {};
+  for (const c of cenarios) {
+    const ctx = await browser.newContext({
+      javaScriptEnabled: true,
+      extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+    });
+    const pedidos = [];
+    await ctx.route('**/api/save.php*', (rota) => {
+      const corpo = rota.request().postData();
+      let conf = null;
+      try { conf = JSON.parse(corpo).confirmarEsvaziar || null; } catch (_) {}
+      pedidos.push({ corpo, confirmacao: conf });
+      if (c.servidorRecusa && !conf) {
+        return rota.fulfill({ status: 409, contentType: 'application/json',
+          body: JSON.stringify({ ok: false, codigo: 'esvaziamento', palavra: 'APAGAR',
+            error: 'recusado pela sonda',
+            esvaziamentos: [{ area: 'jogos', antes: 7, depois: 0 }] }) });
+      }
+      return rota.fulfill({ status: 200, contentType: 'application/json',
+        body: JSON.stringify({ ok: true, savedAt: '2026-10-14T12:00:00Z',
+          alteradas: [], gerados: [], avisos: [] }) });
+    });
+    const pg = await ctx.newPage();
+    const erros = [], dialogos = [];
+    pg.on('pageerror', (e) => erros.push('exce\u00e7\u00e3o: ' + e.message));
+    pg.on('dialog', (d) => {
+      dialogos.push({ tipo: d.type(), texto: d.message().replace(/\s+/g, ' ').slice(0, 400) });
+      if (d.type() !== 'prompt') return d.accept();
+      if (c.palavra === null) return d.dismiss();
+      return d.accept(c.palavra);
+    });
+    await pg.goto(url + '/admin/', { waitUntil: 'networkidle', timeout: 20000 });
+
+    await pg.evaluate((a) => {
+      localStorage.setItem('jsc_painel_local', '1');
+      Object.keys(localStorage)
+        .filter((k) => k.indexOf('db_') === 0 || k.indexOf('fpf_') === 0 || k.indexOf('site_') === 0)
+        .forEach((k) => localStorage.removeItem(k));
+      localStorage.setItem('jsc_noticias', JSON.stringify(a.comDados ? a.noticias : []));
+      const vazio = [];
+      DB.jogos          = a.comDados ? a.jogos : vazio;
+      DB.atletas        = a.comDados ? a.atletas : vazio;
+      DB.escaloes       = a.comDados ? a.escaloes : vazio;
+      DB.treinadores    = a.comDados ? a.treinadores : vazio;
+      DB.modalidades    = a.comDados ? a.modalidades : vazio;
+      DB.patrocinadores = a.comDados ? a.patrocinadores : vazio;
+      DB.galeria        = a.comDados ? a.galeria : vazio;
+      DB.videos         = a.comDados ? a.videos : vazio;
+      DB.agenda         = a.comDados ? a.agenda : vazio;
+    }, c);
+
+    await pg.evaluate(() => publicarNoServidor());
+    await pg.waitForTimeout(1500);
+    await ctx.close();
+
+    const primeiro = pedidos.length ? JSON.parse(pedidos[0].corpo) : null;
+    saida[c.nome] = {
+      nPedidos:   pedidos.length,
+      prompts:    dialogos.filter((d) => d.tipo === 'prompt'),
+      confirmacoes: pedidos.map((x) => x.confirmacao),
+      // O campo ausente não vai no pedido: db_logos foi removido acima.
+      temLogos:   primeiro ? Object.prototype.hasOwnProperty.call(primeiro, 'logos') : null,
+      temNoticias: primeiro ? Object.prototype.hasOwnProperty.call(primeiro, 'noticias') : null,
+      erros,
+    };
+  }
+  return saida;
+}
+
+// ---- A guarda do esvaziamento, contra o api/save.php a sério ---------
+// Mede o caminho inteiro: publicar conteúdo, tentar publicar vazio por cima,
+// tentar com uma confirmação que não corresponde, confirmar como é devido, e
+// dois controlos de trabalho normal que têm de passar sem pergunta nenhuma.
+//
+// Lê-se o data/db.json do disco em cada passo, e não a projeção pública do
+// /api/load.php, que filtra: o que está em causa é o ficheiro.
+//
+// Em cópia e servidor próprios, como a sonda do classData e pela mesma razão:
+// este caminho cria conta e PUBLICA.
+async function testarSaveEsvaziamento(raizOriginal) {
+  const copia = fs.mkdtempSync(path.join(os.tmpdir(), 'jsc-vazio-'));
+  fs.cpSync(raizOriginal, copia, {
+    recursive: true,
+    filter: (origem) => !/[\\/](node_modules|\.git)([\\/]|$)/.test(origem),
+  });
+  const srv = await arrancarServidor({ raiz: copia, portaHttp: 8093, portaPhp: 8092 });
+  if (srv.modo !== 'apache') {
+    if (srv.parar) await srv.parar();
+    fs.rmSync(copia, { recursive: true, force: true });
+    return { semApache: true };
+  }
+  try {
+    return await _medirSaveEsvaziamento(srv.url, copia);
+  } finally {
+    if (srv.parar) await srv.parar();
+    fs.rmSync(copia, { recursive: true, force: true });
+  }
+}
+
+async function _medirSaveEsvaziamento(url, raizCopia) {
+  const cookieDe = (res) => {
+    const m = (res.headers.get('set-cookie') || '').match(/JSCSESSAO=([^;]+)/);
+    return m ? 'JSCSESSAO=' + m[1] : null;
+  };
+  const pedir = async (caminho, opcoes = {}) => {
+    const h = { 'X-Forwarded-Proto': 'https' };
+    if (opcoes.cookie) h['Cookie'] = opcoes.cookie;
+    if (opcoes.corpo) { h['Content-Type'] = 'application/json'; h['X-JSC-Painel'] = '1'; }
+    const res = await fetch(url + caminho, {
+      method: opcoes.corpo ? 'POST' : 'GET', headers: h,
+      body: opcoes.corpo ? JSON.stringify(opcoes.corpo) : undefined, redirect: 'manual',
+    });
+    const texto = await res.text();
+    let json = null;
+    try { json = JSON.parse(texto); } catch (_) {}
+    return { estado: res.status, texto, json, cookie: cookieDe(res) };
+  };
+
+  const CREDENCIAIS = { utilizador: 'Admin', password: 'Teste12345ab' };
+  let sessao = await pedir('/api/auth.php?acao=criar-primeiro',
+    { corpo: { ...CREDENCIAIS, nome: 'Admin' } });
+  if (!/"ok":true/.test(sessao.texto)) {
+    sessao = await pedir('/api/auth.php?acao=entrar', { corpo: CREDENCIAIS });
+  }
+  const cookie = sessao.cookie;
+  const r = { entrou: !!cookie && /"ok":true/.test(sessao.texto) };
+
+  const ficheiro = path.join(raizCopia, 'data', 'db.json');
+  const noDisco = () => {
+    try {
+      const d = JSON.parse(fs.readFileSync(ficheiro, 'utf8'));
+      return {
+        jogos:          Array.isArray(d.jogos) ? d.jogos.length : null,
+        patrocinadores: Array.isArray(d.patrocinadores) ? d.patrocinadores.length : null,
+        temConfirmacao: Object.prototype.hasOwnProperty.call(d, 'confirmarEsvaziar'),
+      };
+    } catch (_) { return { jogos: '(sem ficheiro)', patrocinadores: '(sem ficheiro)', temConfirmacao: false }; }
+  };
+  const agora = () => new Date().toISOString();
+
+  const JOGOS = [
+    { id: 801, escalao: 'Sub-17', data: '2026-01-10', hora: '15:00', casa: 'Equipa Um', fora: 'Equipa Dois', estado: 'Agendado', local: '' },
+    { id: 802, escalao: 'Sub-17', data: '2026-01-17', hora: '15:00', casa: 'Equipa Tres', fora: 'Equipa Quatro', estado: 'Agendado', local: '' },
+  ];
+  const PATROCINADORES = [
+    { id: 701, nome: 'Apoio Um', nivel: 'Ouro', url: '', logo: '', ativo: true },
+    { id: 702, nome: 'Apoio Dois', nivel: 'Prata', url: '', logo: '', ativo: true },
+    { id: 703, nome: 'Apoio Tres', nivel: 'Prata', url: '', logo: '', ativo: true },
+  ];
+
+  // 1. Semear conteúdo a sério.
+  r.semear = await pedir('/api/save.php',
+    { cookie, corpo: { publicadoEm: agora(), jogos: JOGOS, patrocinadores: PATROCINADORES } });
+  r.depoisDeSemear = noDisco();
+
+  // 2. Publicar vazio por cima, sem confirmação: tem de recusar e não tocar no ficheiro.
+  r.semConfirmar = await pedir('/api/save.php',
+    { cookie, corpo: { publicadoEm: agora(), jogos: [], patrocinadores: [] } });
+  r.depoisDeRecusar = noDisco();
+
+  // 3. Confirmações que não correspondem: contagem errada, área a menos, área trocada.
+  r.contagemErrada = await pedir('/api/save.php', { cookie, corpo: { publicadoEm: agora(),
+    jogos: [], patrocinadores: [], confirmarEsvaziar: [{ area: 'jogos', antes: 99 }, { area: 'patrocinadores', antes: 3 }] } });
+  r.areaAMenos = await pedir('/api/save.php', { cookie, corpo: { publicadoEm: agora(),
+    jogos: [], patrocinadores: [], confirmarEsvaziar: [{ area: 'jogos', antes: 2 }] } });
+  r.areaTrocada = await pedir('/api/save.php', { cookie, corpo: { publicadoEm: agora(),
+    jogos: [], patrocinadores: [], confirmarEsvaziar: [{ area: 'atletas', antes: 2 }, { area: 'patrocinadores', antes: 3 }] } });
+  r.depoisDasErradas = noDisco();
+
+  // 4. A confirmação certa — exactamente as áreas e as contagens que o servidor devolveu.
+  r.confirmada = await pedir('/api/save.php', { cookie, corpo: { publicadoEm: agora(),
+    jogos: [], patrocinadores: [],
+    confirmarEsvaziar: (r.semConfirmar.json || {}).esvaziamentos || [] } });
+  r.depoisDeConfirmar = noDisco();
+
+  // 5. Controlo: escrever conteúdo novo passa sem pergunta nenhuma.
+  r.normal = await pedir('/api/save.php', { cookie, corpo: { publicadoEm: agora(), jogos: JOGOS } });
+  r.depoisDoNormal = noDisco();
+
+  // 6. Controlo: omitir uma área continua a querer dizer "inalterada".
+  r.omitindo = await pedir('/api/save.php', { cookie, corpo: { publicadoEm: agora() } });
+  r.depoisDeOmitir = noDisco();
+
+  return r;
+}
+
 // A coluna Forma, no browser.
 async function testarColunaForma(browser, url, linhas) {
   const ctx = await browser.newContext({
@@ -6943,10 +7134,135 @@ async function testarAdminHistoria(browser, url) {
         /"ok":true/.test(sv.semClassData.texto)
         && JSON.stringify(sv.depoisDeOmitir) === JSON.stringify(sv.depoisDeGravar),
         JSON.stringify(sv.depoisDeOmitir));
-      // Esta fica como registo do porquê da correcção no painel: com null, o
-      // servidor apaga — e é por isso que o pedido deixou de o enviar.
-      verificar('e um classData null apaga-a — a razão de o painel deixar de o enviar',
-        sv.depoisDoNull === null, JSON.stringify(sv.depoisDoNull));
+      // Isto apagava a classificação em silêncio, e é por isso que o painel
+      // deixou de enviar o null. Desde a guarda do esvaziamento, o servidor
+      // também já não o aceita: recusa com 409 e não toca no ficheiro.
+      verificar('um classData null é recusado com 409 e a classificação fica',
+        sv.comNull.estado === 409
+        && /"codigo":"esvaziamento"/.test(sv.comNull.texto)
+        && JSON.stringify(sv.depoisDoNull) === JSON.stringify(sv.depoisDeGravar),
+        sv.comNull.estado + ' ' + sv.comNull.texto.slice(0, 160)
+        + ' → ' + JSON.stringify(sv.depoisDoNull));
+      }
+    }
+
+    // ---- Publicar vazio por cima do que o site tem ------------------
+    console.log('\nnenhuma publicação substitui conteúdo por nada sem o dizer');
+    {
+      const semComentAdmV = fs.readFileSync(path.join(raiz, 'admin', 'js', 'admin.js'), 'utf8')
+        .replace(/^\s*\/\/.*$/gm, '');
+      const fonteSave = fs.readFileSync(path.join(raiz, 'api', 'save.php'), 'utf8');
+
+      verificar('admin.js: as áreas do armazém só entram no pedido quando existem',
+        /if \(v !== null && v !== undefined\) dados\[campo\] = v;/.test(semComentAdmV));
+      verificar('admin.js: a confirmação é uma palavra escrita, não um confirm()',
+        /resposta\.trim\(\) === JSC_PALAVRA_APAGAR/.test(semComentAdmV)
+        && /const JSC_PALAVRA_APAGAR = 'APAGAR';/.test(semComentAdmV));
+      verificar('admin.js: o 409 de esvaziamento é tratado e reenviado com a confirmação',
+        /resp\.status === 409 && json && json\.codigo === 'esvaziamento'/.test(semComentAdmV)
+        && /confirmarEsvaziar: confirmacao/.test(semComentAdmV));
+      verificar('save.php: a confirmação sai do payload antes de ser gravada',
+        /unset\(\$novos\['confirmarEsvaziar'\]\);/.test(fonteSave));
+      verificar('save.php: a guarda compara área a área com o que está gravado',
+        /\$dado !== \$esperado/.test(fonteSave)
+        && /'codigo'\s*=>\s*'esvaziamento'/.test(fonteSave));
+
+      // O painel: quantos pedidos saem, e o que levam.
+      const CONTEUDO = {
+        noticias: [{ id: 901, titulo: 'Uma', resumo: 'texto', publicada: true, data: '2026-01-01' }],
+        jogos: [{ id: 801, escalao: 'Sub-17', data: '2026-01-10', casa: 'Equipa Um', fora: 'Equipa Dois', estado: 'Agendado' }],
+        atletas: [{ id: 601, nome: 'Atleta Um', escalao: 'Sub-17' }],
+        escaloes: [{ id: 501, nome: 'Escalao Um', designacao: 'Um' }],
+        treinadores: [{ id: 401, nome: 'Treinador Um' }],
+        modalidades: [{ id: 301, nome: 'Modalidade Uma' }],
+        patrocinadores: [{ id: 701, nome: 'Apoio Um' }],
+        galeria: [{ id: 201, titulo: 'Foto Uma' }],
+        videos: [{ id: 101, titulo: 'Video Um' }],
+        agenda: [{ id: 111, titulo: 'Evento Um', data: '2026-02-01' }],
+      };
+      const pv = await testarPublicarVazio(browser, srv.url, [
+        { nome: 'normal',            comDados: true,  servidorRecusa: false, palavra: 'APAGAR', ...CONTEUDO },
+        { nome: 'recusa-confirmada', comDados: true,  servidorRecusa: true,  palavra: 'APAGAR', ...CONTEUDO },
+        { nome: 'recusa-palavra-ma', comDados: true,  servidorRecusa: true,  palavra: 'apagar', ...CONTEUDO },
+        { nome: 'recusa-cancelada',  comDados: true,  servidorRecusa: true,  palavra: null,     ...CONTEUDO },
+        { nome: 'painel-vazio',      comDados: false, servidorRecusa: true,  palavra: 'nao',    ...CONTEUDO },
+      ]);
+
+      verificar('painel com dados: publica num pedido e sem perguntar nada',
+        pv.normal.nPedidos === 1 && pv.normal.prompts.length === 0,
+        pv.normal.nPedidos + ' pedido(s), ' + pv.normal.prompts.length + ' prompt(s)');
+      verificar('painel: uma chave ausente no armazém não vai no pedido',
+        pv.normal.temLogos === false && pv.normal.temNoticias === true,
+        'logos: ' + pv.normal.temLogos + ' noticias: ' + pv.normal.temNoticias);
+      verificar('servidor recusa + palavra certa: segundo pedido com a confirmação do servidor',
+        pv['recusa-confirmada'].nPedidos === 2
+        && pv['recusa-confirmada'].confirmacoes[0] === null
+        && JSON.stringify(pv['recusa-confirmada'].confirmacoes[1])
+           === JSON.stringify([{ area: 'jogos', antes: 7, depois: 0 }]),
+        pv['recusa-confirmada'].nPedidos + ' pedido(s): '
+        + JSON.stringify(pv['recusa-confirmada'].confirmacoes));
+      verificar('servidor recusa: o aviso diz a área e as contagens',
+        pv['recusa-confirmada'].prompts.length === 1
+        && /jogos: 7 → 0/.test(pv['recusa-confirmada'].prompts[0].texto)
+        && /APAGAR/.test(pv['recusa-confirmada'].prompts[0].texto),
+        JSON.stringify(pv['recusa-confirmada'].prompts));
+      verificar('palavra errada: fica no primeiro pedido e não reenvia',
+        pv['recusa-palavra-ma'].nPedidos === 1 && pv['recusa-palavra-ma'].prompts.length === 1,
+        pv['recusa-palavra-ma'].nPedidos + ' pedido(s)');
+      verificar('cancelar o aviso: fica no primeiro pedido e não reenvia',
+        pv['recusa-cancelada'].nPedidos === 1 && pv['recusa-cancelada'].prompts.length === 1,
+        pv['recusa-cancelada'].nPedidos + ' pedido(s)');
+      verificar('painel inteiro vazio: nem o primeiro pedido sai sem a palavra',
+        pv['painel-vazio'].nPedidos === 0 && pv['painel-vazio'].prompts.length === 1
+        && /áreas principais estão todas vazias/.test(pv['painel-vazio'].prompts[0].texto),
+        pv['painel-vazio'].nPedidos + ' pedido(s): '
+        + JSON.stringify(pv['painel-vazio'].prompts));
+      verificar('painel: sem erros de JavaScript em nenhum dos cinco cenários',
+        Object.values(pv).every((c) => c.erros.length === 0),
+        Object.values(pv).map((c) => c.erros.join(' ')).join(' | '));
+
+      // E o servidor a sério, em cópia e servidor próprios: este caminho publica.
+      const es = await testarSaveEsvaziamento(raiz);
+      if (es.semApache) {
+        console.log('  (comportamento saltado: sem Apache não há PHP a servir)');
+      } else {
+      verificar('medição válida: há sessão e o conteúdo semeado ficou gravado',
+        es.entrou === true && (es.semear.json || {}).ok === true
+        && es.depoisDeSemear.jogos === 2 && es.depoisDeSemear.patrocinadores === 3,
+        es.semear.estado + ' ' + JSON.stringify(es.depoisDeSemear));
+      verificar('publicar vazio sem confirmar: 409 e o ficheiro intacto',
+        es.semConfirmar.estado === 409
+        && (es.semConfirmar.json || {}).codigo === 'esvaziamento'
+        && es.depoisDeRecusar.jogos === 2 && es.depoisDeRecusar.patrocinadores === 3,
+        es.semConfirmar.estado + ' ' + JSON.stringify(es.depoisDeRecusar));
+      verificar('o 409 nomeia as duas áreas e as contagens reais',
+        JSON.stringify(((es.semConfirmar.json || {}).esvaziamentos || []).slice().sort(
+          (a, b) => a.area.localeCompare(b.area)))
+          === JSON.stringify([{ area: 'jogos', antes: 2, depois: 0 },
+                              { area: 'patrocinadores', antes: 3, depois: 0 }]),
+        JSON.stringify((es.semConfirmar.json || {}).esvaziamentos));
+      verificar('confirmação com contagem errada, área a menos ou área trocada: recusadas',
+        es.contagemErrada.estado === 409 && es.areaAMenos.estado === 409
+        && es.areaTrocada.estado === 409
+        && es.depoisDasErradas.jogos === 2 && es.depoisDasErradas.patrocinadores === 3,
+        [es.contagemErrada.estado, es.areaAMenos.estado, es.areaTrocada.estado].join('/')
+        + ' ' + JSON.stringify(es.depoisDasErradas));
+      verificar('com a confirmação exacta do servidor: publica e esvazia as duas áreas',
+        (es.confirmada.json || {}).ok === true
+        && es.depoisDeConfirmar.jogos === 0 && es.depoisDeConfirmar.patrocinadores === 0,
+        es.confirmada.estado + ' ' + JSON.stringify(es.depoisDeConfirmar));
+      verificar('a confirmação nunca fica gravada dentro do data/db.json',
+        es.depoisDeSemear.temConfirmacao === false
+        && es.depoisDeConfirmar.temConfirmacao === false
+        && es.depoisDeOmitir.temConfirmacao === false,
+        JSON.stringify([es.depoisDeSemear.temConfirmacao,
+          es.depoisDeConfirmar.temConfirmacao, es.depoisDeOmitir.temConfirmacao]));
+      verificar('controlo: escrever conteúdo novo passa sem pergunta nenhuma',
+        (es.normal.json || {}).ok === true && es.depoisDoNormal.jogos === 2,
+        es.normal.estado + ' ' + JSON.stringify(es.depoisDoNormal));
+      verificar('controlo: omitir uma área continua a querer dizer inalterada',
+        (es.omitindo.json || {}).ok === true && es.depoisDeOmitir.jogos === 2,
+        es.omitindo.estado + ' ' + JSON.stringify(es.depoisDeOmitir));
       }
     }
 

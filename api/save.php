@@ -61,6 +61,16 @@ if (!$raw) jsc_saida(['ok' => false, 'error' => 'corpo vazio'], 400);
 $novos = json_decode($raw, true);
 if (!is_array($novos)) jsc_saida(['ok' => false, 'error' => 'json invalido'], 400);
 
+// ---- A confirmação de esvaziamento não é conteúdo ----------------------
+// Sai do pedido aqui, antes de tudo: antes da contagem das áreas alteradas, que
+// a trataria como uma área sem permissão, e antes do array_merge, que a
+// gravaria dentro do data/db.json para sempre.
+$confirmacao = null;
+if (array_key_exists('confirmarEsvaziar', $novos)) {
+    $confirmacao = $novos['confirmarEsvaziar'];
+    unset($novos['confirmarEsvaziar']);
+}
+
 $antigos = [];
 if (is_file(DATA_FILE)) {
     $d = json_decode(file_get_contents(DATA_FILE), true);
@@ -120,6 +130,77 @@ if (!empty($perfil['modalidade'])) {
             'ok'    => false,
             'error' => 'a alteração inclui registos de outra modalidade: ' . implode(', ', array_keys($fora)),
         ], 403);
+    }
+}
+
+// ---- Publicar vazio por cima de conteúdo: nunca em silêncio ---------
+// O painel guarda o conteúdo no localStorage do browser de quem escreve, e
+// publica o que lá estiver. Se esse armazém se perder — limpeza de dados do
+// site, despejo do browser, outro perfil — o painel arranca vazio, e até aqui
+// um Publicar substituía o data/db.json por listas vazias sem uma pergunta:
+// o único "corpo vazio" recusado era o corpo do pedido, não o conteúdo dele.
+//
+// Passa a ser preciso dizer explicitamente o que se está a apagar. Uma área
+// que chegue vazia e que aqui esteja preenchida recusa a publicação inteira
+// com 409, e o erro nomeia as áreas e quantos registos se perderiam. Para
+// avançar, o pedido tem de voltar com confirmarEsvaziar a repetir exactamente
+// essas áreas e essas contagens: um painel que não saiba o que lá está não as
+// consegue adivinhar, e uma confirmação guardada de outra vez deixa de servir
+// assim que o conteúdo mude.
+//
+// Uma área AUSENTE do pedido continua a querer dizer "inalterada" — é o
+// array_merge lá abaixo — e não entra nesta conta. Só conta o que vem
+// presente e vazio.
+function jsc_vazio($v) {
+    if ($v === null) return true;
+    if (is_array($v))  return count($v) === 0;
+    if (is_string($v)) return trim($v) === '';
+    return false;   // números e booleanos são conteúdo, o zero incluído
+}
+
+function jsc_dimensao($v) {
+    if ($v === null)   return 0;
+    if (is_array($v))  return count($v);
+    if (is_string($v)) return strlen($v);
+    return 1;
+}
+
+$esvaziamentos = [];
+foreach ($novos as $k => $v) {
+    if ($k === 'publicadoEm') continue;
+    if (!jsc_vazio($v)) continue;
+    if (!array_key_exists($k, $antigos) || jsc_vazio($antigos[$k])) continue;
+    $esvaziamentos[] = [
+        'area'   => (string)$k,
+        'antes'  => jsc_dimensao($antigos[$k]),
+        'depois' => jsc_dimensao($v),
+    ];
+}
+
+if ($esvaziamentos) {
+    $esperado = [];
+    foreach ($esvaziamentos as $e) $esperado[$e['area']] = (int)$e['antes'];
+    $dado = [];
+    if (is_array($confirmacao)) {
+        foreach ($confirmacao as $c) {
+            if (is_array($c) && isset($c['area'])) {
+                $dado[(string)$c['area']] = isset($c['antes']) ? (int)$c['antes'] : -1;
+            }
+        }
+    }
+    ksort($esperado);
+    ksort($dado);
+    if ($dado !== $esperado) {
+        $lista = [];
+        foreach ($esvaziamentos as $e) $lista[] = $e['area'] . ' (' . $e['antes'] . ' -> ' . $e['depois'] . ')';
+        jsc_saida([
+            'ok'             => false,
+            'codigo'         => 'esvaziamento',
+            'error'          => 'esta publicacao deixaria vazio o que esta publicado: '
+                              . implode(', ', $lista) . '. Nada foi alterado.',
+            'esvaziamentos'  => $esvaziamentos,
+            'palavra'        => 'APAGAR',
+        ], 409);
     }
 }
 
