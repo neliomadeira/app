@@ -3810,6 +3810,46 @@ async function testarEditorClassificacoes(browser, url) {
 //
 // Mede-se com navegações a sério, e não com fetch(): o service worker decide
 // pelo request.destination, e só uma navegação tem destination 'document'.
+// ---- Navegação esperada vs erro a sério -----------------------------
+// As sondas do service worker abriam uma página em contexto novo e avaliavam
+// logo a seguir. Em contexto novo o localStorage está vazio, portanto o
+// js/sync.js pede o /api/load.php no arranque (js/sync.js:202), recebe
+// conteúdo que é todo novo para este contexto, e chama location.reload()
+// (js/sync.js:192). Essa navegação chega quando o servidor responder — o
+// waitUntil:'load' do goto não espera por ela — e se aterra a meio de um
+// pg.evaluate() o contexto morre: "Execution context was destroyed". Medido
+// nove vezes, nas três sondas, sempre no evaluate logo após o primeiro goto.
+//
+// A navegação é do próprio site e é esperada. Espera-se por ela com o sinal
+// que o próprio código escreve, e não com um sleep: o js/sync.js marca
+// jsc_sync_em no sessionStorage quando termina de decidir, em qualquer dos
+// caminhos — sucesso (js/sync.js:182) ou falha (js/sync.js:118 e :195).
+async function assentarSync(pg) {
+  await pg.waitForFunction(() => {
+    try { return sessionStorage.getItem('jsc_sync_em') !== null; } catch (_) { return true; }
+  }, null, { timeout: 8000 }).catch(() => {});
+  // Se ele decidiu recarregar, a marca já está escrita e o recarregamento vem
+  // a seguir: esperar que a página volte a estar completa cobre-o.
+  await pg.waitForLoadState('load').catch(() => {});
+  await pg.waitForFunction(() => document.readyState === 'complete',
+    null, { timeout: 8000 }).catch(() => {});
+}
+
+// A rede de segurança, e só para esta mensagem. Um TypeError, uma assertion
+// falsa, um timeout de goto ou um erro de página continuam a subir e a falhar
+// a bateria — nada aqui mascara uma falha real.
+const JSC_CONTEXTO_PERDIDO = /Execution context was destroyed|Most likely the page has been closed/;
+
+async function avaliarEstavel(pg, fn, arg) {
+  try {
+    return await pg.evaluate(fn, arg);
+  } catch (e) {
+    if (!JSC_CONTEXTO_PERDIDO.test(String((e && e.message) || e))) throw e;
+    await assentarSync(pg);
+    return await pg.evaluate(fn, arg);   // uma única repetição, já reatachada
+  }
+}
+
 async function testarServiceWorker(browser, url) {
   const ctx = await browser.newContext({
     javaScriptEnabled: true,
@@ -3817,17 +3857,20 @@ async function testarServiceWorker(browser, url) {
   });
   const pg = await ctx.newPage();
   await pg.goto(url + '/noticias.html', { waitUntil: 'load', timeout: 20000 });
-  await pg.evaluate(async () => {
+  await assentarSync(pg);
+  await avaliarEstavel(pg, async () => {
     await navigator.serviceWorker.register('/sw.js');
     await navigator.serviceWorker.ready;
   });
   await pg.goto(url + '/noticias.html', { waitUntil: 'load', timeout: 20000 });
-  const controlado = await pg.evaluate(() => !!navigator.serviceWorker.controller);
+  await assentarSync(pg);
+  const controlado = await avaliarEstavel(pg, () => !!navigator.serviceWorker.controller);
 
   const e200 = await pg.goto(url + '/noticias.html?id=1001', { waitUntil: 'load', timeout: 20000 });
   const e404 = await pg.goto(url + '/noticias.html?id=9999', { waitUntil: 'load', timeout: 20000 });
+  await assentarSync(pg);
 
-  const naCache = await pg.evaluate(async () => {
+  const naCache = await avaliarEstavel(pg, async () => {
     const onde = {};
     for (const nome of await caches.keys()) {
       const c = await caches.open(nome);
@@ -3838,7 +3881,7 @@ async function testarServiceWorker(browser, url) {
     }
     return onde;
   });
-  const versao = await pg.evaluate(() => caches.keys());
+  const versao = await avaliarEstavel(pg, () => caches.keys());
   await ctx.close();
   return {
     controlado,
@@ -3951,18 +3994,21 @@ async function testarScriptNovoChega(browser, url, raiz) {
   const resultado = { controlado: false, antes: null, depois: null, naCache: 'não medido' };
   try {
     await pg.goto(url + '/index.html', { waitUntil: 'load', timeout: 20000 });
-    await pg.evaluate(async () => {
+    await assentarSync(pg);
+    await avaliarEstavel(pg, async () => {
       await navigator.serviceWorker.register('/sw.js');
       await navigator.serviceWorker.ready;
     });
     await pg.goto(url + '/index.html', { waitUntil: 'load', timeout: 20000 });
-    resultado.controlado = await pg.evaluate(() => !!navigator.serviceWorker.controller);
-    resultado.antes = await pg.evaluate(() => window.JSC_MARCA_DO_TESTE || null);
+    await assentarSync(pg);
+    resultado.controlado = await avaliarEstavel(pg, () => !!navigator.serviceWorker.controller);
+    resultado.antes = await avaliarEstavel(pg, () => window.JSC_MARCA_DO_TESTE || null);
 
     fs.writeFileSync(ficheiro, original + '\nwindow.JSC_MARCA_DO_TESTE = "CHEGOU";\n');
     await pg.goto(url + '/index.html', { waitUntil: 'load', timeout: 20000 });
-    resultado.depois = await pg.evaluate(() => window.JSC_MARCA_DO_TESTE || null);
-    resultado.naCache = await pg.evaluate(async () => {
+    await assentarSync(pg);
+    resultado.depois = await avaliarEstavel(pg, () => window.JSC_MARCA_DO_TESTE || null);
+    resultado.naCache = await avaliarEstavel(pg, async () => {
       for (const n of await caches.keys()) {
         const c = await caches.open(n);
         for (const req of await c.keys()) {
@@ -3994,14 +4040,16 @@ async function testarOffline(browser, url, alvo) {
   });
   const pg = await ctx.newPage();
   await pg.goto(url + '/index.html', { waitUntil: 'load', timeout: 20000 });
-  await pg.evaluate(async () => {
+  await assentarSync(pg);
+  await avaliarEstavel(pg, async () => {
     await navigator.serviceWorker.register('/sw.js');
     await navigator.serviceWorker.ready;
   });
   await pg.goto(url + '/index.html', { waitUntil: 'load', timeout: 20000 });
-  const controlado = await pg.evaluate(() => !!navigator.serviceWorker.controller);
-  const nomes = await pg.evaluate(() => caches.keys());
-  const temOffline = await pg.evaluate(async () => {
+  await assentarSync(pg);
+  const controlado = await avaliarEstavel(pg, () => !!navigator.serviceWorker.controller);
+  const nomes = await avaliarEstavel(pg, () => caches.keys());
+  const temOffline = await avaliarEstavel(pg, async () => {
     for (const n of await caches.keys()) {
       const r = await (await caches.open(n)).match('/offline.html');
       if (r) return r.status;
@@ -4013,7 +4061,7 @@ async function testarOffline(browser, url, alvo) {
   let texto = '';
   try {
     await pg.goto(url + alvo, { waitUntil: 'load', timeout: 20000 });
-    texto = await pg.evaluate(() => document.body.innerText.slice(0, 300));
+    texto = await avaliarEstavel(pg, () => document.body.innerText.slice(0, 300));
   } catch (e) { texto = 'ERRO: ' + e.message; }
   await ctx.setOffline(false);
   await ctx.close();
