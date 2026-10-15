@@ -2803,6 +2803,66 @@ async function _medirSaveClassData(url) {
   return r;
 }
 
+// ---- A migração da db_noticias ------------------------------------
+// O bloco do data.js corre ao carregar o ficheiro, portanto a semente tem de
+// entrar antes: addInitScript, não evaluate.
+//
+// Mede-se o armazém inteiro antes e depois, chave a chave, para responder a
+// três coisas de uma vez: a db_noticias sobreviveu ou não; nenhuma outra
+// chave desapareceu; e nada foi escrito sem ser pedido.
+async function testarMigracaoNoticias(browser, url, cenarios) {
+  const saida = {};
+  for (const c of cenarios) {
+    const ctx = await browser.newContext({
+      javaScriptEnabled: true,
+      extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+    });
+    await ctx.addInitScript((a) => {
+      try {
+        if (sessionStorage.getItem('jsc_semeado_migr')) return;
+        sessionStorage.setItem('jsc_semeado_migr', '1');
+        Object.keys(localStorage).forEach((k) => localStorage.removeItem(k));
+        Object.keys(a.semente).forEach((k) => localStorage.setItem(k, a.semente[k]));
+        // A fotografia do que ficou semeado, para a comparação depois do
+        // arranque ser contra o estado real e não contra o que eu acho que é.
+        sessionStorage.setItem('jsc_foto_antes', JSON.stringify(
+          Object.keys(localStorage).sort().reduce(function (o, k) {
+            o[k] = localStorage.getItem(k); return o;
+          }, {})));
+      } catch (_) {}
+    }, c);
+
+    const pg = await ctx.newPage();
+    const erros = [];
+    pg.on('pageerror', (e) => erros.push('exce\u00e7\u00e3o: ' + e.message));
+    pg.on('dialog', (d) => d.accept());
+    await pg.goto(url + '/admin/', { waitUntil: 'networkidle', timeout: 20000 });
+    await pg.waitForTimeout(600);
+
+    const r = await pg.evaluate(() => {
+      let antes = {};
+      try { antes = JSON.parse(sessionStorage.getItem('jsc_foto_antes') || '{}'); } catch (_) {}
+      const depois = Object.keys(localStorage).sort().reduce(function (o, k) {
+        o[k] = localStorage.getItem(k); return o;
+      }, {});
+      const chavesAntes = Object.keys(antes).sort();
+      const chavesDepois = Object.keys(depois).sort();
+      return {
+        antes, depois, chavesAntes, chavesDepois,
+        removidas: chavesAntes.filter((k) => chavesDepois.indexOf(k) === -1),
+        acrescentadas: chavesDepois.filter((k) => chavesAntes.indexOf(k) === -1),
+        alteradas: chavesAntes.filter((k) => chavesDepois.indexOf(k) !== -1 && antes[k] !== depois[k]),
+        temAntiga: Object.prototype.hasOwnProperty.call(depois, 'db_noticias'),
+        valorAntiga: depois.db_noticias === undefined ? null : depois.db_noticias,
+      };
+    });
+
+    await ctx.close();
+    saida[c.nome] = { ...r, erros };
+  }
+  return saida;
+}
+
 // ---- A chave das notícias não nasce vazia -------------------------
 // Chama-se o initAdmin() directamente: é a função em causa, e assim não se
 // cria conta nem se entra com sessão, o que mudaria o estado do servidor
@@ -7203,6 +7263,72 @@ async function testarAdminHistoria(browser, url) {
         sv.comNull.estado + ' ' + sv.comNull.texto.slice(0, 160)
         + ' → ' + JSON.stringify(sv.depoisDoNull));
       }
+    }
+
+    // ---- A migração da db_noticias --------------------------------
+    console.log('\na chave antiga das notícias só sai quando já há destino para ela');
+    {
+      const semComentDat = fs.readFileSync(path.join(raiz, 'admin', 'js', 'data.js'), 'utf8')
+        .replace(/^\s*\/\/.*$/gm, '');
+      verificar('data.js: a remoção da db_noticias deixou de ser incondicional',
+        !/^\s*try \{ localStorage\.removeItem\('db_noticias'\); \} catch\(_\) \{\}/m.test(semComentDat));
+      verificar('data.js: só remove com uma jsc_noticias legível e com conteúdo',
+        /Array\.isArray\(destino\) && destino\.length\) localStorage\.removeItem\('db_noticias'\)/.test(semComentDat));
+
+      const ANTIGAS = JSON.stringify([
+        { id: 11, titulo: 'Antiga uma', resumo: 'texto', publicada: true, data: '2025-05-01' },
+        { id: 12, titulo: 'Antiga duas', resumo: 'texto', publicada: true, data: '2025-05-02' },
+      ]);
+      const NOVAS = JSON.stringify([
+        { id: 21, titulo: 'Nova uma', resumo: 'texto', publicada: true, data: '2026-05-01' },
+      ]);
+      // Acompanhantes: provam que a migração não leva mais nada atrás.
+      const VIZINHAS = {
+        db_jogos:    JSON.stringify([{ id: 1, casa: 'Equipa Um', fora: 'Equipa Dois' }]),
+        db_atletas:  JSON.stringify([{ id: 2, nome: 'Atleta Um' }]),
+        db_logos:    JSON.stringify({ 'equipa um': '/img/um.png' }),
+        site_config: JSON.stringify({ heroTitle: 'Titulo' }),
+      };
+      const mg = await testarMigracaoNoticias(browser, srv.url, [
+        { nome: 'A-sem-destino',   semente: { db_noticias: ANTIGAS, ...VIZINHAS } },
+        { nome: 'B-com-destino',   semente: { db_noticias: ANTIGAS, jsc_noticias: NOVAS, ...VIZINHAS } },
+        { nome: 'C-destino-vazio', semente: { db_noticias: ANTIGAS, jsc_noticias: '[]', ...VIZINHAS } },
+        { nome: 'D-destino-ilegivel', semente: { db_noticias: ANTIGAS, jsc_noticias: 'nao-e-json', ...VIZINHAS } },
+      ]);
+
+      verificar('CASO A — sem jsc_noticias: a db_noticias fica intacta, byte a byte',
+        mg['A-sem-destino'].temAntiga === true
+        && mg['A-sem-destino'].valorAntiga === ANTIGAS
+        && mg['A-sem-destino'].removidas.length === 0,
+        'removidas: ' + JSON.stringify(mg['A-sem-destino'].removidas)
+        + ' db_noticias: ' + String(mg['A-sem-destino'].valorAntiga).slice(0, 40));
+      verificar('CASO B — com jsc_noticias válida: a db_noticias é removida',
+        mg['B-com-destino'].temAntiga === false
+        && JSON.stringify(mg['B-com-destino'].removidas) === JSON.stringify(['db_noticias']),
+        'removidas: ' + JSON.stringify(mg['B-com-destino'].removidas));
+      verificar('jsc_noticias vazia não é destino: a db_noticias fica',
+        mg['C-destino-vazio'].temAntiga === true
+        && mg['C-destino-vazio'].valorAntiga === ANTIGAS
+        && mg['C-destino-vazio'].removidas.length === 0,
+        'removidas: ' + JSON.stringify(mg['C-destino-vazio'].removidas));
+      verificar('jsc_noticias ilegível não é destino: a db_noticias fica',
+        mg['D-destino-ilegivel'].temAntiga === true
+        && mg['D-destino-ilegivel'].valorAntiga === ANTIGAS
+        && mg['D-destino-ilegivel'].removidas.length === 0,
+        'removidas: ' + JSON.stringify(mg['D-destino-ilegivel'].removidas));
+      verificar('nenhum outro db_* é removido em nenhum dos quatro cenários',
+        Object.values(mg).every((x) => x.removidas.every((k) => k === 'db_noticias')),
+        JSON.stringify(Object.keys(mg).map((n) => n + ': ' + JSON.stringify(mg[n].removidas))));
+      verificar('as chaves vizinhas ficam byte a byte iguais',
+        Object.values(mg).every((x) => x.alteradas.length === 0),
+        JSON.stringify(Object.keys(mg).map((n) => n + ': ' + JSON.stringify(mg[n].alteradas))));
+      verificar('a única escrita no arranque é a marca jsc_painel_local',
+        Object.values(mg).every((x) =>
+          JSON.stringify(x.acrescentadas) === JSON.stringify(['jsc_painel_local'])),
+        JSON.stringify(Object.keys(mg).map((n) => n + ': ' + JSON.stringify(mg[n].acrescentadas))));
+      verificar('painel: sem erros de JavaScript nos quatro cenários',
+        Object.values(mg).every((x) => x.erros.length === 0),
+        Object.values(mg).map((x) => x.erros.join(' ')).join(' | '));
     }
 
     // ---- A chave das notícias não nasce vazia ----------------------

@@ -240,9 +240,30 @@ window.saveDB = function() {
 };
 
 (function() {
-  // Limpar chave antiga de notícias (db_noticias) — libertava espaço
-  // As notícias agora usam a chave 'jsc_noticias' (gerida em admin.js)
-  try { localStorage.removeItem('db_noticias'); } catch(_) {}
+  // A chave antiga das notícias (db_noticias) só sai quando já existe destino
+  // para o que ela tem. As notícias vivem agora na jsc_noticias, gerida pelo
+  // admin.js.
+  //
+  // Isto era incondicional:
+  //
+  //     try { localStorage.removeItem('db_noticias'); } catch(_) {}
+  //
+  // Corria a cada arranque do painel, e portanto apagava a chave antiga mesmo
+  // quando a nova não existia — num browser que perdeu o armazém, ou logo
+  // depois de restaurar um backup que ainda traga a db_noticias, era a única
+  // cópia local das notícias a desaparecer sem ninguém pedir.
+  //
+  // Passa a ser migração e não limpeza: a db_noticias só sai quando a
+  // jsc_noticias existe, é uma lista legível e tem conteúdo. Ausente,
+  // ilegível ou vazia não é destino, e a chave antiga fica onde está — pode
+  // ser a única forma de recuperar o que lá estava.
+  try {
+    if (localStorage.getItem('db_noticias') !== null) {
+      let destino = null;
+      try { destino = JSON.parse(localStorage.getItem('jsc_noticias')); } catch(_) {}
+      if (Array.isArray(destino) && destino.length) localStorage.removeItem('db_noticias');
+    }
+  } catch(_) {}
 
   try {
     const vi = localStorage.getItem('db_videos');
