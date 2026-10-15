@@ -7412,9 +7412,13 @@ async function testarAdminHistoria(browser, url) {
         + ', áreas em ' + corpo.indexOf('localStorage.setItem(x.chave'));
       const mapa = fonteAdmRep.slice(fonteAdmRep.indexOf('const JSC_REPOR_AREAS'),
         fonteAdmRep.indexOf('const JSC_REPOR_NAO_TOCAR'));
+      // O mapa tem de existir para a ausência significar algo: sem a primeira
+      // condição, um slice vazio passava esta asserção por vazio.
       verificar('o mapa das áreas não inclui emailConfig, classData nem publicadoEm',
-        mapa.indexOf('emailConfig') === -1 && mapa.indexOf('classData') === -1
-        && mapa.indexOf('publicadoEm') === -1 && mapa.indexOf('email_config') === -1);
+        /jsc_noticias/.test(mapa) && /fpf_sync_config/.test(mapa)
+        && mapa.indexOf('emailConfig') === -1 && mapa.indexOf('classData') === -1
+        && mapa.indexOf('publicadoEm') === -1 && mapa.indexOf('email_config') === -1,
+        'mapa com ' + mapa.length + ' caracteres');
 
       // O servidor de mentira: traz de propósito as três áreas que não se repõem.
       const SERVIDOR = {
@@ -7494,12 +7498,17 @@ async function testarAdminHistoria(browser, url) {
       verificar('Publicar não é chamado: só GETs, nenhum ao save.php',
         Object.values(rp).every(semEscrita),
         JSON.stringify(Object.keys(rp).map((n) => n + ': ' + JSON.stringify(rp[n].pedidos))));
+      // Sem diálogo nenhum isto tem de FALHAR, não rebentar: medido na
+      // verificação negativa, onde a função não existe e o dialogos[0] é
+      // undefined — a bateria morria com um TypeError a meio da secção.
+      const primeiroDialogo = (x) => (x && x.dialogos && x.dialogos[0])
+        || { tipo: '(nenhum diálogo)', texto: '' };
       verificar('a comparação é mostrada antes de qualquer escrita, com o aviso do que não volta',
-        /A CRIAR/.test(rp.vazio.dialogos[0].texto)
-        && /rascunhos e notícias agendadas/.test(rp.vazio.dialogos[0].texto)
-        && /Não publica nada/.test(rp.vazio.dialogos[0].texto)
-        && rp.vazio.dialogos[0].tipo === 'confirm',
-        rp.vazio.dialogos[0].tipo + ': ' + rp.vazio.dialogos[0].texto.slice(0, 120));
+        primeiroDialogo(rp.vazio).tipo === 'confirm'
+        && /A CRIAR/.test(primeiroDialogo(rp.vazio).texto)
+        && /rascunhos e notícias agendadas/.test(primeiroDialogo(rp.vazio).texto)
+        && /Não publica nada/.test(primeiroDialogo(rp.vazio).texto),
+        primeiroDialogo(rp.vazio).tipo + ': ' + primeiroDialogo(rp.vazio).texto.slice(0, 120));
       verificar('a substituição pede a palavra escrita, num prompt',
         rp['difere-substitui'].dialogos.some((d) => d.tipo === 'prompt'
           && /SUBSTITUIR/.test(d.texto) && /rascunhos/.test(d.texto)),
