@@ -6305,6 +6305,205 @@ function exportarDados() {
   showToast('✓ Backup completo exportado!', 'green');
 }
 
+// ==================================================
+// REPOR DO SERVIDOR
+// ==================================================
+// Recuperar o armazém deste browser a partir do que está publicado, quando o
+// localStorage se perdeu — limpeza de dados do site, despejo do browser, outro
+// perfil. Medido em produção: 34 chaves reduzidas a três.
+//
+// O js/sync.js, que normalmente traria isto, está proibido de o fazer num
+// browser-painel: a guarda ehPainel() existe para não sobrepor rascunhos (ver
+// o comentário em js/sync.js:48). Logo, num painel que perca os dados não há
+// caminho automático de volta — é este botão.
+//
+// Só lê do servidor. Não publica, não faz POST, não chama o
+// publicarNoServidor(), não altera o data/db.json.
+//
+// IMPORTANTE, e dito ao utilizador antes de escrever: o /api/load.php devolve a
+// PROJEÇÃO PÚBLICA, não o ficheiro do servidor. Rascunhos e notícias agendadas,
+// campos privados dos atletas e dos treinadores, inscrições e mensagens não
+// estão lá e não voltam por aqui.
+const JSC_REPOR_AREAS = [
+  { campo: 'noticias',       chave: 'jsc_noticias',      nome: 'Notícias (só as publicadas)' },
+  { campo: 'jogos',          chave: 'db_jogos',          nome: 'Jogos' },
+  { campo: 'atletas',        chave: 'db_atletas',        nome: 'Atletas (só campos públicos)' },
+  { campo: 'escaloes',       chave: 'db_escaloes',       nome: 'Escalões' },
+  { campo: 'treinadores',    chave: 'db_treinadores',    nome: 'Treinadores (só campos públicos)' },
+  { campo: 'modalidades',    chave: 'db_modalidades',    nome: 'Modalidades (só activas)' },
+  { campo: 'modPosts',       chave: 'db_mod_posts',      nome: 'Publicações de modalidades' },
+  { campo: 'patrocinadores', chave: 'db_patrocinadores', nome: 'Patrocinadores (só activos)' },
+  { campo: 'galeria',        chave: 'db_galeria',        nome: 'Galeria (só activa)' },
+  { campo: 'videos',         chave: 'db_videos',         nome: 'Vídeos (só activos)' },
+  { campo: 'agenda',         chave: 'db_agenda',         nome: 'Agenda' },
+  { campo: 'historia',       chave: 'db_historia',       nome: 'História' },
+  { campo: 'palmares',       chave: 'db_palmares',       nome: 'Palmarés' },
+  { campo: 'seniores',       chave: 'db_seniores',       nome: 'Seniores' },
+  { campo: 'senioresInfo',   chave: 'db_seniores_info',  nome: 'Seniores (ficha)' },
+  { campo: 'siteConfig',     chave: 'site_config',       nome: 'Configuração do site' },
+  { campo: 'dadosClube',     chave: 'dados_clube',       nome: 'Dados do clube' },
+  { campo: 'sitePopup',      chave: 'site_popup',        nome: 'Popup' },
+  { campo: 'siteBanner',     chave: 'site_banner',       nome: 'Banner' },
+  { campo: 'siteAviso',      chave: 'site_aviso',        nome: 'Aviso' },
+  { campo: 'siteCores',      chave: 'site_cores',        nome: 'Cores' },
+  { campo: 'siteLegal',      chave: 'site_legal',        nome: 'Textos legais' },
+  { campo: 'siteManutencao', chave: 'site_manutencao',   nome: 'Manutenção' },
+  { campo: 'fbPosts',        chave: 'fb_posts',          nome: 'Publicações Facebook' },
+  { campo: 'logos',          chave: 'db_logos',          nome: 'Logótipos das equipas' },
+  { campo: 'classConfig',    chave: 'fpf_sync_config',   nome: 'Séries das classificações' },
+];
+
+// O que esta função não escreve, nunca, e porquê. Fica em código e não só em
+// comentário para a bateria o poder verificar.
+const JSC_REPOR_NAO_TOCAR = [
+  { chave: 'email_config',
+    porque: 'a projeção pública não traz o segredo — repor deixava a configuração sem ele' },
+  { chave: 'fpf_class_* / fpf_jogos_*',
+    porque: 'dados auxiliares das colagens; ficam exactamente como estão' },
+  { chave: 'jsc_publicado_em',
+    porque: 'não é conteúdo, é a marca de actualidade dos blocos gerados' },
+];
+
+const JSC_PALAVRA_SUBSTITUIR = 'SUBSTITUIR';
+
+function _jscReporDimensao(v) {
+  if (Array.isArray(v)) return v.length + ' registo(s)';
+  if (v && typeof v === 'object') return Object.keys(v).length + ' campo(s)';
+  if (v === null || v === undefined || v === '') return 'vazio';
+  return '1 valor';
+}
+
+function _jscReporParse(bruto) {
+  try { return JSON.parse(bruto); } catch (_) { return bruto; }
+}
+
+// Comparar o que o servidor tem com o que este browser tem, área a área.
+// Separada da acção de propósito: a bateria mede-a sem tocar em nada.
+function jscCompararComServidor(dados) {
+  const criar = [], diferentes = [], iguais = [], soLocal = [], semNenhum = [];
+  JSC_REPOR_AREAS.forEach(function (a) {
+    const temServidor = Object.prototype.hasOwnProperty.call(dados, a.campo)
+      && dados[a.campo] !== null && dados[a.campo] !== undefined;
+    const bruto = localStorage.getItem(a.chave);
+    const linha = {
+      campo: a.campo, chave: a.chave, nome: a.nome,
+      servidor: temServidor ? _jscReporDimensao(dados[a.campo]) : '—',
+      local: bruto === null ? '(ausente)' : _jscReporDimensao(_jscReporParse(bruto)),
+      valorNovo: temServidor ? JSON.stringify(dados[a.campo]) : null,
+      valorAntigo: bruto,
+    };
+    if (!temServidor) { (bruto === null ? semNenhum : soLocal).push(linha); return; }
+    if (bruto === null) { criar.push(linha); return; }
+    if (bruto === linha.valorNovo) { iguais.push(linha); return; }
+    diferentes.push(linha);
+  });
+  return { criar: criar, diferentes: diferentes, iguais: iguais, soLocal: soLocal, semNenhum: semNenhum };
+}
+
+async function reporDoServidor() {
+  if (MODO_LOCAL) {
+    showToast('Modo local: repor precisa de PHP a correr no servidor.', 'red');
+    return;
+  }
+
+  let dados = null;
+  try {
+    const r = await fetch('../api/load.php', { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    dados = await r.json();
+  } catch (e) {
+    showToast('❌ Não foi possível ler o servidor: ' + e.message, 'red');
+    return;
+  }
+  if (!dados || typeof dados !== 'object' || !Object.keys(dados).length) {
+    showToast('O servidor não tem conteúdo publicado — não há nada para repor.', 'red');
+    return;
+  }
+
+  const c = jscCompararComServidor(dados);
+  const linha = function (x, acao) {
+    return '  • ' + x.nome + ': servidor ' + x.servidor + ', aqui ' + x.local + '  → ' + acao;
+  };
+  const partes = [];
+  if (c.criar.length)      partes.push('A CRIAR (não existem aqui):\n' + c.criar.map(function (x) { return linha(x, 'CRIAR'); }).join('\n'));
+  if (c.diferentes.length) partes.push('DIFERENTES (ficam como estão nesta passagem):\n' + c.diferentes.map(function (x) { return linha(x, 'MANTER'); }).join('\n'));
+  if (c.iguais.length)     partes.push('IGUAIS: ' + c.iguais.length + ' área(s) — nada a fazer');
+  if (c.soLocal.length)    partes.push('SÓ AQUI (o servidor não as tem): ' + c.soLocal.map(function (x) { return x.nome; }).join(', '));
+
+  if (!c.criar.length && !c.diferentes.length) {
+    alert('Comparação com o servidor\n\n' + partes.join('\n\n')
+      + '\n\nNão há nada para repor: tudo o que o servidor tem já existe aqui.');
+    showToast('Nada para repor — o armazém deste browser já tem o que o servidor tem.');
+    return;
+  }
+
+  const aviso = 'O que esta operação NÃO recupera, porque o servidor não o entrega:\n'
+    + '  • rascunhos e notícias agendadas — só voltam as publicadas\n'
+    + '  • campos privados dos atletas e treinadores (datas de nascimento, contactos,\n'
+    + '    encarregados de educação)\n'
+    + '  • registos inactivos da galeria, vídeos, modalidades e patrocinadores\n'
+    + '  • inscrições, mensagens e a configuração de e-mail\n\n'
+    + 'Não toca em: ' + JSC_REPOR_NAO_TOCAR.map(function (x) { return x.chave; }).join(', ') + '.\n'
+    + 'Não publica nada e não altera o servidor.';
+
+  if (!confirm('REPOR DO SERVIDOR\n\n' + partes.join('\n\n') + '\n\n' + aviso
+      + '\n\nCriar as ' + c.criar.length + ' área(s) que não existem aqui?\n'
+      + 'Nada do que já existe neste browser é substituído.')) {
+    showToast('Reposição cancelada. Nada foi alterado.', 'red');
+    return;
+  }
+
+  // Substituir o que já existe é outra decisão, e mais difícil de tomar por
+  // engano: a chave local pode ter rascunhos que o servidor não devolve.
+  let substituir = [];
+  if (c.diferentes.length) {
+    const resposta = prompt(
+      'Estas ' + c.diferentes.length + ' área(s) existem aqui com conteúdo DIFERENTE do servidor:\n\n'
+      + c.diferentes.map(function (x) { return linha(x, 'substituir?'); }).join('\n')
+      + '\n\nSubstituir apaga o que este browser tem, rascunhos incluídos, e põe a\n'
+      + 'versão publicada. Deixar em branco ou cancelar mantém-nas intactas.\n\n'
+      + 'Para substituir, escreve ' + JSC_PALAVRA_SUBSTITUIR + ' em maiúsculas:', '');
+    if (resposta !== null && resposta.trim() === JSC_PALAVRA_SUBSTITUIR) substituir = c.diferentes;
+  }
+
+  const aEscrever = c.criar.concat(substituir);
+  if (!aEscrever.length) {
+    showToast('Nada foi escrito.', 'red');
+    return;
+  }
+
+  // Backup primeiro, e de tudo o que vai ser tocado. Se não couber, aborta-se
+  // sem escrever nada: uma reposição sem rede de volta não se faz.
+  const marca = 'jsc_reposicao_' + new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
+  const antes = {};
+  aEscrever.forEach(function (x) { antes[x.chave] = x.valorAntigo; });
+  try {
+    localStorage.setItem(marca, JSON.stringify({ quando: new Date().toISOString(), chaves: antes }));
+  } catch (e) {
+    showToast('❌ Não foi possível gravar o backup (' + e.name + '). Nada foi reposto.', 'red');
+    alert('A reposição foi abortada antes de escrever qualquer coisa: não houve espaço para\n'
+      + 'guardar o estado anterior em ' + marca + '.\n\nO armazém deste browser está como estava.');
+    return;
+  }
+
+  const falhas = [];
+  let feitas = 0;
+  aEscrever.forEach(function (x) {
+    try { localStorage.setItem(x.chave, x.valorNovo); feitas++; }
+    catch (e) { falhas.push(x.chave + ' (' + e.name + ')'); }
+  });
+
+  const resumo = feitas + ' área(s) reposta(s): ' + c.criar.length + ' criada(s), '
+    + substituir.length + ' substituída(s). Estado anterior guardado em ' + marca + '.';
+  showToast('✓ ' + resumo + (falhas.length ? ' Falharam: ' + falhas.join(', ') + '.' : ''),
+    falhas.length ? 'red' : 'green');
+  alert(resumo + (falhas.length ? '\n\nFalharam: ' + falhas.join(', ') : '')
+    + '\n\nNada foi publicado e o servidor não foi alterado.\n'
+    + 'A página vai recarregar para o painel ler o que foi reposto.');
+  setTimeout(function () { location.reload(); }, 800);
+}
+window.reporDoServidor = reporDoServidor;
+
 function importarDados() {
   document.getElementById('importBackupFile').click();
 }

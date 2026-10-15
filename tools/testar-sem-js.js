@@ -2803,6 +2803,83 @@ async function _medirSaveClassData(url) {
   return r;
 }
 
+// ---- Repor do servidor ----------------------------------------------
+// Mede o botão inteiro, com o /api/load.php a devolver um conteúdo controlado.
+// Tudo acontece dentro de UM evaluate que espera pelo reporDoServidor(): a
+// função acaba com um location.reload() a 800 ms, e a fotografia tem de ser
+// tirada antes disso.
+//
+// O cenário 'servidor-real' não intercepta o load.php: fala com o PHP a sério,
+// e o data/db.json é lido do disco antes e depois para provar que não mexeu.
+//
+// Em todos, qualquer pedido à api que não seja um GET ao load.php é registado:
+// é assim que se prova que o Publicar não é chamado.
+async function testarReporDoServidor(browser, url, cenarios) {
+  const saida = {};
+  for (const c of cenarios) {
+    const ctx = await browser.newContext({
+      javaScriptEnabled: true,
+      extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+    });
+    const pedidos = [];
+    await ctx.route('**/api/**', (rota) => {
+      const req = rota.request();
+      const caminho = new URL(req.url()).pathname;
+      pedidos.push(req.method() + ' ' + caminho);
+      if (/load\.php$/.test(caminho) && c.servidor) {
+        return rota.fulfill({ status: 200, contentType: 'application/json',
+          body: JSON.stringify(c.servidor) });
+      }
+      if (/save\.php$/.test(caminho)) {
+        return rota.fulfill({ status: 200, contentType: 'application/json',
+          body: JSON.stringify({ ok: true, alteradas: [], gerados: [], avisos: [] }) });
+      }
+      return rota.continue();
+    });
+    const pg = await ctx.newPage();
+    const erros = [], dialogos = [];
+    pg.on('pageerror', (e) => erros.push('exce\u00e7\u00e3o: ' + e.message));
+    pg.on('dialog', (d) => {
+      dialogos.push({ tipo: d.type(), texto: d.message().replace(/\s+/g, ' ') });
+      if (d.type() === 'prompt') {
+        if (c.palavra === null || c.palavra === undefined) return d.dismiss();
+        return d.accept(c.palavra);
+      }
+      // O confirm da comparação segue o cenário; os alerts aceitam-se.
+      if (d.type() === 'confirm' && c.cancelar) return d.dismiss();
+      return d.accept();
+    });
+    await pg.goto(url + '/admin/', { waitUntil: 'networkidle', timeout: 20000 });
+
+    const r = await pg.evaluate(async (a) => {
+      const foto = () => Object.keys(localStorage).sort().reduce(function (o, k) {
+        o[k] = localStorage.getItem(k); return o;
+      }, {});
+      Object.keys(localStorage).forEach((k) => localStorage.removeItem(k));
+      Object.keys(a.semente).forEach((k) => localStorage.setItem(k, a.semente[k]));
+      const antes = foto();
+      let erro = null;
+      try { await reporDoServidor(); } catch (e) { erro = String(e && e.message || e); }
+      const depois = foto();
+      const chavesAntes = Object.keys(antes).sort();
+      const chavesDepois = Object.keys(depois).sort();
+      const backup = chavesDepois.filter((k) => k.indexOf('jsc_reposicao_') === 0);
+      return {
+        antes, depois, erro, backup,
+        criadas: chavesDepois.filter((k) => chavesAntes.indexOf(k) === -1
+          && k.indexOf('jsc_reposicao_') !== 0),
+        removidas: chavesAntes.filter((k) => chavesDepois.indexOf(k) === -1),
+        alteradas: chavesAntes.filter((k) => chavesDepois.indexOf(k) !== -1 && antes[k] !== depois[k]),
+        conteudoBackup: backup.length ? depois[backup[0]] : null,
+      };
+    }, c);
+
+    await ctx.close();
+    saida[c.nome] = { ...r, pedidos, dialogos, erros };
+  }
+  return saida;
+}
+
 // ---- A migração da db_noticias ------------------------------------
 // O bloco do data.js corre ao carregar o ficheiro, portanto a semente tem de
 // entrar antes: addInitScript, não evaluate.
@@ -7263,6 +7340,149 @@ async function testarAdminHistoria(browser, url) {
         sv.comNull.estado + ' ' + sv.comNull.texto.slice(0, 160)
         + ' → ' + JSON.stringify(sv.depoisDoNull));
       }
+    }
+
+    // ---- Repor do servidor ------------------------------------------
+    console.log('\nrepor do servidor: lê, compara, pede, e só depois escreve');
+    {
+      const fonteAdmRep = fs.readFileSync(path.join(raiz, 'admin', 'js', 'admin.js'), 'utf8');
+      const corpo = fonteAdmRep.slice(
+        fonteAdmRep.indexOf('async function reporDoServidor()'),
+        fonteAdmRep.indexOf('window.reporDoServidor = reporDoServidor;'));
+      verificar('medição válida: o corpo do reporDoServidor foi encontrado na fonte',
+        corpo.length > 500, corpo.length + ' caracteres');
+      verificar('reporDoServidor: lê do /api/load.php, e só de lá',
+        /fetch\('\.\.\/api\/load\.php', \{ cache: 'no-store' \}\)/.test(corpo)
+        && corpo.indexOf('save.php') === -1
+        && corpo.indexOf('publicarNoServidor') === -1
+        && corpo.indexOf("method: 'POST'") === -1,
+        'load: ' + /load\.php/.test(corpo) + ' save: ' + (corpo.indexOf('save.php') !== -1)
+        + ' publicar: ' + (corpo.indexOf('publicarNoServidor') !== -1));
+      verificar('reporDoServidor: o backup é escrito antes das áreas, e falhar aborta',
+        corpo.indexOf("localStorage.setItem(marca") < corpo.indexOf('localStorage.setItem(x.chave'),
+        'backup em ' + corpo.indexOf("localStorage.setItem(marca")
+        + ', áreas em ' + corpo.indexOf('localStorage.setItem(x.chave'));
+      const mapa = fonteAdmRep.slice(fonteAdmRep.indexOf('const JSC_REPOR_AREAS'),
+        fonteAdmRep.indexOf('const JSC_REPOR_NAO_TOCAR'));
+      verificar('o mapa das áreas não inclui emailConfig, classData nem publicadoEm',
+        mapa.indexOf('emailConfig') === -1 && mapa.indexOf('classData') === -1
+        && mapa.indexOf('publicadoEm') === -1 && mapa.indexOf('email_config') === -1);
+
+      // O servidor de mentira: traz de propósito as três áreas que não se repõem.
+      const SERVIDOR = {
+        publicadoEm: '2026-10-15T09:00:00Z',
+        jogos:    [{ id: 1, casa: 'Equipa Um', fora: 'Equipa Dois' }, { id: 2, casa: 'Equipa Tres', fora: 'Equipa Quatro' }],
+        noticias: [{ id: 9, titulo: 'Publicada do servidor', resumo: 'texto', publicada: true, data: '2026-10-01' }],
+        escaloes: [{ id: 1, nome: 'Escalao Um' }],
+        dadosClube: { nome: 'Clube do servidor' },
+        emailConfig: { mode: 'emailjs', publicKey: 'xxx' },
+        classData: { 'fpf_class_Sub-17': [{ equipa: 'Equipa Um', pts: 3 }] },
+      };
+      const JOGOS_LOCAIS = JSON.stringify([{ id: 99, casa: 'Rascunho', fora: 'Local' }]);
+      const INTOCAVEIS = {
+        email_config:      JSON.stringify({ mode: 'smtp', segredo: 'fica-aqui' }),
+        'fpf_class_Sub-17': JSON.stringify([{ equipa: 'Colada', pts: 9 }]),
+        'fpf_jogos_Sub-17': JSON.stringify([{ casa: 'Colado', fora: 'Tambem' }]),
+        jsc_publicado_em:  '2020-01-01T00:00:00Z',
+        uma_chave_minha:   'nada-a-ver-com-o-site',
+      };
+
+      const rp = await testarReporDoServidor(browser, srv.url, [
+        { nome: 'vazio',      servidor: SERVIDOR, semente: { ...INTOCAVEIS } },
+        { nome: 'parcial',    servidor: SERVIDOR,
+          semente: { ...INTOCAVEIS, db_escaloes: JSON.stringify(SERVIDOR.escaloes) } },
+        { nome: 'difere-mantem',    servidor: SERVIDOR, palavra: 'substituir',
+          semente: { ...INTOCAVEIS, db_jogos: JOGOS_LOCAIS } },
+        { nome: 'difere-substitui', servidor: SERVIDOR, palavra: 'SUBSTITUIR',
+          semente: { ...INTOCAVEIS, db_jogos: JOGOS_LOCAIS } },
+        { nome: 'cancelar',   servidor: SERVIDOR, cancelar: true, semente: { ...INTOCAVEIS } },
+      ]);
+
+      // O que é preciso provar não é que só há um pedido — o arranque do painel
+      // faz o seu GET ao auth.php — mas que a reposição não escreve nada no
+      // servidor: nenhum método de escrita, nenhum toque no save.php, e o
+      // load.php pedido pelo menos uma vez.
+      const semEscrita = (x) => x.pedidos.every((q) => /^GET /.test(q))
+        && x.pedidos.every((q) => q.indexOf('save.php') === -1)
+        && x.pedidos.some((q) => /load\.php$/.test(q));
+      verificar('localStorage vazio: as 4 áreas mapeáveis do servidor são criadas',
+        JSON.stringify(rp.vazio.criadas.sort())
+          === JSON.stringify(['dados_clube', 'db_escaloes', 'db_jogos', 'jsc_noticias'].sort()),
+        JSON.stringify(rp.vazio.criadas));
+      verificar('localStorage vazio: nada é removido e nada existente é alterado',
+        rp.vazio.removidas.length === 0 && rp.vazio.alteradas.length === 0,
+        'removidas ' + JSON.stringify(rp.vazio.removidas) + ' alteradas ' + JSON.stringify(rp.vazio.alteradas));
+      verificar('dados parciais: a área igual fica, as ausentes são criadas',
+        rp.parcial.criadas.indexOf('db_escaloes') === -1
+        && rp.parcial.criadas.indexOf('db_jogos') !== -1
+        && rp.parcial.alteradas.length === 0,
+        JSON.stringify(rp.parcial.criadas) + ' alteradas ' + JSON.stringify(rp.parcial.alteradas));
+      verificar('dados diferentes + palavra errada: a chave local fica intacta',
+        rp['difere-mantem'].depois.db_jogos === JOGOS_LOCAIS
+        && rp['difere-mantem'].alteradas.length === 0,
+        'db_jogos: ' + String(rp['difere-mantem'].depois.db_jogos).slice(0, 50));
+      verificar('dados diferentes + SUBSTITUIR: a chave local é substituída',
+        rp['difere-substitui'].depois.db_jogos === JSON.stringify(SERVIDOR.jogos)
+        && JSON.stringify(rp['difere-substitui'].alteradas) === JSON.stringify(['db_jogos']),
+        'db_jogos: ' + String(rp['difere-substitui'].depois.db_jogos).slice(0, 50));
+      verificar('cancelar a comparação: nada escrito e nenhum backup criado',
+        rp.cancelar.criadas.length === 0 && rp.cancelar.alteradas.length === 0
+        && rp.cancelar.backup.length === 0,
+        JSON.stringify(rp.cancelar.criadas) + ' backup ' + JSON.stringify(rp.cancelar.backup));
+      verificar('o backup guarda o estado anterior das chaves tocadas',
+        (function () {
+          const b = JSON.parse(rp['difere-substitui'].conteudoBackup || '{}');
+          return b.chaves && b.chaves.db_jogos === JOGOS_LOCAIS
+            && b.chaves.jsc_noticias === null && typeof b.quando === 'string';
+        })(),
+        String(rp['difere-substitui'].conteudoBackup).slice(0, 160));
+      verificar('email_config, fpf_class_*, fpf_jogos_* e jsc_publicado_em ficam intocados',
+        Object.values(rp).every((x) => Object.keys(INTOCAVEIS)
+          .every((k) => x.depois[k] === INTOCAVEIS[k])),
+        JSON.stringify(Object.keys(rp).map((n) => n + ': '
+          + Object.keys(INTOCAVEIS).filter((k) => rp[n].depois[k] !== INTOCAVEIS[k]).join(','))));
+      verificar('uma chave que não pertence ao site é preservada',
+        Object.values(rp).every((x) => x.depois.uma_chave_minha === 'nada-a-ver-com-o-site'));
+      verificar('Publicar não é chamado: só GETs, nenhum ao save.php',
+        Object.values(rp).every(semEscrita),
+        JSON.stringify(Object.keys(rp).map((n) => n + ': ' + JSON.stringify(rp[n].pedidos))));
+      verificar('a comparação é mostrada antes de qualquer escrita, com o aviso do que não volta',
+        /A CRIAR/.test(rp.vazio.dialogos[0].texto)
+        && /rascunhos e notícias agendadas/.test(rp.vazio.dialogos[0].texto)
+        && /Não publica nada/.test(rp.vazio.dialogos[0].texto)
+        && rp.vazio.dialogos[0].tipo === 'confirm',
+        rp.vazio.dialogos[0].tipo + ': ' + rp.vazio.dialogos[0].texto.slice(0, 120));
+      verificar('a substituição pede a palavra escrita, num prompt',
+        rp['difere-substitui'].dialogos.some((d) => d.tipo === 'prompt'
+          && /SUBSTITUIR/.test(d.texto) && /rascunhos/.test(d.texto)),
+        JSON.stringify(rp['difere-substitui'].dialogos.map((d) => d.tipo)));
+      verificar('no fim diz quantas áreas foram repostas',
+        /\d+ área\(s\) reposta\(s\): \d+ criada\(s\), \d+ substituída\(s\)/
+          .test(rp['difere-substitui'].dialogos.map((d) => d.texto).join(' ')),
+        rp['difere-substitui'].dialogos.map((d) => d.texto.slice(0, 80)).join(' | '));
+      verificar('painel: sem erros de JavaScript em nenhum dos cinco cenários',
+        Object.values(rp).every((x) => x.erros.length === 0 && x.erro === null),
+        Object.values(rp).map((x) => (x.erros.join(' ') + ' ' + (x.erro || ''))).join(' | '));
+
+      // O servidor a sério: sem interceptar o load.php, e o data/db.json lido
+      // do disco antes e depois.
+      const fich = path.join(raiz, 'data', 'db.json');
+      const bytesAntes = fs.existsSync(fich) ? fs.readFileSync(fich) : null;
+      const real = await testarReporDoServidor(browser, srv.url, [
+        { nome: 'servidor-real', servidor: null, semente: { ...INTOCAVEIS } },
+      ]);
+      const bytesDepois = fs.existsSync(fich) ? fs.readFileSync(fich) : null;
+      verificar('contra o servidor a sério: o data/db.json fica byte a byte igual',
+        bytesAntes !== null && bytesDepois !== null && bytesAntes.equals(bytesDepois),
+        'antes ' + (bytesAntes ? bytesAntes.length : 'ausente')
+        + ' bytes, depois ' + (bytesDepois ? bytesDepois.length : 'ausente'));
+      verificar('contra o servidor a sério: nenhum pedido de escrita à api',
+        semEscrita(real['servidor-real']),
+        JSON.stringify(real['servidor-real'].pedidos));
+      verificar('contra o servidor a sério: as chaves intocáveis continuam intocadas',
+        Object.keys(INTOCAVEIS).every((k) => real['servidor-real'].depois[k] === INTOCAVEIS[k]),
+        JSON.stringify(Object.keys(INTOCAVEIS)
+          .filter((k) => real['servidor-real'].depois[k] !== INTOCAVEIS[k])));
     }
 
     // ---- A migração da db_noticias --------------------------------

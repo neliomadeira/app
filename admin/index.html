@@ -1496,6 +1496,14 @@
                 <button class="btn-sm" onclick="importarDados()">&#11014; Importar backup</button>
               </div>
               <input type="file" id="importBackupFile" accept=".json" style="display:none" onchange="processarImportBackup(event)" />
+              <hr style="border:none;border-top:1px solid #e2e8f0;margin:2px 0">
+              <!-- Repor do servidor -->
+              <div style="background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;padding:14px 16px;display:grid;gap:10px">
+                <div style="font-weight:700;font-size:13px;color:#1d4ed8">&#128229; Repor do servidor</div>
+                <p style="font-size:12px;color:#1e40af;margin:0">Se este browser perdeu os dados guardados, isto l&ecirc; o que est&aacute; publicado no servidor e mostra primeiro a compara&ccedil;&atilde;o &aacute;rea a &aacute;rea. S&oacute; cria as &aacute;reas que faltam aqui; substituir alguma que j&aacute; exista exige confirma&ccedil;&atilde;o escrita. <strong>N&atilde;o publica nada e n&atilde;o altera o servidor.</strong></p>
+                <p style="font-size:12px;color:#1e40af;margin:0">N&atilde;o recupera rascunhos nem not&iacute;cias agendadas, campos privados de atletas e treinadores, registos inactivos, inscri&ccedil;&otilde;es, mensagens nem a configura&ccedil;&atilde;o de e-mail: o servidor s&oacute; entrega o conte&uacute;do p&uacute;blico.</p>
+                <button class="btn-sm" onclick="reporDoServidor()" style="max-width:220px">&#128229; Repor do servidor</button>
+              </div>
             </div>
           </div>
 
