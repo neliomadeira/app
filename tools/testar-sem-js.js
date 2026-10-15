@@ -2852,6 +2852,8 @@ async function testarPainelLogos(browser, url, cenarios) {
         origem: ((tr.querySelectorAll('td')[2] || {}).textContent || '').trim(),
         estado: ((tr.querySelectorAll('td')[3] || {}).textContent || '').trim(),
         valor: ((tr.querySelector('input[id^=logoValor]') || {}).value || ''),
+        src: ((tr.querySelector('img') || {}).getAttribute
+          ? tr.querySelector('img').getAttribute('src') : ''),
         chave: ((tr.querySelector('input[id^=logoChave]') || {}).value || ''),
       }));
       const resumo = (document.getElementById('logosResumo') || {}).textContent || '';
@@ -7937,6 +7939,18 @@ async function testarAdminHistoria(browser, url) {
         && /3 equipa\(s\)/.test(pl.listar.resumo)
         && /1 ainda em endereço externo/.test(pl.listar.resumo),
         JSON.stringify(pl.listar.linhas.map((l) => l.origem)) + ' | ' + pl.listar.resumo);
+      // O painel vive em /admin/, e o caminho guardado é relativo à raiz do
+      // site: sem subir um nível, a pré-visualização pedia
+      // /admin/uploads/logos/... e dava sempre FALHOU nas locais. Medido em
+      // produção antes de isto existir.
+      verificar('a pré-visualização de um caminho local sobe um nível, e o valor guardado não muda',
+        pl.listar.linhas[0].src === '../uploads/logos/ferreiras.png'
+        && pl.listar.linhas[0].valor === 'uploads/logos/ferreiras.png'
+        && pl.listar.antes.logos['ferreiras'] === 'uploads/logos/ferreiras.png',
+        'src: ' + pl.listar.linhas[0].src + ' | valor: ' + pl.listar.linhas[0].valor);
+      verificar('um endereço externo é pré-visualizado tal e qual',
+        pl.listar.linhas[1].src === 'https://exemplo.invalido/quarteira.png',
+        'src: ' + pl.listar.linhas[1].src);
       verificar('uma imagem que não carrega fica FALHOU',
         (pl.listar.estadosFinais.find((e) => e.chave === 'quarteira') || {}).estado === 'FALHOU',
         JSON.stringify(pl.listar.estadosFinais));

@@ -6344,6 +6344,21 @@ function guardarLogos(mapa) {
   }
 }
 
+// O caminho guardado é relativo à RAIZ do site — "uploads/logos/x.png" —
+// porque é da raiz que as páginas públicas o pedem, e é esse valor que tem de
+// ficar no db_logos. Mas o painel vive em /admin/, e aí o browser resolve o
+// mesmo caminho como /admin/uploads/logos/x.png, que não existe: medido em
+// produção, as duas únicas entradas LOCAL apareciam FALHOU enquanto todas as
+// EXTERNO, que são absolutas, apareciam OK.
+//
+// Isto sobe um nível SÓ para a pré-visualização. O valor guardado não muda.
+function jscLogoUrlPreview(valor) {
+  const v = String(valor == null ? '' : valor).trim();
+  if (!v) return '';
+  if (/^(https?:)?\/\//i.test(v) || v.charAt(0) === '/') return v;
+  return '../' + v;
+}
+
 function jscLogoOrigem(valor) {
   const v = String(valor == null ? '' : valor).trim();
   if (!v) return 'VAZIO';
@@ -6380,7 +6395,7 @@ function renderLogos() {
     // O estado "FALHOU" não se adivinha do valor: mede-se a carregar a
     // imagem. O onerror escreve na célula do estado desta linha.
     const img = valor
-      ? '<img src="' + jscEscUrl(valor) + '" alt="" style="width:34px;height:34px;object-fit:contain"'
+      ? '<img src="' + jscEscUrl(jscLogoUrlPreview(valor)) + '" alt="" style="width:34px;height:34px;object-fit:contain"'
         + ' onload="document.getElementById(\'logoEstado' + i + '\').textContent=\'OK\';'
         + 'document.getElementById(\'logoEstado' + i + '\').style.color=\'#16a34a\'"'
         + ' onerror="this.style.visibility=\'hidden\';'
