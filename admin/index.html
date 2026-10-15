@@ -1507,6 +1507,41 @@
             </div>
           </div>
 
+          <!-- Logótipos das equipas -->
+          <div class="card" style="margin-bottom:20px;max-width:760px">
+            <div class="card-header"><h3>&#127942; Log&oacute;tipos das equipas</h3></div>
+            <div style="padding:16px;display:grid;gap:12px">
+              <p style="font-size:13px;color:#666;margin:0">
+                Associa&ccedil;&atilde;o entre o nome da equipa e o escudo, como aparece na classifica&ccedil;&atilde;o
+                e nos cart&otilde;es de jogo. Um escudo pode come&ccedil;ar como endere&ccedil;o externo e passar a
+                ficheiro nosso depois &mdash; o site mostra os dois. Sem logo, aparecem as iniciais.
+              </p>
+              <div id="logosResumo" style="font-size:13px;font-weight:700;color:#1d4ed8"></div>
+              <div id="logosAviso" style="display:none;font-size:12px;background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;padding:10px 12px;color:#92400e"></div>
+              <div style="overflow-x:auto">
+                <table class="admin-table" id="logosTable" style="min-width:680px">
+                  <thead>
+                    <tr>
+                      <th>Equipa</th><th>Escudo</th><th>Origem</th><th>Estado</th><th>Ac&ccedil;&otilde;es</th>
+                    </tr>
+                  </thead>
+                  <tbody id="logosRows"></tbody>
+                </table>
+              </div>
+              <hr style="border:none;border-top:1px solid #e2e8f0;margin:2px 0">
+              <div style="display:grid;gap:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px">
+                <div style="font-weight:700;font-size:13px">Adicionar equipa</div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                  <input type="text" id="logoNovaEquipa" placeholder="nome da equipa, como aparece na classifica&ccedil;&atilde;o" style="flex:1;min-width:220px">
+                  <input type="text" id="logoNovoValor" placeholder="https://... (opcional)" style="flex:1;min-width:200px">
+                  <button class="btn-sm" onclick="adicionarLogo()">+ Adicionar</button>
+                </div>
+                <small style="color:#64748b;font-size:11px">Depois de adicionar, usa &laquo;Carregar&raquo; na linha para substituir o endere&ccedil;o por um ficheiro nosso.</small>
+              </div>
+            </div>
+          </div>
+
+
           <!-- Aparência -->
           <div class="card" style="margin-bottom:20px;max-width:520px">
             <div class="card-header"><h3>&#127912; Aparência &amp; Templates</h3></div>

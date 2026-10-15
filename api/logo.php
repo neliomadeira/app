@@ -116,6 +116,120 @@ function jsc_logo_slug($nome) {
     return $s;
 }
 
+// ---- O registo de donos, debaixo de flock ---------------------------
+// Ler, decidir e escrever o registo tem de ser uma só secção crítica. Com
+// leitura e escrita separadas, dois uploads simultâneos liam ambos o registo
+// antigo e o segundo escrevia por cima do primeiro: um dono perdido, e um
+// dono perdido passa a ser 409 no upload seguinte.
+//
+// O ficheiro é aberto em 'c+' (cria se faltar, sem truncar), bloqueado em
+// exclusivo, e só se escreve se $decidir disser que sim. O que $decidir
+// devolver é o que esta função devolve, e a escrita acontece dentro do
+// bloqueio — inclusive o move_uploaded_file, quando é um upload: é por isso
+// que o $decidir recebe também o poder de gravar o ficheiro.
+function jsc_logo_com_registo($registo, $decidir) {
+    $fh = @fopen($registo, 'c+');
+    if (!$fh) {
+        return ['ok' => false, 'erro' => 'nao foi possivel abrir o registo de donos', 'codigo' => 500];
+    }
+    if (!@flock($fh, LOCK_EX)) {
+        fclose($fh);
+        return ['ok' => false, 'erro' => 'nao foi possivel bloquear o registo de donos', 'codigo' => 503];
+    }
+    $cru = '';
+    while (!feof($fh)) {
+        $parte = fread($fh, 8192);
+        if ($parte === false) break;
+        $cru .= $parte;
+    }
+    $donos = json_decode($cru, true);
+    if (!is_array($donos)) $donos = [];
+
+    $r = $decidir($donos);
+
+    if (!empty($r['ok']) && isset($r['donos']) && is_array($r['donos'])) {
+        ftruncate($fh, 0);
+        rewind($fh);
+        fwrite($fh, json_encode($r['donos'], JSON_UNESCAPED_UNICODE));
+        fflush($fh);
+    }
+    flock($fh, LOCK_UN);
+    fclose($fh);
+    @chmod($registo, 0644);
+    return $r;
+}
+
+$registo = __DIR__ . '/../uploads/logos/.donos.json';
+
+// ---- Transferir a propriedade de um slug ----------------------------
+// Renomear uma equipa no painel muda a chave do db_logos, mas o ficheiro no
+// servidor continua com o nome antigo e o registo com o dono antigo. Sem
+// isto, o upload seguinte dessa equipa batia contra o seu próprio ficheiro e
+// dava 409 — um comportamento conhecido que não se deixa ficar.
+//
+// Só transfere. Não move, não renomeia, não apaga nada, e nunca aceita um
+// caminho que não seja exactamente um ficheiro de uploads/logos/.
+if (isset($_POST['acao']) && $_POST['acao'] === 'transferir') {
+    $pastaT = __DIR__ . '/../uploads/logos';
+    $antigo  = strtolower(trim((string)(isset($_POST['dono_antigo']) ? $_POST['dono_antigo'] : '')));
+    $novo    = strtolower(trim((string)(isset($_POST['dono_novo'])   ? $_POST['dono_novo']   : '')));
+    $caminho = trim((string)(isset($_POST['caminho']) ? $_POST['caminho'] : ''));
+
+    if ($antigo === '' || $novo === '') {
+        jsc_logo_saida(['ok' => false, 'error' => 'falta o dono antigo ou o novo'], 400);
+    }
+
+    // O caminho não é interpretado: é confrontado com a única forma que o
+    // próprio endpoint produz. Qualquer outra coisa — ../, caminho absoluto,
+    // outra pasta, outra extensão — não passa daqui.
+    if (!preg_match('#^uploads/logos/([a-z0-9-]+)\.(png|jpg|webp)$#', $caminho, $m)) {
+        jsc_logo_saida([
+            'ok'     => false,
+            'codigo' => 'conflito',
+            'error'  => 'o caminho nao e um ficheiro de uploads/logos/',
+            'conflito' => ['caminho' => $caminho, 'de' => $antigo, 'para' => $novo],
+        ], 409);
+    }
+    $slugT = $m[1];
+
+    $r = jsc_logo_com_registo($registo, function ($donos) use ($pastaT, $slugT, $caminho, $antigo, $novo) {
+        $ficheiroT = $pastaT . '/' . basename($caminho);
+        if (!is_file($ficheiroT)) {
+            return ['ok' => false, 'codigo' => 409,
+                'erro' => 'o ficheiro ' . $caminho . ' nao existe no servidor',
+                'detalhe' => ['slug' => $slugT, 'caminho' => $caminho, 'de' => $antigo, 'para' => $novo]];
+        }
+        $donoAtual = isset($donos[$slugT]) ? (string)$donos[$slugT] : null;
+        if ($donoAtual !== $antigo) {
+            return ['ok' => false, 'codigo' => 409,
+                'erro' => $donoAtual === null
+                    ? 'o nome ' . $slugT . ' nao tem dono registado: nao se transfere o que nao se consegue atribuir'
+                    : 'o nome ' . $slugT . ' esta registado a "' . $donoAtual . '", nao a "' . $antigo . '"',
+                'detalhe' => ['slug' => $slugT, 'dono' => $donoAtual, 'de' => $antigo, 'para' => $novo]];
+        }
+        $donos[$slugT] = $novo;
+        return ['ok' => true, 'donos' => $donos];
+    });
+
+    if (empty($r['ok'])) {
+        jsc_logo_saida([
+            'ok'       => false,
+            'codigo'   => isset($r['codigo']) && $r['codigo'] === 409 ? 'conflito' : 'erro',
+            'error'    => isset($r['erro']) ? $r['erro'] : 'nao foi possivel transferir',
+            'conflito' => isset($r['detalhe']) ? $r['detalhe'] : null,
+        ], isset($r['codigo']) ? (int)$r['codigo'] : 500);
+    }
+
+    jsc_logo_saida([
+        'ok'      => true,
+        'acao'    => 'transferir',
+        'slug'    => $slugT,
+        'de'      => $antigo,
+        'para'    => $novo,
+        'caminho' => $caminho,
+    ]);
+}
+
 $equipa = isset($_POST['equipa']) ? (string)$_POST['equipa'] : '';
 $slug   = jsc_logo_slug($equipa);
 if ($slug === '') {
@@ -229,6 +343,24 @@ if (!is_dir($pasta) && !@mkdir($pasta, 0755, true)) {
 $extFinal = $JSC_LOGO_EXTENSAO[$tipoReal];
 $ficheiro = $pasta . '/' . $slug . '.' . $extFinal;
 
+// ---- Colisão de slug: nunca substituir o escudo de outra equipa -----
+// Dois nomes diferentes podem dar o mesmo slug — "Louletano B" e
+// "Louletano-B" dão os dois louletano-b — e até aqui o segundo upload
+// substituía o ficheiro do primeiro em silêncio.
+//
+// O servidor não tem o db_logos: esse mapa vive no localStorage de quem
+// escreve. Por isso guarda-se aqui, ao lado dos ficheiros, quem é o dono de
+// cada slug. É um registo de propriedade, não uma segunda fonte de verdade:
+// a associação equipa->logo continua a ser o db_logos.
+//
+// Três casos:
+//   slug livre                      -> grava e registra o dono
+//   slug do MESMO dono              -> grava (é uma substituição legítima)
+//   slug de OUTRO dono, ou sem dono -> 409 e não grava nada
+//
+// "Sem dono" também dá 409 de propósito: um ficheiro que lá esteja sem
+// registo pode pertencer a qualquer equipa, e a regra é não substituir o que
+// não se consegue atribuir. Não se inventa sufixo nenhum.
 // Defesa em profundidade: o slug já não pode conter barras nem pontos, mas
 // confirma-se que o destino fica mesmo dentro da pasta. Se um dia o slug
 // mudar, isto continua a travar.
@@ -238,10 +370,64 @@ if ($raizReal === false || $destinoReal === false || $destinoReal !== $raizReal)
     jsc_logo_saida(['ok' => false, 'error' => 'destino fora de uploads/logos/'], 400);
 }
 
-if (!@move_uploaded_file($f['tmp_name'], $ficheiro)) {
-    jsc_logo_saida(['ok' => false, 'error' => 'nao foi possivel gravar o ficheiro'], 500);
+// ---- Verificar, gravar e registar: uma só secção crítica ------------
+// Três casos:
+//   slug livre                      -> grava e registra o dono
+//   slug do MESMO dono              -> grava (é uma substituição legítima)
+//   slug de OUTRO dono, ou sem dono -> 409 e não grava nada
+//
+// "Sem dono" também dá 409 de propósito: um ficheiro que lá esteja sem
+// registo pode pertencer a qualquer equipa, e a regra é não substituir o que
+// não se consegue atribuir. Não se inventa sufixo nenhum.
+//
+// Tudo isto acontece dentro do flock, o move_uploaded_file incluído: com a
+// verificação fora do bloqueio, dois uploads do mesmo slug passavam ambos a
+// verificação antes de qualquer um gravar.
+$dono = strtolower(trim($equipa));
+$extensoes = array_unique(array_values($JSC_LOGO_EXTENSAO));
+
+$r = jsc_logo_com_registo($registo, function ($donos) use (
+    $pasta, $slug, $dono, $ficheiro, $extFinal, $extensoes, $f
+) {
+    $donoRegistado = isset($donos[$slug]) ? (string)$donos[$slug] : null;
+
+    $jaExiste = false;
+    foreach ($extensoes as $qualquer) {
+        if (is_file($pasta . '/' . $slug . '.' . $qualquer)) { $jaExiste = true; break; }
+    }
+
+    if ($jaExiste && $donoRegistado !== $dono) {
+        return ['ok' => false, 'codigo' => 409,
+            'erro' => $donoRegistado === null
+                ? 'ja existe um ficheiro com o nome ' . $slug . ' e nao ha registo de a que '
+                  . 'equipa pertence: nao e substituido'
+                : 'o nome ' . $slug . ' ja esta a ser usado pela equipa "' . $donoRegistado . '"',
+            'detalhe' => [
+                'slug'    => $slug,
+                'dono'    => $donoRegistado,
+                'pedido'  => $dono,
+                'caminho' => 'uploads/logos/' . $slug . '.' . $extFinal,
+            ]];
+    }
+
+    if (!@move_uploaded_file($f['tmp_name'], $ficheiro)) {
+        return ['ok' => false, 'codigo' => 500, 'erro' => 'nao foi possivel gravar o ficheiro'];
+    }
+    @chmod($ficheiro, 0644);
+
+    $donos[$slug] = $dono;
+    return ['ok' => true, 'donos' => $donos];
+});
+
+if (empty($r['ok'])) {
+    $codigo = isset($r['codigo']) ? (int)$r['codigo'] : 500;
+    jsc_logo_saida([
+        'ok'       => false,
+        'codigo'   => $codigo === 409 ? 'conflito' : 'erro',
+        'error'    => isset($r['erro']) ? $r['erro'] : 'nao foi possivel gravar',
+        'conflito' => isset($r['detalhe']) ? $r['detalhe'] : null,
+    ], $codigo);
 }
-@chmod($ficheiro, 0644);
 
 // Um escudo que já lá estivesse noutro formato não é apagado aqui: apagar
 // ficheiros numa pasta persistente é uma decisão à parte, e não é esta

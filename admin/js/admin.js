@@ -538,6 +538,7 @@ function initAdmin() {
   if (typeof renderTreinadores === 'function')  renderTreinadores();
   if (typeof renderAgenda === 'function')       renderAgenda();
   if (typeof renderModalidades === 'function')  renderModalidades();
+  if (typeof renderLogos === 'function')        renderLogos();
 
   // Date
   document.getElementById('pageDate').textContent =
@@ -6304,6 +6305,320 @@ function exportarDados() {
   a.click();
   showToast('✓ Backup completo exportado!', 'green');
 }
+
+// ==================================================
+// LOGÓTIPOS DAS EQUIPAS
+// ==================================================
+// O db_logos é a única fonte da associação nome da equipa -> escudo, e
+// continua a ser: isto é um editor dele, não uma segunda lista. Nenhum clube
+// está escrito em código — a tabela é o que o mapa tiver, e uma equipa nova
+// entra por uma linha nova no mapa.
+//
+// O slug e o nome do ficheiro são responsabilidade exclusiva do servidor: o
+// painel envia o nome da equipa e o ficheiro, e usa o caminho que o
+// api/logo.php devolver. Não monta caminhos.
+const JSC_LOGO_PREFIXO_LOCAL = 'uploads/logos/';
+const JSC_LOGO_TIPOS_ACEITOS = ['image/png', 'image/jpeg', 'image/webp'];
+const JSC_LOGO_EXT_ACEITAS   = ['png', 'jpg', 'jpeg', 'webp'];
+
+function carregarLogos() {
+  try {
+    const d = JSON.parse(localStorage.getItem('db_logos') || '{}');
+    return (d && typeof d === 'object' && !Array.isArray(d)) ? d : {};
+  } catch (e) { return {}; }
+}
+
+// Grava o mapa e diz se conseguiu. Nunca finge sucesso: quem chama tem de
+// olhar para o retorno, porque um localStorage cheio falha aqui e o painel
+// não pode dizer que guardou.
+function guardarLogos(mapa) {
+  try {
+    localStorage.setItem('db_logos', JSON.stringify(mapa));
+    return true;
+  } catch (e) {
+    showToast('❌ NÃO foi possível guardar (' + e.name + '). O mapa ficou como estava.', 'red');
+    alert('O navegador recusou gravar o mapa de logótipos: ' + e.name + '.\n\n'
+      + 'Nada foi alterado. Liberte espaço — as imagens das notícias guardadas\n'
+      + 'como ficheiro são o que costuma encher o armazém — e tente outra vez.');
+    return false;
+  }
+}
+
+function jscLogoOrigem(valor) {
+  const v = String(valor == null ? '' : valor).trim();
+  if (!v) return 'VAZIO';
+  if (v.indexOf(JSC_LOGO_PREFIXO_LOCAL) === 0) return 'LOCAL';
+  if (/^https?:\/\//i.test(v)) return 'EXTERNO';
+  return 'OUTRO';
+}
+
+function renderLogos() {
+  const tbody = document.getElementById('logosRows');
+  if (!tbody) return;
+  const mapa = carregarLogos();
+  const chaves = Object.keys(mapa).sort();
+
+  const resumo = document.getElementById('logosResumo');
+  if (resumo) {
+    const externos = chaves.filter((k) => jscLogoOrigem(mapa[k]) === 'EXTERNO').length;
+    const locais   = chaves.filter((k) => jscLogoOrigem(mapa[k]) === 'LOCAL').length;
+    resumo.textContent = chaves.length + ' equipa(s) no mapa — ' + locais + ' com ficheiro nosso, '
+      + externos + ' ainda em endereço externo.';
+  }
+
+  if (!chaves.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;padding:24px">'
+      + 'O mapa está vazio. Os escudos aparecem aqui quando se cola uma classificação, '
+      + 'ou podem ser acrescentados em baixo.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = chaves.map(function (chave, i) {
+    const valor  = String(mapa[chave] == null ? '' : mapa[chave]);
+    const origem = jscLogoOrigem(valor);
+    const cor = origem === 'LOCAL' ? '#16a34a' : (origem === 'EXTERNO' ? '#d97706' : '#64748b');
+    // O estado "FALHOU" não se adivinha do valor: mede-se a carregar a
+    // imagem. O onerror escreve na célula do estado desta linha.
+    const img = valor
+      ? '<img src="' + jscEscUrl(valor) + '" alt="" style="width:34px;height:34px;object-fit:contain"'
+        + ' onload="document.getElementById(\'logoEstado' + i + '\').textContent=\'OK\';'
+        + 'document.getElementById(\'logoEstado' + i + '\').style.color=\'#16a34a\'"'
+        + ' onerror="this.style.visibility=\'hidden\';'
+        + 'document.getElementById(\'logoEstado' + i + '\').textContent=\'FALHOU\';'
+        + 'document.getElementById(\'logoEstado' + i + '\').style.color=\'#dc2626\'">'
+      : '<span style="color:#999;font-size:11px">sem escudo</span>';
+    return '<tr>'
+      + '<td><input type="text" id="logoChave' + i + '" value="' + jscEsc(chave) + '"'
+        + ' style="width:100%;min-width:150px;font-weight:700">'
+        + '<br><button class="btn-sm" style="margin-top:4px;font-size:10px"'
+        + ' onclick="renomearLogo(' + i + ', \'' + jscEsc(chave) + '\')">Renomear</button></td>'
+      + '<td style="text-align:center">' + img + '</td>'
+      + '<td><span style="font-weight:700;font-size:11px;color:' + cor + '">' + origem + '</span></td>'
+      + '<td id="logoEstado' + i + '" style="font-size:11px;color:#64748b">'
+        + (valor ? 'a carregar…' : '—') + '</td>'
+      + '<td style="min-width:260px">'
+        + '<input type="text" id="logoValor' + i + '" value="' + jscEsc(valor) + '"'
+          + ' placeholder="https://... ou uploads/logos/x.png" style="width:100%">'
+        + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">'
+        + '<button class="btn-sm" style="font-size:10px"'
+          + ' onclick="guardarLogoUrl(' + i + ', \'' + jscEsc(chave) + '\')">Guardar endereço</button>'
+        + '<input type="file" id="logoFich' + i + '" accept="image/png,image/jpeg,image/webp"'
+          + ' style="display:none" onchange="enviarLogo(' + i + ', \'' + jscEsc(chave) + '\')">'
+        + '<button class="btn-sm" style="font-size:10px"'
+          + ' onclick="document.getElementById(\'logoFich' + i + '\').click()">Carregar ficheiro</button>'
+        + '<button class="btn-sm" style="font-size:10px"'
+          + ' onclick="removerLogo(\'' + jscEsc(chave) + '\')">Remover do mapa</button>'
+        + '</div></td>'
+      + '</tr>';
+  }).join('');
+}
+
+function _jscLogoAviso(texto) {
+  const el = document.getElementById('logosAviso');
+  if (!el) return;
+  if (!texto) { el.style.display = 'none'; el.textContent = ''; return; }
+  el.style.display = '';
+  el.textContent = texto;
+}
+
+window.renderLogos = renderLogos;
+
+window.adicionarLogo = function () {
+  const nome  = (document.getElementById('logoNovaEquipa') || {}).value || '';
+  const valor = (document.getElementById('logoNovoValor')  || {}).value || '';
+  const chave = nome.trim().toLowerCase();
+  if (!chave) { showToast('Escreva o nome da equipa.', 'red'); return; }
+  const mapa = carregarLogos();
+  if (Object.prototype.hasOwnProperty.call(mapa, chave)) {
+    showToast('Já existe uma linha para "' + chave + '".', 'red');
+    return;
+  }
+  mapa[chave] = valor.trim();
+  if (!guardarLogos(mapa)) return;
+  document.getElementById('logoNovaEquipa').value = '';
+  document.getElementById('logoNovoValor').value = '';
+  renderLogos();
+  showToast('Equipa "' + chave + '" acrescentada ao mapa.', 'green');
+};
+
+window.guardarLogoUrl = function (i, chave) {
+  const valor = ((document.getElementById('logoValor' + i) || {}).value || '').trim();
+  if (/^\s*data\s*:/i.test(valor)) {
+    showToast('Endereços data: não são aceites aqui. Use um ficheiro.', 'red');
+    return;
+  }
+  if (/\.svg(\?|$)/i.test(valor)) {
+    showToast('SVG não é aceite: um SVG pode executar script.', 'red');
+    return;
+  }
+  const mapa = carregarLogos();
+  if (!Object.prototype.hasOwnProperty.call(mapa, chave)) {
+    showToast('Essa equipa já não está no mapa. Recarregue a lista.', 'red');
+    return;
+  }
+  mapa[chave] = valor;                 // só esta entrada
+  if (!guardarLogos(mapa)) return;
+  renderLogos();
+  showToast('Endereço de "' + chave + '" guardado. Não foi publicado.', 'green');
+};
+
+// Renomear uma equipa. Se o escudo for LOCAL, o ficheiro no servidor continua
+// com o nome antigo e o registo de donos com o dono antigo — e o upload
+// seguinte dessa equipa bateria contra o seu próprio ficheiro, dando conflito.
+// Por isso pede-se primeiro a transferência de propriedade ao servidor, e a
+// chave do db_logos só muda se ela correr bem. Num escudo EXTERNO não há
+// ficheiro nosso nem dono a transferir: muda só o mapa.
+window.renomearLogo = async function (i, chaveAntiga) {
+  const nova = ((document.getElementById('logoChave' + i) || {}).value || '').trim().toLowerCase();
+  if (!nova) { showToast('O nome não pode ficar vazio.', 'red'); return; }
+  if (nova === chaveAntiga) { showToast('O nome é o mesmo.'); return; }
+  const mapa = carregarLogos();
+  if (Object.prototype.hasOwnProperty.call(mapa, nova)) {
+    showToast('Já existe uma linha para "' + nova + '".', 'red');
+    return;
+  }
+  if (!Object.prototype.hasOwnProperty.call(mapa, chaveAntiga)) {
+    showToast('Essa equipa já não está no mapa. Recarregue a lista.', 'red');
+    return;
+  }
+
+  const valor = String(mapa[chaveAntiga] == null ? '' : mapa[chaveAntiga]);
+  _jscLogoAviso('');
+
+  if (jscLogoOrigem(valor) === 'LOCAL') {
+    let resp = null, json = {};
+    try {
+      const fd = new FormData();
+      fd.append('acao', 'transferir');
+      fd.append('dono_antigo', chaveAntiga);
+      fd.append('dono_novo', nova);
+      fd.append('caminho', valor);
+      resp = await fetch('../api/logo.php', {
+        method: 'POST',
+        headers: { 'X-JSC-Painel': '1' },
+        credentials: 'same-origin',
+        body: fd,
+      });
+      try { json = await resp.json(); } catch (_) { json = {}; }
+    } catch (e) {
+      showToast('\u274c Sem ligação ao servidor: ' + e.message
+        + '. O nome ficou como estava.', 'red');
+      return;
+    }
+    if (!resp.ok || !json || json.ok !== true) {
+      const c = json && json.conflito ? json.conflito : {};
+      _jscLogoAviso('A TRANSFERÊNCIA DE DONO FALHOU — o nome NÃO foi alterado. '
+        + ((json && json.error) || ('erro ' + resp.status))
+        + (c.dono ? ' O ficheiro "' + c.slug + '" está registado a "' + c.dono + '".' : '')
+        + ' O db_logos ficou exactamente como estava.');
+      showToast('\u274c ' + ((json && json.error) || ('erro ' + resp.status))
+        + '. Nada foi alterado.', 'red');
+      return;
+    }
+  }
+
+  // Só agora, e só estas duas entradas.
+  mapa[nova] = mapa[chaveAntiga];
+  delete mapa[chaveAntiga];
+  if (!guardarLogos(mapa)) return;
+  renderLogos();
+  showToast('"' + chaveAntiga + '" passou a "' + nova + '".'
+    + (jscLogoOrigem(valor) === 'LOCAL'
+      ? ' O dono do ficheiro no servidor foi transferido; o nome do ficheiro não muda.'
+      : ''), 'green');
+};
+
+window.removerLogo = function (chave) {
+  if (!confirm('Remover "' + chave + '" do mapa de logótipos?\n\n'
+    + 'A equipa passa a aparecer com as iniciais. O ficheiro no servidor NÃO é apagado.')) return;
+  const mapa = carregarLogos();
+  if (!Object.prototype.hasOwnProperty.call(mapa, chave)) { renderLogos(); return; }
+  delete mapa[chave];
+  if (!guardarLogos(mapa)) return;
+  renderLogos();
+  showToast('"' + chave + '" removida do mapa. O ficheiro ficou no servidor.', 'green');
+};
+
+// Envia o ficheiro ao api/logo.php e, só com resposta válida, escreve no
+// db_logos o caminho QUE O SERVIDOR DEVOLVEU. O painel não monta caminhos e
+// não calcula slugs.
+window.enviarLogo = async function (i, chave) {
+  const input = document.getElementById('logoFich' + i);
+  const f = input && input.files && input.files[0];
+  if (!f) return;
+  const limpar = () => { try { input.value = ''; } catch (_) {} };
+
+  // Primeira peneira, no browser: o servidor volta a validar tudo, e é a dele
+  // que conta. Isto é só para não enviar o que já se sabe que não serve.
+  const ext = (f.name.split('.').pop() || '').toLowerCase();
+  if (/svg/i.test(f.type) || ext === 'svg') {
+    showToast('SVG não é aceite: um SVG pode executar script.', 'red');
+    limpar(); return;
+  }
+  if (JSC_LOGO_EXT_ACEITAS.indexOf(ext) === -1
+      || (f.type && JSC_LOGO_TIPOS_ACEITOS.indexOf(f.type) === -1)) {
+    showToast('Só PNG, JPEG ou WebP. Este ficheiro é "' + (f.type || ext) + '".', 'red');
+    limpar(); return;
+  }
+
+  _jscLogoAviso('');
+  showToast('A enviar o escudo de "' + chave + '"…');
+  let resp = null, json = {};
+  try {
+    const fd = new FormData();
+    fd.append('equipa', chave);
+    fd.append('ficheiro', f, f.name);
+    resp = await fetch('../api/logo.php', {
+      method: 'POST',
+      headers: { 'X-JSC-Painel': '1' },
+      credentials: 'same-origin',
+      body: fd,
+    });
+    try { json = await resp.json(); } catch (_) { json = {}; }
+  } catch (e) {
+    showToast('❌ Sem ligação ao servidor: ' + e.message + '. O mapa ficou como estava.', 'red');
+    limpar(); return;
+  }
+
+  // Conflito de slug: o servidor não substituiu nada, e o painel mostra-o por
+  // inteiro em vez de o esconder atrás de "erro ao carregar".
+  if (resp.status === 409 && json && json.codigo === 'conflito') {
+    const c = json.conflito || {};
+    _jscLogoAviso('CONFLITO DE NOME DE FICHEIRO — nada foi alterado. O nome "' + c.slug
+      + '" já pertence a ' + (c.dono ? '"' + c.dono + '"' : 'um ficheiro sem registo de dono')
+      + ', e "' + c.pedido + '" daria o mesmo nome. Para resolver: renomeie uma das equipas de'
+      + ' forma a que os nomes deixem de coincidir, ou apague o ficheiro antigo no servidor.');
+    showToast('❌ Conflito de nome: nada foi alterado.', 'red');
+    limpar(); return;
+  }
+  if (!resp.ok || !json || json.ok !== true || typeof json.caminho !== 'string' || !json.caminho) {
+    showToast('❌ ' + ((json && json.error) || ('erro ' + resp.status))
+      + '. O mapa ficou como estava.', 'red');
+    limpar(); return;
+  }
+
+  // Só agora se toca no mapa, e só nesta entrada.
+  const mapa = carregarLogos();
+  const antes = JSON.stringify(mapa);
+  const chaveFinal = typeof json.chave === 'string' && json.chave ? json.chave : chave;
+  mapa[chaveFinal] = json.caminho;
+  if (!guardarLogos(mapa)) { limpar(); return; }
+  const depois = carregarLogos();
+  const mudadas = Object.keys(JSON.parse(antes)).filter(function (k) {
+    return JSON.parse(antes)[k] !== depois[k];
+  });
+
+  if (Array.isArray(json.restos) && json.restos.length) {
+    _jscLogoAviso('Ficou no servidor um ficheiro de formato anterior desta equipa: '
+      + json.restos.join(', ') + '. Não é apagado por esta operação — o db_logos aponta para o'
+      + ' novo, e o antigo pode ser removido à mão no alojamento.');
+  }
+  limpar();
+  renderLogos();
+  showToast('✓ Escudo de "' + chaveFinal + '" guardado em ' + json.caminho
+    + ' (' + json.largura + '×' + json.altura + ', ' + json.bytes + ' bytes). '
+    + mudadas.length + ' entrada(s) alterada(s). Não foi publicado.', 'green');
+};
 
 // ==================================================
 // REPOR DO SERVIDOR

@@ -2803,6 +2803,110 @@ async function _medirSaveClassData(url) {
   return r;
 }
 
+// ---- A gestão de logótipos no painel ------------------------------
+// O api/logo.php é interceptado: o que se mede é o painel — o que mostra, o
+// que escreve no db_logos, e sobretudo o que NÃO escreve quando o servidor
+// recusa. Qualquer pedido à api é registado, para se provar que o Publicar
+// não é chamado e que nada vai para o save.php.
+async function testarPainelLogos(browser, url, cenarios) {
+  const saida = {};
+  for (const c of cenarios) {
+    const ctx = await browser.newContext({
+      javaScriptEnabled: true,
+      extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+    });
+    const pedidos = [];
+    await ctx.route('**/api/**', (rota) => {
+      const req = rota.request();
+      const caminho = new URL(req.url()).pathname;
+      pedidos.push(req.method() + ' ' + caminho);
+      if (/logo\.php$/.test(caminho) && c.resposta) {
+        return rota.fulfill({ status: c.resposta.estado, contentType: 'application/json',
+          body: JSON.stringify(c.resposta.corpo) });
+      }
+      if (/save\.php$/.test(caminho)) {
+        return rota.fulfill({ status: 200, contentType: 'application/json',
+          body: JSON.stringify({ ok: true }) });
+      }
+      return rota.continue();
+    });
+    const pg = await ctx.newPage();
+    const erros = [], dialogos = [];
+    pg.on('pageerror', (e) => erros.push('exce\u00e7\u00e3o: ' + e.message));
+    pg.on('dialog', (d) => { dialogos.push(d.message().replace(/\s+/g, ' ')); return d.accept(); });
+    await pg.goto(url + '/admin/', { waitUntil: 'networkidle', timeout: 20000 });
+
+    const r = await pg.evaluate(async (a) => {
+      const ler = () => { try { return JSON.parse(localStorage.getItem('db_logos') || '{}'); } catch (_) { return null; } };
+      Object.keys(localStorage).forEach((k) => localStorage.removeItem(k));
+      localStorage.setItem('db_logos', JSON.stringify(a.mapa));
+      // Sentinelas: nada disto pode mudar.
+      localStorage.setItem('db_jogos', JSON.stringify(a.jogos));
+      localStorage.setItem('fpf_class_Sub-17', JSON.stringify(a.classificacao));
+      const antes = { logos: ler(), jogos: localStorage.getItem('db_jogos'),
+        classe: localStorage.getItem('fpf_class_Sub-17') };
+
+      renderLogos();
+      const linhas = Array.from(document.querySelectorAll('#logosRows tr')).map((tr) => ({
+        texto: (tr.textContent || '').replace(/\s+/g, ' ').trim(),
+        origem: ((tr.querySelectorAll('td')[2] || {}).textContent || '').trim(),
+        estado: ((tr.querySelectorAll('td')[3] || {}).textContent || '').trim(),
+        valor: ((tr.querySelector('input[id^=logoValor]') || {}).value || ''),
+        chave: ((tr.querySelector('input[id^=logoChave]') || {}).value || ''),
+      }));
+      const resumo = (document.getElementById('logosResumo') || {}).textContent || '';
+
+      // A acção do cenário.
+      if (a.acao === 'adicionar') {
+        document.getElementById('logoNovaEquipa').value = a.nomeNovo;
+        document.getElementById('logoNovoValor').value  = a.valor;
+        adicionarLogo();
+      } else if (a.acao === 'url') {
+        const i = linhas.findIndex((l) => l.chave === a.chave);
+        document.getElementById('logoValor' + i).value = a.valor;
+        guardarLogoUrl(i, a.chave);
+      } else if (a.acao === 'rename') {
+        const i = linhas.findIndex((l) => l.chave === a.chave);
+        document.getElementById('logoChave' + i).value = a.nomeNovo;
+        await renomearLogo(i, a.chave);
+      } else if (a.acao === 'upload') {
+        const i = linhas.findIndex((l) => l.chave === a.chave);
+        const input = document.getElementById('logoFich' + i);
+        // Um ficheiro a sério, do tipo certo: o que se mede é a resposta do
+        // endpoint, que está interceptada.
+        const dt = new DataTransfer();
+        dt.items.add(new File([new Uint8Array([0x89, 0x50, 0x4E, 0x47])], 'e.png', { type: 'image/png' }));
+        input.files = dt.files;
+        await enviarLogo(i, a.chave);
+      }
+      await new Promise((res) => setTimeout(res, 300));
+
+      const depois = { logos: ler(), jogos: localStorage.getItem('db_jogos'),
+        classe: localStorage.getItem('fpf_class_Sub-17') };
+      return {
+        linhas, resumo, antes, depois,
+        aviso: (document.getElementById('logosAviso') || {}).textContent || '',
+        avisoVisivel: !!(document.getElementById('logosAviso')
+          && document.getElementById('logosAviso').style.display !== 'none'),
+        mudadas: Object.keys(Object.assign({}, antes.logos, depois.logos))
+          .filter((k) => JSON.stringify((antes.logos || {})[k]) !== JSON.stringify((depois.logos || {})[k])),
+      };
+    }, c);
+
+    // O estado FALHOU/OK vem de um onload/onerror: medir depois de assentar.
+    await pg.waitForTimeout(700);
+    r.estadosFinais = await pg.evaluate(() =>
+      Array.from(document.querySelectorAll('#logosRows tr')).map((tr) => ({
+        chave: ((tr.querySelector('input[id^=logoChave]') || {}).value || ''),
+        estado: ((tr.querySelectorAll('td')[3] || {}).textContent || '').trim(),
+      })));
+
+    await ctx.close();
+    saida[c.nome] = { ...r, pedidos, dialogos, erros };
+  }
+  return saida;
+}
+
 // ---- Nada dentro de uploads/ é executável -------------------------
 // Planta ficheiros com extensões de executável na pasta e mede o que o
 // servidor responde a cada um, mais os controlos: as imagens continuam a
@@ -3060,6 +3164,91 @@ async function _medirEndpointLogo(url, raizCopia) {
   r.jpegReal     = await enviar({ equipa: 'Quarteira', conteudo: _jscJpegMinimo(), nome: 'escudo.jpg', tipo: 'image/jpeg' });
   r.substituir   = await enviar({ equipa: 'Ferreiras', conteudo: _jscPngMinimo(80, 80), nome: 'outro-nome-qualquer.png' });
   r.noFim        = naPasta();
+
+  // ---- Colisão de slug: Louletano B vs Louletano-B ------------------
+  // Dois nomes diferentes, o mesmo slug. O primeiro grava; o segundo tem de
+  // dar 409 e não tocar no ficheiro do primeiro.
+  r.louletanoB  = await enviar({ equipa: 'Louletano B', conteudo: _jscPngMinimo(48, 48), nome: 'b.png' });
+  const antesColisao = (function () {
+    try { return fs.readFileSync(path.join(raizCopia, 'uploads', 'logos', 'louletano-b.png')); }
+    catch (_) { return null; }
+  })();
+  r.louletanoHifen = await enviar({ equipa: 'Louletano-B', conteudo: _jscPngMinimo(96, 96), nome: 'c.png' });
+  const depoisColisao = (function () {
+    try { return fs.readFileSync(path.join(raizCopia, 'uploads', 'logos', 'louletano-b.png')); }
+    catch (_) { return null; }
+  })();
+  r.colisaoIntacto = !!(antesColisao && depoisColisao && antesColisao.equals(depoisColisao));
+  // E o mesmo dono a substituir o seu próprio escudo continua a poder.
+  r.mesmoDono = await enviar({ equipa: 'louletano b', conteudo: _jscPngMinimo(64, 64), nome: 'd.png' });
+  // O registo de donos não é servido pela web.
+  // ---- Transferência de propriedade -------------------------------
+  // O caso do rename: o ficheiro fica com o nome antigo, e o dono tem de
+  // passar para o nome novo, senão o upload seguinte bate contra o próprio
+  // ficheiro.
+  const transferir = async (de, para, caminho) => {
+    const limite = '----jsctr' + Date.now() + Math.random();
+    const campo = (n, v) => Buffer.from('--' + limite + '\r\n'
+      + 'Content-Disposition: form-data; name="' + n + '"\r\n\r\n' + v + '\r\n', 'utf8');
+    const corpo = Buffer.concat([
+      campo('acao', 'transferir'), campo('dono_antigo', de),
+      campo('dono_novo', para), campo('caminho', caminho),
+      Buffer.from('--' + limite + '--\r\n', 'utf8'),
+    ]);
+    const res = await fetch(url + '/api/logo.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'multipart/form-data; boundary=' + limite,
+        'X-JSC-Painel': '1', 'X-Forwarded-Proto': 'https', 'Cookie': cookie },
+      body: corpo, redirect: 'manual',
+    });
+    return await json(res);
+  };
+  const donoDe = (slug) => {
+    try {
+      const d = JSON.parse(fs.readFileSync(path.join(raizCopia, 'uploads', 'logos', '.donos.json'), 'utf8'));
+      return d[slug] === undefined ? null : d[slug];
+    } catch (_) { return null; }
+  };
+
+  // Dono errado: nada muda.
+  r.trDonoErrado = await transferir('nao-e-o-dono', 'novo nome', 'uploads/logos/louletano-b.png');
+  r.donoAposErrado = donoDe('louletano-b');
+  // Caminho forjado: nada muda.
+  r.trForjado = await transferir('louletano b', 'novo nome', '../../../etc/passwd');
+  r.trForjado2 = await transferir('louletano b', 'novo nome', 'uploads/logos/../../api/logo.php');
+  r.trForjado3 = await transferir('louletano b', 'novo nome', 'uploads/logos/nao-existe.png');
+  r.donoAposForjado = donoDe('louletano-b');
+  // A transferência legítima.
+  r.trBoa = await transferir('louletano b', 'louletano reserva', 'uploads/logos/louletano-b.png');
+  r.donoApos = donoDe('louletano-b');
+  // E depois dela, o upload do clube renomeado funciona em vez de dar 409.
+  r.uploadAposTr = await enviar({ equipa: 'louletano reserva', conteudo: _jscPngMinimo(50, 50), nome: 'r.png' });
+  // O dono antigo já não pode substituir.
+  r.antigoJaNao = await enviar({ equipa: 'louletano b', conteudo: _jscPngMinimo(52, 52), nome: 's.png' });
+
+  // ---- Concorrência: oito uploads ao mesmo tempo ------------------
+  // Sem flock, a leitura e a escrita separadas perdiam donos: cada pedido
+  // lia o registo antigo e escrevia por cima. Com flock, os oito sobrevivem.
+  // A medição é determinista: conta-se quantos dos oito ficaram no registo.
+  const equipasParalelas = ['Par Um', 'Par Dois', 'Par Tres', 'Par Quatro',
+    'Par Cinco', 'Par Seis', 'Par Sete', 'Par Oito'];
+  r.paralelos = await Promise.all(equipasParalelas.map((nome) =>
+    enviar({ equipa: nome, conteudo: _jscPngMinimo(40, 40), nome: 'p.png' })));
+  r.registoFinal = (function () {
+    try {
+      const cru = fs.readFileSync(path.join(raizCopia, 'uploads', 'logos', '.donos.json'), 'utf8');
+      const d = JSON.parse(cru);
+      return { valido: true, n: Object.keys(d).length,
+        presentes: equipasParalelas.filter((nome) =>
+          d[nome.toLowerCase().replace(/ /g, '-')] === nome.toLowerCase()).length };
+    } catch (e) { return { valido: false, erro: String(e.message), n: 0, presentes: 0 }; }
+  })();
+
+  r.registoServido = await (async () => {
+    const res = await fetch(url + '/uploads/logos/.donos.json',
+      { headers: { 'X-Forwarded-Proto': 'https' }, redirect: 'manual' });
+    return { estado: res.status, corpo: (await res.text()).slice(0, 40) };
+  })();
 
   // O ficheiro gravado é mesmo uma imagem, e é a que foi enviada.
   try {
@@ -7689,6 +7878,140 @@ async function testarAdminHistoria(browser, url) {
       }
     }
 
+    // ---- A gestão de logótipos no painel ---------------------------
+    console.log('\nlogótipos no painel: o mapa é a fonte, e só muda a linha tocada');
+    {
+      const MAPA = {
+        'ferreiras': 'uploads/logos/ferreiras.png',
+        'quarteira': 'https://exemplo.invalido/quarteira.png',
+        'sem escudo': '',
+      };
+      const JOGOS = [{ id: 1, casa: 'Equipa Um', fora: 'Equipa Dois' }];
+      const CLASSE = [{ equipa: 'Equipa Um', pts: 3 }];
+      const base = { mapa: MAPA, jogos: JOGOS, classificacao: CLASSE };
+
+      const pl = await testarPainelLogos(browser, srv.url, [
+        { nome: 'listar',    ...base, acao: 'nada' },
+        { nome: 'adicionar', ...base, acao: 'adicionar',
+          nomeNovo: 'equipa nova', valor: 'https://exemplo.invalido/novo.png' },
+        { nome: 'url',       ...base, acao: 'url', chave: 'ferreiras',
+          valor: 'https://exemplo.invalido/outro.png' },
+        { nome: 'upload-ok', ...base, acao: 'upload', chave: 'quarteira',
+          resposta: { estado: 200, corpo: { ok: true, chave: 'quarteira',
+            caminho: 'uploads/logos/quarteira.png', slug: 'quarteira', formato: 'png',
+            bytes: 1234, largura: 64, altura: 64, restos: [] } } },
+        { nome: 'upload-ma', ...base, acao: 'upload', chave: 'quarteira',
+          resposta: { estado: 415, corpo: { ok: false, error: 'extensao nao aceite' } } },
+        { nome: 'upload-409', ...base, acao: 'upload', chave: 'quarteira',
+          resposta: { estado: 409, corpo: { ok: false, codigo: 'conflito',
+            error: 'ja usado', conflito: { slug: 'quarteira', dono: 'quarteira b',
+              pedido: 'quarteira', caminho: 'uploads/logos/quarteira.png' } } } },
+        { nome: 'rename-local', ...base, acao: 'rename', chave: 'ferreiras',
+          nomeNovo: 'ferreiras novo',
+          resposta: { estado: 200, corpo: { ok: true, acao: 'transferir', slug: 'ferreiras',
+            de: 'ferreiras', para: 'ferreiras novo', caminho: 'uploads/logos/ferreiras.png' } } },
+        { nome: 'rename-falha', ...base, acao: 'rename', chave: 'ferreiras',
+          nomeNovo: 'ferreiras novo',
+          resposta: { estado: 409, corpo: { ok: false, codigo: 'conflito',
+            error: 'nao tem dono registado',
+            conflito: { slug: 'ferreiras', dono: 'outra equipa', de: 'ferreiras', para: 'ferreiras novo' } } } },
+        { nome: 'rename-externo', ...base, acao: 'rename', chave: 'quarteira',
+          nomeNovo: 'quarteira nova' },
+        { nome: 'upload-restos', ...base, acao: 'upload', chave: 'quarteira',
+          resposta: { estado: 200, corpo: { ok: true, chave: 'quarteira',
+            caminho: 'uploads/logos/quarteira.webp', slug: 'quarteira', formato: 'webp',
+            bytes: 900, largura: 64, altura: 64,
+            restos: ['uploads/logos/quarteira.png'] } } },
+      ]);
+
+      const semEscrita = (x) => x.pedidos.every((q) => /^GET /.test(q) || /logo\.php$/.test(q))
+        && x.pedidos.every((q) => q.indexOf('save.php') === -1);
+
+      verificar('lista as três equipas do mapa, por ordem',
+        pl.listar.linhas.length === 3
+        && pl.listar.linhas.map((l) => l.chave).join(',') === 'ferreiras,quarteira,sem escudo',
+        JSON.stringify(pl.listar.linhas.map((l) => l.chave)));
+      verificar('distingue LOCAL de EXTERNO, e conta os externos',
+        pl.listar.linhas[0].origem === 'LOCAL'
+        && pl.listar.linhas[1].origem === 'EXTERNO'
+        && /3 equipa\(s\)/.test(pl.listar.resumo)
+        && /1 ainda em endereço externo/.test(pl.listar.resumo),
+        JSON.stringify(pl.listar.linhas.map((l) => l.origem)) + ' | ' + pl.listar.resumo);
+      verificar('uma imagem que não carrega fica FALHOU',
+        (pl.listar.estadosFinais.find((e) => e.chave === 'quarteira') || {}).estado === 'FALHOU',
+        JSON.stringify(pl.listar.estadosFinais));
+      verificar('adicionar equipa acrescenta UMA linha e nada mais',
+        Object.keys(pl.adicionar.depois.logos).length === 4
+        && pl.adicionar.depois.logos['equipa nova'] === 'https://exemplo.invalido/novo.png'
+        && JSON.stringify(pl.adicionar.mudadas) === JSON.stringify(['equipa nova']),
+        JSON.stringify(pl.adicionar.mudadas));
+      verificar('editar o endereço muda só essa entrada',
+        pl.url.depois.logos['ferreiras'] === 'https://exemplo.invalido/outro.png'
+        && pl.url.depois.logos['quarteira'] === MAPA['quarteira']
+        && JSON.stringify(pl.url.mudadas) === JSON.stringify(['ferreiras']),
+        JSON.stringify(pl.url.mudadas));
+      verificar('upload válido escreve o caminho DO SERVIDOR, e só nessa entrada',
+        pl['upload-ok'].depois.logos['quarteira'] === 'uploads/logos/quarteira.png'
+        && JSON.stringify(pl['upload-ok'].mudadas) === JSON.stringify(['quarteira']),
+        JSON.stringify(pl['upload-ok'].depois.logos));
+      verificar('upload recusado (415) não altera o db_logos',
+        JSON.stringify(pl['upload-ma'].depois.logos) === JSON.stringify(MAPA)
+        && pl['upload-ma'].mudadas.length === 0,
+        JSON.stringify(pl['upload-ma'].depois.logos));
+      verificar('resposta 409 não altera o db_logos e mostra o conflito por inteiro',
+        JSON.stringify(pl['upload-409'].depois.logos) === JSON.stringify(MAPA)
+        && pl['upload-409'].mudadas.length === 0
+        && pl['upload-409'].avisoVisivel === true
+        && /CONFLITO DE NOME/.test(pl['upload-409'].aviso)
+        && /quarteira b/.test(pl['upload-409'].aviso),
+        pl['upload-409'].aviso.slice(0, 140));
+      verificar('restos são apenas mostrados, com o caminho do ficheiro antigo',
+        pl['upload-restos'].avisoVisivel === true
+        && /quarteira\.png/.test(pl['upload-restos'].aviso)
+        && /Não é apagado/.test(pl['upload-restos'].aviso)
+        && pl['upload-restos'].depois.logos['quarteira'] === 'uploads/logos/quarteira.webp',
+        pl['upload-restos'].aviso.slice(0, 140));
+      verificar('nenhum cenário altera db_jogos nem a classificação',
+        Object.values(pl).every((x) => x.depois.jogos === x.antes.jogos
+          && x.depois.classe === x.antes.classe),
+        JSON.stringify(Object.keys(pl).filter((n) => pl[n].depois.jogos !== pl[n].antes.jogos
+          || pl[n].depois.classe !== pl[n].antes.classe)));
+      verificar('Publicar não é chamado: nenhum pedido ao save.php',
+        Object.values(pl).every(semEscrita),
+        JSON.stringify(Object.keys(pl).map((n) => n + ': ' + JSON.stringify(pl[n].pedidos))));
+      verificar('rename LOCAL pede a transferência e, com ela boa, muda a chave',
+        pl['rename-local'].pedidos.some((q) => /POST \/api\/logo\.php$/.test(q))
+        && pl['rename-local'].depois.logos['ferreiras novo'] === 'uploads/logos/ferreiras.png'
+        && pl['rename-local'].depois.logos['ferreiras'] === undefined,
+        JSON.stringify(pl['rename-local'].depois.logos));
+      verificar('rename LOCAL com a transferência a falhar: db_logos NÃO muda',
+        JSON.stringify(pl['rename-falha'].depois.logos) === JSON.stringify(MAPA)
+        && pl['rename-falha'].mudadas.length === 0
+        && pl['rename-falha'].avisoVisivel === true
+        && /TRANSFERÊNCIA DE DONO FALHOU/.test(pl['rename-falha'].aviso),
+        pl['rename-falha'].aviso.slice(0, 120));
+      verificar('rename EXTERNO não chama o endpoint nenhuma vez',
+        pl['rename-externo'].pedidos.every((q) => !/logo\.php/.test(q))
+        && pl['rename-externo'].depois.logos['quarteira nova'] === MAPA['quarteira'],
+        JSON.stringify(pl['rename-externo'].pedidos));
+      verificar('painel: sem erros de JavaScript em nenhum dos cenários',
+        Object.values(pl).every((x) => x.erros.length === 0),
+        Object.values(pl).map((x) => x.erros.join(' ')).join(' | '));
+
+      const semComentLg = fs.readFileSync(path.join(raiz, 'admin', 'js', 'admin.js'), 'utf8')
+        .replace(/^\s*\/\/.*$/gm, '');
+      verificar('admin.js: nenhum clube está escrito em código na gestão de logos',
+        !/louletano|ferreiras|quarteira|silves|portimonense/i.test(
+          semComentLg.slice(semComentLg.indexOf('function renderLogos'),
+                            semComentLg.indexOf('window.enviarLogo'))));
+      verificar('admin.js: o painel usa o caminho do servidor e não monta nenhum',
+        /mapa\[chaveFinal\] = json\.caminho;/.test(semComentLg)
+        && !/uploads\/logos\/' \+/.test(semComentLg));
+      verificar('admin.js: um setItem que falhe avisa e devolve false',
+        /return false;/.test(semComentLg.slice(semComentLg.indexOf('function guardarLogos'),
+          semComentLg.indexOf('function jscLogoOrigem'))));
+    }
+
     // ---- Nada dentro de uploads/ é executável ----------------------
     console.log('\nuploads/: as imagens abrem, os executáveis dão 403');
     {
@@ -7905,6 +8228,77 @@ async function testarAdminHistoria(browser, url) {
         lg.listagem.estado + ' ' + lg.listagem.corpo.slice(0, 60));
       verificar('o próprio .htaccess não é servido',
         lg.htaccess.estado !== 200, String(lg.htaccess.estado));
+
+      // Colisão de slug: o caso Louletano B vs Louletano-B.
+      verificar('Louletano B grava, e Louletano-B dá 409 com o detalhe do conflito',
+        lg.louletanoB.json && lg.louletanoB.json.ok === true
+        && lg.louletanoB.json.slug === 'louletano-b'
+        && lg.louletanoHifen.estado === 409
+        && lg.louletanoHifen.json && lg.louletanoHifen.json.codigo === 'conflito'
+        && (lg.louletanoHifen.json.conflito || {}).dono === 'louletano b'
+        && (lg.louletanoHifen.json.conflito || {}).pedido === 'louletano-b',
+        lg.louletanoHifen.estado + ' ' + JSON.stringify(lg.louletanoHifen.json));
+      verificar('e o ficheiro do primeiro fica byte a byte intacto',
+        lg.colisaoIntacto === true, 'intacto: ' + lg.colisaoIntacto);
+      verificar('o mesmo dono continua a poder substituir o seu escudo',
+        lg.mesmoDono.json && lg.mesmoDono.json.ok === true
+        && lg.mesmoDono.json.caminho === 'uploads/logos/louletano-b.png',
+        JSON.stringify(lg.mesmoDono.json && lg.mesmoDono.json.caminho));
+      verificar('o registo de donos não é servido pela web',
+        lg.registoServido.estado !== 200,
+        lg.registoServido.estado + ' ' + lg.registoServido.corpo);
+
+      // Transferência de propriedade.
+      verificar('transferir com o dono errado: 409 e o registo não muda',
+        lg.trDonoErrado.estado === 409
+        && (lg.trDonoErrado.json || {}).codigo === 'conflito'
+        && lg.donoAposErrado === 'louletano b',
+        lg.trDonoErrado.estado + ' dono: ' + lg.donoAposErrado);
+      verificar('transferir com caminho forjado: 409 nos três casos, registo intacto',
+        lg.trForjado.estado === 409 && lg.trForjado2.estado === 409
+        && lg.trForjado3.estado === 409 && lg.donoAposForjado === 'louletano b',
+        [lg.trForjado.estado, lg.trForjado2.estado, lg.trForjado3.estado].join('/')
+        + ' dono: ' + lg.donoAposForjado);
+      verificar('transferência legítima: o dono do slug passa para o nome novo',
+        (lg.trBoa.json || {}).ok === true
+        && (lg.trBoa.json || {}).de === 'louletano b'
+        && (lg.trBoa.json || {}).para === 'louletano reserva'
+        && lg.donoApos === 'louletano reserva',
+        JSON.stringify(lg.trBoa.json) + ' dono: ' + lg.donoApos);
+      verificar('e depois dela o upload do clube renomeado funciona, sem 409',
+        (lg.uploadAposTr.json || {}).ok === true
+        && (lg.uploadAposTr.json || {}).caminho === 'uploads/logos/louletano-reserva.png',
+        lg.uploadAposTr.estado + ' ' + JSON.stringify((lg.uploadAposTr.json || {}).caminho));
+      verificar('o dono antigo já não pode substituir o ficheiro transferido',
+        lg.antigoJaNao.estado === 409
+        && (lg.antigoJaNao.json || {}).codigo === 'conflito',
+        lg.antigoJaNao.estado + ' ' + JSON.stringify((lg.antigoJaNao.json || {}).error));
+
+      // Concorrência.
+      verificar('oito uploads em paralelo: todos aceites',
+        lg.paralelos.every((x) => (x.json || {}).ok === true),
+        JSON.stringify(lg.paralelos.map((x) => x.estado)));
+      verificar('e o registo de donos fica válido com os oito donos',
+        lg.registoFinal.valido === true && lg.registoFinal.presentes === 8,
+        JSON.stringify(lg.registoFinal));
+      verificar('logo.php: a leitura-modificação-escrita do registo usa flock',
+        /flock\(\$fh, LOCK_EX\)/.test(fonteLogo) && /flock\(\$fh, LOCK_UN\)/.test(fonteLogo)
+        && /fopen\(\$registo, 'c\+'\)/.test(fonteLogo),
+        'flock: ' + /flock/.test(fonteLogo));
+      const logoSemComent = fonteLogo.replace(/^\s*\/\/.*$/gm, '');
+      verificar('logo.php: o move_uploaded_file acontece dentro do bloqueio',
+        (function () {
+          const abre  = logoSemComent.indexOf('jsc_logo_com_registo($registo, function ($donos) use (');
+          const move  = logoSemComent.indexOf("@move_uploaded_file($f['tmp_name']");
+          const grava = logoSemComent.indexOf('$donos[$slug] = $dono;');
+          return abre !== -1 && move > abre && grava > move;
+        })(),
+        'abre/move/grava: '
+        + logoSemComent.indexOf('jsc_logo_com_registo($registo, function ($donos) use (') + '/'
+        + logoSemComent.indexOf("@move_uploaded_file($f['tmp_name']") + '/'
+        + logoSemComent.indexOf('$donos[$slug] = $dono;'));
+      verificar('logo.php: o caminho da transferência é confrontado com um padrão fixo',
+        /\^uploads\/logos\/\(\[a-z0-9-\]\+\)\\\.\(png\|jpg\|webp\)\$/.test(fonteLogo));
       }
     }
 
