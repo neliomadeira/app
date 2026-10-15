@@ -1,0 +1,81 @@
+# Escudos de equipas carregados pelo painel.
+#
+# Esta pasta é a única do projeto onde o painel escreve ficheiros, e é
+# conteúdo persistente: não vem do repositório, não é substituída nos
+# deploys, e entra nos backups do alojamento. O api/logo.php é o único que
+# aqui grava, e grava sempre com um nome que ele próprio gera.
+#
+# Ao contrário de data/ e de tools/, esta pasta TEM de ser servida: os
+# caminhos do db_logos apontam para cá e é o browser do visitante que os
+# pede. Por isso não se fecha o acesso — fecha-se a execução.
+
+# ---- Nada aqui deve ser executável ---------------------------------
+# AVISO MEDIDO, e importante: estas directivas SÓ valem num alojamento onde
+# o PHP esteja ligado por módulo ou por handler. Quando o PHP vem por proxy
+# — PHP-FPM com ProxyPassMatch ou SetHandler proxy:, que é o caso do
+# servidor desta bateria e de muitos cPanel — o pedido a um .php nunca chega
+# a ser um pedido de ficheiro nesta pasta, e este .htaccess NÃO É LIDO.
+# Medido: o comportamento é idêntico com este ficheiro e sem ficheiro nenhum.
+#
+# Por isso a garantia real não está aqui: está no api/logo.php, que gera
+# sempre o nome do ficheiro a partir de um slug [a-z0-9-] e de uma extensão
+# de uma lista de três, e portanto nunca pode criar aqui um nome executável.
+# Isto é defesa em profundidade onde funcionar, e custa nada onde não.
+#
+# php_flag só existe com mod_php; num alojamento com PHP-FPM ou suPHP a
+# directiva daria erro 500, daí o IfModule. O RemoveHandler e o
+# SetHandler None cobrem os outros casos, e o ForceType serve o que lá
+# estiver como bytes.
+<IfModule mod_php.c>
+  php_flag engine off
+</IfModule>
+<IfModule mod_php7.c>
+  php_flag engine off
+</IfModule>
+<IfModule mod_php8.c>
+  php_flag engine off
+</IfModule>
+
+RemoveHandler .php .phtml .php3 .php4 .php5 .php7 .php8 .phps .pl .py .cgi .shtml .sh
+RemoveType    .php .phtml .php3 .php4 .php5 .php7 .php8 .phps
+
+<FilesMatch "\.(php|phtml|php[0-9]|phps|pl|py|cgi|shtml|sh|htaccess|htpasswd)$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>
+
+# Nada de CGI nem de includes do servidor nesta pasta.
+Options -ExecCGI -Includes -Indexes
+<IfModule mod_mime.c>
+  RemoveHandler cgi-script .cgi .pl .py
+</IfModule>
+
+# ---- O que é servido, e só isso ------------------------------------
+# Allowlist: os três formatos que o api/logo.php aceita. Qualquer outra
+# coisa que apareça aqui — por engano ou não — não é servida.
+<IfModule mod_authz_core.c>
+  <FilesMatch "^[A-Za-z0-9._-]+\.(png|jpe?g|webp)$">
+    Require all granted
+  </FilesMatch>
+</IfModule>
+
+# ---- Cache -----------------------------------------------------------
+# A mesma política das outras imagens do site, um mês, como no .htaccess
+# da raiz. Um escudo trocado muda de bytes com o mesmo nome, por isso a
+# revalidação fica a cargo do ETag que o Apache já envia.
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType image/png     "access plus 1 month"
+  ExpiresByType image/jpeg    "access plus 1 month"
+  ExpiresByType image/webp    "access plus 1 month"
+</IfModule>
+
+# Um escudo não é documento: nunca deve ser interpretado como outra coisa.
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+</IfModule>

@@ -1,0 +1,7 @@
+# Os escudos NÃO são versionados: esta pasta é conteúdo persistente do
+# servidor, não depende do GitHub e não é substituída nos deploys.
+# Versiona-se só o que a define.
+*
+!.gitignore
+!.htaccess
+!README.md

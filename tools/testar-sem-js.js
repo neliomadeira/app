@@ -2803,6 +2803,222 @@ async function _medirSaveClassData(url) {
   return r;
 }
 
+// ---- O endpoint dos logótipos, contra o PHP a sério ------------------
+// É o único endpoint do projeto que grava ficheiros, portanto mede-se o que
+// ele recusa antes do que ele aceita. Em cópia e servidor próprios: este
+// caminho cria conta e escreve em uploads/logos/.
+//
+// Os ficheiros de teste são construídos aqui, byte a byte, para que o tipo
+// real seja mesmo aquele — um PNG verdadeiro, um JPEG verdadeiro, e um .png
+// que por dentro é outra coisa.
+function _jscPngMinimo(largura, altura) {
+  // PNG válido, com o IHDR a declarar as dimensões pedidas. Basta para o
+  // getimagesize(), que lê o cabeçalho.
+  const crc = (buf) => {
+    let c = ~0;
+    for (let i = 0; i < buf.length; i++) {
+      c ^= buf[i];
+      for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xEDB88320 & -(c & 1));
+    }
+    return ~c >>> 0;
+  };
+  const pedaco = (tipo, dados) => {
+    const corpo = Buffer.concat([Buffer.from(tipo, 'ascii'), dados]);
+    const tam = Buffer.alloc(4); tam.writeUInt32BE(dados.length, 0);
+    const c = Buffer.alloc(4);   c.writeUInt32BE(crc(corpo), 0);
+    return Buffer.concat([tam, corpo, c]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(largura, 0);
+  ihdr.writeUInt32BE(altura, 4);
+  ihdr[8] = 8; ihdr[9] = 6; ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
+  const zlib = require('zlib');
+  const linha = Buffer.alloc(1 + largura * 4);
+  const bruto = Buffer.concat(Array.from({ length: altura }, () => linha));
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]),
+    pedaco('IHDR', ihdr),
+    pedaco('IDAT', zlib.deflateSync(bruto)),
+    pedaco('IEND', Buffer.alloc(0)),
+  ]);
+}
+
+function _jscJpegMinimo() {
+  // JPEG válido de 32x32, cinzento, escrito à mão: SOI, APP0, SOF0 com as
+  // dimensões, DHT/DQT mínimos, SOS e EOI. O getimagesize() só precisa do
+  // SOF0, mas o ficheiro fica bem formado.
+  const sof0 = Buffer.from([0xFF, 0xC0, 0x00, 0x0B, 0x08, 0x00, 0x20, 0x00, 0x20, 0x01, 0x01, 0x11, 0x00]);
+  return Buffer.concat([
+    Buffer.from([0xFF, 0xD8]),
+    Buffer.from([0xFF, 0xE0, 0x00, 0x10]), Buffer.from('JFIF\0', 'binary'),
+    Buffer.from([0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00]),
+    sof0,
+    Buffer.from([0xFF, 0xD9]),
+  ]);
+}
+
+async function testarEndpointLogo(raizOriginal) {
+  const copia = fs.mkdtempSync(path.join(os.tmpdir(), 'jsc-logo-'));
+  fs.cpSync(raizOriginal, copia, {
+    recursive: true,
+    filter: (origem) => !/[\\/](node_modules|\.git)([\\/]|$)/.test(origem),
+  });
+  // O mkdtempSync cria a pasta com 0700 e o Apache corre com outro
+  // utilizador: sem isto, NENHUM ficheiro estático é legível e todos os
+  // pedidos dão 403 — medido, incluindo /index.html e /images/logo.svg. As
+  // outras sondas que usam cópias nunca apanharam isto porque só falam com o
+  // PHP, que vai por proxy e corre com o utilizador desta bateria.
+  fs.chmodSync(copia, 0o755);
+  const srv = await arrancarServidor({ raiz: copia, portaHttp: 8089, portaPhp: 8088 });
+  if (srv.modo !== 'apache') {
+    if (srv.parar) await srv.parar();
+    fs.rmSync(copia, { recursive: true, force: true });
+    return { semApache: true };
+  }
+  try {
+    return await _medirEndpointLogo(srv.url, copia);
+  } finally {
+    if (srv.parar) await srv.parar();
+    fs.rmSync(copia, { recursive: true, force: true });
+  }
+}
+
+async function _medirEndpointLogo(url, raizCopia) {
+  const cookieDe = (res) => {
+    const m = (res.headers.get('set-cookie') || '').match(/JSCSESSAO=([^;]+)/);
+    return m ? 'JSCSESSAO=' + m[1] : null;
+  };
+  const json = async (res) => {
+    const texto = await res.text();
+    let d = null;
+    try { d = JSON.parse(texto); } catch (_) {}
+    return { estado: res.status, texto, json: d };
+  };
+  const entrar = async (caminho, corpo) => {
+    const res = await fetch(url + caminho, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-JSC-Painel': '1', 'X-Forwarded-Proto': 'https' },
+      body: JSON.stringify(corpo), redirect: 'manual',
+    });
+    const r = await json(res);
+    r.cookie = cookieDe(res);
+    return r;
+  };
+
+  const CREDENCIAIS = { utilizador: 'Admin', password: 'Teste12345ab' };
+  let sessao = await entrar('/api/auth.php?acao=criar-primeiro', { ...CREDENCIAIS, nome: 'Admin' });
+  if (!/"ok":true/.test(sessao.texto)) sessao = await entrar('/api/auth.php?acao=entrar', CREDENCIAIS);
+  const cookie = sessao.cookie;
+  const r = { entrou: !!cookie && /"ok":true/.test(sessao.texto) };
+
+  // Envio multipart construído à mão: o FormData do Node não deixa controlar
+  // o nome do ficheiro byte a byte, e é justamente isso que se quer medir.
+  const enviar = async (opcoes) => {
+    const limite = '----jscteste' + Date.now();
+    const partes = [];
+    if (opcoes.equipa !== undefined) {
+      partes.push(Buffer.from('--' + limite + '\r\n'
+        + 'Content-Disposition: form-data; name="equipa"\r\n\r\n'
+        + opcoes.equipa + '\r\n', 'utf8'));
+    }
+    if (opcoes.conteudo !== undefined) {
+      partes.push(Buffer.from('--' + limite + '\r\n'
+        + 'Content-Disposition: form-data; name="' + (opcoes.campo || 'ficheiro')
+        + '"; filename="' + (opcoes.nome || 'escudo.png') + '"\r\n'
+        + 'Content-Type: ' + (opcoes.tipo || 'image/png') + '\r\n\r\n', 'utf8'));
+      partes.push(opcoes.conteudo);
+      partes.push(Buffer.from('\r\n', 'utf8'));
+    }
+    partes.push(Buffer.from('--' + limite + '--\r\n', 'utf8'));
+    const corpo = Buffer.concat(partes);
+    const cabecalhos = {
+      'Content-Type': 'multipart/form-data; boundary=' + limite,
+      'X-Forwarded-Proto': 'https',
+    };
+    if (opcoes.comCookie !== false && cookie) cabecalhos['Cookie'] = cookie;
+    if (opcoes.comCabecalhoPainel !== false) cabecalhos['X-JSC-Painel'] = '1';
+    const res = await fetch(url + '/api/logo.php', {
+      method: opcoes.metodo || 'POST', headers: cabecalhos,
+      body: opcoes.metodo === 'GET' ? undefined : corpo, redirect: 'manual',
+    });
+    return await json(res);
+  };
+
+  const PNG = _jscPngMinimo(64, 64);
+  const naPasta = () => {
+    const d = path.join(raizCopia, 'uploads', 'logos');
+    try { return fs.readdirSync(d).filter((f) => !/^\.|README/.test(f)).sort(); }
+    catch (_) { return []; }
+  };
+
+  // ---- O que tem de ser recusado -------------------------------------
+  r.semCabecalho = await enviar({ equipa: 'Ferreiras', conteudo: PNG, comCabecalhoPainel: false });
+  r.semSessao    = await enviar({ equipa: 'Ferreiras', conteudo: PNG, comCookie: false });
+  r.metodoGet    = await enviar({ equipa: 'Ferreiras', conteudo: PNG, metodo: 'GET' });
+  r.semEquipa    = await enviar({ conteudo: PNG });
+  r.equipaSoSimbolos = await enviar({ equipa: '///...///', conteudo: PNG });
+  r.semFicheiro  = await enviar({ equipa: 'Ferreiras' });
+  r.campoErrado  = await enviar({ equipa: 'Ferreiras', conteudo: PNG, campo: 'outro' });
+  r.extensaoMa   = await enviar({ equipa: 'Ferreiras', conteudo: PNG, nome: 'escudo.svg' });
+  r.extensaoPhp  = await enviar({ equipa: 'Ferreiras', conteudo: PNG, nome: 'escudo.php' });
+  r.tipoTrocado  = await enviar({ equipa: 'Ferreiras', conteudo: _jscJpegMinimo(), nome: 'escudo.png' });
+  r.naoEImagem   = await enviar({ equipa: 'Ferreiras', conteudo: Buffer.from('<?php echo 1; ?>', 'utf8'), nome: 'escudo.png' });
+  r.vazio        = await enviar({ equipa: 'Ferreiras', conteudo: Buffer.alloc(0), nome: 'escudo.png' });
+  r.pequeno      = await enviar({ equipa: 'Ferreiras', conteudo: _jscPngMinimo(8, 8), nome: 'escudo.png' });
+  r.grande       = await enviar({ equipa: 'Ferreiras', conteudo: _jscPngMinimo(1200, 40), nome: 'escudo.png' });
+  r.travessia    = await enviar({ equipa: '../../../etc/passwd', conteudo: PNG, nome: 'escudo.png' });
+  r.nomeMalicioso = await enviar({ equipa: 'Ferreiras', conteudo: PNG, nome: '../../../atacante.php' });
+  r.depoisDasRecusas = naPasta();
+
+  // ---- O que tem de ser aceite ---------------------------------------
+  r.bom          = await enviar({ equipa: 'Ferreiras', conteudo: PNG, nome: 'escudo.png' });
+  r.depoisDoBom  = naPasta();
+  r.acentos      = await enviar({ equipa: 'Associa\u00e7\u00e3o Desportiva S\u00e3o Br\u00e1s', conteudo: PNG, nome: 'x.png' });
+  r.jpegReal     = await enviar({ equipa: 'Quarteira', conteudo: _jscJpegMinimo(), nome: 'escudo.jpg', tipo: 'image/jpeg' });
+  r.substituir   = await enviar({ equipa: 'Ferreiras', conteudo: _jscPngMinimo(80, 80), nome: 'outro-nome-qualquer.png' });
+  r.noFim        = naPasta();
+
+  // O ficheiro gravado é mesmo uma imagem, e é a que foi enviada.
+  try {
+    const bytes = fs.readFileSync(path.join(raizCopia, 'uploads', 'logos', 'ferreiras.png'));
+    r.ferreirasBytes = bytes.length;
+    r.ferreirasPng = bytes.slice(0, 8).equals(Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]));
+  } catch (_) { r.ferreirasBytes = null; r.ferreirasPng = false; }
+
+  // ---- A pasta serve imagens e não executa nada --------------------
+  const pedirPasta = async (caminho) => {
+    const res = await fetch(url + caminho, { headers: { 'X-Forwarded-Proto': 'https' }, redirect: 'manual' });
+    return { estado: res.status, tipo: res.headers.get('content-type') || '', corpo: (await res.text()).slice(0, 80) };
+  };
+  // Tentativas de obter um nome executável, por qualquer das duas vias.
+  r.forjados = [];
+  for (const caso of [
+    { equipa: 'sonda.php',        nome: 'escudo.png' },
+    { equipa: 'x',                nome: 'escudo.php.png' },
+    { equipa: 'x',                nome: 'escudo.png.php' },
+    { equipa: '../../sonda.php',  nome: 'escudo.png' },
+    { equipa: 'a/../../b.php',    nome: 'escudo.png' },
+    { equipa: 'sonda%00.php',     nome: 'escudo.png' },
+  ]) {
+    const x = await enviar({ equipa: caso.equipa, conteudo: PNG, nome: caso.nome });
+    r.forjados.push({
+      equipa: caso.equipa, nome: caso.nome,
+      ok: !!(x.json && x.json.ok), caminho: (x.json && x.json.caminho) || null, estado: x.estado,
+    });
+  }
+  r.depoisDosForjados = naPasta();
+
+  r.servePng = await pedirPasta('/uploads/logos/ferreiras.png');
+  // Um .php posto à mão na pasta — como se tivesse entrado por outra via —
+  // não pode ser executado nem servido.
+  fs.writeFileSync(path.join(raizCopia, 'uploads', 'logos', 'sonda.php'), '<?php echo "EXECUTOU"; ?>');
+  r.phpNaPasta = await pedirPasta('/uploads/logos/sonda.php');
+  r.listagem   = await pedirPasta('/uploads/logos/');
+  r.htaccess   = await pedirPasta('/uploads/logos/.htaccess');
+
+  return r;
+}
+
 // ---- Repor do servidor ----------------------------------------------
 // Mede o botão inteiro, com o /api/load.php a devolver um conteúdo controlado.
 // Tudo acontece dentro de UM evaluate que espera pelo reporDoServidor(): a
@@ -7387,6 +7603,135 @@ async function testarAdminHistoria(browser, url) {
         && JSON.stringify(sv.depoisDoNull) === JSON.stringify(sv.depoisDeGravar),
         sv.comNull.estado + ' ' + sv.comNull.texto.slice(0, 160)
         + ' → ' + JSON.stringify(sv.depoisDoNull));
+      }
+    }
+
+    // ---- O endpoint dos logótipos -----------------------------------
+    console.log('\no api/logo.php: o que recusa antes do que aceita');
+    {
+      const fonteLogo = fs.readFileSync(path.join(raiz, 'api', 'logo.php'), 'utf8');
+      verificar('logo.php: exige o cabeçalho do painel e a capacidade configuracoes',
+        /jsc_exigir_pedido_do_painel\(\);/.test(fonteLogo)
+        && /jsc_exigir\('configuracoes'\);/.test(fonteLogo));
+      verificar('logo.php: o nome do ficheiro vem do slug, nunca do cliente',
+        /\$slug \. '\.' \. \$extFinal/.test(fonteLogo)
+        && !/basename\(\s*\$f\['name'\]/.test(fonteLogo));
+      verificar('logo.php: usa getimagesize e is_uploaded_file',
+        /@getimagesize\(\$f\['tmp_name'\]\)/.test(fonteLogo)
+        && /is_uploaded_file\(\$f\['tmp_name'\]\)/.test(fonteLogo));
+      verificar('logo.php: grava dentro de uploads\/logos e confirma com realpath',
+        /__DIR__ \. '\/\.\.\/uploads\/logos'/.test(fonteLogo)
+        && /\$destinoReal !== \$raizReal/.test(fonteLogo));
+      verificar('logo.php: não toca em jogos, classificações, sync nem publicação',
+        fonteLogo.indexOf('db_jogos') === -1 && fonteLogo.indexOf('DATA_FILE') === -1
+        && fonteLogo.indexOf('jsc_publicar') === -1 && fonteLogo.indexOf('geracao.php') === -1,
+        'db_jogos/DATA_FILE/jsc_publicar/geracao: '
+        + [fonteLogo.indexOf('db_jogos'), fonteLogo.indexOf('DATA_FILE'),
+           fonteLogo.indexOf('jsc_publicar'), fonteLogo.indexOf('geracao.php')].join(','));
+
+      const ht = fs.readFileSync(path.join(raiz, 'uploads', 'logos', '.htaccess'), 'utf8');
+      verificar('uploads/logos/.htaccess: desliga a execução e só serve png/jpg/webp',
+        /php_flag engine off/.test(ht) && /RemoveHandler/.test(ht)
+        && /\(png\|jpe\?g\|webp\)/.test(ht) && /Options -ExecCGI/.test(ht));
+
+      const lg = await testarEndpointLogo(raiz);
+      if (lg.semApache) {
+        console.log('  (comportamento saltado: sem Apache não há PHP a servir)');
+      } else {
+      const recusa = (x, estados) => x && estados.indexOf(x.estado) !== -1
+        && x.json && x.json.ok === false;
+
+      verificar('medição válida: há sessão de painel',
+        lg.entrou === true, JSON.stringify(lg.entrou));
+      verificar('sem o cabeçalho X-JSC-Painel: recusado',
+        recusa(lg.semCabecalho, [400]), lg.semCabecalho.estado + ' ' + lg.semCabecalho.texto.slice(0, 80));
+      verificar('sem sessão: recusado com 401',
+        recusa(lg.semSessao, [401]), lg.semSessao.estado + ' ' + lg.semSessao.texto.slice(0, 80));
+      verificar('GET em vez de POST: recusado com 405',
+        recusa(lg.metodoGet, [405]), lg.metodoGet.estado + ' ' + lg.metodoGet.texto.slice(0, 80));
+      verificar('sem nome de equipa, ou nome sem letras: recusado',
+        recusa(lg.semEquipa, [400]) && recusa(lg.equipaSoSimbolos, [400]),
+        lg.semEquipa.estado + '/' + lg.equipaSoSimbolos.estado);
+      verificar('sem ficheiro, ou no campo errado: recusado',
+        recusa(lg.semFicheiro, [400]) && recusa(lg.campoErrado, [400]),
+        lg.semFicheiro.estado + '/' + lg.campoErrado.estado);
+      verificar('extensão .svg e .php: recusadas com 415',
+        recusa(lg.extensaoMa, [415]) && recusa(lg.extensaoPhp, [415]),
+        lg.extensaoMa.estado + '/' + lg.extensaoPhp.estado);
+      verificar('um JPEG com extensão .png: recusado, o tipo real não bate',
+        recusa(lg.tipoTrocado, [415]), lg.tipoTrocado.estado + ' ' + lg.tipoTrocado.texto.slice(0, 100));
+      verificar('PHP disfarçado de .png: recusado, não é imagem',
+        recusa(lg.naoEImagem, [415]), lg.naoEImagem.estado + ' ' + lg.naoEImagem.texto.slice(0, 100));
+      verificar('ficheiro vazio: recusado',
+        recusa(lg.vazio, [400]), lg.vazio.estado + ' ' + lg.vazio.texto.slice(0, 80));
+      verificar('8x8 e 1200 de lado: recusados por dimensões',
+        recusa(lg.pequeno, [422]) && recusa(lg.grande, [422]),
+        lg.pequeno.estado + '/' + lg.grande.estado);
+      verificar('nome de equipa com travessia de caminho: fica um slug inofensivo',
+        lg.travessia.json && lg.travessia.json.ok === true
+        && lg.travessia.json.slug === 'etc-passwd'
+        && lg.travessia.json.caminho === 'uploads/logos/etc-passwd.png',
+        JSON.stringify(lg.travessia.json && lg.travessia.json.caminho));
+      verificar('nome de ficheiro com ../ e .php: ignorado por completo',
+        lg.nomeMalicioso.json && lg.nomeMalicioso.json.ok === false,
+        lg.nomeMalicioso.estado + ' ' + lg.nomeMalicioso.texto.slice(0, 80));
+      verificar('nenhuma das recusas deixou ficheiros na pasta',
+        JSON.stringify(lg.depoisDasRecusas) === JSON.stringify(['etc-passwd.png']),
+        JSON.stringify(lg.depoisDasRecusas));
+
+      verificar('um PNG válido é aceite e grava-se com o slug da equipa',
+        lg.bom.json && lg.bom.json.ok === true
+        && lg.bom.json.caminho === 'uploads/logos/ferreiras.png'
+        && lg.bom.json.chave === 'ferreiras'
+        && lg.bom.json.largura === 64 && lg.bom.json.altura === 64,
+        JSON.stringify(lg.bom.json));
+      verificar('o ficheiro no disco é um PNG a sério, com os bytes enviados',
+        lg.ferreirasPng === true && lg.ferreirasBytes > 0,
+        'png: ' + lg.ferreirasPng + ' bytes: ' + lg.ferreirasBytes);
+      verificar('acentos no nome da equipa dão um slug sem acentos',
+        lg.acentos.json && lg.acentos.json.slug === 'associacao-desportiva-sao-bras',
+        JSON.stringify(lg.acentos.json && lg.acentos.json.slug));
+      verificar('um JPEG com .jpg é aceite e grava-se como .jpg',
+        lg.jpegReal.json && lg.jpegReal.json.ok === true
+        && lg.jpegReal.json.caminho === 'uploads/logos/quarteira.jpg',
+        JSON.stringify(lg.jpegReal.json && lg.jpegReal.json.caminho));
+      verificar('voltar a carregar a mesma equipa substitui o ficheiro, sem duplicar',
+        lg.substituir.json && lg.substituir.json.ok === true
+        && lg.substituir.json.caminho === 'uploads/logos/ferreiras.png'
+        && lg.noFim.filter((f) => f.indexOf('ferreiras') === 0).length === 1,
+        JSON.stringify(lg.noFim));
+      verificar('a chave devolvida é o nome em minúsculas, para o db_logos',
+        lg.acentos.json && lg.acentos.json.chave === 'associa\u00e7\u00e3o desportiva s\u00e3o br\u00e1s',
+        JSON.stringify(lg.acentos.json && lg.acentos.json.chave));
+
+      verificar('a pasta serve o PNG gravado',
+        lg.servePng.estado === 200 && /image\/png/.test(lg.servePng.tipo),
+        lg.servePng.estado + ' ' + lg.servePng.tipo);
+      // A garantia a sério é esta, e não o .htaccess: o endpoint gera o nome, e
+      // o nome gerado nunca pode ser executável. Seis tentativas de o forjar
+      // pelas duas vias — nome da equipa e nome do ficheiro.
+      verificar('nenhum nome forjado produz um ficheiro executável',
+        lg.forjados.every((x) => !x.ok
+          || /^uploads\/logos\/[a-z0-9-]+\.(png|jpg|webp)$/.test(x.caminho)),
+        JSON.stringify(lg.forjados.map((x) => x.equipa + ' + ' + x.nome + ' -> '
+          + (x.ok ? x.caminho : 'recusado ' + x.estado))));
+      verificar('e nada com extensão executável aparece na pasta',
+        lg.depoisDosForjados.every((f) => /\.(png|jpg|webp)$/.test(f)),
+        JSON.stringify(lg.depoisDosForjados));
+      // O .htaccess continua lá e serve nos alojamentos com mod_php, mas
+      // NESTE a execução é encaminhada por ProxyPassMatch antes de o
+      // .htaccess ser lido: medido idêntico com e sem ficheiro nenhum. Não se
+      // afirma aqui uma garantia que o alojamento não dá — registra-se o que
+      // ele faz, para a decisão ser tomada com o facto à vista.
+      console.log('      (medição, sem garantia: um .php colocado nesta pasta por outra via '
+        + 'responde ' + lg.phpNaPasta.estado + ' '
+        + (lg.phpNaPasta.corpo.indexOf('EXECUTOU') !== -1 ? 'E EXECUTA' : 'e nao executa')
+        + ' — com PHP ligado por proxy o .htaccess não o impede)');
+      verificar('a pasta não lista o seu conteúdo',
+        lg.listagem.estado !== 200 || lg.listagem.corpo.indexOf('ferreiras') === -1,
+        lg.listagem.estado + ' ' + lg.listagem.corpo.slice(0, 60));
+      verificar('o próprio .htaccess não é servido',
+        lg.htaccess.estado !== 200, String(lg.htaccess.estado));
       }
     }
 
