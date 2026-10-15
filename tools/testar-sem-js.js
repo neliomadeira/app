@@ -2803,6 +2803,89 @@ async function _medirSaveClassData(url) {
   return r;
 }
 
+// ---- Nada dentro de uploads/ é executável -------------------------
+// Planta ficheiros com extensões de executável na pasta e mede o que o
+// servidor responde a cada um, mais os controlos: as imagens continuam a
+// abrir, e o PHP legítimo fora de uploads/ continua a correr.
+//
+// LIMITE DESTA MEDIÇÃO, e está aqui escrito para não se confundir com uma
+// garantia: o servidor desta bateria liga o PHP por ProxyPassMatch
+// ^/(.*\.php)$ (tools/ambiente.js), que tira o pedido do sistema de ficheiros
+// na fase de translate — antes de qualquer .htaccess. Por isso um pedido a
+// *.php exacto nunca chega cá e o 403 não é observável aqui. Todas as outras
+// extensões SÃO observáveis, incluindo .phtml e .php8, que são executáveis no
+// alojamento real (o AddHandler do cPanel cobre .php .php8 .phtml).
+async function testarUploadsSemExecucao(raizOriginal) {
+  const copia = fs.mkdtempSync(path.join(os.tmpdir(), 'jsc-exec-'));
+  fs.cpSync(raizOriginal, copia, {
+    recursive: true,
+    filter: (origem) => !/[\\/](node_modules|\.git)([\\/]|$)/.test(origem),
+  });
+  fs.chmodSync(copia, 0o755);
+  const pasta = path.join(copia, 'uploads', 'logos');
+  fs.mkdirSync(pasta, { recursive: true });
+
+  // Um PNG real, para o controlo positivo.
+  const zlib = require('zlib');
+  const crc = (b) => { let c = ~0; for (const x of b) { c ^= x; for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xEDB88320 & -(c & 1)); } return ~c >>> 0; };
+  const pedaco = (t, d) => { const corpo = Buffer.concat([Buffer.from(t), d]); const a = Buffer.alloc(4); a.writeUInt32BE(d.length); const c = Buffer.alloc(4); c.writeUInt32BE(crc(corpo)); return Buffer.concat([a, corpo, c]); };
+  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(16, 0); ihdr.writeUInt32BE(16, 4); ihdr[8] = 8; ihdr[9] = 6;
+  const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]),
+    pedaco('IHDR', ihdr), pedaco('IDAT', zlib.deflateSync(Buffer.alloc(16 * (1 + 16 * 4)))),
+    pedaco('IEND', Buffer.alloc(0))]);
+
+  const PLANTADOS = [
+    'sonda.php', 'sonda.phtml', 'sonda.phps', 'sonda.php3', 'sonda.php5',
+    'sonda.php7', 'sonda.php8', 'sonda.pl', 'sonda.py', 'sonda.cgi',
+    'sonda.shtml', 'sonda.sh', 'sonda.php.png', 'sonda.PhP', 'sonda.txt',
+  ];
+  PLANTADOS.forEach((n) => fs.writeFileSync(path.join(pasta, n), '<?php echo "PHP_EXECUTOU"; ?>'));
+  fs.writeFileSync(path.join(pasta, 'escudo.png'), png);
+  fs.writeFileSync(path.join(pasta, 'escudo.webp'), png);   // conteúdo não importa: mede-se o acesso
+  fs.writeFileSync(path.join(copia, 'uploads', 'raiz.php'), '<?php echo "PHP_EXECUTOU"; ?>');
+
+  const srv = await arrancarServidor({ raiz: copia, portaHttp: 8083, portaPhp: 8082 });
+  if (srv.modo !== 'apache') {
+    if (srv.parar) await srv.parar();
+    fs.rmSync(copia, { recursive: true, force: true });
+    return { semApache: true };
+  }
+  try {
+    const ver = async (caminho) => {
+      try {
+        const res = await fetch(srv.url + caminho, {
+          headers: { 'X-Forwarded-Proto': 'https' }, redirect: 'manual',
+        });
+        const texto = await res.text();
+        return {
+          estado: res.status,
+          // Servido em bruto, o corpo tem a marca E o <?php da fonte.
+          // Executado, tem a marca e NAO tem o <?php. Sem esta distinção o
+          // detector dava "executou" a um ficheiro apenas servido — medido
+          // no sonda.php.png.
+          executou: texto.indexOf('PHP_EXECUTOU') !== -1 && texto.indexOf('<?php') === -1,
+          servidoEmBruto: texto.indexOf('<?php') !== -1,
+          tipo: (res.headers.get('content-type') || '').split(';')[0],
+        };
+      } catch (e) { return { estado: -1, executou: false, tipo: 'ERRO ' + e.message }; }
+    };
+    const r = { bloqueados: {}, proxiado: null };
+    for (const n of PLANTADOS) r.bloqueados[n] = await ver('/uploads/logos/' + n);
+    r.bloqueados['../raiz.php'] = await ver('/uploads/raiz.php');
+    // Controlos positivos: as imagens.
+    r.png  = await ver('/uploads/logos/escudo.png');
+    r.webp = await ver('/uploads/logos/escudo.webp');
+    // Controlos de não-regressão: o PHP legítimo, fora de uploads/.
+    r.apiLoad  = await ver('/api/load.php');
+    r.apiAuth  = await ver('/api/auth.php?acao=estado');
+    r.indexHtml = await ver('/index.html');
+    return r;
+  } finally {
+    if (srv.parar) await srv.parar();
+    fs.rmSync(copia, { recursive: true, force: true });
+  }
+}
+
 // ---- O endpoint dos logótipos, contra o PHP a sério ------------------
 // É o único endpoint do projeto que grava ficheiros, portanto mede-se o que
 // ele recusa antes do que ele aceita. Em cópia e servidor próprios: este
@@ -7603,6 +7686,96 @@ async function testarAdminHistoria(browser, url) {
         && JSON.stringify(sv.depoisDoNull) === JSON.stringify(sv.depoisDeGravar),
         sv.comNull.estado + ' ' + sv.comNull.texto.slice(0, 160)
         + ' → ' + JSON.stringify(sv.depoisDoNull));
+      }
+    }
+
+    // ---- Nada dentro de uploads/ é executável ----------------------
+    console.log('\nuploads/: as imagens abrem, os executáveis dão 403');
+    {
+      const htRaiz = fs.readFileSync(path.join(raiz, '.htaccess'), 'utf8');
+      verificar('.htaccess da raiz: a regra dos uploads é a primeira do bloco rewrite',
+        /RewriteEngine On\s*\n(?:\s*#[^\n]*\n)*\s*RewriteRule \^uploads\/\.\*\\\./.test(htRaiz),
+        'primeira RewriteRule: ' + ((htRaiz.match(/RewriteRule [^\n]*/) || [''])[0]).slice(0, 70));
+      // Comparação literal sobre a lista extraída da regra. A primeira versao
+      // construía expressões e o 'php[0-9]' perdia o escape dos parênteses
+      // rectos, passando a classe de caracteres: falhava sem o ficheiro ter
+      // nada de errado.
+      const lista = ((htRaiz.match(/RewriteRule \^uploads\/\.\*\\\.\(([^)]*)\)/) || [])[1] || '')
+        .split('|');
+      verificar('.htaccess da raiz: bloqueia php, phtml, phps, php[0-9], pl, py, cgi, shtml, sh',
+        ['php', 'phtml', 'phps', 'php[0-9]', 'pl', 'py', 'cgi', 'shtml', 'sh']
+          .every((e) => lista.indexOf(e) !== -1),
+        'lista da regra: ' + JSON.stringify(lista));
+      verificar('.htaccess da raiz: a allowlist das imagens em uploads/logos/',
+        /RewriteCond %\{REQUEST_URI\} !\\\.\(png\|jpe\?g\|webp\)\$ \[NC\]/.test(htRaiz)
+        && /RewriteRule \^uploads\/logos\/\.\+ - \[F,L\]/.test(htRaiz));
+      verificar('.htaccess da raiz: o bloco do cPanel não foi tocado — nem existe aqui',
+        htRaiz.indexOf('cPanel-generated') === -1 && htRaiz.indexOf('AddHandler') === -1,
+        'o handler do cPanel vive só no ficheiro do servidor');
+      verificar('a mesma regra existe nos .htaccess de uploads/, como rede',
+        /RewriteRule \\\.\(php\|phtml/.test(fs.readFileSync(path.join(raiz, 'uploads', '.htaccess'), 'utf8'))
+        && /RewriteCond %\{REQUEST_URI\} !\\\.\(png\|jpe\?g\|webp\)\$/.test(
+             fs.readFileSync(path.join(raiz, 'uploads', 'logos', '.htaccess'), 'utf8')));
+
+      const ex = await testarUploadsSemExecucao(raiz);
+      if (ex.semApache) {
+        console.log('  (comportamento saltado: sem Apache não há PHP a servir)');
+      } else {
+      // O .php exacto é arrancado pelo ProxyPassMatch desta bateria antes de
+      // qualquer .htaccess, por isso não é observável aqui. Fica dito, e
+      // fica medido, para ninguém o ler como garantia.
+      // Tudo o que termina exactamente em .php é arrancado pelo
+      // ProxyPassMatch ^/(.*\.php)$ do servidor de teste antes de qualquer
+      // .htaccess, esteja onde estiver. Não é observável aqui — e classificar
+      // o uploads/raiz.php como observável foi erro meu na primeira versao.
+      const naoObservavel = ['sonda.php', '../raiz.php'];
+      const observaveis = Object.keys(ex.bloqueados).filter((n) => naoObservavel.indexOf(n) === -1);
+
+      verificar('todas as extensões executáveis observáveis dão 403',
+        observaveis.filter((n) => n !== 'sonda.txt')
+          .every((n) => ex.bloqueados[n].estado === 403),
+        JSON.stringify(observaveis.filter((n) => n !== 'sonda.txt')
+          .map((n) => n + '=' + ex.bloqueados[n].estado)));
+      verificar('nenhuma delas executou PHP',
+        observaveis.every((n) => ex.bloqueados[n].executou === false),
+        JSON.stringify(observaveis.filter((n) => ex.bloqueados[n].executou)));
+      // A extensão dupla é o caso que apanhou o defeito do desenho: terminando
+      // em .png, passava a allowlist, e como o mod_rewrite não herda, a regra
+      // da raiz não se aplicava naquela pasta. Agora as duas regras estão em
+      // cada ficheiro.
+      verificar('.php.png e .PhP dão 403 — extensão dupla e maiúsculas',
+        ex.bloqueados['sonda.php.png'].estado === 403
+        && ex.bloqueados['sonda.PhP'].estado === 403,
+        'php.png=' + ex.bloqueados['sonda.php.png'].estado
+        + ' PhP=' + ex.bloqueados['sonda.PhP'].estado);
+      verificar('nenhum executável observável é servido em bruto',
+        observaveis.filter((n) => n !== 'sonda.txt')
+          .every((n) => ex.bloqueados[n].servidoEmBruto === false),
+        JSON.stringify(observaveis.filter((n) => ex.bloqueados[n].servidoEmBruto)));
+      verificar('a allowlist também trava um .txt na pasta dos escudos',
+        ex.bloqueados['sonda.txt'].estado === 403,
+        String(ex.bloqueados['sonda.txt'].estado));
+      verificar('a regra cobre uploads/ inteiro, não só uploads/logos/',
+        /RewriteRule \^uploads\/\.\*/.test(htRaiz)
+        && /RewriteRule \\\.\(php\|phtml/.test(
+             fs.readFileSync(path.join(raiz, 'uploads', '.htaccess'), 'utf8')),
+        'a do /uploads/raiz.php não é observável: termina em .php');
+
+      verificar('CONTROLO: as imagens dos escudos continuam a abrir',
+        ex.png.estado === 200 && ex.webp.estado === 200,
+        'png=' + ex.png.estado + ' webp=' + ex.webp.estado);
+      verificar('CONTROLO: o PHP legítimo fora de uploads/ continua a correr',
+        ex.apiLoad.estado === 200 && ex.apiAuth.estado === 200,
+        'load=' + ex.apiLoad.estado + ' auth=' + ex.apiAuth.estado);
+      verificar('CONTROLO: as páginas do site continuam a abrir',
+        ex.indexHtml.estado === 200, String(ex.indexHtml.estado));
+
+      console.log('      (não observável nesta bateria: /uploads/logos/sonda.php responde '
+        + ex.bloqueados['sonda.php'].estado
+        + (ex.bloqueados['sonda.php'].executou ? ' E EXECUTA' : ' e nao executa')
+        + ' — o ProxyPassMatch do servidor de teste apanha o pedido antes de'
+        + ' qualquer .htaccess. No alojamento, onde o PHP vem por handler, a'
+        + ' regra corre no fixup e devolve 403: medir no servidor.)');
       }
     }
 

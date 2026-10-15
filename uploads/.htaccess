@@ -17,3 +17,19 @@ Options -Indexes -ExecCGI -Includes
 
 RemoveHandler .php .phtml .php3 .php4 .php5 .php7 .php8 .phps .pl .py .cgi .shtml .sh
 RemoveType    .php .phtml .php3 .php4 .php5 .php7 .php8 .phps
+
+# ---- A protecao que conta: mod_rewrite, nao handlers -----------------
+# Medido no alojamento: php_flag e RemoveHandler nao travam o PHP quando ele
+# vem por SetHandler proxy: do vhost. O mod_rewrite trava, porque corre na
+# fase de fixup, antes de o handler ser invocado.
+#
+# Esta regra repete a que esta no .htaccess da raiz, de proposito: se um
+# deploy substituir um dos ficheiros, a proteccao sobrevive no outro.
+#
+# E tem de ser repetida, nao basta estar na raiz: o mod_rewrite nao herda
+# configuracao por directorio, e basta este ficheiro ligar o motor para as
+# regras da raiz deixarem de valer aqui. Medido.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule \.(php|phtml|phps|php[0-9]|pl|py|cgi|fcgi|shtml|sh|bash|lua|rb|asp|aspx|jsp)($|\.|/) - [F,L,NC]
+</IfModule>

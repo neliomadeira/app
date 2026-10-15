@@ -142,6 +142,35 @@ Options -Indexes
 <IfModule mod_rewrite.c>
   RewriteEngine On
 
+  # ---- Nada dentro de uploads/ corre --------------------------------
+  # A pasta uploads/logos/ recebe ficheiros pelo painel e TEM de ser servida:
+  # os caminhos do db_logos são pedidos pelo browser do visitante. Mas nada
+  # lá dentro pode ser executado.
+  #
+  # Porque é aqui e não no .htaccess da pasta: medido no alojamento, um
+  # .php colocado em uploads/logos/ executou, apesar de a pasta ter
+  # php_flag engine off, RemoveHandler e um FilesMatch de negação. A razão é
+  # a forma como o PHP está ligado — PHP-FPM por SetHandler proxy: no vhost,
+  # ou ProxyPassMatch: um RemoveHandler num .htaccess não desfaz um
+  # SetHandler vindo da configuração do servidor, e o php_flag só existe com
+  # mod_php.
+  #
+  # O mod_rewrite consegue o que eles não conseguem: as regras por
+  # directório correm na fase de fixup, ANTES de o handler ser invocado, e o
+  # [F] termina o pedido com 403 sem o PHP chegar a correr. Não se mexe no
+  # handler do cPanel — ele continua a tratar de todo o PHP legítimo, que
+  # vive fora de uploads/.
+  #
+  # Primeira regra do bloco de propósito: antes das redirecções de www e de
+  # https, para um pedido a um executável ser recusado e não reencaminhado.
+  RewriteRule ^uploads/.*\.(php|phtml|phps|php[0-9]|pl|py|cgi|fcgi|shtml|sh|bash|lua|rb|asp|aspx|jsp)($|\.|/) - [F,L,NC]
+
+  # E, na pasta dos escudos, o inverso: só imagens são servidas. Uma
+  # allowlist cobre o que uma lista de extensões perigosas sempre deixa de
+  # fora — e o api/logo.php só grava aqui png, jpg e webp.
+  RewriteCond %{REQUEST_URI} !\.(png|jpe?g|webp)$ [NC]
+  RewriteRule ^uploads/logos/.+ - [F,L]
+
   # www.campinense.pt -> campinense.pt (mantém o esquema)
   RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
   RewriteRule ^ %{REQUEST_SCHEME}://%1%{REQUEST_URI} [R=301,L]

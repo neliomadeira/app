@@ -79,3 +79,21 @@ Options -ExecCGI -Includes -Indexes
 <IfModule mod_headers.c>
   Header set X-Content-Type-Options "nosniff"
 </IfModule>
+
+# ---- As duas regras, pela via que funciona ---------------------------
+# Medido, e e a razao de estarem aqui as DUAS: o mod_rewrite nao herda
+# configuracao por directorio. Basta este ficheiro ter RewriteEngine On para
+# as regras do .htaccess da raiz deixarem de se aplicar nesta pasta. Com so a
+# allowlist aqui, um "sonda.php.png" passava — termina em .png — e era
+# servido com 200, embora a regra da raiz o bloqueasse. Cada ficheiro leva
+# portanto a lista de executaveis E a allowlist.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Nada com extensao de executavel, em qualquer posicao do nome.
+  RewriteRule \.(php|phtml|phps|php[0-9]|pl|py|cgi|fcgi|shtml|sh|bash|lua|rb|asp|aspx|jsp)($|\.|/) - [F,L,NC]
+
+  # E, do que sobra, so imagens.
+  RewriteCond %{REQUEST_URI} !\.(png|jpe?g|webp)$ [NC]
+  RewriteRule .+ - [F,L]
+</IfModule>
