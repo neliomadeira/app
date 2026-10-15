@@ -2803,6 +2803,65 @@ async function _medirSaveClassData(url) {
   return r;
 }
 
+// ---- A chave das notícias não nasce vazia -------------------------
+// Chama-se o initAdmin() directamente: é a função em causa, e assim não se
+// cria conta nem se entra com sessão, o que mudaria o estado do servidor
+// partilhado pela bateria.
+//
+// Mede-se duas vezes: logo a seguir ao initAdmin(), e outra vez passado um
+// instante. O initAdmin() acaba a chamar o sincronizarRegistosServidor(), que
+// é assíncrono e pode gravar — sem a segunda leitura, uma escrita que chegasse
+// tarde passava ao lado da medição.
+async function testarNoticiasSemChave(browser, url, cenarios) {
+  const saida = {};
+  for (const c of cenarios) {
+    const ctx = await browser.newContext({
+      javaScriptEnabled: true,
+      extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+    });
+    const pg = await ctx.newPage();
+    const erros = [];
+    pg.on('pageerror', (e) => erros.push('exce\u00e7\u00e3o: ' + e.message));
+    pg.on('dialog', (d) => d.accept());
+    await pg.goto(url + '/admin/', { waitUntil: 'networkidle', timeout: 20000 });
+
+    const r = await pg.evaluate((a) => {
+      const foto = () => ({
+        presente: localStorage.getItem('jsc_noticias') !== null,
+        valor:    localStorage.getItem('jsc_noticias'),
+        nChaves:  localStorage.length,
+        chaves:   Object.keys(localStorage).sort(),
+      });
+      // Armazém no estado do cenário: ou sem chave nenhuma, ou com notícias
+      // a sério já lá dentro.
+      Object.keys(localStorage).forEach((k) => localStorage.removeItem(k));
+      if (a.semear) localStorage.setItem('jsc_noticias', JSON.stringify(a.semear));
+      const antes = foto();
+      initAdmin();
+      const depois = foto();
+      const cartoes = Array.from(document.querySelectorAll('#newsAdminGrid .news-admin-card'));
+      return {
+        antes, depois,
+        lidas: typeof loadNoticias === 'function' ? loadNoticias().length : -1,
+        nCartoes: cartoes.length,
+        cartoes: cartoes.map((el) => (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 30)),
+      };
+    }, c);
+
+    await pg.waitForTimeout(900);
+    r.depoisDeEsperar = await pg.evaluate(() => ({
+      presente: localStorage.getItem('jsc_noticias') !== null,
+      valor:    localStorage.getItem('jsc_noticias'),
+      nChaves:  localStorage.length,
+      chaves:   Object.keys(localStorage).sort(),
+    }));
+
+    await ctx.close();
+    saida[c.nome] = { ...r, erros };
+  }
+  return saida;
+}
+
 // ---- As duas guardas do Publicar, no painel a sério -----------------
 // O save.php é interceptado para não publicar nada: o que se mede aqui é o que
 // o painel faz — quantos pedidos saíram, se o segundo leva a confirmação, e se
@@ -7144,6 +7203,52 @@ async function testarAdminHistoria(browser, url) {
         sv.comNull.estado + ' ' + sv.comNull.texto.slice(0, 160)
         + ' → ' + JSON.stringify(sv.depoisDoNull));
       }
+    }
+
+    // ---- A chave das notícias não nasce vazia ----------------------
+    console.log('\nabrir o painel com o armazém vazio não inventa uma lista de notícias');
+    {
+      const semComentNot = fs.readFileSync(path.join(raiz, 'admin', 'js', 'admin.js'), 'utf8')
+        .replace(/^\s*\/\/.*$/gm, '');
+      verificar('admin.js: o initAdmin já não grava a chave das notícias',
+        !/if \(!localStorage\.getItem\(NEWS_KEY\)\) saveNoticias\(\[\]\);/.test(semComentNot));
+      verificar('admin.js: o loadNoticias continua a devolver [] sem a chave',
+        /JSON\.parse\(localStorage\.getItem\(NEWS_KEY\) \|\| '\[\]'\)/.test(semComentNot));
+
+      const SEMEADAS = [
+        { id: 951, titulo: 'Primeira guardada', resumo: 'texto', publicada: true, data: '2026-03-01' },
+        { id: 952, titulo: 'Segunda guardada', resumo: 'texto', publicada: false, data: '2026-03-02' },
+      ];
+      const nk = await testarNoticiasSemChave(browser, srv.url, [
+        { nome: 'sem-chave', semear: null },
+        { nome: 'com-chave', semear: SEMEADAS },
+      ]);
+
+      verificar('armazém vazio: o initAdmin não cria a jsc_noticias',
+        nk['sem-chave'].antes.presente === false
+        && nk['sem-chave'].depois.presente === false
+        && nk['sem-chave'].depois.nChaves === 0,
+        JSON.stringify(nk['sem-chave'].depois));
+      verificar('armazém vazio: e continua sem a chave depois do arranque assíncrono',
+        nk['sem-chave'].depoisDeEsperar.presente === false,
+        JSON.stringify(nk['sem-chave'].depoisDeEsperar));
+      verificar('armazém vazio: o painel trabalha com [] em memória e desenha o vazio',
+        nk['sem-chave'].lidas === 0 && nk['sem-chave'].nCartoes === 1
+        && /Nova Notícia/.test(nk['sem-chave'].cartoes[0] || ''),
+        nk['sem-chave'].lidas + ' lida(s), ' + JSON.stringify(nk['sem-chave'].cartoes));
+      verificar('chave existente: é lida normalmente, com as duas notícias',
+        nk['com-chave'].lidas === 2 && nk['com-chave'].nCartoes === 3
+        && nk['com-chave'].cartoes.join(' ').indexOf('Primeira guardada') !== -1
+        && nk['com-chave'].cartoes.join(' ').indexOf('Segunda guardada') !== -1,
+        nk['com-chave'].lidas + ' lida(s), ' + JSON.stringify(nk['com-chave'].cartoes));
+      verificar('chave existente: fica byte a byte igual ao que lá estava',
+        nk['com-chave'].depois.valor === nk['com-chave'].antes.valor
+        && nk['com-chave'].depoisDeEsperar.valor === nk['com-chave'].antes.valor,
+        'antes ' + String(nk['com-chave'].antes.valor).length + ' bytes, depois '
+        + String(nk['com-chave'].depois.valor).length);
+      verificar('painel: sem erros de JavaScript nos dois cenários',
+        Object.values(nk).every((x) => x.erros.length === 0),
+        Object.values(nk).map((x) => x.erros.join(' ')).join(' | '));
     }
 
     // ---- Publicar vazio por cima do que o site tem ------------------

@@ -506,9 +506,18 @@ function fmtDate(str) {
 // INIT
 // ==================================================
 function initAdmin() {
-  // Persistir dados padrão se ainda não existem no localStorage
-  // Inicializar noticias se ainda não existem
-  if (!localStorage.getItem(NEWS_KEY)) saveNoticias([]);
+  // Aqui criava-se a chave das notícias quando ela não existia:
+  //
+  //     if (!localStorage.getItem(NEWS_KEY)) saveNoticias([]);
+  //
+  // Não era preciso — o loadNoticias() devolve [] quando a chave falta — e num
+  // browser que perdeu o armazém era activamente mau: abrir o painel escrevia
+  // uma lista vazia por cima do nada, e a partir daí passava a existir uma
+  // lista vazia a sério, pronta a ser publicada por cima das notícias do site.
+  //
+  // Medido: das 34 chaves perdidas em produção, a jsc_noticias foi uma das
+  // três que reapareceram, e foi esta linha que a recriou. A ausência da chave
+  // volta a significar ausência, e o painel trabalha com [] em memória.
 
   // Já não existe palavra-passe por omissão: a conta é criada no primeiro
   // arranque, no servidor. O aviso deixa de fazer sentido.
