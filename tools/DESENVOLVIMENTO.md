@@ -41,6 +41,28 @@ vai para o Git e não é servido pela web.
 Se precisar de recomeçar do zero, apague `data/utilizadores.json` e volte a
 abrir o painel: pede outra vez a criação da primeira conta.
 
+## O que fica de fora dos deploys de rotina
+
+Três coisas no alojamento não vêm do repositório e não devem ser
+substituídas ao enviar ficheiros:
+
+| | Porquê |
+|---|---|
+| `data/` | é o conteúdo publicado, as contas e os backups do site |
+| `uploads/logos/` | são os escudos carregados pelo painel; o repositório só versiona o `.htaccess` e o `README.md` da pasta |
+| `.htaccess` (raiz) | o fim do ficheiro é escrito pelo cPanel — handler do PHP e limites — e um envio por cima pode apagá-lo |
+
+O `.htaccess` da raiz tem um cabeçalho de aviso lá dentro a dizer isto, e
+há uma ferramenta para o verificar antes de um envio, quando um envio for
+mesmo necessário:
+
+```
+node tools/comparar-htaccess.js <.htaccess-descarregado-do-cPanel>
+```
+
+Só lê, e sai `0` quando os dois ficheiros dizem o mesmo ao Apache. O que
+compara está explicado em `tools/README.md`.
+
 ## Depois de enviar ficheiros para o alojamento
 
 As notícias da página inicial são escritas dentro do `index.html` quando se

@@ -93,6 +93,67 @@ internet.
 Se o Apache não estiver disponível, o guião usa `php -S` e avisa que as
 regras do `.htaccess` não estão a ser aplicadas.
 
+## O `.htaccess` da raiz não entra nos deploys de rotina
+
+É o único ficheiro do projeto com duas donas. As regras de segurança e de
+reescrita são nossas; os dois blocos do fim — `BEGIN cPanel-generated php
+ini directives` e `php -- BEGIN cPanel-generated handler` — são escritos
+pelo cPanel, e reescritos por ele sempre que se muda a versão de PHP ou os
+limites no MultiPHP Manager / MultiPHP INI Editor.
+
+Por isso, **ao enviar ficheiros para o alojamento este fica de fora**, como
+a `data/` e a `uploads/logos/`. O que está versionado é a cópia de
+referência, para que um envio por engano seja inofensivo — não é a fonte da
+verdade do que está no ar.
+
+Medido uma vez à mão, antes de o commit `7271c97` existir: o ficheiro do
+servidor tinha 112 directivas efectivas e o do repositório 81. As 31 em
+falta eram exactamente os dois blocos do cPanel. Enviar o do repositório
+por cima teria apagado o handler do PHP 8.3 e derrubado todo o PHP do site.
+
+Quando for mesmo preciso enviá-lo — por exemplo depois de acrescentar uma
+regra de segurança — a ordem é:
+
+1. descarregar o `.htaccess` da raiz pelo gestor de ficheiros do cPanel;
+2. `node tools/comparar-htaccess.js <ficheiro-descarregado>`;
+3. enviar só se sair `0`.
+
+E ao contrário: depois de mexer na versão de PHP ou nos limites pelo
+cPanel, a cópia daqui fica desactualizada. O passo 2 diz isso, e a correção
+é copiar os blocos do ficheiro do servidor para cá — nunca editá-los à mão.
+
+## Comparar o `.htaccess` do servidor com o do repositório
+
+```
+node tools/comparar-htaccess.js /caminho/do/.htaccess-descarregado
+```
+
+Só lê: não altera nenhum dos dois ficheiros, não toca no servidor e não faz
+deploy. Código de saída `0` sem divergências, `1` com divergências, `2` se
+não conseguir ler um dos ficheiros.
+
+Compara quatro coisas:
+
+| Verificação | Falha quando |
+|---|---|
+| **blocos do cPanel** | falta um dos dois de um dos lados, ou existem nos dois com conteúdo diferente — comparação byte a byte, incluindo as aspas curvas do comentário do handler, que é por elas que o cPanel reconhece o bloco como seu |
+| **versão de PHP** | o `AddHandler application/x-httpd-ea-phpNN` difere entre os dois, ou falta num deles |
+| **regras de segurança** | qualquer uma das 12 regras nomeadas falta de um dos lados — executáveis bloqueados em `uploads/`, só imagens em `uploads/logos/`, `<FilesMatch>` dos ficheiros sensíveis, excepção do `manifest.json`, `scraper/` negada, CSP, `nosniff`, `X-Frame-Options`, `X-Robots-Tag`, `Options -Indexes`, `www` → domínio único, http → https |
+| **directivas efectivas** | alguma linha que não seja comentário nem linha em branco existe num ficheiro e não no outro. A contagem respeita repetições: as doze `php_value` aparecem duas vezes cada, uma por `IfModule`, e perder uma delas aparece aqui |
+
+Comentários e indentação são ignorados de propósito: é o que o Apache lê
+que interessa, e a indentação das regras dos uploads difere entre os dois
+ficheiros sem que isso mude nada. É também por isso que o cabeçalho de
+aviso no topo do `.htaccess` do repositório não conta como divergência.
+
+Uma divergência em **regras de segurança** que diga `FALTA NO SERVIDOR` é
+diferente de todas as outras: significa que o site está sem essa protecção
+neste momento, e o que falta é actualizar o servidor, não o repositório.
+
+A ferramenta tem testes próprios na bateria (`tools/testar-sem-js.js`):
+corre o comando a sério contra pares de ficheiros sintéticos e verifica
+cada código de saída e que nenhum ficheiro é modificado pela execução.
+
 ## Auditar as notícias já escritas, a partir do browser
 
 As notícias vivem no `localStorage` do browser onde o painel é usado. Para as

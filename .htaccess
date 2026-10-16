@@ -1,3 +1,26 @@
+# =====================================================================
+# ESTE FICHEIRO NÃO ENTRA NOS DEPLOYS DE ROTINA
+# =====================================================================
+# O .htaccess da raiz é o único ficheiro do projeto com duas donas: as
+# regras de segurança e de reescrita são nossas; os dois blocos do fim — as
+# directivas php ini e o handler do PHP — são escritos pelo cPanel e
+# reescritos por ele sempre que se mexe na versão de PHP ou nos limites.
+#
+# Por isso, ao enviar ficheiros para o alojamento, este fica de fora, como
+# a data/ e a uploads/logos/. Enviá-lo por cima do que está no ar sem o
+# comparar primeiro pode apagar configuração que só existe no servidor —
+# foi assim que se descobriu, a 112 directivas contra 81, que faltavam cá
+# os blocos do cPanel e que um envio derrubaria todo o PHP do site.
+#
+# Quando for mesmo preciso enviá-lo, antes disso:
+#
+#   1. descarregar o .htaccess da raiz pelo gestor de ficheiros do cPanel;
+#   2. node tools/comparar-htaccess.js <ficheiro-descarregado>
+#   3. só enviar se sair 0 ("SEM DIVERGÊNCIAS").
+#
+# A ferramenta só lê. O que ela compara está documentado em tools/README.md.
+# =====================================================================
+
 # Security Headers
 <IfModule mod_headers.c>
   Header always set X-Content-Type-Options "nosniff"

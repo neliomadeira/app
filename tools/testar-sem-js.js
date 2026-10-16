@@ -3685,6 +3685,140 @@ async function _medirSaveEsvaziamento(url, raizCopia) {
   return r;
 }
 
+// A ferramenta que compara o .htaccess do servidor com o do repositório.
+//
+// Corre o comando a sério, em processo próprio, contra pares de ficheiros
+// feitos para o efeito — não contra o .htaccess do projeto nem o da cópia
+// do site. A ferramenta compara sempre com o .htaccess que estiver ao lado
+// da pasta tools/, e por isso a sonda monta uma árvore mínima só sua: uma
+// pasta tools/ com a ferramenta copiada lá para dentro e um .htaccess ao
+// lado, que é o lado "repositório" de cada caso.
+//
+// Cada caso mede o código de saída e confirma que nenhum dos dois ficheiros
+// de entrada foi alterado pela execução: a ferramenta tem de ser só de
+// leitura, e isso prova-se por sha256 antes e depois, não por palavra.
+function testarCompararHtaccess(raizOriginal) {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'jsc-htaccess-'));
+  const r = { casos: {} };
+  try {
+    fs.mkdirSync(path.join(base, 'tools'));
+    fs.mkdirSync(path.join(base, 'entradas'));
+    const ferramenta = path.join(base, 'tools', 'comparar-htaccess.js');
+    const origem = path.join(raizOriginal, 'tools', 'comparar-htaccess.js');
+    fs.copyFileSync(origem, ferramenta);
+
+    const real = fs.readFileSync(path.join(raizOriginal, '.htaccess'), 'utf8');
+    const MARCA_INI = '# BEGIN cPanel-generated php ini directives, do not edit';
+    const MARCA_HANDLER = '# php -- BEGIN cPanel-generated handler, do not edit';
+    const corte = real.indexOf(MARCA_INI);
+    r.ficheiroReal = {
+      temBlocoIni: corte !== -1,
+      temBlocoHandler: real.indexOf(MARCA_HANDLER) !== -1,
+      temCabecalhoDeAviso: /ESTE FICHEIRO NÃO ENTRA NOS DEPLOYS DE ROTINA/.test(real),
+    };
+    const nosso = corte === -1 ? real : real.slice(0, corte);
+    const doCpanel = corte === -1 ? '' : real.slice(corte);
+
+    // Ruído que o Apache não vê: o cabeçalho de aviso fora, a indentação
+    // dobrada e um comentário novo pelo meio. Só na nossa parte — mexer na
+    // indentação dentro dos blocos do cPanel mudaria a comparação byte a
+    // byte, que é de propósito exacta.
+    const comRuido = nosso.split('\n')
+      .filter((l) => !/ESTE FICHEIRO NÃO ENTRA|^# ={10}/.test(l))
+      .map((l) => l.replace(/^(\s+)/, '$1$1'))
+      .join('\n') + '\n# comentário acrescentado pela sonda\n' + doCpanel;
+
+    // Variantes com uma divergência cada, do lado indicado no nome.
+    const semHandler = (() => {
+      const i = real.indexOf(MARCA_HANDLER);
+      return i === -1 ? real : real.slice(0, i);
+    })();
+    const phpAntigo = real.replace(
+      /(AddHandler\s+application\/x-httpd-ea-php)83/, '$182');
+    const semRegraDeUploads = real.split('\n')
+      .filter((l) => !/RewriteRule\s+\^uploads\/\.\*\\\.\(php\|phtml/.test(l))
+      .join('\n');
+    const semCsp = real.split('\n')
+      .filter((l) => !/Header always set Content-Security-Policy/.test(l))
+      .join('\n');
+    const umPhpValueAMenos = real.replace('   php_value memory_limit 128M\n', '');
+
+    const casos = [
+      { nome: 'identico',             repo: real,                servidor: real, saida: 0 },
+      { nome: 'so-comentarios',       repo: comRuido,            servidor: real, saida: 0 },
+      { nome: 'repo-sem-handler',     repo: semHandler,          servidor: real, saida: 1 },
+      { nome: 'versao-php-diferente', repo: phpAntigo,           servidor: real, saida: 1 },
+      { nome: 'repo-sem-regra',       repo: semRegraDeUploads,   servidor: real, saida: 1 },
+      { nome: 'servidor-sem-regra',   repo: real,          servidor: semCsp,     saida: 1 },
+      { nome: 'php-value-a-menos',    repo: umPhpValueAMenos,    servidor: real, saida: 1 },
+    ];
+
+    casos.forEach((caso) => {
+      const doServidor = path.join(base, 'entradas', caso.nome + '.htaccess');
+      fs.writeFileSync(doServidor, caso.servidor);
+      fs.writeFileSync(path.join(base, '.htaccess'), caso.repo);
+      const antes = {
+        servidor: sha(fs.readFileSync(doServidor, 'utf8')),
+        repo: sha(fs.readFileSync(path.join(base, '.htaccess'), 'utf8')),
+        ferramenta: sha(fs.readFileSync(ferramenta, 'utf8')),
+      };
+      const res = spawnSync(process.execPath, [ferramenta, doServidor],
+        { encoding: 'utf8' });
+      const depois = {
+        servidor: sha(fs.readFileSync(doServidor, 'utf8')),
+        repo: sha(fs.readFileSync(path.join(base, '.htaccess'), 'utf8')),
+        ferramenta: sha(fs.readFileSync(ferramenta, 'utf8')),
+      };
+      r.casos[caso.nome] = {
+        esperado: caso.saida,
+        saida: res.status,
+        texto: (res.stdout || '') + (res.stderr || ''),
+        intactos: antes.servidor === depois.servidor && antes.repo === depois.repo
+          && antes.ferramenta === depois.ferramenta,
+        erros: ((res.stdout || '').match(/^ERRO\s+.*$/gm) || []),
+        avisos: ((res.stdout || '').match(/^AVISO\s+.*$/gm) || []),
+      };
+    });
+
+    // Entradas impossíveis: ficheiro que não existe, e sem argumento nenhum.
+    const inexistente = path.join(base, 'entradas', 'nao-existe-xyz');
+    const semFicheiro = spawnSync(process.execPath, [ferramenta, inexistente],
+      { encoding: 'utf8' });
+    r.semFicheiro = {
+      saida: semFicheiro.status,
+      texto: (semFicheiro.stdout || '') + (semFicheiro.stderr || ''),
+      criou: fs.existsSync(inexistente),
+    };
+    const semArgumento = spawnSync(process.execPath, [ferramenta], { encoding: 'utf8' });
+    r.semArgumento = {
+      saida: semArgumento.status,
+      texto: (semArgumento.stdout || '') + (semArgumento.stderr || ''),
+    };
+
+    // O número que o comando imprime tem de ser o mesmo que a função
+    // exportada conta — se divergirem, uma das duas está a mentir.
+    const mod = require(origem);
+    r.directivasContadas = mod.directivas(real).length;
+    const m = (r.casos.identico.texto || '').match(/directivas efectivas — (\d+) de cada lado/);
+    r.directivasImpressas = m ? Number(m[1]) : null;
+    r.nRegras = mod.REGRAS_DE_SEGURANCA.length;
+    r.nBlocos = mod.BLOCOS_CPANEL.length;
+
+    // A ferramenta não tem como escrever: a prova é no código, sem comentários.
+    const fonte = fs.readFileSync(origem, 'utf8')
+      .replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    r.escritasNaFonte = (fonte.match(
+      /writeFileSync|appendFileSync|createWriteStream|renameSync|unlinkSync|rmSync|mkdirSync|chmodSync|\bexec\b|spawn/g
+    ) || []);
+
+    // Nada foi criado nem apagado na árvore da sonda além do previsto.
+    r.ficheirosNaArvore = fs.readdirSync(path.join(base, 'entradas')).sort();
+    return r;
+  } finally {
+    fs.rmSync(base, { recursive: true, force: true });
+  }
+}
+
 // A coluna Forma, no browser.
 async function testarColunaForma(browser, url, linhas) {
   const ctx = await browser.newContext({
@@ -8100,6 +8234,95 @@ async function testarAdminHistoria(browser, url) {
         && /RedirectMatch 403 \^\/scraper/.test(ht)
         && /Header always set Content-Security-Policy/.test(ht)
         && /X-Robots-Tag/.test(ht));
+    }
+
+    // ---- A ferramenta que compara os dois .htaccess ------------------
+    // A secção acima prova que os blocos do cPanel estão aqui HOJE. Isso
+    // caduca: muda-se a versão de PHP ou um limite no cPanel e esta cópia
+    // fica desactualizada sem ninguém saber. A ferramenta é o que permite
+    // ver isso antes de um envio, e tem de ser ela própria testada —
+    // incluindo o que promete não fazer: escrever.
+    console.log('\ntools/comparar-htaccess.js: compara, e só lê');
+    {
+      const ch = testarCompararHtaccess(raiz);
+      const c = ch.casos;
+      const temErro = (nome, agulha) =>
+        (c[nome].erros || []).some((l) => l.indexOf(agulha) !== -1);
+
+      verificar('medição válida: o ficheiro do repositório tem os dois blocos e o cabeçalho de aviso',
+        ch.ficheiroReal.temBlocoIni && ch.ficheiroReal.temBlocoHandler
+        && ch.ficheiroReal.temCabecalhoDeAviso,
+        JSON.stringify(ch.ficheiroReal));
+      verificar('ficheiros iguais: sai 0, sem um único ERRO',
+        c.identico.saida === 0 && c.identico.erros.length === 0
+        && /SEM DIVERGÊNCIAS/.test(c.identico.texto),
+        'saída ' + c.identico.saida + ' erros ' + JSON.stringify(c.identico.erros));
+      // Controlo, e a razão de ser do cabeçalho de aviso: comentários a mais,
+      // o cabeçalho a menos e a indentação dobrada não são divergências.
+      verificar('controlo: comentários e indentação diferentes não contam como divergência',
+        c['so-comentarios'].saida === 0 && c['so-comentarios'].erros.length === 0,
+        'saída ' + c['so-comentarios'].saida + ' '
+        + JSON.stringify(c['so-comentarios'].erros));
+      verificar('a contagem de directivas que o comando imprime é a que a função conta',
+        ch.directivasImpressas !== null
+        && ch.directivasImpressas === ch.directivasContadas,
+        'impressas ' + ch.directivasImpressas + ' contadas ' + ch.directivasContadas);
+      verificar('bloco do handler em falta no repositório: sai 1 e nomeia o bloco',
+        c['repo-sem-handler'].saida === 1
+        && temErro('repo-sem-handler', 'bloco cPanel: handler do PHP')
+        && /FALTA no repositório/.test(c['repo-sem-handler'].texto),
+        'saída ' + c['repo-sem-handler'].saida + ' '
+        + JSON.stringify(c['repo-sem-handler'].erros));
+      verificar('versão de PHP diferente: sai 1 e di-lo pelo nome',
+        c['versao-php-diferente'].saida === 1
+        && temErro('versao-php-diferente', 'versão de PHP')
+        && /ea-php83/.test(c['versao-php-diferente'].texto)
+        && /ea-php82/.test(c['versao-php-diferente'].texto),
+        'saída ' + c['versao-php-diferente'].saida + ' '
+        + JSON.stringify(c['versao-php-diferente'].erros));
+      verificar('regra de segurança em falta no repositório: sai 1 e nomeia a regra',
+        c['repo-sem-regra'].saida === 1
+        && temErro('repo-sem-regra', 'executáveis bloqueados em uploads/')
+        && /removeria esta protecção do servidor/.test(c['repo-sem-regra'].texto),
+        'saída ' + c['repo-sem-regra'].saida + ' '
+        + JSON.stringify(c['repo-sem-regra'].erros));
+      // O caso que não se resolve a enviar ficheiros: a protecção falta no
+      // servidor, e o que está desprotegido é o site, agora.
+      verificar('regra de segurança em falta no servidor: sai 1 e diz que o site está sem ela',
+        c['servidor-sem-regra'].saida === 1
+        && temErro('servidor-sem-regra', 'Content-Security-Policy')
+        && /FALTA NO SERVIDOR/.test(c['servidor-sem-regra'].texto),
+        'saída ' + c['servidor-sem-regra'].saida + ' '
+        + JSON.stringify(c['servidor-sem-regra'].erros));
+      // As doze php_value aparecem duas vezes cada, uma por IfModule. Uma
+      // comparação por conjuntos não via a perda de uma delas.
+      verificar('perder uma das doze php_value repetidas: sai 1 e aparece na lista',
+        c['php-value-a-menos'].saida === 1
+        && temErro('php-value-a-menos', 'directivas só no servidor')
+        && /memory_limit 128M/.test(c['php-value-a-menos'].texto),
+        'saída ' + c['php-value-a-menos'].saida + ' '
+        + JSON.stringify(c['php-value-a-menos'].erros));
+      verificar('ficheiro do servidor ilegível: sai 2 e não o cria',
+        ch.semFicheiro.saida === 2 && ch.semFicheiro.criou === false
+        && /Não foi possível ler/.test(ch.semFicheiro.texto),
+        'saída ' + ch.semFicheiro.saida + ' criou ' + ch.semFicheiro.criou);
+      verificar('sem argumento: sai 2 e explica como se usa',
+        ch.semArgumento.saida === 2
+        && /node tools\/comparar-htaccess\.js/.test(ch.semArgumento.texto),
+        'saída ' + ch.semArgumento.saida);
+      // A promessa de que a ferramenta não escreve, medida por sha256 dos
+      // dois ficheiros de entrada antes e depois de cada execução, e não por
+      // ler o código e acreditar.
+      verificar('nenhuma das execuções alterou um único byte dos ficheiros lidos',
+        Object.keys(c).length === 7
+        && Object.keys(c).every((k) => c[k].intactos === true),
+        Object.keys(c).map((k) => k + ':' + c[k].intactos).join(' '));
+      verificar('a fonte da ferramenta não tem uma única chamada que escreva',
+        ch.escritasNaFonte.length === 0,
+        JSON.stringify(ch.escritasNaFonte));
+      verificar('a ferramenta cobre as doze regras de segurança e os dois blocos',
+        ch.nRegras === 12 && ch.nBlocos === 2,
+        'regras ' + ch.nRegras + ' blocos ' + ch.nBlocos);
     }
 
     // ---- Nada dentro de uploads/ é executável ----------------------
