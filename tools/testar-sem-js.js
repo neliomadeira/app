@@ -4220,6 +4220,294 @@ async function testarBackupSemWeb(raizOriginal) {
   }
 }
 
+// As séries dos escalões, no painel, quando a configuração volta do servidor
+// com a forma errada.
+//
+// O PHP codifica um mapa VAZIO como array: {"Sub-15":{}} sai da publicação
+// como {"Sub-15":[]}. Em JavaScript escrever propriedades num array é legal e
+// não dá erro, mas o JSON.stringify() descarta-as. Medido no painel do clube:
+// adicionar uma série aos Sub-15 dizia «adicionada» em verde, a série existia
+// em memória, o armazém ficava igual, e a lista continuava a dizer «Nenhuma
+// equipa configurada». Os Sub-17 funcionavam, porque a sua entrada era um
+// objecto — e é por isso que entram aqui como controlo em cada caso.
+//
+// Conduz-se o painel a sério, com os gestos todos: adicionar série, colar
+// classificação, colar jogos, editor manual, apagar a classificação do
+// escalão, remover a série. Os dados semeados são fictícios e vivem numa
+// cópia temporária do site.
+async function testarSeriesDosEscaloes(browser, url, texto) {
+  const ONZE = [];
+  for (let i = 1; i <= 11; i++) {
+    ONZE.push({ equipa: 'TESTE EQUIPA ' + i, j: 3, v: 1, e: 1, d: 1, gm: 4, gs: 4, pts: 4, forma: 'VED' });
+  }
+  const JOGOS_SEMEADOS = [
+    { data: '2026-09-20', hora: '10:00', casa: 'TESTE EQUIPA 1', fora: 'J.S. Campinense',
+      gcasa: 1, gfora: 2, local: '', estado: 'Realizado' },
+  ];
+
+  const abrir = async () => {
+    const ctx = await browser.newContext({
+      javaScriptEnabled: true,
+      extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+    });
+    const pg = await ctx.newPage();
+    const erros = [];
+    pg.on('pageerror', (e) => erros.push('exceção: ' + e.message));
+    await pg.goto(url + '/admin/', { waitUntil: 'networkidle', timeout: 20000 });
+    return { ctx, pg, erros };
+  };
+
+  const saida = {};
+
+  // ---- A. A sequência dos gestos, com o Sub-15 vindo como array ------
+  {
+    const { ctx, pg, erros } = await abrir();
+    saida.sequencia = await pg.evaluate((a) => {
+      const out = { toasts: [], passos: {}, erros: [] };
+      const toastOriginal = window.showToast, alertOriginal = window.alert;
+      window.showToast = (msg, cor) => out.toasts.push({ msg: String(msg), cor: cor || '' });
+      window.alert = () => {};
+      localStorage.setItem('jsc_painel_local', '1');
+
+      // O estado tal como volta da publicação: Sub-17 objecto, Sub-15 array,
+      // e Sub-13 com o teams array um nível mais fundo.
+      localStorage.setItem('fpf_sync_config', JSON.stringify({
+        'Sub-17': { teams: { A: { nome: 'Equipa A' } } },
+        'Sub-15': [],
+        'Sub-13': { teams: [] },
+      }));
+      localStorage.setItem('fpf_class_Sub-15', JSON.stringify(a.onze));
+      localStorage.setItem('fpf_jogos_Sub-15', JSON.stringify(a.jogos));
+      const classeSemeada = localStorage.getItem('fpf_class_Sub-15');
+      const jogosSemeados = localStorage.getItem('fpf_jogos_Sub-15');
+
+      const cfg = () => { try { return JSON.parse(localStorage.getItem('fpf_sync_config') || '{}'); } catch (_) { return {}; } };
+      const bloco = (escalao) => {
+        const tb = document.getElementById('fpfSyncRows');
+        const partes = (tb ? tb.innerText || '' : '').split(/(?=Sub-\d+)/);
+        const b = partes.find((p) => p.trim().startsWith(escalao));
+        return (b || '(ausente)').replace(/\s+/g, ' ').trim();
+      };
+      const ultimoToast = () => out.toasts.length ? out.toasts[out.toasts.length - 1] : { msg: '', cor: '' };
+
+      try { renderClassSyncRows(); } catch (e) { out.erros.push('render: ' + e.message); }
+
+      // 1. Adicionar uma série em cada um dos três.
+      [['Sub-15', 'Série A'], ['Sub-17', 'Série B'], ['Sub-13', 'Série C']].forEach(([esc, nome]) => {
+        window.prompt = () => nome;
+        try { window.adicionarEquipa(esc); } catch (e) { out.erros.push('adicionar ' + esc + ': ' + e.message); }
+        const c = cfg();
+        out.passos['adicionar_' + esc] = {
+          toast: ultimoToast(),
+          naLista: bloco(esc).indexOf(nome) !== -1,
+          semMensagemDeVazio: bloco(esc).indexOf('Nenhuma equipa configurada') === -1,
+          guardado: !!(c[esc] && c[esc].teams && Object.keys(c[esc].teams).some(
+            (k) => c[esc].teams[k].nome === nome)),
+          tipo: Array.isArray((c[esc] || {})) ? 'array' : typeof c[esc],
+        };
+      });
+
+      const serieDe = (esc, nome) => {
+        const c = cfg();
+        const t = (c[esc] || {}).teams || {};
+        return Object.keys(t).find((k) => t[k].nome === nome) || null;
+      };
+      const tk15 = serieDe('Sub-15', 'Série A');
+      out.passos.chaveDaSerie = tk15;
+
+      // 2. Colar uma classificação NA SÉRIE do escalão que vinha como array.
+      try {
+        abrirColar('Sub-15', 'class', tk15);
+        document.getElementById('colarClassTA').value = a.textoClass;
+        previewColarClass();
+        guardarColarClass();
+      } catch (e) { out.erros.push('colar class: ' + e.message); }
+      {
+        const c = cfg();
+        const t = ((c['Sub-15'] || {}).teams || {})[tk15] || {};
+        let linhas = [];
+        try { linhas = JSON.parse(localStorage.getItem('fpf_class_Sub-15__' + tk15) || '[]'); } catch (_) {}
+        out.passos.colarClassNaSerie = {
+          toast: ultimoToast(),
+          linhasGravadas: linhas.length,
+          temLastSync: typeof t.lastSync === 'string' && t.lastSync.length > 10,
+          nTeams: t.nTeams,
+        };
+      }
+
+      // 3. Colar jogos na mesma série.
+      try {
+        abrirColar('Sub-15', 'jogos', tk15);
+        document.getElementById('colarClassTA').value = a.textoJogos;
+        guardarColarClass();
+      } catch (e) { out.erros.push('colar jogos: ' + e.message); }
+      {
+        const c = cfg();
+        const t = ((c['Sub-15'] || {}).teams || {})[tk15] || {};
+        let js = [];
+        try { js = JSON.parse(localStorage.getItem('fpf_jogos_Sub-15__' + tk15) || '[]'); } catch (_) {}
+        out.passos.colarJogosNaSerie = {
+          toast: ultimoToast(),
+          jogosGravados: js.length,
+          temLastJogos: typeof t.lastJogos === 'string' && t.lastJogos.length > 10,
+          nJogos: t.nJogos,
+        };
+      }
+
+      // 4. Editor manual ao nível do escalão: a marca de data tem de pegar.
+      try {
+        abrirEditorClass('Sub-15', '');
+        salvarEditorClass();
+      } catch (e) { out.erros.push('editor manual: ' + e.message); }
+      {
+        const c = cfg();
+        out.passos.editorManual = {
+          toast: ultimoToast(),
+          temLastSync: typeof (c['Sub-15'] || {}).lastSync === 'string',
+          nTeams: (c['Sub-15'] || {}).nTeams,
+        };
+      }
+
+      // 5. Apagar a classificação do escalão: não pode deixar mapa vazio, e não
+      //    pode tocar na série nem nos jogos.
+      window.confirm = () => true;
+      try { window.apagarClassBase('Sub-15'); } catch (e) { out.erros.push('apagarClassBase: ' + e.message); }
+      {
+        const c = cfg();
+        const esc = c['Sub-15'] || null;
+        out.passos.apagarClassBase = {
+          toast: ultimoToast(),
+          classeDoEscalao: localStorage.getItem('fpf_class_Sub-15'),
+          escalaoVazio: !!esc && Object.keys(esc).length === 0,
+          temSerie: !!(esc && esc.teams && esc.teams[tk15]),
+          serieIntacta: localStorage.getItem('fpf_class_Sub-15__' + tk15) !== null,
+          jogosDoEscalaoIntactos: localStorage.getItem('fpf_jogos_Sub-15') === jogosSemeados,
+        };
+      }
+
+      // 6. E um escalão que fique sem nada não deixa mapa vazio atrás.
+      try { window.limparEquipa('Sub-13', serieDe('Sub-13', 'Série C')); } catch (e) { out.erros.push('limparEquipa: ' + e.message); }
+      {
+        const c = cfg();
+        out.passos.limparUltimaSerie = {
+          toast: ultimoToast(),
+          escalaoPresente: Object.prototype.hasOwnProperty.call(c, 'Sub-13'),
+          chavesDoFicheiro: Object.keys(c).sort(),
+        };
+      }
+
+      // 7. O Sub-17 atravessou tudo isto sem perder a série que já tinha.
+      {
+        const c = cfg();
+        const t = (c['Sub-17'] || {}).teams || {};
+        out.passos.sub17Intacto = {
+          temEquipaA: !!t.A && t.A.nome === 'Equipa A',
+          temSerieB: Object.keys(t).some((k) => t[k].nome === 'Série B'),
+          naLista: bloco('Sub-17').indexOf('Equipa A') !== -1
+                && bloco('Sub-17').indexOf('Série B') !== -1,
+        };
+      }
+
+      out.naoApagou = {
+        jogosDoEscalao: localStorage.getItem('fpf_jogos_Sub-15') === jogosSemeados,
+        classeSemeadaAindaLegivel: (() => {
+          try { return JSON.parse(localStorage.getItem('fpf_class_Sub-15') || 'null'); } catch (_) { return 'ilegivel'; }
+        })(),
+        tamanhoSemeado: JSON.parse(classeSemeada).length,
+      };
+      out.semRecuperacao = localStorage.getItem('jsc_recuperar_fpf_sync_config') === null;
+
+      window.showToast = toastOriginal;
+      window.alert = alertOriginal;
+      return out;
+    }, { onze: ONZE, jogos: JOGOS_SEMEADOS, textoClass: texto.classificacao, textoJogos: texto.jogos });
+    saida.sequencia.errosDePagina = erros;
+    await ctx.close();
+  }
+
+  // ---- B. A gravação a falhar: sem verde, e sem nada apagado ---------
+  // O localStorage é levado a recusar a chave da configuração, e só essa. É o
+  // que acontece com o armazém cheio, e era aqui que o painel dizia «sucesso»
+  // sem ter gravado.
+  {
+    const { ctx, pg, erros } = await abrir();
+    saida.gravacaoFalha = await pg.evaluate((a) => {
+      const out = { toasts: [], passos: {}, erros: [] };
+      const toastOriginal = window.showToast;
+      window.showToast = (msg, cor) => out.toasts.push({ msg: String(msg), cor: cor || '' });
+      window.alert = () => {};
+      window.confirm = () => true;
+      localStorage.setItem('jsc_painel_local', '1');
+      localStorage.setItem('fpf_sync_config', JSON.stringify({
+        'Sub-17': { teams: { A: { nome: 'Equipa A' } } },
+      }));
+      localStorage.setItem('fpf_class_Sub-17__A', JSON.stringify(a.onze));
+      localStorage.setItem('fpf_jogos_Sub-17__A', JSON.stringify(a.jogos));
+      const classeAntes = localStorage.getItem('fpf_class_Sub-17__A');
+      const jogosAntes  = localStorage.getItem('fpf_jogos_Sub-17__A');
+
+      const real = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (k, v) {
+        if (k === 'fpf_sync_config') { const e = new Error('cheio'); e.name = 'QuotaExceededError'; throw e; }
+        return real.call(this, k, v);
+      };
+      try {
+        window.prompt = () => 'Série que não cabe';
+        try { window.adicionarEquipa('Sub-17'); } catch (e) { out.erros.push('adicionar: ' + e.message); }
+        out.passos.adicionar = {
+          toast: out.toasts.length ? out.toasts[out.toasts.length - 1] : { msg: '', cor: '' },
+          nenhumVerde: !out.toasts.some((t) => t.cor === 'green'),
+        };
+        try { window.limparEquipa('Sub-17', 'A'); } catch (e) { out.erros.push('limpar: ' + e.message); }
+        out.passos.limpar = {
+          toast: out.toasts.length ? out.toasts[out.toasts.length - 1] : { msg: '', cor: '' },
+          classeIntacta: localStorage.getItem('fpf_class_Sub-17__A') === classeAntes,
+          jogosIntactos: localStorage.getItem('fpf_jogos_Sub-17__A') === jogosAntes,
+        };
+      } finally {
+        Storage.prototype.setItem = real;
+      }
+      out.verdes = out.toasts.filter((t) => t.cor === 'green').length;
+      window.showToast = toastOriginal;
+      return out;
+    }, { onze: ONZE, jogos: JOGOS_SEMEADOS });
+    saida.gravacaoFalha.errosDePagina = erros;
+    await ctx.close();
+  }
+
+  // ---- C. Conversão que perderia algo: guarda-se o original primeiro -
+  {
+    const { ctx, pg, erros } = await abrir();
+    saida.preservacao = await pg.evaluate(() => {
+      const out = {};
+      localStorage.setItem('jsc_painel_local', '1');
+      localStorage.removeItem('jsc_recuperar_fpf_sync_config');
+      // Um array COM conteúdo onde devia estar um mapa: converter para {}
+      // perderia o que lá está, e por isso o original é guardado antes.
+      const estranho = JSON.stringify({ 'Sub-15': [{ lixo: 'TESTE' }] });
+      localStorage.setItem('fpf_sync_config', estranho);
+      const cfg = loadClassConfig();
+      out.normalizou = !Array.isArray(cfg['Sub-15']) && typeof cfg['Sub-15'] === 'object';
+      out.recuperacao = localStorage.getItem('jsc_recuperar_fpf_sync_config');
+      out.guardouOOriginal = out.recuperacao === estranho;
+      // E uma segunda leitura não escreve uma segunda chave.
+      loadClassConfig();
+      out.umaSoChave = Object.keys(localStorage)
+        .filter((k) => k.indexOf('jsc_recuperar_fpf_sync_config') === 0).length;
+      // O array VAZIO é o caso comum e não guarda nada: não há nada a perder.
+      localStorage.removeItem('jsc_recuperar_fpf_sync_config');
+      localStorage.setItem('fpf_sync_config', JSON.stringify({ 'Sub-15': [] }));
+      loadClassConfig();
+      out.vazioNaoGuardaNada = localStorage.getItem('jsc_recuperar_fpf_sync_config') === null;
+      return out;
+    });
+    saida.preservacao.errosDePagina = erros;
+    await ctx.close();
+  }
+
+  return saida;
+}
+
 // A coluna Forma, no browser.
 async function testarColunaForma(browser, url, linhas) {
   const ctx = await browser.newContext({
@@ -9387,6 +9675,121 @@ async function testarAdminHistoria(browser, url) {
         Object.keys(INTOCAVEIS).every((k) => real['servidor-real'].depois[k] === INTOCAVEIS[k]),
         JSON.stringify(Object.keys(INTOCAVEIS)
           .filter((k) => real['servidor-real'].depois[k] !== INTOCAVEIS[k])));
+    }
+
+    console.log('\nséries dos escalões: a configuração que volta do servidor como array');
+    {
+      const ln = (nome, j, v, e, d, gm, gs, pts) => [nome, j, v, e, d, gm, gs, gm - gs, pts].join('\t');
+      const sr = await testarSeriesDosEscaloes(browser, srv.url, {
+        classificacao: [ln('TESTE ALFA', 4, 3, 0, 1, 9, 4, 9),
+                        ln('J.S. Campinense', 4, 2, 1, 1, 7, 5, 7),
+                        ln('TESTE BETA', 4, 0, 1, 3, 2, 9, 1)].join('\n') + '\n',
+        jogos: ['08/11/2026\tJ.S. Campinense\t2-1\tTESTE ALFA\t15:00',
+                '15/11/2026\tTESTE BETA\t0-3\tJ.S. Campinense\t11:00'].join('\n') + '\n',
+      });
+      const q = sr.sequencia.passos;
+
+      verificar('medição válida: os três contextos correram sem erros de JavaScript',
+        sr.sequencia.erros.length === 0 && sr.sequencia.errosDePagina.length === 0
+        && sr.gravacaoFalha.erros.length === 0 && sr.gravacaoFalha.errosDePagina.length === 0
+        && sr.preservacao.errosDePagina.length === 0,
+        JSON.stringify([sr.sequencia.erros, sr.sequencia.errosDePagina,
+          sr.gravacaoFalha.erros, sr.preservacao.errosDePagina]));
+
+      // O defeito medido no painel do clube: o escalão chega da publicação como
+      // [], a série é adicionada em memória, o JSON.stringify descarta-a, e o
+      // painel diz «adicionada» em verde.
+      verificar('escalão que volta como array: a série aparece na lista E fica gravada',
+        q['adicionar_Sub-15'].naLista === true
+        && q['adicionar_Sub-15'].semMensagemDeVazio === true
+        && q['adicionar_Sub-15'].guardado === true
+        && q['adicionar_Sub-15'].toast.cor === 'green',
+        JSON.stringify(q['adicionar_Sub-15']));
+      verificar('e com o teams como array, um nível mais fundo: igual',
+        q['adicionar_Sub-13'].naLista === true && q['adicionar_Sub-13'].guardado === true
+        && q['adicionar_Sub-13'].toast.cor === 'green',
+        JSON.stringify(q['adicionar_Sub-13']));
+      // Controlo: os Sub-17 eram o escalão que sempre funcionou, por ser um
+      // objecto. Se este passar a falhar, a correção partiu o que estava bem.
+      verificar('controlo: o escalão que já era objecto continua a funcionar',
+        q['adicionar_Sub-17'].naLista === true && q['adicionar_Sub-17'].guardado === true
+        && q['adicionar_Sub-17'].toast.cor === 'green',
+        JSON.stringify(q['adicionar_Sub-17']));
+      verificar('nenhum dos três ficou array depois de ser escrito',
+        ['Sub-15', 'Sub-17', 'Sub-13'].every((e) => q['adicionar_' + e].tipo === 'object'),
+        ['Sub-15', 'Sub-17', 'Sub-13'].map((e) => e + '=' + q['adicionar_' + e].tipo).join(' '));
+
+      verificar('colar classificação na série: as linhas ficam gravadas e a data é registada',
+        q.colarClassNaSerie.linhasGravadas === 3 && q.colarClassNaSerie.temLastSync === true
+        && q.colarClassNaSerie.nTeams === 3 && q.colarClassNaSerie.toast.cor === 'green',
+        JSON.stringify(q.colarClassNaSerie));
+      verificar('colar jogos na série: os jogos ficam gravados e a data é registada',
+        q.colarJogosNaSerie.jogosGravados === 2 && q.colarJogosNaSerie.temLastJogos === true
+        && q.colarJogosNaSerie.nJogos === 2 && q.colarJogosNaSerie.toast.cor === 'green',
+        JSON.stringify(q.colarJogosNaSerie));
+      // O «últ. atualização» do escalão nunca mudava nos Sub-15, e ninguém
+      // sabia porquê: a marca era escrita no array e descartada.
+      verificar('editor manual no escalão: a marca de data pega, com as 11 linhas que lá estavam',
+        q.editorManual.temLastSync === true && q.editorManual.nTeams === 11
+        && q.editorManual.toast.cor === 'green',
+        JSON.stringify(q.editorManual));
+
+      verificar('apagar a classificação do escalão não deixa mapa vazio nem toca na série',
+        q.apagarClassBase.escalaoVazio === false && q.apagarClassBase.temSerie === true
+        && q.apagarClassBase.serieIntacta === true
+        && q.apagarClassBase.jogosDoEscalaoIntactos === true
+        && q.apagarClassBase.classeDoEscalao === '[]',
+        JSON.stringify(q.apagarClassBase));
+      // Era este o {} que a publicação devolvia como [] — a porta por onde o
+      // defeito entrou no painel do clube.
+      verificar('remover a última série: o escalão sai do ficheiro em vez de ficar {}',
+        q.limparUltimaSerie.escalaoPresente === false
+        && JSON.stringify(q.limparUltimaSerie.chavesDoFicheiro) === JSON.stringify(['Sub-15', 'Sub-17']),
+        JSON.stringify(q.limparUltimaSerie));
+      verificar('controlo: o Sub-17 atravessou a sequência inteira sem perder nada',
+        q.sub17Intacto.temEquipaA === true && q.sub17Intacto.temSerieB === true
+        && q.sub17Intacto.naLista === true,
+        JSON.stringify(q.sub17Intacto));
+      verificar('nada do que não foi pedido para apagar foi apagado',
+        sr.sequencia.naoApagou.jogosDoEscalao === true
+        && sr.sequencia.naoApagou.tamanhoSemeado === 11,
+        JSON.stringify(sr.sequencia.naoApagou));
+
+      // A gravação a falhar. O armazém recusa só a chave da configuração, que é
+      // o que acontece quando está cheio.
+      verificar('gravação a falhar: nenhuma mensagem verde, em nenhum dos gestos',
+        sr.gravacaoFalha.verdes === 0
+        && sr.gravacaoFalha.passos.adicionar.toast.cor === 'red'
+        && /NÃO foi possível guardar/.test(sr.gravacaoFalha.passos.adicionar.toast.msg),
+        JSON.stringify(sr.gravacaoFalha.toasts));
+      verificar('gravação a falhar ao remover: a classificação e os jogos ficam intactos',
+        sr.gravacaoFalha.passos.limpar.classeIntacta === true
+        && sr.gravacaoFalha.passos.limpar.jogosIntactos === true
+        && sr.gravacaoFalha.passos.limpar.toast.cor === 'red'
+        && /nada foi apagado/.test(sr.gravacaoFalha.passos.limpar.toast.msg),
+        JSON.stringify(sr.gravacaoFalha.passos.limpar));
+
+      verificar('conversão que perderia algo: o original é guardado antes, numa chave só',
+        sr.preservacao.normalizou === true && sr.preservacao.guardouOOriginal === true
+        && sr.preservacao.umaSoChave === 1,
+        JSON.stringify(sr.preservacao));
+      verificar('o array vazio não guarda nada: não há nada a perder nele',
+        sr.preservacao.vazioNaoGuardaNada === true && sr.sequencia.semRecuperacao === true,
+        'vazio=' + sr.preservacao.vazioNaoGuardaNada
+        + ' sequência=' + sr.sequencia.semRecuperacao);
+
+      // A fonte: nenhuma gravação da configuração fica sem confirmação.
+      const fonteAdmin = fs.readFileSync(path.join(raiz, 'admin', 'js', 'admin.js'), 'utf8')
+        .replace(/^\s*\/\/.*$/gm, '');
+      verificar('admin.js: não sobrou nenhum saveClassConfig() sem confirmação',
+        fonteAdmin.indexOf('saveClassConfig(cfg);') === -1
+        && (fonteAdmin.match(/saveClassConfig\(/g) || []).length >= 7,
+        'chamadas: ' + (fonteAdmin.match(/saveClassConfig\([^)]*/g) || []).length
+        + ' sem confirmação: ' + (fonteAdmin.indexOf('saveClassConfig(cfg);') !== -1));
+      verificar('admin.js: o loadClassConfig normaliza o ficheiro e cada escalão',
+        /function loadClassConfig\(\)[\s\S]{0,1600}jscMapa\(cru\)/.test(fonteAdmin)
+        && /cfg\[esc\] = jscMapa\(cfg\[esc\]\)/.test(fonteAdmin)
+        && /cfg\[esc\]\.teams = jscMapa\(cfg\[esc\]\.teams\)/.test(fonteAdmin));
     }
 
     // ---- A migração da db_noticias --------------------------------

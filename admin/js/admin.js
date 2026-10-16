@@ -2861,8 +2861,117 @@ window.removePatrocinador = function (id) {
 const CLASS_ESCALOES   = ['Sub-17','Sub-15','Sub-13','Sub-19','Sub-11'];
 const CLASS_CONFIG_KEY = 'fpf_sync_config';
 
-function loadClassConfig()     { try { return JSON.parse(localStorage.getItem(CLASS_CONFIG_KEY)||'{}'); } catch(e){ return {}; } }
-function saveClassConfig(cfg)  { localStorage.setItem(CLASS_CONFIG_KEY, JSON.stringify(cfg)); }
+// Um mapa que volta do servidor pode chegar como [].
+//
+// O PHP codifica um mapa VAZIO como array: {"Sub-15":{}} sai da publicação como
+// {"Sub-15":[]}. E em JavaScript escrever propriedades num array é legal e não
+// dá erro, mas o JSON.stringify() descarta-as. O resultado, medido no painel do
+// clube: adicionar uma série aos Sub-15 dizia «adicionada» em verde, a série
+// existia em memória, o armazém ficava exactamente igual, e a lista continuava
+// a dizer «Nenhuma equipa configurada» para sempre. Os Sub-17 funcionavam
+// porque a sua entrada era um objecto.
+//
+// O caminho de entrada é o «Repor do servidor» e o «Importar backup», que
+// escrevem o classConfig vindo da publicação. A raiz — o PHP a transformar {}
+// em [] — é outro bloco; isto aqui é o que impede o painel de perder escritas.
+function jscMapa(v) {
+  return (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
+}
+
+// Converter um valor que não é mapa para {} é destrutivo se ele tiver algo lá
+// dentro. Com os arrays vazios não há nada a perder — medido —, mas se algum dia
+// chegar aqui um array com elementos, ou uma string, o original é guardado
+// ANTES, numa chave de recuperação, e a consola di-lo. Uma só chave, escrita uma
+// só vez: não se trocam escritas perdidas por chaves a crescer sem conta.
+const JSC_CLASS_RECUPERAR = 'jsc_recuperar_fpf_sync_config';
+
+function jscVazio(v) {
+  if (v === null || v === undefined) return true;
+  if (Array.isArray(v)) return v.length === 0;
+  if (typeof v === 'object') return Object.keys(v).length === 0;
+  if (typeof v === 'string') return v.trim() === '';
+  return false;
+}
+
+function loadClassConfig() {
+  let bruto = null;
+  let cru = null;
+  try {
+    bruto = localStorage.getItem(CLASS_CONFIG_KEY);
+    cru = JSON.parse(bruto || '{}');
+  } catch (e) { return {}; }
+
+  // O que seria perdido pela conversão, se alguma coisa fosse.
+  const perdas = [];
+  const olhar = (onde, v) => {
+    if (jscMapa(v) !== v && !jscVazio(v)) perdas.push(onde);
+  };
+  olhar('(raiz)', cru);
+  if (jscMapa(cru) === cru) {
+    Object.keys(cru).forEach((esc) => {
+      olhar(esc, cru[esc]);
+      if (jscMapa(cru[esc]) === cru[esc]
+          && Object.prototype.hasOwnProperty.call(cru[esc], 'teams')) {
+        olhar(esc + '.teams', cru[esc].teams);
+      }
+    });
+  }
+  if (perdas.length && bruto !== null) {
+    try {
+      if (localStorage.getItem(JSC_CLASS_RECUPERAR) === null) {
+        localStorage.setItem(JSC_CLASS_RECUPERAR, bruto);
+      }
+    } catch (e) {}
+    try {
+      console.warn('[JSC] fpf_sync_config tinha valores que não são mapas em '
+        + perdas.join(', ') + '. O original ficou em ' + JSC_CLASS_RECUPERAR + '.');
+    } catch (e) {}
+  }
+
+  const cfg = jscMapa(cru);
+  Object.keys(cfg).forEach((esc) => {
+    cfg[esc] = jscMapa(cfg[esc]);
+    // O teams só é normalizado se existir: criá-lo aqui punha um {} novo em
+    // cada escalão, e um {} é exactamente o que volta do servidor como [].
+    if (Object.prototype.hasOwnProperty.call(cfg[esc], 'teams')) {
+      cfg[esc].teams = jscMapa(cfg[esc].teams);
+    }
+  });
+  return cfg;
+}
+
+// Grava e CONFIRMA, relendo. Devolve true só quando o armazém ficou de facto
+// com o que se quis gravar — e, se quem chama passar um 'confirmar', só quando
+// esse teste também passa sobre o que se consegue voltar a ler.
+//
+// As duas verificações respondem a coisas diferentes. A releitura dos bytes
+// apanha o armazém cheio e o armazém que não grava. O 'confirmar' apanha o que
+// a releitura nunca apanharia: uma escrita descartada ANTES de chegar ao disco,
+// como a das propriedades num array — aí os bytes relidos são iguais aos
+// escritos, e o que falta é o dado.
+function saveClassConfig(cfg, confirmar) {
+  let bytes;
+  try { bytes = JSON.stringify(cfg); } catch (e) { return false; }
+  try { localStorage.setItem(CLASS_CONFIG_KEY, bytes); } catch (e) { return false; }
+  try { if (localStorage.getItem(CLASS_CONFIG_KEY) !== bytes) return false; } catch (e) { return false; }
+  if (typeof confirmar !== 'function') return true;
+  try { return !!confirmar(loadClassConfig()); } catch (e) { return false; }
+}
+
+// A série existe na configuração relida?
+function jscTemSerie(cfg, escalao, tk) {
+  return !!(cfg && cfg[escalao] && cfg[escalao].teams && cfg[escalao].teams[tk]);
+}
+
+// Um escalão sem nada lá dentro não fica como mapa vazio: um {} volta da
+// publicação como [], e um [] engole todas as escritas seguintes. Também se
+// aplica ao teams, um nível mais fundo.
+function jscArrumarEscalao(cfg, escalao) {
+  const esc = cfg[escalao];
+  if (!esc || jscMapa(esc) !== esc) return;
+  if (Object.prototype.hasOwnProperty.call(esc, 'teams') && jscVazio(esc.teams)) delete esc.teams;
+  if (Object.keys(esc).length === 0) delete cfg[escalao];
+}
 
 function teamStorageKey(escalao, teamKey, tipo) {
   // tipo: 'class' or 'jogos'
@@ -3099,22 +3208,31 @@ function salvarEditorClass() {
 
   // Registar data de atualização para o badge "última sincronização"
   const cfg = loadClassConfig();
+  const marca = new Date().toISOString();
   if (teamKey) {
     cfg[escalao] = cfg[escalao] || {};
     cfg[escalao].teams = cfg[escalao].teams || {};
     cfg[escalao].teams[teamKey] = cfg[escalao].teams[teamKey] || { nome: teamKey };
-    cfg[escalao].teams[teamKey].lastSync = new Date().toISOString();
+    cfg[escalao].teams[teamKey].lastSync = marca;
     cfg[escalao].teams[teamKey].nTeams   = rows.length;
   } else {
     cfg[escalao] = cfg[escalao] || {};
-    cfg[escalao].lastSync = new Date().toISOString();
+    cfg[escalao].lastSync = marca;
     cfg[escalao].nTeams   = rows.length;
   }
-  saveClassConfig(cfg);
+  // A classificação em si já está gravada na sua própria chave, acima: o que
+  // pode faltar é a marca de data. Por isso a mensagem distingue as duas
+  // coisas, em vez de dizer verde a tudo ou vermelho a tudo.
+  const marcou = saveClassConfig(cfg, (c) => (teamKey
+    ? c[escalao] && c[escalao].teams && c[escalao].teams[teamKey]
+      && c[escalao].teams[teamKey].lastSync === marca
+    : c[escalao] && c[escalao].lastSync === marca));
 
   closeModal();
   renderClassSyncRows();
-  showToast(`Classificação de ${escalao} guardada (${rows.length} equipas)`, 'green');
+  showToast(`Classificação de ${escalao} guardada (${rows.length} equipas)`
+    + (marcou ? '' : ' — a data de atualização não ficou registada'),
+    marcou ? 'green' : 'red');
 }
 
 document.getElementById('btnImportarFPF')?.addEventListener('click', () => {
@@ -3191,8 +3309,19 @@ window.adicionarEquipa = function(escalao) {
   const tk = nome.trim().replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_\-]/g,'').slice(0,20) || ('t'+Date.now());
   if (cfg[escalao].teams[tk]) { showToast('Já existe uma equipa com esse nome', 'red'); return; }
   cfg[escalao].teams[tk] = { nome: nome.trim(), compLabel: '' };
-  saveClassConfig(cfg);
+  // O verde só sai se a série estiver lá quando se volta a ler. Antes saía
+  // sempre que não houvesse excepção, e era isso que tornava invisível a perda
+  // dos Sub-15: mensagem de sucesso, armazém igual.
+  const gravou = saveClassConfig(cfg, (c) => jscTemSerie(c, escalao, tk));
   renderClassSyncRows();
+  if (!gravou) {
+    showToast(`${escalao}: NÃO foi possível guardar "${nome.trim()}" — nada foi alterado`, 'red');
+    alert(`A série "${nome.trim()}" não ficou guardada em ${escalao}.\n\n`
+      + `O armazém deste browser está como estava. Pode ser falta de espaço, ou a\n`
+      + `configuração das séries estar num formato que o painel não consegue escrever.\n`
+      + `Nada foi apagado: as classificações e os jogos não foram tocados.`);
+    return;
+  }
   showToast(`${escalao}: "${nome.trim()}" adicionada`, 'green');
 };
 
@@ -3200,10 +3329,21 @@ window.limparEquipa = function(escalao, tk) {
   const cfg  = loadClassConfig();
   const nome = cfg[escalao]?.teams?.[tk]?.nome || tk;
   if (!confirm(`Remover "${nome}" (${escalao})? Todos os dados serão apagados.`)) return;
+
+  // A configuração primeiro, e só se ela ficou gravada é que os dados saem.
+  // Ao contrário era possível apagar a classificação e os jogos da série e a
+  // linha continuar na lista, por a gravação da configuração não ter pegado:
+  // dados apagados, nada removido, e um verde a dizer que correu bem.
+  if (cfg[escalao]?.teams) delete cfg[escalao].teams[tk];
+  jscArrumarEscalao(cfg, escalao);
+  const gravou = saveClassConfig(cfg, (c) => !jscTemSerie(c, escalao, tk));
+  if (!gravou) {
+    renderClassSyncRows();
+    showToast(`${escalao}: NÃO foi possível remover "${nome}" — nada foi apagado`, 'red');
+    return;
+  }
   localStorage.removeItem(teamStorageKey(escalao, tk, 'class'));
   localStorage.removeItem(teamStorageKey(escalao, tk, 'jogos'));
-  if (cfg[escalao]?.teams) delete cfg[escalao].teams[tk];
-  saveClassConfig(cfg);
   renderClassSyncRows();
   showToast(`${escalao}: "${nome}" removida`, 'green');
 };
@@ -3254,8 +3394,17 @@ window.apagarClassBase = function (escalao) {
   const escCfg = cfg[escalao] || (cfg[escalao] = {});
   delete escCfg.lastSync;   // só o nível base: o teams e cada série ficam intactos
   delete escCfg.nTeams;
-  saveClassConfig(cfg);
+  // E o escalão não fica como mapa vazio. Era isto que punha "Sub-15": {} na
+  // publicação; o PHP devolvia-o como [] e o painel passava a perder em
+  // silêncio tudo o que se escrevesse nesse escalão.
+  jscArrumarEscalao(cfg, escalao);
+  const gravou = saveClassConfig(cfg,
+    (c) => !(c[escalao] && (c[escalao].lastSync || c[escalao].nTeams)));
   renderClassSyncRows();
+  if (!gravou) {
+    showToast(`${escalao}: a classificação foi apagada, mas a configuração não ficou gravada`, 'red');
+    return;
+  }
   showToast(`${escalao}: classificação apagada — publique para o site público`, 'green');
 };
 
@@ -4308,10 +4457,18 @@ window.guardarColarClass = function() {
     localStorage.setItem(teamStorageKey(_colarEscalao, _colarTeam, 'class'), JSON.stringify(final));
     teamCfg.lastSync = now;
     teamCfg.nTeams   = final.length;
-    saveClassConfig(cfg);
+    // Como no editor manual: as linhas já estão gravadas na sua chave; aqui
+    // confirma-se a marca de data, que é o que o escalão-array engolia — o
+    // «últ. atualização» dos Sub-15 nunca mudava, e ninguém sabia porquê.
+    const esc = _colarEscalao, ser = _colarTeam;
+    const marcou = saveClassConfig(cfg, (c) => (ser
+      ? c[esc] && c[esc].teams && c[esc].teams[ser] && c[esc].teams[ser].lastSync === now
+      : c[esc] && c[esc].lastSync === now));
     fecharColarClass();
     renderClassSyncRows();
-    showToast(`${_colarEscalao}${teamCfg.nome && _colarTeam ? ' · ' + teamCfg.nome : ''}: ${final.length} equipas guardadas`, 'green');
+    showToast(`${_colarEscalao}${teamCfg.nome && _colarTeam ? ' · ' + teamCfg.nome : ''}: ${final.length} equipas guardadas`
+      + (marcou ? '' : ' — a data de atualização não ficou registada'),
+      marcou ? 'green' : 'red');
   } else {
     let jogos = parsePastedJogos(ta.value);
     if (!jogos.length) { showToast('Nenhum jogo válido para guardar', 'red'); return; }
@@ -4343,10 +4500,16 @@ window.guardarColarClass = function() {
 
     teamCfg.lastJogos = now;
     teamCfg.nJogos    = jogos.length;
-    saveClassConfig(cfg);
+    const serJ = _colarTeam;
+    const marcouJ = saveClassConfig(cfg, (c) => (serJ
+      ? c[escalao] && c[escalao].teams && c[escalao].teams[serJ]
+        && c[escalao].teams[serJ].lastJogos === now
+      : c[escalao] && c[escalao].lastJogos === now));
     fecharColarClass();
     renderClassSyncRows();
-    showToast(`${escalao}${teamLabel ? ' · ' + teamLabel : ''}: ${added} jogos adicionados${updated?', '+updated+' actualizados':''}`, 'green');
+    showToast(`${escalao}${teamLabel ? ' · ' + teamLabel : ''}: ${added} jogos adicionados${updated?', '+updated+' actualizados':''}`
+      + (marcouJ ? '' : ' — a data de atualização não ficou registada'),
+      marcouJ ? 'green' : 'red');
   }
 };
 
