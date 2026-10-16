@@ -15,6 +15,16 @@ data/db.json
 data/publicacao/*
 !data/publicacao/.htaccess
 
+# Cópias de segurança do conteúdo, feitas pelo api/backup.php. O data/db.json
+# leva dados pessoais de menores lá dentro — data de nascimento, encarregado,
+# telefone —, e uma cópia dele é uma cópia desses dados: nunca no Git. O
+# manifesto também não, que nomeia as áreas e as contagens.
+#
+# A pasta de primeira escolha fica FORA da raiz web e portanto fora desta
+# árvore; esta linha cobre a segunda escolha, quando o alojamento não deixa
+# escrever lá fora.
+data/backups/
+
 # Ferramentas de validação (browser descarregado pelo Playwright)
 tools/node_modules/
 

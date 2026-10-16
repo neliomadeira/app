@@ -3819,6 +3819,407 @@ function testarCompararHtaccess(raizOriginal) {
   }
 }
 
+// O api/backup.php: cópias datadas do conteúdo, manifesto, verificação de
+// integridade e ensaio de recuperação.
+//
+// Corre o comando a sério, em processo próprio, sempre contra DADOS
+// FICTÍCIOS numa árvore temporária só desta sonda. Nunca contra o
+// data/db.json da cópia do site, nunca contra o do projeto: o que esta
+// ferramenta copia tem dados pessoais, e uma bateria de testes não é sítio
+// para eles.
+//
+// O nome ZZFICTICIO aparece em todos os valores semeados. É por ele que se
+// mede uma coisa que não se pode confirmar lendo o código: que o manifesto
+// não transcreve nada do conteúdo.
+function testarBackupConteudo(raizOriginal) {
+  const zlib = require('zlib');
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'jsc-bk-'));
+  const r = { casos: {} };
+  const ferramenta = path.join(raizOriginal, 'api', 'backup.php');
+  const B = path.join(base, 'backups');
+  const origem = path.join(base, 'db.json');
+
+  // php com o comando, e o essencial do que ele devolveu.
+  const correr = (args, opcoes = {}) => {
+    const res = spawnSync('php', (opcoes.ini || []).concat([ferramenta], args),
+      { encoding: 'utf8' });
+    return {
+      saida: res.status,
+      texto: (res.stdout || '') + (res.stderr || ''),
+    };
+  };
+  const bk = (args, opcoes) => correr(args.concat(['--destino', opcoes && opcoes.destino ? opcoes.destino : B]), opcoes);
+  const semearConteudo = (nNoticias) => {
+    const noticias = [];
+    for (let i = 1; i <= nNoticias; i++) {
+      noticias.push({ id: i, titulo: 'NOTICIA ZZFICTICIO ' + i, publicada: i % 2 === 1,
+                      resumo: '<p>texto ZZFICTICIO</p>' });
+    }
+    const dados = {
+      publicadoEm: '2026-10-16T09:00:00+00:00',
+      noticias,
+      // Os campos que fazem do db.json um ficheiro com dados pessoais: é
+      // exactamente esta forma que a allowlist pública deixa de fora.
+      atletas: [
+        { id: 11, nome: 'ATLETA ZZFICTICIO UM', dataNascimento: '2012-03-04',
+          encarregado: 'ENCARREGADO ZZFICTICIO', telefone: '900000000', escalao: 'Sub-13' },
+        { id: 12, nome: 'ATLETA ZZFICTICIO DOIS', dataNascimento: '2011-05-06',
+          encarregado: 'ENCARREGADO ZZFICTICIO', telefone: '900000001', escalao: 'Sub-15' },
+      ],
+      jogos: [{ id: 21, casa: 'EQUIPA ZZFICTICIO', fora: 'OUTRA ZZFICTICIO', data: '2026-11-01' }],
+      siteConfig: { heroTitle: 'TITULO ZZFICTICIO' },
+    };
+    fs.writeFileSync(origem, JSON.stringify(dados));
+    return dados;
+  };
+  const ficheirosDeConteudo = () => {
+    try { return fs.readdirSync(path.join(B, 'conteudo')).sort(); } catch (_) { return []; }
+  };
+  const manifesto = () => {
+    try { return JSON.parse(fs.readFileSync(path.join(B, 'manifesto.json'), 'utf8')); }
+    catch (_) { return null; }
+  };
+  const modo = (p) => {
+    try { return (fs.statSync(p).mode & 0o777).toString(8); } catch (_) { return '(ausente)'; }
+  };
+
+  try {
+    r.ferramentaExiste = fs.existsSync(ferramenta);
+    if (!r.ferramentaExiste) return r;
+
+    // ---- 1. Onde, antes de existir --------------------------------
+    semearConteudo(2);
+    r.casos.onde = bk(['--onde']);
+    r.casos.onde.pastaCriada = fs.existsSync(B);
+
+    // ---- 2. Sem --iniciar não cria nada ---------------------------
+    r.casos.semIniciar = bk(['--conteudo', '--origem', origem]);
+    r.casos.semIniciar.pastaCriada = fs.existsSync(B);
+
+    // ---- 3. A primeira cópia --------------------------------------
+    r.casos.primeira = bk(['--conteudo', '--iniciar', '--origem', origem, '--por', 'bateria']);
+    r.casos.primeira.ficheiros = ficheirosDeConteudo();
+    r.casos.primeira.entradas = (manifesto() || { entradas: [] }).entradas.length;
+    const m1 = manifesto();
+    r.casos.primeira.areas = m1 && m1.entradas[0] ? m1.entradas[0].areas : null;
+    r.casos.primeira.chaves = m1 && m1.entradas[0] ? Object.keys(m1.entradas[0]).sort() : [];
+    r.modos = {
+      pasta:     modo(B),
+      conteudo:  modo(path.join(B, 'conteudo')),
+      manifesto: modo(path.join(B, 'manifesto.json')),
+      htaccess:  modo(path.join(B, '.htaccess')),
+      copia:     modo(path.join(B, 'conteudo', r.casos.primeira.ficheiros[0] || 'x')),
+    };
+    r.htaccess = (() => {
+      try { return fs.readFileSync(path.join(B, '.htaccess'), 'utf8'); } catch (_) { return ''; }
+    })();
+    r.gitignoreDaPasta = (() => {
+      try { return fs.readFileSync(path.join(B, '.gitignore'), 'utf8'); } catch (_) { return ''; }
+    })();
+
+    // ---- 4. Conteúdo igual: não nasce ficheiro novo ----------------
+    r.casos.inalterado = bk(['--conteudo', '--origem', origem]);
+    r.casos.inalterado.ficheiros = ficheirosDeConteudo();
+    // O visto_em diz "este conteúdo ainda era o mesmo nesta data". Não se mede
+    // se MUDOU — o date('c') tem resolução de um segundo e duas execuções
+    // seguidas dão a mesma string. Mede-se que existe e que não é anterior à
+    // criação, que é o que ele promete.
+    const eVisto = manifesto().entradas[0];
+    r.casos.inalterado.temVisto = typeof eVisto.visto_em === 'string'
+      && eVisto.visto_em >= eVisto.criado_em;
+
+    // ---- 5. Conteúdo diferente: nasce ------------------------------
+    semearConteudo(5);
+    r.casos.segunda = bk(['--conteudo', '--origem', origem]);
+    r.casos.segunda.ficheiros = ficheirosDeConteudo();
+    const m2 = manifesto();
+    r.casos.segunda.entradas = m2.entradas.length;
+    r.casos.segunda.areasUltima = m2.entradas[m2.entradas.length - 1].areas;
+
+    // ---- 6. Listar e verificar ------------------------------------
+    r.casos.listar = bk(['--listar']);
+    r.casos.verificar = bk(['--verificar']);
+    r.casos.profundo = bk(['--verificar', '--profundo']);
+
+    // ---- 7. O manifesto não transcreve o conteúdo -----------------
+    const cruManifesto = fs.readFileSync(path.join(B, 'manifesto.json'), 'utf8');
+    r.fugaNoManifesto = (cruManifesto.match(/ZZFICTICIO|90000000|2012-03-04/g) || []);
+
+    // ---- 8. Um byte trocado numa cópia ---------------------------
+    const alvo = path.join(B, 'conteudo', ficheirosDeConteudo()[0]);
+    const bom = fs.readFileSync(alvo);
+    const estragado = Buffer.from(bom);
+    estragado[Math.floor(estragado.length / 2)] ^= 0xff;
+    fs.writeFileSync(alvo, estragado);
+    r.casos.corrompido = bk(['--verificar']);
+    fs.writeFileSync(alvo, bom);
+    r.casos.reposto = bk(['--verificar']);
+
+    // ---- 9. Um órfão na pasta -------------------------------------
+    const orfao = path.join(B, 'conteudo', 'db-orfao.json');
+    fs.writeFileSync(orfao, '{}');
+    r.casos.orfao = bk(['--verificar']);
+    fs.unlinkSync(orfao);
+
+    // ---- 10. Um .tmp de uma execução interrompida -----------------
+    const tmp = path.join(B, 'conteudo', 'db-interrompido.json.gz.tmp');
+    fs.writeFileSync(tmp, 'x');
+    r.casos.restoTmp = bk(['--verificar']);
+    fs.unlinkSync(tmp);
+
+    // ---- 11. Conteúdo trocado com o sha do FICHEIRO acertado ------
+    // O raso não tem como ver: o ficheiro está exactamente como o manifesto
+    // diz. É o --profundo que abre e compara o conteúdo.
+    const mTroca = manifesto();
+    const eTroca = mTroca.entradas[0];
+    const pTroca = path.join(B, eTroca.ficheiro);
+    const bomTroca = fs.readFileSync(pTroca);
+    const manifestoBom = fs.readFileSync(path.join(B, 'manifesto.json'), 'utf8');
+    const cruFalso = Buffer.from(JSON.stringify({ noticias: [{ id: 1, titulo: 'TROCADO' }] }));
+    const falso = eTroca.compressao === 'gzip' ? zlib.gzipSync(cruFalso) : cruFalso;
+    fs.writeFileSync(pTroca, falso);
+    eTroca.sha256_ficheiro = crypto.createHash('sha256').update(falso).digest('hex');
+    eTroca.bytes_ficheiro = falso.length;
+    fs.writeFileSync(path.join(B, 'manifesto.json'), JSON.stringify(mTroca, null, 1));
+    r.casos.trocaRaso = bk(['--verificar']);
+    r.casos.trocaProfundo = bk(['--verificar', '--profundo']);
+    fs.writeFileSync(pTroca, bomTroca);
+    fs.writeFileSync(path.join(B, 'manifesto.json'), manifestoBom);
+
+    // ---- 12. Manifesto ilegível: recusa e NÃO o substitui ---------
+    semearConteudo(7);
+    const manifestoIlegivel = 'isto nao e json {{{';
+    fs.writeFileSync(path.join(B, 'manifesto.json'), manifestoIlegivel);
+    r.casos.manifestoIlegivel = bk(['--conteudo', '--origem', origem]);
+    r.casos.manifestoIlegivel.intacto =
+      fs.readFileSync(path.join(B, 'manifesto.json'), 'utf8') === manifestoIlegivel;
+    r.casos.manifestoIlegivel.verificar = bk(['--verificar']).saida;
+    fs.writeFileSync(path.join(B, 'manifesto.json'), manifestoBom);
+
+    // ---- 13. Falha de escrita que nem o root contorna -------------
+    // As permissões não servem para medir isto: a bateria pode correr como
+    // root, e o root escreve em 0400 como se nada fosse. Medido: um chmod
+    // 0400 no manifesto não impediu a escrita. Estes dois casos falham pelo
+    // TIPO do ficheiro, que vale para qualquer utilizador.
+    semearConteudo(9);
+    const nAntes = ficheirosDeConteudo().length;
+    fs.renameSync(path.join(B, 'manifesto.json'), path.join(base, 'manifesto-guardado.json'));
+    fs.mkdirSync(path.join(B, 'manifesto.json'));
+    r.casos.manifestoPasta = bk(['--conteudo', '--origem', origem]);
+    r.casos.manifestoPasta.ficheirosDepois = ficheirosDeConteudo().length;
+    r.casos.manifestoPasta.semOrfaos = ficheirosDeConteudo().length === nAntes;
+    fs.rmdirSync(path.join(B, 'manifesto.json'));
+    fs.renameSync(path.join(base, 'manifesto-guardado.json'), path.join(B, 'manifesto.json'));
+
+    fs.renameSync(path.join(B, 'conteudo'), path.join(base, 'conteudo-guardado'));
+    fs.writeFileSync(path.join(B, 'conteudo'), 'nao sou uma pasta');
+    r.casos.conteudoFicheiro = bk(['--conteudo', '--origem', origem]);
+    fs.unlinkSync(path.join(B, 'conteudo'));
+    fs.renameSync(path.join(base, 'conteudo-guardado'), path.join(B, 'conteudo'));
+
+    // ---- 14. Origem inexistente e origem ilegível -----------------
+    r.casos.origemAusente = bk(['--conteudo', '--origem', path.join(base, 'nao-existe.json')]);
+    const mau = path.join(base, 'mau.json');
+    fs.writeFileSync(mau, 'nao sou json');
+    r.casos.origemMa = bk(['--conteudo', '--origem', mau]);
+    r.casos.origemMa.ficheiros = ficheirosDeConteudo().length;
+
+    // ---- 15. Tecto de memória ------------------------------------
+    const enorme = path.join(base, 'enorme.json');
+    const muitas = [];
+    for (let i = 0; i < 20000; i++) muitas.push({ id: i, titulo: 'N ' + i, resumo: 'x'.repeat(80) });
+    fs.writeFileSync(enorme, JSON.stringify({ noticias: muitas }));
+    r.casos.memoria = bk(['--conteudo', '--origem', enorme], { ini: ['-d', 'memory_limit=8M'] });
+    r.casos.memoria.bytesDaOrigem = fs.statSync(enorme).size;
+
+    // ---- 16. Ensaio de recuperação -------------------------------
+    // A recusa primeiro: dentro do projeto e dentro dos próprios backups.
+    const dentroDoProjeto = path.join(raizOriginal, 'data', 'ensaio-proibido');
+    r.casos.ensaioNoProjeto = bk(['--ensaio-recuperacao', '--ultimo', '--para', dentroDoProjeto]);
+    r.casos.ensaioNoProjeto.criou = fs.existsSync(dentroDoProjeto);
+    r.casos.ensaioNosBackups = bk(['--ensaio-recuperacao', '--ultimo', '--para', path.join(B, 'ensaio')]);
+    r.casos.ensaioNosBackups.criou = fs.existsSync(path.join(B, 'ensaio'));
+
+    // E o ensaio a sério, fora de tudo: o que sai tem de ser byte a byte o
+    // que entrou. É esta igualdade que prova que a cópia serve.
+    semearConteudo(4);
+    const cruSemeado = fs.readFileSync(origem);
+    bk(['--conteudo', '--origem', origem]);
+    const pastaEnsaio = path.join(base, 'ensaio');
+    r.casos.ensaio = bk(['--ensaio-recuperacao', '--ultimo', '--para', pastaEnsaio]);
+    const recuperado = (() => {
+      try { return fs.readFileSync(path.join(pastaEnsaio, 'db.json')); } catch (_) { return null; }
+    })();
+    r.casos.ensaio.bytesRecuperados = recuperado === null ? -1 : recuperado.length;
+    r.casos.ensaio.igualAoSemeado = recuperado !== null
+      && Buffer.compare(recuperado, cruSemeado) === 0;
+    r.casos.ensaio.temRelatorio = fs.existsSync(path.join(pastaEnsaio, 'ensaio.json'));
+    r.casos.ensaio.origemIntacta = Buffer.compare(fs.readFileSync(origem), cruSemeado) === 0;
+
+    // ---- 17. Sem espaço, e escrita a falhar com espaço à vista ----
+    // Duas coisas diferentes: a verificação ANTES de escrever (sai 4) e a
+    // escrita a falhar mesmo com o disco a dizer que há espaço (sai 5).
+    // Precisam de um sistema de ficheiros próprio; sem poder montá-lo, a
+    // sonda diz que saltou em vez de dar por verificado o que não mediu.
+    const pequena = fs.mkdtempSync(path.join(os.tmpdir(), 'jsc-bk-fs1-'));
+    const normal  = fs.mkdtempSync(path.join(os.tmpdir(), 'jsc-bk-fs2-'));
+    const montar = (ponto, tamanho) =>
+      spawnSync('mount', ['-t', 'tmpfs', '-o', 'size=' + tamanho, 'tmpfs', ponto],
+        { encoding: 'utf8' }).status === 0;
+    r.semSistemaDeFicheiros = !(montar(pequena, '256k') && montar(normal, '2m'));
+    if (!r.semSistemaDeFicheiros) {
+      try {
+        // Um disco que não chega para o ficheiro, ponto. 400 KB de origem sem
+        // compressão num sistema de ficheiros de 256 KiB, e margem zero para
+        // a recusa não poder ser atribuída à margem.
+        // A origem fica FORA do sistema de ficheiros pequeno: 400 KB não
+        // cabem em 256 KiB, e a primeira versão desta sonda rebentou a
+        // tentar escrever lá a própria origem.
+        const grande = path.join(base, 'grande.json');
+        fs.writeFileSync(grande, JSON.stringify({ noticias: muitas.slice(0, 3000) }));
+        r.bytesDaOrigemGrande = fs.statSync(grande).size;
+        r.casos.semEspacoReal = bk(['--conteudo', '--iniciar', '--origem', grande,
+          '--sem-compressao', '--margem-bytes', '0'], { destino: path.join(pequena, 'b1') });
+        r.casos.semEspacoReal.ficheiros = (() => {
+          try { return fs.readdirSync(path.join(pequena, 'b1', 'conteudo')).length; }
+          catch (_) { return -1; }
+        })();
+
+        // E o disco que chegava para o ficheiro mas não para o ficheiro mais a
+        // margem. Um disco cheio não estraga só o backup: o
+        // jsc_escrever_verificado() da geração passa a falhar e a PUBLICAÇÃO
+        // aborta. É por isso que a margem existe, e que a recusa é um 4.
+        r.casos.semEspacoMargem = bk(['--conteudo', '--iniciar', '--origem', grande],
+          { destino: path.join(pequena, 'b2') });
+        r.casos.semEspacoMargem.ficheiros = (() => {
+          try { return fs.readdirSync(path.join(pequena, 'b2', 'conteudo')).length; }
+          catch (_) { return -1; }
+        })();
+
+        // Escrita a falhar com espaço à vista: a primeira cópia entra, o
+        // sistema de ficheiros passa a só-leitura e a segunda falha. É o caso
+        // que a verificação de espaço nunca cobre.
+        const Bro = path.join(normal, 'ro');
+        const pequeno = path.join(normal, 'pequeno.json');
+        fs.writeFileSync(pequeno, JSON.stringify({ noticias: [{ id: 1, titulo: 'ZZFICTICIO' }] }));
+        r.casos.antesDeRo = bk(['--conteudo', '--iniciar', '--origem', pequeno], { destino: Bro });
+        fs.writeFileSync(pequeno, JSON.stringify({ noticias: [
+          { id: 1, titulo: 'ZZFICTICIO' }, { id: 2, titulo: 'ZZFICTICIO B' }] }));
+        const nRoAntes = fs.readdirSync(path.join(Bro, 'conteudo')).length;
+        spawnSync('mount', ['-o', 'remount,ro', normal]);
+        r.casos.soLeitura = bk(['--conteudo', '--origem', pequeno], { destino: Bro });
+        r.casos.soLeitura.livreSegundoODisco = (() => {
+          const res = spawnSync('php', ['-r', 'echo (int)disk_free_space($argv[1]);',
+            path.join(Bro, 'conteudo')], { encoding: 'utf8' });
+          return Number(res.stdout || 0);
+        })();
+        const dentro = fs.readdirSync(path.join(Bro, 'conteudo'));
+        r.casos.soLeitura.ficheiros = dentro.length;
+        r.casos.soLeitura.semRestoTmp = dentro.every((f) => !f.endsWith('.tmp'));
+        r.casos.soLeitura.semOrfaos = dentro.length === nRoAntes;
+      } finally {
+        spawnSync('mount', ['-o', 'remount,rw', normal]);
+        [pequena, normal].forEach((ponto) => {
+          spawnSync('umount', [ponto]);
+          try { fs.rmdirSync(ponto); } catch (_) {}
+        });
+      }
+    } else {
+      [pequena, normal].forEach((ponto) => {
+        spawnSync('umount', [ponto]);
+        try { fs.rmdirSync(ponto); } catch (_) {}
+      });
+    }
+
+    // ---- 18. A fonte: o que esta fase promete não ter -------------
+    const fonte = fs.readFileSync(ferramenta, 'utf8')
+      .replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    r.fonte = {
+      temGuardaWeb: /PHP_SAPI\s*!==\s*'cli'/.test(fonte) && /http_response_code\(404\)/.test(fonte),
+      semRestauro: fonte.indexOf('--restaurar') === -1,
+      naoEscreveNoDataFile: !/file_put_contents\s*\(\s*DATA_FILE|jsc_bk_escrever\s*\(\s*DATA_FILE/.test(fonte),
+      semBaseDeDados: !/jsc_db|PDO|inscricoes|mensagens/i.test(fonte),
+      semExec: !/\bexec\s*\(|shell_exec|passthru|proc_open|system\s*\(/.test(fonte),
+    };
+    r.gitignoreDoProjeto = (() => {
+      try { return fs.readFileSync(path.join(raizOriginal, '.gitignore'), 'utf8'); } catch (_) { return ''; }
+    })();
+
+    return r;
+  } finally {
+    fs.rmSync(base, { recursive: true, force: true });
+    try { fs.rmSync(path.join(raizOriginal, 'data', 'ensaio-proibido'), { recursive: true, force: true }); } catch (_) {}
+  }
+}
+
+// A pasta de backups e a ferramenta, pedidas pela web, num Apache a sério.
+//
+// Mede-se duas vezes de propósito: com a pasta a 0700, que é como o
+// --iniciar a deixa, e depois a 0755. A primeira medição por si não prova
+// nada sobre o .htaccess — uma pasta a que o Apache não consegue entrar dá
+// 403 por isso mesmo. É a segunda que mostra a regra a trabalhar.
+async function testarBackupSemWeb(raizOriginal) {
+  const copia = fs.mkdtempSync(path.join(os.tmpdir(), 'jsc-bkweb-'));
+  fs.cpSync(raizOriginal, copia, {
+    recursive: true,
+    filter: (origem) => !/[\\/](node_modules|\.git)([\\/]|$)/.test(origem),
+  });
+  fs.chmodSync(copia, 0o755);
+  const r = { pedidos: {} };
+  try {
+    const fonte = path.join(copia, 'fonte.json');
+    fs.writeFileSync(fonte, JSON.stringify({ noticias: [{ id: 1, titulo: 'ZZFICTICIO WEB' }] }));
+    const B = path.join(copia, 'data', 'backups');
+    const criar = spawnSync('php', [path.join(copia, 'api', 'backup.php'),
+      '--conteudo', '--iniciar', '--origem', fonte, '--destino', B], { encoding: 'utf8' });
+    r.criou = criar.status === 0;
+    r.saidaDoCriar = (criar.stdout || '') + (criar.stderr || '');
+    fs.unlinkSync(fonte);
+    const copias = (() => {
+      try { return fs.readdirSync(path.join(B, 'conteudo')); } catch (_) { return []; }
+    })();
+    r.nCopias = copias.length;
+
+    const srv = await arrancarServidor({ raiz: copia, portaHttp: 8099, portaPhp: 8098 });
+    if (srv.modo !== 'apache') {
+      if (srv.parar) await srv.parar();
+      fs.rmSync(copia, { recursive: true, force: true });
+      return { semApache: true };
+    }
+    try {
+      const pedir = async (caminho) => {
+        const res = await fetch(srv.url + caminho, {
+          headers: { 'X-Forwarded-Proto': 'https' }, redirect: 'manual',
+        });
+        const texto = await res.text();
+        return { estado: res.status, inicio: texto.slice(0, 120) };
+      };
+      // Como o --iniciar deixa a pasta: 0700.
+      r.pedidos.manifesto0700 = await pedir('/data/backups/manifesto.json');
+      r.pedidos.copia0700 = await pedir('/data/backups/conteudo/' + (copias[0] || 'nada'));
+      // E agora com a pasta aberta, para a medição não ser sobre as permissões.
+      fs.chmodSync(path.join(copia, 'data'), 0o755);
+      fs.chmodSync(B, 0o755);
+      fs.chmodSync(path.join(B, 'conteudo'), 0o755);
+      if (copias[0]) fs.chmodSync(path.join(B, 'conteudo', copias[0]), 0o644);
+      fs.chmodSync(path.join(B, 'manifesto.json'), 0o644);
+      r.pedidos.manifesto0755 = await pedir('/data/backups/manifesto.json');
+      r.pedidos.copia0755 = await pedir('/data/backups/conteudo/' + (copias[0] || 'nada'));
+      r.pedidos.listagem = await pedir('/data/backups/');
+      // A ferramenta pedida pela web não responde nem se mostra.
+      r.pedidos.ferramenta = await pedir('/api/backup.php');
+      // Controlo: um ficheiro público do mesmo servidor abre. Sem isto, um
+      // 403 em tudo passaria por sucesso.
+      r.pedidos.controlo = await pedir('/index.html');
+      return r;
+    } finally {
+      if (srv.parar) await srv.parar();
+    }
+  } finally {
+    fs.rmSync(copia, { recursive: true, force: true });
+  }
+}
+
 // A coluna Forma, no browser.
 async function testarColunaForma(browser, url, linhas) {
   const ctx = await browser.newContext({
@@ -8323,6 +8724,212 @@ async function testarAdminHistoria(browser, url) {
       verificar('a ferramenta cobre as doze regras de segurança e os dois blocos',
         ch.nRegras === 12 && ch.nBlocos === 2,
         'regras ' + ch.nRegras + ' blocos ' + ch.nBlocos);
+    }
+
+    // ---- api/backup.php: cópias datadas do conteúdo ------------------
+    // O que existia antes disto: o data/publicacao/anterior/ guarda UMA
+    // geração e a publicação seguinte escreve-lhe por cima, e o "Exportar
+    // tudo" do painel corre no browser e deixa um ficheiro nos Downloads.
+    // Nenhum dos dois é um arquivo com histórico, nem é verificável.
+    //
+    // Tudo o que esta secção mede corre contra dados FICTÍCIOS numa árvore
+    // temporária: a ferramenta copia o data/db.json, que leva dados pessoais
+    // de menores lá dentro, e uma bateria de testes não é sítio para eles.
+    console.log('\napi/backup.php: cópias datadas, verificáveis, e sem restauro');
+    {
+      const bk = testarBackupConteudo(raiz);
+      const c = bk.casos;
+      const diz = (nome, agulha) => (c[nome].texto || '').indexOf(agulha) !== -1;
+
+      verificar('medição válida: a ferramenta existe e corre',
+        bk.ferramentaExiste === true && c.onde.saida === 0,
+        'existe ' + bk.ferramentaExiste + ' --onde ' + (c.onde || {}).saida);
+      verificar('--onde não cria pasta nenhuma',
+        c.onde.pastaCriada === false && diz('onde', 'precisa de --iniciar'),
+        'criou ' + c.onde.pastaCriada);
+      // Sem isto, uma execução no sítio errado semeava pastas de backups por
+      // onde passasse e ninguém sabia onde estavam as cópias a sério.
+      verificar('sem --iniciar: sai 3 e não cria a pasta',
+        c.semIniciar.saida === 3 && c.semIniciar.pastaCriada === false,
+        'saída ' + c.semIniciar.saida + ' criou ' + c.semIniciar.pastaCriada);
+
+      verificar('a primeira cópia: sai 0, um ficheiro datado e uma entrada no manifesto',
+        c.primeira.saida === 0 && c.primeira.ficheiros.length === 1
+        && /^db-\d{8}T\d{6}Z\.json(\.gz)?$/.test(c.primeira.ficheiros[0])
+        && c.primeira.entradas === 1,
+        'saída ' + c.primeira.saida + ' ' + JSON.stringify(c.primeira.ficheiros));
+      verificar('o manifesto guarda as contagens por área, não os valores',
+        JSON.stringify(c.primeira.areas)
+          === JSON.stringify({ atletas: 2, jogos: 1, noticias: 2, publicadoEm: 25, siteConfig: 1 }),
+        JSON.stringify(c.primeira.areas));
+      verificar('cada entrada tem as duas impressões digitais, os dois tamanhos e a origem',
+        ['areas', 'bytes_conteudo', 'bytes_ficheiro', 'compressao', 'criado_em', 'ficheiro',
+         'origem', 'por', 'sha256_conteudo', 'sha256_ficheiro', 'tipo', 'visto_em']
+          .every((k) => c.primeira.chaves.indexOf(k) !== -1),
+        JSON.stringify(c.primeira.chaves));
+      // Um índice que transcrevesse dados pessoais era mais uma cópia deles.
+      verificar('o manifesto não transcreve um único valor do conteúdo',
+        bk.fugaNoManifesto.length === 0,
+        JSON.stringify(bk.fugaNoManifesto));
+
+      verificar('pastas a 0700, cópias a 0600: nada disto é para ser lido por outros',
+        bk.modos.pasta === '700' && bk.modos.conteudo === '700'
+        && bk.modos.manifesto === '600' && bk.modos.copia === '600',
+        JSON.stringify(bk.modos));
+      // O .htaccess tem de ser legível: um .htaccess que o Apache não abre
+      // não nega nada por si — o 403 que daí vem é da pasta, não da regra.
+      verificar('o .htaccess da pasta fica legível e nega nas duas sintaxes',
+        bk.modos.htaccess === '644'
+        && /<IfModule mod_authz_core\.c>\s*\n\s*Require all denied/.test(bk.htaccess)
+        && /<IfModule !mod_authz_core\.c>[\s\S]*Deny from all/.test(bk.htaccess)
+        && /Options -Indexes/.test(bk.htaccess),
+        'modo ' + bk.modos.htaccess);
+      verificar('a pasta leva um .gitignore que exclui tudo, e o projeto ignora data/backups/',
+        /^\*$/m.test(bk.gitignoreDaPasta)
+        && /^data\/backups\/$/m.test(bk.gitignoreDoProjeto),
+        JSON.stringify(bk.gitignoreDaPasta.split('\n').filter((l) => l && l[0] !== '#')));
+
+      // É isto que torna uma execução de hora a hora barata: sem alterações,
+      // não nasce ficheiro.
+      verificar('conteúdo igual ao da última cópia: não escreve nada e sai 0',
+        c.inalterado.saida === 0 && c.inalterado.ficheiros.length === 1
+        && diz('inalterado', 'sem alterações') && c.inalterado.temVisto === true,
+        'saída ' + c.inalterado.saida + ' ficheiros ' + c.inalterado.ficheiros.length);
+      verificar('conteúdo diferente: nasce a segunda cópia, com as contagens novas',
+        c.segunda.saida === 0 && c.segunda.ficheiros.length === 2 && c.segunda.entradas === 2
+        && c.segunda.areasUltima.noticias === 5,
+        'saída ' + c.segunda.saida + ' ' + JSON.stringify(c.segunda.areasUltima));
+      verificar('--listar mostra as duas, e --verificar passa, raso e profundo',
+        c.listar.saida === 0 && /2 cópia\(s\)/.test(c.listar.texto)
+        && c.verificar.saida === 0 && c.profundo.saida === 0
+        && /SEM PROBLEMAS/.test(c.profundo.texto),
+        'listar ' + c.listar.saida + ' verificar ' + c.verificar.saida + ' profundo ' + c.profundo.saida);
+
+      verificar('um byte trocado numa cópia: --verificar sai 1 e nomeia o ficheiro',
+        c.corrompido.saida === 1 && diz('corrompido', 'o ficheiro mudou desde que foi gravado')
+        && c.reposto.saida === 0,
+        'corrompido ' + c.corrompido.saida + ' reposto ' + c.reposto.saida);
+      // O órfão é pior do que a ausência da cópia: aparece na pasta, parece um
+      // backup e não tem impressão digital com que o comparar.
+      verificar('um ficheiro que o manifesto não conhece: sai 1 e é nomeado como órfão',
+        c.orfao.saida === 1 && diz('orfao', 'órfão'),
+        'saída ' + c.orfao.saida);
+      verificar('um .tmp de uma execução interrompida: sai 1 e é nomeado',
+        c.restoTmp.saida === 1 && diz('restoTmp', 'ficheiro temporário deixado para trás'),
+        'saída ' + c.restoTmp.saida);
+      // O caso que só o --profundo apanha: o ficheiro está exactamente como o
+      // manifesto diz, e o que está lá dentro é outra coisa.
+      verificar('conteúdo substituído com o sha do ficheiro acertado: o raso passa, o profundo apanha',
+        c.trocaRaso.saida === 0 && c.trocaProfundo.saida === 1
+        && diz('trocaProfundo', 'o CONTEÚDO não corresponde ao registado'),
+        'raso ' + c.trocaRaso.saida + ' profundo ' + c.trocaProfundo.saida);
+
+      // Um manifesto ilegível é o índice de todas as cópias ilegível. Escrever
+      // por cima apagaria a memória de tudo o que lá está.
+      verificar('manifesto ilegível: recusa com 2 e não lhe toca',
+        c.manifestoIlegivel.saida === 2 && c.manifestoIlegivel.intacto === true
+        && diz('manifestoIlegivel', 'não é legível'),
+        'saída ' + c.manifestoIlegivel.saida + ' intacto ' + c.manifestoIlegivel.intacto);
+      verificar('manifesto impossível de abrir: sai 5 e desfaz a cópia que já tinha escrito',
+        c.manifestoPasta.saida === 5 && c.manifestoPasta.semOrfaos === true
+        && diz('manifestoPasta', 'removido para não ficar um órfão'),
+        'saída ' + c.manifestoPasta.saida + ' ficheiros ' + c.manifestoPasta.ficheirosDepois);
+      verificar('pasta de cópias impossível de escrever: sai 5 e nada é registado',
+        c.conteudoFicheiro.saida === 5 && diz('conteudoFicheiro', 'nada foi registado'),
+        'saída ' + c.conteudoFicheiro.saida);
+
+      verificar('origem inexistente: sai 2',
+        c.origemAusente.saida === 2 && diz('origemAusente', 'não há conteúdo para copiar'),
+        'saída ' + c.origemAusente.saida);
+      // Guardar um ficheiro ilegível como se fosse um backup esconde a perda.
+      verificar('origem que não é JSON válido: sai 2 e não guarda nada',
+        c.origemMa.saida === 2 && c.origemMa.ficheiros === 2
+        && diz('origemMa', 'não é JSON válido'),
+        'saída ' + c.origemMa.saida + ' ficheiros ' + c.origemMa.ficheiros);
+      verificar('ficheiro maior do que a memória da execução: sai 2 com o número, não um fatal error',
+        c.memoria.saida === 2 && diz('memoria', 'memory_limit desta execução')
+        && c.memoria.bytesDaOrigem > 2000000,
+        'saída ' + c.memoria.saida + ' origem ' + c.memoria.bytesDaOrigem + ' bytes');
+
+      // Nesta fase não existe restauro. O ensaio prova que a cópia serve,
+      // escrevendo numa pasta à parte, e recusa-se a escrever noutro sítio.
+      verificar('ensaio apontado para dentro do projeto: recusa com 2 e não cria nada lá',
+        c.ensaioNoProjeto.saida === 2 && c.ensaioNoProjeto.criou === false
+        && diz('ensaioNoProjeto', 'recuso-me a ensaiar'),
+        'saída ' + c.ensaioNoProjeto.saida + ' criou ' + c.ensaioNoProjeto.criou);
+      verificar('ensaio apontado para dentro dos próprios backups: recusa com 2',
+        c.ensaioNosBackups.saida === 2 && c.ensaioNosBackups.criou === false
+        && diz('ensaioNosBackups', 'os backups'),
+        'saída ' + c.ensaioNosBackups.saida + ' criou ' + c.ensaioNosBackups.criou);
+      // A igualdade byte a byte é a prova de que a cópia serve para recuperar.
+      verificar('ensaio fora de tudo: sai 0 e o que sai é byte a byte o que entrou',
+        c.ensaio.saida === 0 && c.ensaio.igualAoSemeado === true
+        && c.ensaio.temRelatorio === true && c.ensaio.origemIntacta === true
+        && /o site NÃO foi tocado/.test(c.ensaio.texto),
+        'saída ' + c.ensaio.saida + ' igual ' + c.ensaio.igualAoSemeado
+        + ' bytes ' + c.ensaio.bytesRecuperados);
+
+      if (bk.semSistemaDeFicheiros) {
+        console.log('  (sem espaço e falha de escrita saltados: não foi possível montar um tmpfs)');
+      } else {
+        // Um disco cheio não estraga só o backup: o jsc_escrever_verificado()
+        // da geração passa a falhar e a PUBLICAÇÃO aborta. Por isso há margem,
+        // e por isso o backup desiste em vez de encher o disco.
+        verificar('o ficheiro não cabe no disco, com margem zero: sai 4 e não escreve nada',
+          c.semEspacoReal.saida === 4 && c.semEspacoReal.ficheiros === 0
+          && /sem espaço/.test(c.semEspacoReal.texto)
+          && /Nada foi escrito/.test(c.semEspacoReal.texto)
+          && bk.bytesDaOrigemGrande > 300000,
+          'saída ' + c.semEspacoReal.saida + ' ficheiros ' + c.semEspacoReal.ficheiros
+          + ' origem ' + bk.bytesDaOrigemGrande + ' bytes');
+        verificar('cabe o ficheiro mas não a margem que mantém a publicação viva: sai 4',
+          c.semEspacoMargem.saida === 4 && c.semEspacoMargem.ficheiros === 0
+          && /mais 1048576 de margem/.test(c.semEspacoMargem.texto),
+          'saída ' + c.semEspacoMargem.saida + ' ficheiros ' + c.semEspacoMargem.ficheiros);
+        // O caso que a verificação de espaço não cobre: o disco diz que há
+        // espaço e a escrita falha mesmo assim.
+        verificar('escrita a falhar com o disco a dizer que há espaço: sai 5, sem restos nem órfãos',
+          c.antesDeRo.saida === 0 && c.soLeitura.saida === 5
+          && c.soLeitura.livreSegundoODisco > 0
+          && c.soLeitura.semRestoTmp === true && c.soLeitura.semOrfaos === true,
+          'saída ' + c.soLeitura.saida + ' livre ' + c.soLeitura.livreSegundoODisco
+          + ' restos ' + c.soLeitura.semRestoTmp + ' órfãos ' + !c.soLeitura.semOrfaos);
+      }
+
+      // O que esta fase promete NÃO ter, medido na fonte sem comentários.
+      verificar('a fonte não tem restauro, não escreve no data/db.json e não toca em dados pessoais',
+        bk.fonte.semRestauro === true && bk.fonte.naoEscreveNoDataFile === true
+        && bk.fonte.semBaseDeDados === true && bk.fonte.semExec === true
+        && bk.fonte.temGuardaWeb === true,
+        JSON.stringify(bk.fonte));
+
+      // E a pasta e a ferramenta pedidas por um Apache a sério.
+      const web = await testarBackupSemWeb(raiz);
+      if (web.semApache) {
+        console.log('  (web saltada: sem Apache não há .htaccess a aplicar)');
+      } else {
+        verificar('medição válida: a cópia foi criada na árvore servida e o servidor serve',
+          web.criou === true && web.nCopias === 1 && web.pedidos.controlo.estado === 200,
+          'criou ' + web.criou + ' cópias ' + web.nCopias
+          + ' /index.html ' + web.pedidos.controlo.estado);
+        verificar('data/backups/ não é servido: manifesto e cópia dão 403 como a pasta fica',
+          web.pedidos.manifesto0700.estado === 403 && web.pedidos.copia0700.estado === 403,
+          'manifesto ' + web.pedidos.manifesto0700.estado
+          + ' cópia ' + web.pedidos.copia0700.estado);
+        // Com a pasta a 0755 a medição deixa de ser sobre as permissões: o que
+        // nega passa a ser o .htaccess, e tem de negar igual.
+        verificar('e continua a não ser servido com a pasta aberta a 0755',
+          web.pedidos.manifesto0755.estado === 403 && web.pedidos.copia0755.estado === 403
+          && web.pedidos.listagem.estado === 403,
+          'manifesto ' + web.pedidos.manifesto0755.estado
+          + ' cópia ' + web.pedidos.copia0755.estado
+          + ' listagem ' + web.pedidos.listagem.estado);
+        verificar('a ferramenta pedida pela web não responde nem mostra a fonte',
+          web.pedidos.ferramenta.estado === 404
+          && web.pedidos.ferramenta.inicio.indexOf('<?php') === -1
+          && web.pedidos.ferramenta.inicio.indexOf('jsc_bk_') === -1,
+          web.pedidos.ferramenta.estado + ' ' + JSON.stringify(web.pedidos.ferramenta.inicio));
+      }
     }
 
     // ---- Nada dentro de uploads/ é executável ----------------------
