@@ -2971,6 +2971,11 @@ async function testarUploadsSemExecucao(raizOriginal) {
           // no sonda.php.png.
           executou: texto.indexOf('PHP_EXECUTOU') !== -1 && texto.indexOf('<?php') === -1,
           servidoEmBruto: texto.indexOf('<?php') !== -1,
+          // Um AddHandler que nomeie um pacote inexistente faz o Apache cair
+          // no handler por omissão e servir o .php como texto. É o modo
+          // catastrófico de o bloco do cPanel ficar desactualizado, e é por
+          // aqui que se apanha, nos endpoints a sério.
+          temFontePhp: texto.indexOf('<?php') !== -1 || texto.indexOf('<?=') !== -1,
           tipo: (res.headers.get('content-type') || '').split(';')[0],
         };
       } catch (e) { return { estado: -1, executou: false, tipo: 'ERRO ' + e.message }; }
@@ -8026,6 +8031,77 @@ async function testarAdminHistoria(browser, url) {
           semComentLg.indexOf('function jscLogoOrigem'))));
     }
 
+    // ---- Os blocos do cPanel no .htaccess da raiz -------------------
+    // Medido: o ficheiro do servidor tinha 112 directivas efectivas e o do
+    // repositório 81 — as 31 em falta eram exactamente estes dois blocos, e
+    // nenhuma directiva nossa faltava do lado de lá. Sem eles, enviar este
+    // ficheiro por cima do que está no ar apagava o handler do PHP 8.3 e
+    // derrubava todo o PHP do site.
+    console.log('\no .htaccess da raiz carrega os blocos do alojamento, intactos');
+    {
+      const ht = fs.readFileSync(path.join(raiz, '.htaccess'), 'utf8');
+      const conta = (agulha) => ht.split(agulha).length - 1;
+      // Para CONTAR directivas é preciso tirar os comentários: o cabeçalho de
+      // aviso que precede os blocos menciona <IfModule php8_module> e
+      // <IfModule lsapi_module> para explicar que podem ser inertes em
+      // PHP-FPM, e a contagem crua apanhava o comentário e o código. Medido:
+      // dava 2 onde o ficheiro tem 1.
+      const htDir = ht.replace(/^\s*#.*$/gm, '');
+      const contaDir = (agulha) => htDir.split(agulha).length - 1;
+
+      verificar('o bloco do handler existe uma única vez, com os marcadores exactos',
+        conta('# php -- BEGIN cPanel-generated handler, do not edit') === 1
+        && conta('# php -- END cPanel-generated handler, do not edit') === 1,
+        'begin: ' + conta('# php -- BEGIN cPanel-generated handler, do not edit')
+        + ' end: ' + conta('# php -- END cPanel-generated handler, do not edit'));
+      verificar('o bloco das directivas php ini existe uma única vez, com os marcadores exactos',
+        conta('# BEGIN cPanel-generated php ini directives, do not edit') === 1
+        && conta('# END cPanel-generated php ini directives, do not edit') === 1,
+        'begin: ' + conta('# BEGIN cPanel-generated php ini directives, do not edit')
+        + ' end: ' + conta('# END cPanel-generated php ini directives, do not edit'));
+      verificar('o AddHandler nomeia ea-php83 e as três extensões, com um único AddHandler de PHP',
+        ht.indexOf('  AddHandler application/x-httpd-ea-php83 .php .php8 .phtml\n') !== -1
+        && conta('AddHandler application/x-httpd-ea-php') === 1,
+        (ht.match(/AddHandler[^\n]*/g) || []).join(' | '));
+      // As aspas curvas são como o cPanel escreve o comentário, e é por elas
+      // que ele reconhece o bloco como seu. Quem transcrever à mão e as
+      // "corrigir" faz o cPanel acrescentar um segundo bloco.
+      verificar('as aspas tipográficas do comentário do handler estão intactas',
+        ht.indexOf('# Set the \u201cea-php83\u201d package as the default \u201cPHP\u201d programming language.') !== -1,
+        (ht.match(/# Set the[^\n]*/) || ['(ausente)'])[0]);
+      verificar('os dois blocos ficam no fim, depois das nossas regras',
+        ht.indexOf('# BEGIN cPanel-generated php ini directives') > ht.indexOf('RewriteRule ^uploads/')
+        && ht.indexOf('# php -- BEGIN cPanel-generated handler')
+             > ht.indexOf('# BEGIN cPanel-generated php ini directives'),
+        'uploads/ em ' + ht.indexOf('RewriteRule ^uploads/')
+        + ', ini em ' + ht.indexOf('# BEGIN cPanel-generated php ini directives')
+        + ', handler em ' + ht.indexOf('# php -- BEGIN cPanel-generated handler'));
+      verificar('as doze directivas php estão nos dois IfModule, php8_module e lsapi_module',
+        contaDir('<IfModule php8_module>') === 1 && contaDir('<IfModule lsapi_module>') === 1
+        && contaDir('php_value post_max_size 8M') === 2
+        && contaDir('php_value upload_max_filesize 2M') === 2
+        && contaDir('php_flag display_errors Off') === 2,
+        'php8_module: ' + contaDir('<IfModule php8_module>')
+        + ' lsapi: ' + contaDir('<IfModule lsapi_module>')
+        + ' post_max_size: ' + contaDir('php_value post_max_size 8M')
+        + ' upload_max: ' + contaDir('php_value upload_max_filesize 2M')
+        + ' display_errors: ' + contaDir('php_flag display_errors Off'));
+      // Os blocos trazem caminhos do alojamento. Caminhos não são segredos,
+      // mas uma palavra-passe ou uma chave no .htaccess seria.
+      verificar('o .htaccess não traz credenciais nem segredos',
+        !/password\s*=|passwd\s*=|DB_PASS|api[_-]?key|secret|AuthUserFile/i.test(ht),
+        (ht.match(/password|passwd|DB_PASS|api[_-]?key|secret|AuthUserFile/ig) || []).join(','));
+      // As nossas regras continuam todas lá: a incorporação acrescenta, não
+      // substitui. Uma amostra das que importam para a segurança.
+      verificar('nenhuma regra de segurança nossa se perdeu na incorporação',
+        /RewriteRule \^uploads\/\.\*\\\.\(php\|phtml/.test(ht)
+        && /RewriteRule \^uploads\/logos\/\.\+ - \[F,L\]/.test(ht)
+        && /<FilesMatch "\\\.\(env\|json\|log\|sql\|bak\|sh\|bat\|md\)\$">/.test(ht)
+        && /RedirectMatch 403 \^\/scraper/.test(ht)
+        && /Header always set Content-Security-Policy/.test(ht)
+        && /X-Robots-Tag/.test(ht));
+    }
+
     // ---- Nada dentro de uploads/ é executável ----------------------
     console.log('\nuploads/: as imagens abrem, os executáveis dão 403');
     {
@@ -8046,9 +8122,17 @@ async function testarAdminHistoria(browser, url) {
       verificar('.htaccess da raiz: a allowlist das imagens em uploads/logos/',
         /RewriteCond %\{REQUEST_URI\} !\\\.\(png\|jpe\?g\|webp\)\$ \[NC\]/.test(htRaiz)
         && /RewriteRule \^uploads\/logos\/\.\+ - \[F,L\]/.test(htRaiz));
-      verificar('.htaccess da raiz: o bloco do cPanel não foi tocado — nem existe aqui',
-        htRaiz.indexOf('cPanel-generated') === -1 && htRaiz.indexOf('AddHandler') === -1,
-        'o handler do cPanel vive só no ficheiro do servidor');
+      // Esta asserção fixava a AUSÊNCIA dos blocos do cPanel, que era a verdade
+      // quando a regra dos uploads foi escrita: o handler vivia só no servidor.
+      // Passou a ser o contrário — os blocos estão versionados de propósito,
+      // para um envio por engano não apagar o handler do PHP 8.3. O que aqui
+      // importa é que a regra dos uploads é nossa e vem ANTES do território do
+      // alojamento; a integridade dos blocos é medida na sua própria secção.
+      verificar('.htaccess da raiz: a regra dos uploads vem antes dos blocos do cPanel',
+        htRaiz.indexOf('RewriteRule ^uploads/') !== -1
+        && htRaiz.indexOf('RewriteRule ^uploads/') < htRaiz.indexOf('cPanel-generated'),
+        'uploads em ' + htRaiz.indexOf('RewriteRule ^uploads/')
+        + ', cPanel em ' + htRaiz.indexOf('cPanel-generated'));
       verificar('a mesma regra existe nos .htaccess de uploads/, como rede',
         /RewriteRule \\\.\(php\|phtml/.test(fs.readFileSync(path.join(raiz, 'uploads', '.htaccess'), 'utf8'))
         && /RewriteCond %\{REQUEST_URI\} !\\\.\(png\|jpe\?g\|webp\)\$/.test(
@@ -8104,6 +8188,13 @@ async function testarAdminHistoria(browser, url) {
       verificar('CONTROLO: o PHP legítimo fora de uploads/ continua a correr',
         ex.apiLoad.estado === 200 && ex.apiAuth.estado === 200,
         'load=' + ex.apiLoad.estado + ' auth=' + ex.apiAuth.estado);
+      // O modo catastrófico do bloco do cPanel desactualizado: o PHP servido
+      // como texto, com o código-fonte à vista de quem pedir.
+      verificar('CONTROLO: nenhum endpoint PHP é servido como código-fonte',
+        ex.apiLoad.temFontePhp === false && ex.apiAuth.temFontePhp === false
+        && /json/.test(ex.apiLoad.tipo),
+        'load: ' + ex.apiLoad.temFontePhp + ' (' + ex.apiLoad.tipo + ')'
+        + ' auth: ' + ex.apiAuth.temFontePhp);
       verificar('CONTROLO: as páginas do site continuam a abrir',
         ex.indexHtml.estado === 200, String(ex.indexHtml.estado));
 

@@ -237,3 +237,68 @@ Options -Indexes
 </IfModule>
 # O favicon.ico existe na raiz, com 16, 32 e 48 px lá dentro.
 # Antes isto reencaminhava para o logo.png de 512x512.
+
+# =====================================================================
+# A PARTIR DAQUI O FICHEIRO É DO ALOJAMENTO, NÃO NOSSO
+# =====================================================================
+# Os dois blocos abaixo são escritos e reescritos pelo cPanel — o MultiPHP
+# Manager e o MultiPHP INI Editor — e estão aqui cópia exacta do que está no
+# servidor, incluindo as aspas curvas do comentário do handler, que é por
+# elas que o cPanel reconhece o bloco como seu.
+#
+# Porque estão versionados: sem eles, enviar este ficheiro por cima do que
+# está no ar apagava o handler do PHP 8.3 e derrubava todo o PHP do site.
+# Com eles, um envio por engano é inofensivo.
+#
+# NUNCA editar à mão. Para mudar a versão de PHP ou os limites, usar o
+# cPanel; depois descarregar o ficheiro do servidor e actualizar este.
+# Enquanto isso não for feito, esta cópia está desactualizada e um envio
+# reverte a alteração feita no painel do alojamento.
+#
+# Atenção a uma coisa medida no diff: as directivas php_value abaixo vivem
+# dentro de <IfModule php8_module> e <IfModule lsapi_module>. Num domínio
+# servido por PHP-FPM nenhum desses módulos está carregado e as doze
+# directivas NÃO SE APLICAM — incluindo o display_errors Off. Os valores
+# efectivos vêem-se no MultiPHP INI Editor.
+# =====================================================================
+
+# BEGIN cPanel-generated php ini directives, do not edit
+# Manual editing of this file may result in unexpected behavior.
+# To make changes to this file, use the cPanel MultiPHP INI Editor (Home >> Software >> MultiPHP INI Editor)
+# For more information, read our documentation (https://go.cpanel.net/EA4ModifyINI)
+<IfModule php8_module>
+   php_value error_log "/home/campinense/logs/php.error.log"
+   php_flag log_errors On
+   php_flag display_errors Off
+   php_value max_execution_time 30
+   php_value max_input_time 60
+   php_value max_input_vars 1000
+   php_value memory_limit 128M
+   php_value post_max_size 8M
+   php_value session.gc_maxlifetime 1440
+   php_value session.save_path "/var/cpanel/php/sessions/ea-php83"
+   php_value upload_max_filesize 2M
+   php_flag zlib.output_compression Off
+</IfModule>
+<IfModule lsapi_module>
+   php_value error_log "/home/campinense/logs/php.error.log"
+   php_flag log_errors On
+   php_flag display_errors Off
+   php_value max_execution_time 30
+   php_value max_input_time 60
+   php_value max_input_vars 1000
+   php_value memory_limit 128M
+   php_value post_max_size 8M
+   php_value session.gc_maxlifetime 1440
+   php_value session.save_path "/var/cpanel/php/sessions/ea-php83"
+   php_value upload_max_filesize 2M
+   php_flag zlib.output_compression Off
+</IfModule>
+# END cPanel-generated php ini directives, do not edit
+
+# php -- BEGIN cPanel-generated handler, do not edit
+# Set the “ea-php83” package as the default “PHP” programming language.
+<IfModule mime_module>
+  AddHandler application/x-httpd-ea-php83 .php .php8 .phtml
+</IfModule>
+# php -- END cPanel-generated handler, do not edit
