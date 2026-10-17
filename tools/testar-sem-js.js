@@ -4508,6 +4508,263 @@ async function testarSeriesDosEscaloes(browser, url, texto) {
   return saida;
 }
 
+// A retenção do api/backup.php: quem fica, quem é candidata, e quem nunca é
+// apagada.
+//
+// Duas metades. A primeira mede a SELECÇÃO com datas concretas, por um guião
+// PHP que inclui a ferramenta como biblioteca: nada corre, nada escreve, e o
+// instante de referência vem de fora, pelo que o resultado não depende do dia
+// em que a bateria corre. A segunda conduz o comando a sério, numa árvore
+// temporária com dados fictícios.
+//
+// As fronteiras do dia, da semana e do mês são medidas com os escalões
+// RECENTES desligados. Com eles, o «uma das 10 mais recentes» engolia-as e o
+// teste não media o que dizia medir — aconteceu na primeira versão desta
+// sonda, e é por isso que está escrito aqui.
+function testarBackupRetencao(raizOriginal) {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'jsc-ret-'));
+  const r = { casos: {} };
+  const ferramentaOriginal = path.join(raizOriginal, 'api', 'backup.php');
+
+  // Uma árvore mínima com a ferramenta lá dentro: o jsc_bk_anterior() e o
+  // DATA_FILE são calculados a partir da pasta da ferramenta, por isso ela tem
+  // de viver numa raiz nossa.
+  const montar = (nome, politicaAprovada) => {
+    const raiz = path.join(base, nome);
+    fs.mkdirSync(path.join(raiz, 'api'), { recursive: true });
+    fs.mkdirSync(path.join(raiz, 'data', 'publicacao', 'anterior'), { recursive: true });
+    let fonte = fs.readFileSync(ferramentaOriginal, 'utf8');
+    if (politicaAprovada) {
+      const antes = fonte;
+      fonte = fonte.replace("define('JSC_BK_POLITICA_APROVADA', false);",
+                            "define('JSC_BK_POLITICA_APROVADA', true);");
+      // Não se lança aqui. Uma sonda que rebenta aborta a bateria inteira e
+      // não se consegue ler nenhuma asserção — aconteceu na verificação
+      // negativa desta mesma secção. A ausência da constante é uma MEDIÇÃO.
+      if (fonte === antes) r.semConstanteDaPolitica = true;
+    }
+    fs.writeFileSync(path.join(raiz, 'api', 'backup.php'), fonte);
+    fs.copyFileSync(path.join(raizOriginal, 'api', 'config.php'), path.join(raiz, 'api', 'config.php'));
+    return raiz;
+  };
+  const correr = (raiz, args) => {
+    const res = spawnSync('php', [path.join(raiz, 'api', 'backup.php')].concat(args),
+      { encoding: 'utf8' });
+    return { saida: res.status, texto: (res.stdout || '') + (res.stderr || '') };
+  };
+
+  try {
+    // ---- A. A selecção, com datas concretas -----------------------
+    const guiao = path.join(base, 'selecao.php');
+    fs.writeFileSync(guiao, [
+      '<?php',
+      'require_once $argv[1];',
+      "$agora = strtotime('2026-10-17T12:00:00Z');",
+      '$pol = jsc_bk_politica();',
+      "function e($n, $q, $et = 'cron') {",
+      "  return ['tipo' => 'conteudo', 'ficheiro' => 'conteudo/' . $n, 'criado_em' => $q,",
+      "          'etiqueta' => $et, 'etiquetas' => [$et], 'bytes_ficheiro' => 100];",
+      '}',
+      '$entradas = [',
+      "  e('agora.json',        gmdate('c', $agora - 3600)),",
+      "  e('h47.json',          gmdate('c', $agora - 47 * 3600)),",
+      "  e('h49.json',          gmdate('c', $agora - 49 * 3600)),",
+      "  e('dia-04-cedo.json',  '2026-10-04T00:00:01Z'),",
+      "  e('dia-04-tarde.json', '2026-10-04T23:59:59Z'),",
+      "  e('dia-03.json',       '2026-10-03T23:59:59Z'),",
+      "  e('mes-set-fim.json',  '2026-09-30T23:59:59Z'),",
+      "  e('mes-out-ini.json',  '2026-10-01T00:00:00Z'),",
+      "  e('sem-W36.json',      '2026-09-06T23:59:59Z'),",
+      "  e('sem-W37.json',      '2026-09-07T00:00:00Z'),",
+      "  e('semana-limite.json','2026-08-24T06:00:00Z'),",
+      "  e('semana-fora.json',  '2026-08-17T06:00:00Z'),",
+      "  e('mes-jul-fim.json',  '2026-07-31T23:59:59Z'),",
+      "  e('mes-ago-ini.json',  '2026-08-01T00:00:00Z'),",
+      "  e('mes-2025-11.json',  '2025-11-02T06:00:00Z'),",
+      "  e('mes-2025-10.json',  '2025-10-02T06:00:00Z'),",
+      "  e('manual-11meses.json', '2025-11-15T06:00:00Z', 'manual'),",
+      "  e('manual-13meses.json', '2025-09-15T06:00:00Z', 'manual'),",
+      "  e('prepub-11meses.json', '2025-12-15T06:00:00Z', 'pre-publicacao'),",
+      "  ['tipo' => 'conteudo', 'ficheiro' => 'conteudo/sem-data.json', 'criado_em' => 'qualquer coisa'],",
+      '];',
+      '$polF = $pol; $polF[\'recentes_horas\'] = 0; $polF[\'recentes_minimo\'] = 0;',
+      '$fronteiras = jsc_bk_retencao($entradas, $agora, $polF, []);',
+      '$recentes   = jsc_bk_retencao($entradas, $agora, $pol, []);',
+      '$muitas = [];',
+      "for ($i = 1; $i <= 20; $i++) $muitas[] = e('velha-' . sprintf('%02d', $i) . '.json',",
+      "  gmdate('c', strtotime('2024-01-01T00:00:00Z') + $i * 86400));",
+      '$todasMas = array_map(function ($x) { return $x[\'ficheiro\']; }, $muitas);',
+      'echo json_encode([',
+      "  'hoje' => gmdate('Y-m-d o-\\\\WW', $agora),",
+      "  'fronteiras' => ['guardar' => $fronteiras['guardar'],",
+      "                   'candidatas' => array_map(function ($c) { return basename($c['ficheiro']); }, $fronteiras['candidatas']),",
+      "                   'excedente' => $fronteiras['excedente'], 'bloqueio' => $fronteiras['bloqueio']],",
+      "  'recentes' => $recentes['guardar'],",
+      "  'maximo' => (function () use ($muitas, $agora, $pol) {",
+      "      $d = jsc_bk_retencao($muitas, $agora, $pol, []);",
+      "      return ['candidatas' => array_map(function ($c) { return basename($c['ficheiro']); }, $d['candidatas']),",
+      "              'excedente' => $d['excedente'], 'guardadas' => count($d['guardar'])];",
+      '  })(),',
+      "  'nenhumaValida' => (function () use ($muitas, $agora, $pol, $todasMas) {",
+      "      $d = jsc_bk_retencao($muitas, $agora, $pol, $todasMas);",
+      "      return ['candidatas' => count($d['candidatas']), 'bloqueio' => $d['bloqueio']];",
+      '  })(),',
+      "  'recenteInvalida' => (function () use ($muitas, $agora, $pol) {",
+      "      $d = jsc_bk_retencao($muitas, $agora, $pol, ['conteudo/velha-20.json']);",
+      "      return ['candidatas' => count($d['candidatas']), 'bloqueio' => $d['bloqueio']];",
+      '  })(),',
+      "  'antigaInvalida' => (function () use ($muitas, $agora, $pol) {",
+      "      $d = jsc_bk_retencao($muitas, $agora, $pol, ['conteudo/velha-01.json']);",
+      "      return ['candidatas' => array_map(function ($c) { return basename($c['ficheiro']); }, $d['candidatas']),",
+      "              'retidas' => array_keys($d['retidas']), 'bloqueio' => $d['bloqueio']];",
+      '  })(),',
+      "  'maisRecenteValidaForcada' => (function () use ($muitas, $agora, $pol) {",
+      "      $p = $pol; $p['recentes_horas'] = 0; $p['recentes_minimo'] = 0;",
+      "      $d = jsc_bk_retencao($muitas, $agora, $p, []);",
+      "      return isset($d['guardar']['conteudo/velha-20.json']) ? $d['guardar']['conteudo/velha-20.json'] : null;",
+      '  })(),',
+      '], JSON_UNESCAPED_UNICODE);',
+    ].join('\n'));
+    const resSel = spawnSync('php', [guiao, ferramentaOriginal], { encoding: 'utf8' });
+    const vazia = {
+      hoje: '(o guião não correu)',
+      fronteiras: { guardar: {}, candidatas: [], excedente: -1, bloqueio: null },
+      recentes: {},
+      maximo: { candidatas: [], excedente: -1, guardadas: -1 },
+      nenhumaValida: { candidatas: -1, bloqueio: null },
+      recenteInvalida: { candidatas: -1, bloqueio: null },
+      antigaInvalida: { candidatas: [], retidas: [], bloqueio: null },
+      maisRecenteValidaForcada: null,
+    };
+    let lida = null;
+    try { lida = JSON.parse(resSel.stdout || 'null'); } catch (_) { lida = null; }
+    r.selecaoCorreu = lida !== null;
+    r.erroSelecao = lida === null ? ((resSel.stdout || '') + (resSel.stderr || '')).slice(0, 300) : '';
+    // Com uma versão da ferramenta que não tenha a retenção, o guião não
+    // produz JSON. As asserções têm de FALHAR, não de rebentar.
+    r.selecao = lida === null ? vazia : lida;
+
+    // ---- B. Ponta a ponta, com a ferramenta a correr --------------
+    const raiz = montar('normal', false);
+    const bk = path.join(raiz, 'bk');
+    const atual = { publicadoEm: '2026-10-17T09:00:00+00:00',
+                    noticias: [{ id: 1, titulo: 'ZZ ACTUAL' }], atletas: [], jogos: [] };
+    const anterior = { publicadoEm: '2026-10-16T09:00:00+00:00',
+                       noticias: [{ id: 1, titulo: 'ZZ ANTERIOR' }], atletas: [], jogos: [] };
+    fs.writeFileSync(path.join(raiz, 'data', 'db.json'), JSON.stringify(atual));
+    const caminhoAnterior = path.join(raiz, 'data', 'publicacao', 'anterior', 'data__db.json');
+    fs.writeFileSync(caminhoAnterior, JSON.stringify(anterior));
+    const shaAnteriorAntes = crypto.createHash('sha256')
+      .update(fs.readFileSync(caminhoAnterior)).digest('hex');
+
+    r.casos.duasOrigens = correr(raiz, ['--conteudo', '--iniciar', '--destino', bk]);
+    const manifesto = () => {
+      try { return JSON.parse(fs.readFileSync(path.join(bk, 'manifesto.json'), 'utf8')); }
+      catch (_) { return { entradas: [] }; }
+    };
+    const etiquetasDe = () => manifesto().entradas.map(
+      (e) => e.etiqueta + ':' + (e.areas && e.areas.noticias != null ? e.areas.noticias : '?'));
+    r.casos.duasOrigens.entradas = manifesto().entradas.length;
+    r.casos.duasOrigens.etiquetas = manifesto().entradas.map((e) => e.etiqueta).sort();
+    // A pasta da transação da publicação é só para ler.
+    r.casos.duasOrigens.anteriorIntacto = crypto.createHash('sha256')
+      .update(fs.readFileSync(caminhoAnterior)).digest('hex') === shaAnteriorAntes;
+    r.casos.duasOrigens.anteriorNaPasta = fs.readdirSync(
+      path.join(raiz, 'data', 'publicacao', 'anterior')).sort();
+
+    // A desduplicação não pode perder a protecção: o mesmo conteúdo pedido
+    // como 'manual' promove a entrada que já existe.
+    const antesDaPromocao = manifesto().entradas.length;
+    r.casos.promocao = correr(raiz, ['--conteudo', '--destino', bk, '--etiqueta', 'manual']);
+    const mP = manifesto();
+    const doActual = mP.entradas.find((e) => e.areas && e.sha256_conteudo
+      === crypto.createHash('sha256').update(JSON.stringify(atual)).digest('hex'));
+    r.casos.promocao.entradasIguais = mP.entradas.length === antesDaPromocao;
+    r.casos.promocao.etiqueta = doActual ? doActual.etiqueta : null;
+    r.casos.promocao.etiquetas = doActual ? (doActual.etiquetas || []).slice().sort() : null;
+    r.casos.promocao.ficheiros = fs.readdirSync(path.join(bk, 'conteudo')).length;
+
+    r.casos.relatorio = correr(raiz, ['--relatorio', '--destino', bk]);
+    r.casos.verificar = correr(raiz, ['--verificar', '--profundo', '--destino', bk]);
+
+    // A simulação não apaga um único byte.
+    const antesDoLimpar = {
+      ficheiros: fs.readdirSync(path.join(bk, 'conteudo')).sort(),
+      manifesto: fs.readFileSync(path.join(bk, 'manifesto.json'), 'utf8'),
+    };
+    r.casos.limparSimulacao = correr(raiz, ['--limpar', '--destino', bk]);
+    r.casos.limparSimulacao.nadaMudou =
+      JSON.stringify(fs.readdirSync(path.join(bk, 'conteudo')).sort()) === JSON.stringify(antesDoLimpar.ficheiros)
+      && fs.readFileSync(path.join(bk, 'manifesto.json'), 'utf8') === antesDoLimpar.manifesto;
+    r.casos.limparAplicar = correr(raiz, ['--limpar', '--aplicar', '--destino', bk]);
+    r.casos.limparAplicar.nadaMudou =
+      JSON.stringify(fs.readdirSync(path.join(bk, 'conteudo')).sort()) === JSON.stringify(antesDoLimpar.ficheiros)
+      && fs.readFileSync(path.join(bk, 'manifesto.json'), 'utf8') === antesDoLimpar.manifesto;
+
+    // O ensaio em série, e a pasta do ensaio removida no fim.
+    const pastaEnsaio = path.join(base, 'ensaio');
+    r.casos.ensaioSerie = correr(raiz, ['--ensaio-recuperacao', '--serie',
+      '--para', pastaEnsaio, '--destino', bk]);
+    r.casos.ensaioSerie.sobrou = fs.existsSync(pastaEnsaio);
+    const pastaEnsaio2 = path.join(base, 'ensaio2');
+    r.casos.ensaioLimpa = correr(raiz, ['--ensaio-recuperacao', '--serie', '--limpar-depois',
+      '--para', pastaEnsaio2, '--destino', bk]);
+    r.casos.ensaioLimpa.pastaRemovida = !fs.existsSync(pastaEnsaio2);
+
+    // ---- C. O caminho que apaga, numa cópia com a política ligada --
+    // A ferramenta entregue NÃO apaga: esta medição existe para a lógica de
+    // eliminação não ficar sem teste, e corre contra um ficheiro mudado de
+    // propósito dentro desta sonda.
+    const raizL = montar('com-politica', true);
+    const bkL = path.join(raizL, 'bk');
+    fs.mkdirSync(path.join(bkL, 'conteudo'), { recursive: true });
+    const entradas = [];
+    for (let i = 1; i <= 20; i++) {
+      const corpo = JSON.stringify({ noticias: [{ id: i, titulo: 'ZZ ' + i }] });
+      const nome = 'db-forjada-' + String(i).padStart(2, '0') + '.json';
+      fs.writeFileSync(path.join(bkL, 'conteudo', nome), corpo);
+      const sha = crypto.createHash('sha256').update(corpo).digest('hex');
+      entradas.push({
+        tipo: 'conteudo', ficheiro: 'conteudo/' + nome,
+        criado_em: new Date(Date.UTC(2024, 0, 1) + i * 86400000).toISOString(),
+        visto_em: new Date(Date.UTC(2024, 0, 1) + i * 86400000).toISOString(),
+        origem: 'data/db.json', compressao: 'nenhuma',
+        bytes_conteudo: corpo.length, bytes_ficheiro: corpo.length,
+        sha256_conteudo: sha, sha256_ficheiro: sha,
+        areas: { noticias: 1 }, por: 'sonda', etiqueta: 'cron', etiquetas: ['cron'],
+      });
+    }
+    fs.writeFileSync(path.join(bkL, 'manifesto.json'),
+      JSON.stringify({ versao: 1, criado_em: '2024-01-01T00:00:00+00:00', entradas }, null, 1));
+    const maisRecente = entradas[entradas.length - 1].ficheiro;
+    r.casos.aplicar = correr(raizL, ['--limpar', '--aplicar', '--destino', bkL]);
+    const depois = JSON.parse(fs.readFileSync(path.join(bkL, 'manifesto.json'), 'utf8'));
+    r.casos.aplicar.entradasDepois = depois.entradas.length;
+    r.casos.aplicar.ficheirosDepois = fs.readdirSync(path.join(bkL, 'conteudo')).length;
+    r.casos.aplicar.maisRecenteFicou = depois.entradas.some((e) => e.ficheiro === maisRecente)
+      && fs.existsSync(path.join(bkL, maisRecente));
+    r.casos.aplicar.semOrfaos = fs.readdirSync(path.join(bkL, 'conteudo'))
+      .every((f) => depois.entradas.some((e) => e.ficheiro === 'conteudo/' + f));
+    r.casos.aplicar.verificaDepois = correr(raizL, ['--verificar', '--profundo', '--destino', bkL]).saida;
+
+    // ---- D. A fonte: o que esta versão promete não fazer -----------
+    const fonte = fs.readFileSync(ferramentaOriginal, 'utf8')
+      .replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    r.fonte = {
+      politicaDesligada: /define\('JSC_BK_POLITICA_APROVADA',\s*false\)/.test(fonte),
+      umaSoConstante: (fonte.match(/JSC_BK_POLITICA_APROVADA/g) || []).length >= 2,
+      naoEscreveNoAnterior: !/(file_put_contents|unlink|rename|mkdir|fopen)[^;]*publicacao/.test(fonte),
+      semRestauro: fonte.indexOf('--restaurar') === -1,
+      escalonsNaPolitica: /'dias'\s*=>\s*14/.test(fonte) && /'semanas'\s*=>\s*8/.test(fonte)
+        && /'meses'\s*=>\s*12/.test(fonte) && /'maximo'\s*=>\s*5/.test(fonte)
+        && /'recentes_horas'\s*=>\s*48/.test(fonte),
+    };
+    return r;
+  } finally {
+    fs.rmSync(base, { recursive: true, force: true });
+  }
+}
+
 // A coluna Forma, no browser.
 async function testarColunaForma(browser, url, linhas) {
   const ctx = await browser.newContext({
@@ -9218,6 +9475,188 @@ async function testarAdminHistoria(browser, url) {
           && web.pedidos.ferramenta.inicio.indexOf('jsc_bk_') === -1,
           web.pedidos.ferramenta.estado + ' ' + JSON.stringify(web.pedidos.ferramenta.inicio));
       }
+    }
+
+    // ---- A retenção: escalões, protecções e o que nunca se apaga -----
+    // A selecção é medida com datas concretas e um instante de referência
+    // fixo (2026-10-17T12:00:00Z, um sábado da semana 2026-W42), por um guião
+    // que inclui a ferramenta como biblioteca. O resultado não depende do dia
+    // em que a bateria corre.
+    console.log('\napi/backup.php: retenção diária, semanal e mensal');
+    {
+      const rt = testarBackupRetencao(raiz);
+      const c = rt.casos;
+      const sel = rt.selecao;
+      const motivo = (n) => (sel.fronteiras.guardar['conteudo/' + n] || '(candidata)');
+      const diz = (nome, agulha) => (c[nome].texto || '').indexOf(agulha) !== -1;
+
+      verificar('medição válida: o guião da selecção correu e o dia de referência é o esperado',
+        rt.selecaoCorreu === true && sel.hoje === '2026-10-17 2026-W42'
+        && rt.semConstanteDaPolitica !== true,
+        rt.selecaoCorreu ? sel.hoje : ('não correu: ' + String(rt.erroSelecao)));
+
+      // ---- fronteira do dia ------------------------------------------
+      // 14 baldes de dia, de 2026-10-17 a 2026-10-04, e dentro de cada um
+      // fica a cópia MAIS ANTIGA — a que está mais longe do erro.
+      verificar('fronteira do dia: a primeira cópia do 14.º dia fica, a última do mesmo dia não',
+        motivo('dia-04-cedo.json').indexOf('diária (2026-10-04)') === 0
+        && motivo('dia-04-tarde.json') === '(candidata)',
+        'cedo=' + motivo('dia-04-cedo.json') + ' | tarde=' + motivo('dia-04-tarde.json'));
+      // Um segundo antes do 14.º dia já não tem motivo diário. Nesta tabela
+      // também não tem o semanal: a W40 é ocupada pela cópia de 30/09, que é
+      // mais antiga, e 03/10 fica candidata. É assim que o escalão funciona —
+      // um lugar por período, para a cópia mais antiga dele.
+      verificar('fronteira do dia: um segundo antes do 14.º dia perde o lugar diário',
+        motivo('dia-03.json').indexOf('diária') !== 0
+        && motivo('dia-03.json') === '(candidata)'
+        && motivo('mes-set-fim.json') === 'semanal (2026-W40)',
+        'dia-03 (2026-10-03T23:59:59Z) = ' + motivo('dia-03.json')
+        + ' | o lugar da W40 é de 30/09 = ' + motivo('mes-set-fim.json'));
+
+      // ---- fronteira da semana ISO -----------------------------------
+      verificar('fronteira da semana: domingo e segunda contam como semanas ISO diferentes',
+        motivo('sem-W36.json') === 'semanal (2026-W36)'
+        && motivo('sem-W37.json') === 'semanal (2026-W37)',
+        'domingo 06/09=' + motivo('sem-W36.json') + ' | segunda 07/09=' + motivo('sem-W37.json'));
+      verificar('fronteira da semana: a 8.ª semana fica, a 9.ª só sobrevive se for mensal',
+        motivo('semana-limite.json') === 'semanal (2026-W35)'
+        && motivo('semana-fora.json') === '(candidata)',
+        'W35=' + motivo('semana-limite.json') + ' | W34=' + motivo('semana-fora.json'));
+
+      // ---- fronteira do mês ------------------------------------------
+      verificar('fronteira do mês: 31/07 e 01/08 ficam em meses diferentes, na mesma semana ISO',
+        motivo('mes-jul-fim.json') === 'mensal (2026-07)'
+        && motivo('mes-ago-ini.json') === 'mensal (2026-08)',
+        '31/07=' + motivo('mes-jul-fim.json') + ' | 01/08=' + motivo('mes-ago-ini.json'));
+      verificar('fronteira do mês: o 12.º mês fica, o 13.º é candidato',
+        motivo('mes-2025-11.json') === 'mensal (2025-11)'
+        && motivo('mes-2025-10.json') === '(candidata)',
+        '2025-11=' + motivo('mes-2025-11.json') + ' | 2025-10=' + motivo('mes-2025-10.json'));
+
+      // ---- as 48 horas e as 10 mais recentes -------------------------
+      verificar('escalão recente: 47h dentro, 49h fora das 48 horas',
+        (sel.recentes['conteudo/h47.json'] || '').indexOf('recente (últimas 48h)') === 0
+        && (sel.recentes['conteudo/h49.json'] || '').indexOf('uma das 10 mais recentes') === 0,
+        'h47=' + sel.recentes['conteudo/h47.json'] + ' | h49=' + sel.recentes['conteudo/h49.json']);
+
+      // ---- protegidas -------------------------------------------------
+      // Uma cópia pedida por uma pessoa, ou guardada antes de mexer no site,
+      // não cai por escalão dentro do período de protecção.
+      verificar('manual e pré-publicação ficam protegidas dentro dos 12 meses',
+        motivo('manual-11meses.json') === 'protegida: manual'
+        && motivo('prepub-11meses.json') === 'protegida: pre-publicacao',
+        'manual=' + motivo('manual-11meses.json') + ' | prepub=' + motivo('prepub-11meses.json'));
+      // O rt.selecaoCorreu está aqui de propósito: sem ele, uma tabela vazia
+      // dava '(candidata)' a tudo e a asserção passava sem medir nada.
+      // Apanhado na verificação negativa desta mesma secção.
+      verificar('e fora do período de protecção deixam de o ser',
+        rt.selecaoCorreu === true && motivo('manual-13meses.json') === '(candidata)'
+        && motivo('manual-11meses.json') === 'protegida: manual',
+        'manual de 2025-09 = ' + motivo('manual-13meses.json')
+        + ' | manual de 2025-11 = ' + motivo('manual-11meses.json'));
+      verificar('uma cópia sem data legível nunca é candidata',
+        motivo('sem-data.json').indexOf('sem data legível') === 0,
+        motivo('sem-data.json'));
+
+      // ---- o máximo por execução -------------------------------------
+      verificar('máximo de 5 por execução, e as mais antigas primeiro',
+        sel.maximo.candidatas.length === 5 && sel.maximo.excedente === 5
+        && sel.maximo.guardadas === 10
+        && JSON.stringify(sel.maximo.candidatas) === JSON.stringify(
+          ['velha-01.json', 'velha-02.json', 'velha-03.json', 'velha-04.json', 'velha-05.json']),
+        JSON.stringify(sel.maximo));
+
+      // ---- o que bloqueia a limpeza ----------------------------------
+      verificar('sem nenhuma cópia válida: zero candidatas e limpeza bloqueada',
+        sel.nenhumaValida.candidatas === 0 && sel.nenhumaValida.bloqueio !== null
+        && /nenhuma das cópias passa/.test(sel.nenhumaValida.bloqueio),
+        JSON.stringify(sel.nenhumaValida));
+      verificar('com a mais recente corrompida: zero candidatas e limpeza bloqueada',
+        sel.recenteInvalida.candidatas === 0 && sel.recenteInvalida.bloqueio !== null
+        && /mais recente não passa/.test(sel.recenteInvalida.bloqueio),
+        JSON.stringify(sel.recenteInvalida));
+      // Uma cópia suspeita é prova: não se apaga, e também não bloqueia o resto.
+      verificar('uma cópia antiga corrompida é retida, não apagada, e não bloqueia',
+        sel.antigaInvalida.bloqueio === null
+        && JSON.stringify(sel.antigaInvalida.retidas) === JSON.stringify(['conteudo/velha-01.json'])
+        && sel.antigaInvalida.candidatas.indexOf('velha-01.json') === -1,
+        JSON.stringify(sel.antigaInvalida));
+      verificar('a mais recente válida fica mesmo com os escalões recentes a zero',
+        sel.maisRecenteValidaForcada === 'a mais recente que passa a verificação',
+        String(sel.maisRecenteValidaForcada));
+
+      // ---- as duas origens, e a pasta da transação da publicação -----
+      verificar('duas origens: o estado actual e o anterior à publicação, com etiquetas próprias',
+        c.duasOrigens.saida === 0 && c.duasOrigens.entradas === 2
+        && JSON.stringify(c.duasOrigens.etiquetas) === JSON.stringify(['anterior', 'cron']),
+        'saída ' + c.duasOrigens.saida + ' ' + JSON.stringify(c.duasOrigens.etiquetas));
+      // data/publicacao/anterior/ é a área de uma transação: o
+      // jsc_reparar_transacao() da geração depende dela. Só se lê.
+      verificar('data/publicacao/anterior/ fica byte a byte igual, e sem ficheiros novos',
+        c.duasOrigens.anteriorIntacto === true
+        && JSON.stringify(c.duasOrigens.anteriorNaPasta) === JSON.stringify(['data__db.json']),
+        'intacto ' + c.duasOrigens.anteriorIntacto + ' ' + JSON.stringify(c.duasOrigens.anteriorNaPasta));
+
+      // ---- a desduplicação não pode perder a protecção ---------------
+      // Pedir uma cópia 'manual' de um conteúdo que o cron já tinha guardado
+      // não duplica o ficheiro: acrescenta a etiqueta à entrada que existe.
+      // Sem isto, a pessoa pedia uma cópia protegida, o comando dizia que
+      // estava feita, e a retenção podia apagá-la por escalão.
+      verificar('conteúdo repetido pedido como manual: promove a entrada, não duplica o ficheiro',
+        c.promocao.saida === 0 && c.promocao.entradasIguais === true
+        && c.promocao.ficheiros === 2 && c.promocao.etiqueta === 'manual'
+        && JSON.stringify(c.promocao.etiquetas) === JSON.stringify(['cron', 'manual'])
+        && diz('promocao', "etiqueta 'manual' acrescentada"),
+        'saída ' + c.promocao.saida + ' etiqueta ' + c.promocao.etiqueta
+        + ' ' + JSON.stringify(c.promocao.etiquetas) + ' ficheiros ' + c.promocao.ficheiros);
+
+      // ---- simulação: não apaga um único byte ------------------------
+      verificar('--limpar é simulação: nem um ficheiro nem um byte do manifesto mudam',
+        c.limparSimulacao.saida === 0 && c.limparSimulacao.nadaMudou === true
+        && diz('limparSimulacao', 'modo: simulação')
+        && diz('limparSimulacao', 'Nada foi apagado'),
+        'saída ' + c.limparSimulacao.saida + ' nada mudou ' + c.limparSimulacao.nadaMudou);
+      verificar('--aplicar recusa-se nesta versão, e também não muda nada',
+        c.limparAplicar.saida === 2 && c.limparAplicar.nadaMudou === true
+        && diz('limparAplicar', 'política de retenção ainda não foi aprovada'),
+        'saída ' + c.limparAplicar.saida + ' nada mudou ' + c.limparAplicar.nadaMudou);
+
+      verificar('--relatorio diz quantas, de que etiqueta, e que as eliminações estão desligadas',
+        c.relatorio.saida === 0 && diz('relatorio', 'eliminações')
+        && diz('relatorio', 'DESLIGADAS') && diz('relatorio', 'retenção'),
+        'saída ' + c.relatorio.saida);
+      verificar('--verificar --profundo passa e confirma que há cópia válida',
+        c.verificar.saida === 0 && diz('verificar', 'cópia válida'),
+        'saída ' + c.verificar.saida);
+
+      verificar('ensaio em série: uma cópia por escalão, e a pasta fica para se ver',
+        c.ensaioSerie.saida === 0 && c.ensaioSerie.sobrou === true
+        && diz('ensaioSerie', 'Todos os ensaios passaram'),
+        'saída ' + c.ensaioSerie.saida + ' pasta ' + c.ensaioSerie.sobrou);
+      // Um ensaio deixa um db.json com dados pessoais em disco. Num cron
+      // mensal, isso acumula-se.
+      verificar('ensaio com --limpar-depois: a pasta do ensaio é removida',
+        c.ensaioLimpa.saida === 0 && c.ensaioLimpa.pastaRemovida === true
+        && diz('ensaioLimpa', 'Pasta do ensaio removida'),
+        'saída ' + c.ensaioLimpa.saida + ' removida ' + c.ensaioLimpa.pastaRemovida);
+
+      // ---- o caminho que apaga, numa cópia com a política ligada -----
+      // A ferramenta entregue não apaga. Isto mede a lógica de eliminação
+      // contra um ficheiro mudado de propósito dentro da sonda, para ela não
+      // ficar sem teste.
+      verificar('com a política ligada: apaga no máximo 5, guarda a mais recente, sem órfãos',
+        c.aplicar.saida === 0 && c.aplicar.entradasDepois === 15
+        && c.aplicar.ficheirosDepois === 15 && c.aplicar.maisRecenteFicou === true
+        && c.aplicar.semOrfaos === true && c.aplicar.verificaDepois === 0,
+        JSON.stringify({ entradas: c.aplicar.entradasDepois, ficheiros: c.aplicar.ficheirosDepois,
+          recente: c.aplicar.maisRecenteFicou, orfaos: !c.aplicar.semOrfaos,
+          verifica: c.aplicar.verificaDepois }));
+
+      verificar('a fonte entregue: política desligada, escalões como combinados, nada escreve na publicação',
+        rt.fonte.politicaDesligada === true && rt.fonte.umaSoConstante === true
+        && rt.fonte.naoEscreveNoAnterior === true && rt.fonte.semRestauro === true
+        && rt.fonte.escalonsNaPolitica === true,
+        JSON.stringify(rt.fonte));
     }
 
     // ---- Nada dentro de uploads/ é executável ----------------------

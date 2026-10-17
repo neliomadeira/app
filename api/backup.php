@@ -85,6 +85,108 @@ define('JSC_BK_MARGEM', 1048576);
 define('JSC_BK_FRACAO_MEMORIA', 8);
 
 // ---------------------------------------------------------------------
+// A POLÍTICA DE RETENÇÃO
+// ---------------------------------------------------------------------
+// ESTA LINHA É O QUE IMPEDE QUALQUER ELIMINAÇÃO.
+//
+// Enquanto for false, o --limpar mostra o que faria e mais nada: o --aplicar
+// recusa-se, e nenhuma execução deste ficheiro apaga uma cópia. Mudá-la exige
+// abrir o ficheiro e escrever 'true' à mão, com a política de retenção de
+// dados pessoais aprovada e documentada (ver tools/README.md).
+//
+// É deliberado que seja uma constante e não uma opção da linha de comandos:
+// um engano num cron não pode ligar as eliminações.
+define('JSC_BK_POLITICA_APROVADA', false);
+
+// Os escalões. Pela ordem: todas as cópias das últimas 48 horas, a mais antiga
+// de cada um dos últimos 14 dias, de cada uma das últimas 8 semanas, e de cada
+// um dos últimos 12 meses.
+//
+// A mais ANTIGA de cada período, não a mais recente: numa recuperação
+// procura-se o estado antes de algo ter corrido mal, e a primeira cópia do dia
+// é a que está mais longe do erro.
+//
+// O horizonte de 12 meses não é uma restrição de disco — a 2,9 MB por cópia,
+// todo o conjunto cabe em pouco mais de 100 MB num alojamento com 188 GB
+// livres. É a política de dados pessoais: o data/db.json leva data de
+// nascimento, encarregado e telefone de cada atleta, e cópias disso guardadas
+// para sempre são uma responsabilidade que cresce sozinha.
+//
+// Cada valor pode ser mudado na linha de comandos, para se ver o efeito antes
+// de mexer aqui: --recentes-horas, --recentes-minimo, --dias, --semanas,
+// --meses, --protegidas-meses, --maximo.
+function jsc_bk_politica() {
+    return [
+        'recentes_horas'   => 48,
+        'recentes_minimo'  => 10,
+        'dias'             => 14,
+        'semanas'          => 8,
+        'meses'            => 12,
+        'protegidas_meses' => 12,
+        'maximo'           => 5,
+    ];
+}
+
+// As etiquetas, e quais são protegidas.
+//
+// Uma cópia 'manual' foi pedida por uma pessoa, e uma 'pre-publicacao' é o
+// estado que alguém quis guardar antes de mexer no site: nenhuma das duas cai
+// por escalão dentro do período de protecção. A 'cron' e a 'anterior' são
+// automáticas e entram nos escalões normais.
+//
+// Entradas antigas, sem etiqueta nenhuma, contam como 'cron' — é o que eram.
+define('JSC_BK_ETIQUETAS', 'cron|manual|pre-publicacao|anterior');
+
+function jsc_bk_etiqueta_valida($e) {
+    return in_array((string)$e, explode('|', JSC_BK_ETIQUETAS), true);
+}
+
+function jsc_bk_protegidas() {
+    return ['manual', 'pre-publicacao'];
+}
+
+// Todas as etiquetas de uma entrada, com as antigas a contarem como 'cron'.
+function jsc_bk_etiquetas_de(array $e) {
+    $fora = [];
+    if (isset($e['etiquetas']) && is_array($e['etiquetas'])) {
+        foreach ($e['etiquetas'] as $x) if (jsc_bk_etiqueta_valida($x)) $fora[] = (string)$x;
+    }
+    if (isset($e['etiqueta']) && jsc_bk_etiqueta_valida($e['etiqueta'])) $fora[] = (string)$e['etiqueta'];
+    if (!$fora) $fora[] = 'cron';
+    $fora = array_values(array_unique($fora));
+    sort($fora);
+    return $fora;
+}
+
+// A etiqueta a mostrar, quando uma entrada tem várias: a protegida ganha.
+function jsc_bk_etiqueta_forte(array $etiquetas) {
+    foreach (['pre-publicacao', 'manual', 'anterior', 'cron'] as $p) {
+        if (in_array($p, $etiquetas, true)) return $p;
+    }
+    return 'cron';
+}
+
+function jsc_bk_tem_protegida(array $etiquetas) {
+    return (bool)array_intersect($etiquetas, jsc_bk_protegidas());
+}
+
+// A segunda origem: o estado que a publicação substituiu.
+//
+// A publicação guarda a versão anterior do data/db.json em
+// data/publicacao/anterior/data__db.json antes de promover a nova
+// (api/geracao.php). Ler esse ficheiro recupera o estado que precedeu a última
+// publicação, mesmo que nenhuma execução do backup tenha acontecido entre as
+// duas.
+//
+// SÓ LEITURA, e isto não é um detalhe: essa pasta é a área de uma transação, e
+// o jsc_reparar_transacao() da geração depende do que lá está. Escrever,
+// renomear ou apagar ali partiria o rollback de uma publicação interrompida.
+// Esta função devolve um caminho; nada neste ficheiro escreve nessa pasta.
+function jsc_bk_anterior() {
+    return JSC_BK_RAIZ . '/data/publicacao/anterior/data__db.json';
+}
+
+// ---------------------------------------------------------------------
 // Onde é que os backups vivem
 // ---------------------------------------------------------------------
 // Primeira escolha: FORA da raiz web. É a única protecção que não depende
@@ -330,6 +432,8 @@ function jsc_bk_conteudo(array $op) {
     $margem  = $op['margem'];
     $comprimir = $op['comprimir'];
     $por     = $op['por'];
+    $etiqueta = isset($op['etiqueta']) && jsc_bk_etiqueta_valida($op['etiqueta'])
+        ? (string)$op['etiqueta'] : 'cron';
 
     if (!is_file($origem)) {
         return ['ok' => false, 'codigo' => 2,
@@ -372,19 +476,59 @@ function jsc_bk_conteudo(array $op) {
         return ['ok' => false, 'codigo' => 2, 'erro' => $erro];
     }
     if (is_array($m)) {
-        $ultima = jsc_bk_ultima_entrada($m, 'conteudo');
-        if ($ultima && isset($ultima['sha256_conteudo']) && $ultima['sha256_conteudo'] === $shaConteudo) {
-            $r = jsc_bk_com_manifesto($dir, function ($man) use ($shaConteudo) {
+        // Contra QUALQUER entrada com o mesmo conteúdo, não só contra a mais
+        // recente. Media-se contra a mais recente, e com duas origens isso
+        // partia-se: o estado anterior à publicação quase nunca é o mais
+        // recente, e nascia um ficheiro novo com os mesmos bytes a cada
+        // execução do cron. Medido na sonda: três ficheiros onde devia haver
+        // dois, e a crescer de hora a hora.
+        //
+        // O preço, dito por inteiro: um conteúdo que REGRESSA — publica-se A,
+        // depois B, depois A outra vez — não cria uma entrada nova. Fica a que
+        // existe, com o visto_em actualizado, e a linha do tempo lê-se pelo
+        // par criado_em/visto_em. Para um arquivo de cópias é o que se quer:
+        // os bytes estão lá uma vez, e um site que alternasse entre dois
+        // estados não enchia o disco.
+        $jaExiste = null;
+        foreach ($m['entradas'] as $e) {
+            if (!is_array($e) || (isset($e['tipo']) && $e['tipo'] !== 'conteudo')) continue;
+            if (isset($e['sha256_conteudo']) && $e['sha256_conteudo'] === $shaConteudo) { $jaExiste = $e; break; }
+        }
+        if ($jaExiste && isset($jaExiste['ficheiro'])) {
+            // Conteúdo igual ao da última cópia: não nasce ficheiro novo. Mas a
+            // ETIQUETA não se perde.
+            //
+            // Sem isto, pedir uma cópia 'manual' de um conteúdo que o cron já
+            // tinha guardado respondia «sem alterações» e a cópia ficava
+            // 'cron' — ou seja, a pessoa pediu uma cópia protegida, o painel
+            // disse que estava feita, e a retenção podia apagá-la por escalão.
+            // A desduplicação poupa bytes; não pode poupar protecção.
+            //
+            // Em vez de duplicar o ficheiro, a etiqueta é acrescentada à
+            // entrada que já existe: o conteúdo é o mesmo, e passa a estar
+            // protegido pela razão por que foi pedido.
+            $promovida = false;
+            $r = jsc_bk_com_manifesto($dir, function ($man) use ($shaConteudo, $etiqueta, &$promovida) {
                 foreach ($man['entradas'] as $i => $e) {
-                    if (isset($e['sha256_conteudo']) && $e['sha256_conteudo'] === $shaConteudo) {
-                        $man['entradas'][$i]['visto_em'] = date('c');
+                    if (!isset($e['sha256_conteudo']) || $e['sha256_conteudo'] !== $shaConteudo) continue;
+                    $man['entradas'][$i]['visto_em'] = date('c');
+                    $tinha = jsc_bk_etiquetas_de($e);
+                    if (!in_array($etiqueta, $tinha, true)) {
+                        $tinha[] = $etiqueta;
+                        sort($tinha);
+                        $promovida = true;
                     }
+                    $man['entradas'][$i]['etiquetas'] = $tinha;
+                    $man['entradas'][$i]['etiqueta']  = jsc_bk_etiqueta_forte($tinha);
                 }
                 return ['gravar' => true, 'manifesto' => $man];
             }, $erro);
+            $avisos = $r === null ? ['não foi possível actualizar o manifesto: ' . $erro] : [];
             return ['ok' => true, 'codigo' => 0, 'inalterado' => true,
-                    'ficheiro' => (string)$ultima['ficheiro'],
-                    'avisos' => $r === null ? ['não foi possível actualizar o visto_em: ' . $erro] : [],
+                    'ficheiro' => (string)$jaExiste['ficheiro'],
+                    'etiqueta' => $etiqueta,
+                    'promovida' => $promovida && $r !== null,
+                    'avisos' => $avisos,
                     'areas' => $areas];
         }
     }
@@ -432,6 +576,8 @@ function jsc_bk_conteudo(array $op) {
         'sha256_ficheiro' => hash('sha256', $bytes),
         'areas'           => $areas,
         'por'             => $por,
+        'etiqueta'        => $etiqueta,
+        'etiquetas'       => [$etiqueta],
     ];
 
     // A tranca protege a INTEGRIDADE do manifesto, não a unicidade da cópia:
@@ -569,6 +715,22 @@ function jsc_bk_verificar($dir, $profundo) {
         }
     }
 
+    // A invariante que a retenção precisa: existe pelo menos uma cópia boa.
+    // Só se afirma em modo profundo — o raso compara impressões digitais e não
+    // abre o conteúdo, e não chega para chamar uma cópia de válida.
+    if ($profundo) {
+        $boas = 0;
+        foreach ($achados as $a) {
+            if ($a['nivel'] === 'OK' && strpos((string)$a['assunto'], 'conteudo/') === 0) $boas++;
+        }
+        if ($conhecidos && !$boas) {
+            $nota('ERRO', 'cópia válida', 'NENHUMA das ' . count($conhecidos)
+                . ' cópias do manifesto passa a verificação: não há de onde recuperar');
+        } elseif ($boas) {
+            $nota('OK', 'cópia válida', $boas . ' de ' . count($conhecidos) . ' passam a verificação');
+        }
+    }
+
     $erros = 0;
     foreach ($achados as $a) if ($a['nivel'] === 'ERRO') $erros++;
     return ['codigo' => $erros ? 1 : 0, 'achados' => $achados, 'erros' => $erros];
@@ -665,6 +827,280 @@ function jsc_bk_ensaio($dir, $alvo, $para) {
 }
 
 // ---------------------------------------------------------------------
+// Retenção: quem fica, quem é candidata
+// ---------------------------------------------------------------------
+// Função pura: recebe as entradas, o instante de referência, a política e o
+// conjunto das que NÃO passam a verificação, e devolve a decisão. Não lê o
+// disco, não escreve nada, não olha para o relógio — o $agora vem de fora.
+// É assim que se consegue testá-la com datas concretas, incluindo as
+// fronteiras entre dias, semanas e meses.
+//
+// Tudo em UTC, como os nomes dos ficheiros. O fuso do servidor e o do cron não
+// entram na conta.
+function jsc_bk_retencao(array $entradas, $agora, array $pol, array $invalidas = []) {
+    $lista = [];
+    $guardar = [];      // ficheiro => motivo
+    foreach ($entradas as $e) {
+        if (!is_array($e) || !isset($e['ficheiro'])) continue;
+        if (isset($e['tipo']) && $e['tipo'] !== 'conteudo') continue;
+        $rel = (string)$e['ficheiro'];
+        $t = isset($e['criado_em']) ? strtotime((string)$e['criado_em']) : false;
+        if ($t === false) {
+            // Sem data não se decide nada sobre ela. Fica, sempre.
+            $guardar[$rel] = 'sem data legível: nunca é candidata';
+            continue;
+        }
+        $lista[] = ['ficheiro' => $rel, 'quando' => $t, 'etiquetas' => jsc_bk_etiquetas_de($e)];
+    }
+    usort($lista, function ($a, $b) { return $b['quando'] - $a['quando']; });
+
+    $valida = function ($rel) use ($invalidas) { return !in_array($rel, $invalidas, true); };
+
+    // ---- O que bloqueia a limpeza inteira ----------------------------
+    $bloqueio = null;
+    $maisRecenteValida = null;
+    foreach ($lista as $x) { if ($valida($x['ficheiro'])) { $maisRecenteValida = $x; break; } }
+    if ($lista && $maisRecenteValida === null) {
+        $bloqueio = 'nenhuma das cópias passa a verificação: não se apaga nada sem ter uma boa';
+    } elseif ($lista && !$valida($lista[0]['ficheiro'])) {
+        // A mais recente de todas está má. Pode estar a acontecer algo agora, e
+        // não é hora de limpar o histórico.
+        $bloqueio = 'a cópia mais recente não passa a verificação: limpar agora seria apagar '
+                  . 'histórico enquanto o presente está em dúvida';
+    }
+
+    // ---- Os escalões -------------------------------------------------
+    $dia  = function ($t) { return gmdate('Y-m-d', $t); };
+    $sem  = function ($t) { return gmdate('o-\WW', $t); };
+    $mes  = function ($t) { return gmdate('Y-m', $t); };
+
+    $diasOk = [];
+    for ($i = 0; $i < (int)$pol['dias']; $i++) $diasOk[$dia($agora - $i * 86400)] = true;
+    $semanasOk = [];
+    for ($i = 0; $i < (int)$pol['semanas']; $i++) $semanasOk[$sem($agora - $i * 604800)] = true;
+    $mesesOk = [];
+    $primeiro = strtotime(gmdate('Y-m-01\T00:00:00\Z', $agora));
+    for ($i = 0; $i < (int)$pol['meses']; $i++) {
+        $mesesOk[gmdate('Y-m', strtotime('-' . $i . ' months', $primeiro))] = true;
+    }
+    $protegidasOk = [];
+    for ($i = 0; $i < (int)$pol['protegidas_meses']; $i++) {
+        $protegidasOk[gmdate('Y-m', strtotime('-' . $i . ' months', $primeiro))] = true;
+    }
+
+    // A mais ANTIGA de cada período, que é a que está mais longe do erro.
+    $primeiraDe = function ($chave, $permitidos) use ($lista) {
+        $fora = [];
+        foreach ($lista as $x) {
+            $k = $chave($x['quando']);
+            if (!isset($permitidos[$k])) continue;
+            if (!isset($fora[$k]) || $x['quando'] < $fora[$k]['quando']) $fora[$k] = $x;
+        }
+        return $fora;
+    };
+
+    $marcar = function ($rel, $motivo) use (&$guardar) {
+        if (!isset($guardar[$rel])) $guardar[$rel] = $motivo;
+    };
+
+    // Pela ordem de importância: o primeiro motivo é o que fica escrito.
+    if ($maisRecenteValida) $marcar($maisRecenteValida['ficheiro'], 'a mais recente que passa a verificação');
+    $limiteRecente = $agora - (int)$pol['recentes_horas'] * 3600;
+    foreach ($lista as $i => $x) {
+        if ($x['quando'] >= $limiteRecente) {
+            $marcar($x['ficheiro'], 'recente (últimas ' . (int)$pol['recentes_horas'] . 'h)');
+        }
+        if ($i < (int)$pol['recentes_minimo']) {
+            $marcar($x['ficheiro'], 'uma das ' . (int)$pol['recentes_minimo'] . ' mais recentes');
+        }
+        if (jsc_bk_tem_protegida($x['etiquetas']) && isset($protegidasOk[$mes($x['quando'])])) {
+            $marcar($x['ficheiro'], 'protegida: ' . jsc_bk_etiqueta_forte($x['etiquetas']));
+        }
+    }
+    foreach ($primeiraDe($dia, $diasOk) as $k => $x)     $marcar($x['ficheiro'], 'diária (' . $k . ')');
+    foreach ($primeiraDe($sem, $semanasOk) as $k => $x)  $marcar($x['ficheiro'], 'semanal (' . $k . ')');
+    foreach ($primeiraDe($mes, $mesesOk) as $k => $x)    $marcar($x['ficheiro'], 'mensal (' . $k . ')');
+
+    // ---- As candidatas ----------------------------------------------
+    $candidatas = [];
+    $retidas    = [];   // o que não fica no conjunto mas também não se apaga
+    foreach ($lista as $x) {
+        if (isset($guardar[$x['ficheiro']])) continue;
+        if (!$valida($x['ficheiro'])) {
+            $retidas[$x['ficheiro']] = 'não passa a verificação: uma cópia suspeita é prova, '
+                                     . 'apaga-se à mão depois de se olhar para ela';
+            continue;
+        }
+        $candidatas[] = $x;
+    }
+    usort($candidatas, function ($a, $b) { return $a['quando'] - $b['quando']; });   // as mais antigas primeiro
+    $excedente = max(0, count($candidatas) - (int)$pol['maximo']);
+    $candidatas = array_slice($candidatas, 0, (int)$pol['maximo']);
+    if ($bloqueio !== null) { $excedente = 0; $candidatas = []; }
+
+    return [
+        'guardar'    => $guardar,
+        'candidatas' => array_map(function ($x) {
+            return ['ficheiro' => $x['ficheiro'], 'quando' => gmdate('c', $x['quando']),
+                    'etiqueta' => jsc_bk_etiqueta_forte($x['etiquetas'])];
+        }, $candidatas),
+        'retidas'    => $retidas,
+        'excedente'  => $excedente,
+        'bloqueio'   => $bloqueio,
+        'total'      => count($lista),
+    ];
+}
+
+// As que não passam a verificação, pelo nome do ficheiro.
+function jsc_bk_invalidas(array $verificacao) {
+    $fora = [];
+    foreach ($verificacao['achados'] as $a) {
+        if ($a['nivel'] === 'ERRO' && strpos((string)$a['assunto'], 'conteudo/') === 0) {
+            $fora[] = (string)$a['assunto'];
+        }
+    }
+    return array_values(array_unique($fora));
+}
+
+// ---------------------------------------------------------------------
+// Limpar: por omissão mostra, nunca apaga
+// ---------------------------------------------------------------------
+function jsc_bk_limpar($dir, array $pol, $aplicar) {
+    $erro = '';
+    $m = jsc_bk_manifesto_ler($dir, $erro);
+    if ($m === null) return ['codigo' => 2, 'erro' => $erro];
+
+    // A decisão depende da verificação PROFUNDA: uma cópia que não se consegue
+    // abrir não conta como boa, e não se apaga nada por causa dela.
+    $ver = jsc_bk_verificar($dir, true);
+    if ($ver['codigo'] === 2) return ['codigo' => 2, 'erro' => 'a verificação não correu'];
+    $invalidas = jsc_bk_invalidas($ver);
+
+    $d = jsc_bk_retencao($m['entradas'], time(), $pol, $invalidas);
+    $d['invalidas'] = $invalidas;
+    $d['aplicado']  = [];
+    $d['politicaAprovada'] = JSC_BK_POLITICA_APROVADA;
+
+    if (!$aplicar) { $d['codigo'] = $d['bloqueio'] === null ? 0 : 1; return $d; }
+
+    if (!JSC_BK_POLITICA_APROVADA) {
+        $d['codigo'] = 2;
+        $d['erro'] = 'o --aplicar está desligado nesta versão: a política de retenção ainda não '
+                   . 'foi aprovada. Nada foi apagado. Ver JSC_BK_POLITICA_APROVADA no topo deste '
+                   . 'ficheiro e a política em tools/README.md.';
+        return $d;
+    }
+    if ($d['bloqueio'] !== null) {
+        $d['codigo'] = 1;
+        $d['erro'] = 'limpeza bloqueada: ' . $d['bloqueio'] . '. Nada foi apagado.';
+        return $d;
+    }
+
+    // Remover: o ficheiro e a entrada, dentro da mesma tranca. Se a entrada não
+    // sair do manifesto, o ficheiro não é tocado — um manifesto que aponte para
+    // um ficheiro que já não existe é pior do que uma cópia a mais.
+    foreach ($d['candidatas'] as $c) {
+        $rel = $c['ficheiro'];
+        $saiu = jsc_bk_com_manifesto($dir, function ($man) use ($rel) {
+            $novas = [];
+            foreach ($man['entradas'] as $e) {
+                if (is_array($e) && isset($e['ficheiro']) && $e['ficheiro'] === $rel) continue;
+                $novas[] = $e;
+            }
+            $man['entradas'] = $novas;
+            return ['gravar' => true, 'manifesto' => $man];
+        }, $erro);
+        if ($saiu === null) { $d['aplicado'][] = $rel . ': NÃO (o manifesto não aceitou: ' . $erro . ')'; continue; }
+        $apagou = @unlink($dir . '/' . $rel);
+        $d['aplicado'][] = $rel . ': ' . ($apagou ? 'apagada' : 'a entrada saiu mas o ficheiro ficou');
+    }
+    $d['codigo'] = 0;
+    return $d;
+}
+
+// ---------------------------------------------------------------------
+// Relatório: o estado em poucas linhas
+// ---------------------------------------------------------------------
+function jsc_bk_relatorio($dir, array $pol) {
+    $erro = '';
+    $m = jsc_bk_manifesto_ler($dir, $erro);
+    if ($m === null) return ['codigo' => 2, 'erro' => $erro];
+    $n = 0; $bytes = 0; $maisAntiga = null; $maisRecente = null;
+    $porEtiqueta = [];
+    foreach ($m['entradas'] as $e) {
+        if (!is_array($e) || !isset($e['ficheiro'])) continue;
+        $n++;
+        $bytes += isset($e['bytes_ficheiro']) ? (int)$e['bytes_ficheiro'] : 0;
+        $q = isset($e['criado_em']) ? strtotime((string)$e['criado_em']) : false;
+        if ($q !== false) {
+            if ($maisAntiga === null || $q < $maisAntiga) $maisAntiga = $q;
+            if ($maisRecente === null || $q > $maisRecente) $maisRecente = $q;
+        }
+        $et = jsc_bk_etiqueta_forte(jsc_bk_etiquetas_de($e));
+        $porEtiqueta[$et] = (isset($porEtiqueta[$et]) ? $porEtiqueta[$et] : 0) + 1;
+    }
+    ksort($porEtiqueta);
+    return ['codigo' => 0, 'n' => $n, 'bytes' => $bytes,
+            'maisAntiga' => $maisAntiga === null ? null : gmdate('c', $maisAntiga),
+            'maisRecente' => $maisRecente === null ? null : gmdate('c', $maisRecente),
+            'porEtiqueta' => $porEtiqueta,
+            'livre' => (int)@disk_free_space($dir),
+            'politica' => $pol, 'politicaAprovada' => JSC_BK_POLITICA_APROVADA];
+}
+
+// ---------------------------------------------------------------------
+// Apagar a pasta de um ensaio
+// ---------------------------------------------------------------------
+// Um ensaio deixa em disco um db.json com dados pessoais. Num ensaio mensal
+// feito por cron, isso acumula-se: por isso existe o --limpar-depois.
+//
+// Remove SÓ o que o ensaio escreve — db.json e ensaio.json —, e só uma
+// subpasta de profundidade. Qualquer outro ficheiro é deixado e nomeado: esta
+// função não é um apagador recursivo, de propósito.
+function jsc_bk_apagar_ensaio($raizDoEnsaio) {
+    $nossos = ['db.json', 'ensaio.json'];
+    $sobrou = [];
+    $limparPasta = function ($pasta) use ($nossos, &$sobrou) {
+        if (!is_dir($pasta)) return;
+        foreach (scandir($pasta) as $f) {
+            if ($f === '.' || $f === '..') continue;
+            $c = $pasta . '/' . $f;
+            if (is_file($c) && in_array($f, $nossos, true)) { @unlink($c); continue; }
+            $sobrou[] = $c;
+        }
+        if (!$sobrou) @rmdir($pasta);
+    };
+    foreach (is_dir($raizDoEnsaio) ? scandir($raizDoEnsaio) : [] as $f) {
+        if ($f === '.' || $f === '..') continue;
+        $c = $raizDoEnsaio . '/' . $f;
+        if (is_dir($c)) $limparPasta($c);
+        elseif (is_file($c) && in_array($f, $nossos, true)) @unlink($c);
+        else $sobrou[] = $c;
+    }
+    if (!$sobrou) @rmdir($raizDoEnsaio);
+    return $sobrou;
+}
+
+// As cópias a ensaiar quando se pede --serie: uma por escalão, em vez de só a
+// última. Uma mensal de há nove meses não pode passar nove meses sem ninguém
+// saber se ainda abre.
+function jsc_bk_serie_para_ensaio(array $entradas, $agora, array $pol) {
+    $d = jsc_bk_retencao($entradas, $agora, $pol, []);
+    $escolhidas = [];
+    $jaTem = [];
+    foreach ($d['guardar'] as $rel => $motivo) {
+        $prefixo = null;
+        foreach (['a mais recente', 'diária', 'semanal', 'mensal', 'protegida'] as $px) {
+            if (strpos($motivo, $px) === 0) { $prefixo = $px; break; }
+        }
+        if ($prefixo === null || isset($jaTem[$prefixo])) continue;
+        $jaTem[$prefixo] = true;
+        $escolhidas[] = ['ficheiro' => $rel, 'motivo' => $motivo];
+    }
+    return $escolhidas;
+}
+
+// ---------------------------------------------------------------------
 // Linha de comandos
 // ---------------------------------------------------------------------
 function jsc_bk_arg($argv, $nome, $omissao = null) {
@@ -683,9 +1119,17 @@ function jsc_bk_ajuda() {
     echo "  php api/backup.php --conteudo [--iniciar]\n";
     echo "  php api/backup.php --listar\n";
     echo "  php api/backup.php --verificar [--profundo]\n";
-    echo "  php api/backup.php --ensaio-recuperacao --ultimo --para <pasta fora do projeto>\n\n";
-    echo "  --origem F  --destino D  --sem-compressao  --margem-bytes N  --por NOME\n\n";
+    echo "  php api/backup.php --relatorio\n";
+    echo "  php api/backup.php --limpar                 (mostra; NÃO apaga)\n";
+    echo "  php api/backup.php --ensaio-recuperacao --ultimo --para <pasta fora do projeto>\n";
+    echo "  php api/backup.php --ensaio-recuperacao --serie --para <pasta> [--limpar-depois]\n\n";
+    echo "  --origem F  --destino D  --sem-compressao  --margem-bytes N  --por NOME\n";
+    echo "  --etiqueta cron|manual|pre-publicacao       (omissão: cron)\n";
+    echo "  --sem-anterior                              não recolhe o estado pré-publicação\n";
+    echo "  --recentes-horas N --recentes-minimo N --dias N --semanas N --meses N\n";
+    echo "  --protegidas-meses N --maximo N             escalões da retenção, só para ver\n\n";
     echo "Não restaura nada e não tem endpoint: só linha de comandos.\n";
+    echo "NÃO APAGA: o --limpar mostra o que faria. Ver JSC_BK_POLITICA_APROVADA.\n";
     echo "O que guarda tem dados pessoais — ver o cabeçalho do ficheiro.\n";
     return 2;
 }
@@ -707,7 +1151,8 @@ function jsc_bk_principal($argv) {
     }
 
     $precisaDaPasta = jsc_bk_tem($argv, '--conteudo') || jsc_bk_tem($argv, '--verificar')
-                   || jsc_bk_tem($argv, '--listar') || jsc_bk_tem($argv, '--ensaio-recuperacao');
+                   || jsc_bk_tem($argv, '--listar') || jsc_bk_tem($argv, '--ensaio-recuperacao')
+                   || jsc_bk_tem($argv, '--limpar') || jsc_bk_tem($argv, '--relatorio');
     if (!$precisaDaPasta) return jsc_bk_ajuda();
 
     if (!is_dir($dir)) {
@@ -728,26 +1173,120 @@ function jsc_bk_principal($argv) {
 
     // ---- --conteudo --------------------------------------------------
     if (jsc_bk_tem($argv, '--conteudo')) {
-        $r = jsc_bk_conteudo([
+        $etiqueta = (string)jsc_bk_arg($argv, '--etiqueta', 'cron');
+        if (!jsc_bk_etiqueta_valida($etiqueta)) {
+            fwrite(STDERR, "erro: etiqueta inválida '" . $etiqueta . "'. Válidas: "
+                . JSC_BK_ETIQUETAS . "\n");
+            return 2;
+        }
+        $comum = [
             'dir'       => $dir,
-            'origem'    => (string)jsc_bk_arg($argv, '--origem', DATA_FILE),
             'margem'    => (int)jsc_bk_arg($argv, '--margem-bytes', JSC_BK_MARGEM),
             'comprimir' => !jsc_bk_tem($argv, '--sem-compressao'),
             'por'       => (string)jsc_bk_arg($argv, '--por', 'cli'),
-        ]);
-        if (!$r['ok']) { fwrite(STDERR, "erro: " . $r['erro'] . "\n"); return (int)$r['codigo']; }
-        foreach ($r['avisos'] as $a) fwrite(STDERR, "aviso: $a\n");
-        if (!empty($r['inalterado'])) {
-            echo "sem alterações: o conteúdo é igual ao da última cópia (" . $r['ficheiro'] . ").\n";
-            echo "Nada foi escrito. É assim que uma execução de hora a hora não gasta disco.\n";
-            return 0;
+        ];
+
+        // Duas origens, por esta ordem: o estado actual e o estado que a
+        // publicação substituiu. A segunda é lida da área da transação da
+        // geração, nunca escrita — ver jsc_bk_anterior().
+        //
+        // Nota, que o Bloco C tem de resolver: isto recupera um estado
+        // pré-publicação DEPOIS do facto. Não é o mesmo que guardar o estado
+        // antes de o substituir: se três publicações acontecerem entre duas
+        // execuções, o estado do meio não está em sítio nenhum.
+        $trabalhos = [['origem' => (string)jsc_bk_arg($argv, '--origem', DATA_FILE),
+                       'etiqueta' => $etiqueta, 'nome' => 'estado actual']];
+        if (!jsc_bk_tem($argv, '--sem-anterior') && jsc_bk_arg($argv, '--origem') === null
+            && is_file(jsc_bk_anterior())) {
+            $trabalhos[] = ['origem' => jsc_bk_anterior(), 'etiqueta' => 'anterior',
+                            'nome' => 'estado anterior à última publicação'];
         }
-        $e = $r['entrada'];
-        echo "cópia: " . $e['ficheiro'] . "\n";
-        echo "  conteúdo ..: " . $e['bytes_conteudo'] . " bytes, sha256 " . substr($e['sha256_conteudo'], 0, 16) . "…\n";
-        echo "  ficheiro ..: " . $e['bytes_ficheiro'] . " bytes (" . $e['compressao'] . ")\n";
-        echo "  áreas .....: " . count($e['areas']) . " (" . jsc_bk_resumo_areas($e['areas']) . ")\n";
+
+        $saida = 0;
+        foreach ($trabalhos as $t) {
+            $r = jsc_bk_conteudo($comum + ['origem' => $t['origem'], 'etiqueta' => $t['etiqueta']]);
+            if (!$r['ok']) {
+                fwrite(STDERR, "erro (" . $t['nome'] . "): " . $r['erro'] . "\n");
+                $saida = max($saida, (int)$r['codigo']);
+                continue;
+            }
+            foreach ($r['avisos'] as $a) fwrite(STDERR, "aviso: $a\n");
+            if (!empty($r['inalterado'])) {
+                echo $t['nome'] . ": sem alterações (" . $r['ficheiro'] . ")";
+                echo !empty($r['promovida'])
+                    ? " — etiqueta '" . $r['etiqueta'] . "' acrescentada à cópia que já existia.\n"
+                    : ".\n";
+                continue;
+            }
+            $e = $r['entrada'];
+            echo $t['nome'] . ": " . $e['ficheiro'] . " [" . $e['etiqueta'] . "]\n";
+            echo "  conteúdo ..: " . $e['bytes_conteudo'] . " bytes, sha256 " . substr($e['sha256_conteudo'], 0, 16) . "…\n";
+            echo "  ficheiro ..: " . $e['bytes_ficheiro'] . " bytes (" . $e['compressao'] . ")\n";
+            echo "  áreas .....: " . count($e['areas']) . " (" . jsc_bk_resumo_areas($e['areas']) . ")\n";
+        }
+        return $saida;
+    }
+
+    // ---- --relatorio -------------------------------------------------
+    if (jsc_bk_tem($argv, '--relatorio')) {
+        $pol = jsc_bk_politica_do_argv($argv);
+        $r = jsc_bk_relatorio($dir, $pol);
+        if ($r['codigo'] !== 0) { fwrite(STDERR, "erro: " . $r['erro'] . "\n"); return (int)$r['codigo']; }
+        echo "=== cópias de segurança: " . $dir . " ===\n";
+        echo "cópias ..........: " . $r['n'] . "\n";
+        echo "espaço ocupado ..: " . $r['bytes'] . " bytes\n";
+        echo "mais antiga .....: " . ($r['maisAntiga'] ?: '(nenhuma)') . "\n";
+        echo "mais recente ....: " . ($r['maisRecente'] ?: '(nenhuma)') . "\n";
+        $et = [];
+        foreach ($r['porEtiqueta'] as $k => $v) $et[] = $k . '=' . $v;
+        echo "por etiqueta ....: " . ($et ? implode(' ', $et) : '(nenhuma)') . "\n";
+        echo "disco livre .....: " . $r['livre'] . " bytes\n";
+        echo "retenção ........: " . $pol['recentes_horas'] . "h, " . $pol['dias'] . " dias, "
+           . $pol['semanas'] . " semanas, " . $pol['meses'] . " meses; protegidas "
+           . $pol['protegidas_meses'] . " meses; máximo " . $pol['maximo'] . " por execução\n";
+        echo "eliminações .....: " . ($r['politicaAprovada'] ? 'LIGADAS' : 'DESLIGADAS (política não aprovada)') . "\n";
         return 0;
+    }
+
+    // ---- --limpar ----------------------------------------------------
+    if (jsc_bk_tem($argv, '--limpar')) {
+        $pol = jsc_bk_politica_do_argv($argv);
+        $aplicar = jsc_bk_tem($argv, '--aplicar');
+        $d = jsc_bk_limpar($dir, $pol, $aplicar);
+        if (isset($d['erro']) && !isset($d['guardar'])) {
+            fwrite(STDERR, "erro: " . $d['erro'] . "\n");
+            return (int)$d['codigo'];
+        }
+        echo "=== retenção: " . $d['total'] . " cópia(s) no manifesto ===\n";
+        echo ($aplicar ? "modo: APLICAR\n" : "modo: simulação (não apaga nada)\n") . "\n";
+        echo "FICAM (" . count($d['guardar']) . "):\n";
+        foreach ($d['guardar'] as $rel => $motivo) echo "  " . $rel . " — " . $motivo . "\n";
+        if ($d['retidas']) {
+            echo "\nNÃO SE APAGAM, apesar de estarem fora dos escalões (" . count($d['retidas']) . "):\n";
+            foreach ($d['retidas'] as $rel => $motivo) echo "  " . $rel . " — " . $motivo . "\n";
+        }
+        echo "\nCANDIDATAS A APAGAR (" . count($d['candidatas']) . ")";
+        echo $d['excedente'] ? ", e " . $d['excedente'] . " adiada(s) pelo máximo de "
+             . $pol['maximo'] . " por execução:\n" : ":\n";
+        foreach ($d['candidatas'] as $c) {
+            echo "  " . $c['ficheiro'] . " — " . $c['quando'] . " [" . $c['etiqueta'] . "]\n";
+        }
+        if (!$d['candidatas']) echo "  (nenhuma)\n";
+        if ($d['bloqueio'] !== null) {
+            fwrite(STDERR, "\nBLOQUEADO: " . $d['bloqueio'] . "\nNada seria apagado.\n");
+        }
+        if ($d['aplicado']) {
+            echo "\nAPLICADO:\n";
+            foreach ($d['aplicado'] as $l) echo "  " . $l . "\n";
+        }
+        if (isset($d['erro'])) { fwrite(STDERR, "\n" . $d['erro'] . "\n"); }
+        if (!$aplicar) {
+            echo "\nNada foi apagado: isto é uma simulação. ";
+            echo JSC_BK_POLITICA_APROVADA
+                ? "Com --aplicar, apagaria as candidatas acima.\n"
+                : "As eliminações estão desligadas nesta versão.\n";
+        }
+        return (int)$d['codigo'];
     }
 
     // ---- --listar ----------------------------------------------------
@@ -787,10 +1326,51 @@ function jsc_bk_principal($argv) {
     }
 
     // ---- --ensaio-recuperacao ----------------------------------------
-    $alvo = jsc_bk_tem($argv, '--ultimo') ? '--ultimo' : jsc_bk_arg($argv, '--entrada');
     $para = jsc_bk_arg($argv, '--para');
-    if (!$alvo)  { fwrite(STDERR, "erro: diga qual a cópia, com --ultimo ou --entrada <ficheiro>\n"); return 2; }
-    if (!$para)  { fwrite(STDERR, "erro: falta --para <pasta>, fora do projeto\n"); return 2; }
+    if (!$para) { fwrite(STDERR, "erro: falta --para <pasta>, fora do projeto\n"); return 2; }
+
+    // --serie: uma cópia de cada escalão, não só a última.
+    if (jsc_bk_tem($argv, '--serie')) {
+        $erroS = '';
+        $m = jsc_bk_manifesto_ler($dir, $erroS);
+        if ($m === null) { fwrite(STDERR, "erro: $erroS\n"); return 2; }
+        $serie = jsc_bk_serie_para_ensaio($m['entradas'], time(), jsc_bk_politica_do_argv($argv));
+        if (!$serie) { fwrite(STDERR, "erro: não há cópias para ensaiar\n"); return 2; }
+        // Cada ensaio vai para uma subpasta, e o jsc_bk_ensaio() exige que a
+        // pasta acima exista — é a verificação que o impede de escrever em
+        // sítios que não foram criados de propósito.
+        if (!is_dir($para) && !@mkdir($para, 0700, true)) {
+            fwrite(STDERR, "erro: não foi possível criar " . $para . "\n");
+            return 5;
+        }
+        @chmod($para, 0700);
+        $falhas = 0;
+        foreach ($serie as $x) {
+            $sub = rtrim($para, '/') . '/' . preg_replace('/[^A-Za-z0-9._-]/', '_', basename($x['ficheiro']));
+            $r = jsc_bk_ensaio($dir, basename($x['ficheiro']), $sub);
+            if (isset($r['erro'])) {
+                fwrite(STDERR, "  FALHA " . $x['ficheiro'] . " (" . $x['motivo'] . "): " . $r['erro'] . "\n");
+                $falhas++;
+                continue;
+            }
+            echo ($r['codigo'] === 0 ? "  ok   " : "  FALHA ") . $x['ficheiro']
+               . " — " . $x['motivo'] . "\n";
+            if ($r['codigo'] !== 0) { $falhas++; fwrite(STDERR, "    passos: " . implode(', ', $r['falhas']) . "\n"); }
+        }
+        if (jsc_bk_tem($argv, '--limpar-depois')) {
+            $sobrou = jsc_bk_apagar_ensaio(rtrim($para, '/'));
+            echo "\nPasta do ensaio removida" . ($sobrou ? ", excepto: " . implode(', ', $sobrou) : '')
+               . ".\n";
+        } else {
+            echo "\nA pasta " . $para . " tem dados pessoais: apague-a quando acabar "
+               . "(ou use --limpar-depois).\n";
+        }
+        echo $falhas ? "\n" . $falhas . " ensaio(s) falharam.\n" : "\nTodos os ensaios passaram.\n";
+        return $falhas ? 1 : 0;
+    }
+
+    $alvo = jsc_bk_tem($argv, '--ultimo') ? '--ultimo' : jsc_bk_arg($argv, '--entrada');
+    if (!$alvo)  { fwrite(STDERR, "erro: diga qual a cópia, com --ultimo, --entrada <ficheiro> ou --serie\n"); return 2; }
     $r = jsc_bk_ensaio($dir, $alvo, $para);
     if (isset($r['erro'])) { fwrite(STDERR, "erro: " . $r['erro'] . "\n"); return (int)$r['codigo']; }
     foreach ($r['passos'] as $p) {
@@ -799,11 +1379,30 @@ function jsc_bk_principal($argv) {
     if ($r['codigo'] === 0) {
         echo "\nENSAIO BEM SUCEDIDO: " . $r['entrada']['ficheiro'] . " serve para recuperar.\n";
         echo "Escrito em " . $r['destino'] . " — o site NÃO foi tocado.\n";
-        echo "Essa pasta tem dados pessoais: apague-a quando acabar.\n";
+        if (jsc_bk_tem($argv, '--limpar-depois')) {
+            $sobrou = jsc_bk_apagar_ensaio(rtrim($para, '/'));
+            echo "Pasta do ensaio removida" . ($sobrou ? ", excepto: " . implode(', ', $sobrou) : '') . ".\n";
+        } else {
+            echo "Essa pasta tem dados pessoais: apague-a quando acabar (ou use --limpar-depois).\n";
+        }
     } else {
         fwrite(STDERR, "\nENSAIO FALHOU em: " . implode(', ', $r['falhas']) . "\n");
     }
     return (int)$r['codigo'];
+}
+
+// A política, com o que a linha de comandos mandar por cima. Serve para ver o
+// efeito de outros números antes de os escrever no jsc_bk_politica().
+function jsc_bk_politica_do_argv($argv) {
+    $pol = jsc_bk_politica();
+    $mapa = ['--recentes-horas' => 'recentes_horas', '--recentes-minimo' => 'recentes_minimo',
+             '--dias' => 'dias', '--semanas' => 'semanas', '--meses' => 'meses',
+             '--protegidas-meses' => 'protegidas_meses', '--maximo' => 'maximo'];
+    foreach ($mapa as $flag => $chave) {
+        $v = jsc_bk_arg($argv, $flag);
+        if ($v !== null && is_numeric($v) && (int)$v >= 0) $pol[$chave] = (int)$v;
+    }
+    return $pol;
 }
 
 function jsc_bk_resumo_areas(array $areas) {

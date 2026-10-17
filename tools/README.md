@@ -154,6 +154,105 @@ A ferramenta tem testes próprios na bateria (`tools/testar-sem-js.js`):
 corre o comando a sério contra pares de ficheiros sintéticos e verifica
 cada código de saída e que nenhum ficheiro é modificado pela execução.
 
+## Cópias de segurança do conteúdo
+
+```
+php api/backup.php --onde
+php api/backup.php --conteudo --iniciar     na primeira vez
+php api/backup.php --conteudo               nas seguintes
+php api/backup.php --relatorio
+php api/backup.php --verificar --profundo
+php api/backup.php --limpar                 mostra o que a retenção faria
+php api/backup.php --ensaio-recuperacao --serie --para <pasta> --limpar-depois
+```
+
+As cópias vivem **fora da raiz web**, em `/home/<utilizador>/jsc-backups/`, com
+as pastas a `0700` e os ficheiros a `0600`. Medido no alojamento a 17/10/2026:
+PHP 8.3.35 em CGI/FastCGI, `open_basedir` vazio, a pasta escrita, lida, fechada
+a `0600` e limpa pelo PHP do site. Nada disto vai para o Git.
+
+Cada cópia é um ficheiro datado em UTC com uma entrada no `manifesto.json`:
+as duas impressões digitais (conteúdo e ficheiro), os dois tamanhos, a
+compressão, a origem, quem pediu, as contagens por área e a **etiqueta**.
+
+### Duas origens
+
+O `--conteudo` olha para dois ficheiros:
+
+| Origem | Etiqueta | O que é |
+|---|---|---|
+| `data/db.json` | `cron` ou a que se pedir | o estado publicado agora |
+| `data/publicacao/anterior/data__db.json` | `anterior` | o estado que a última publicação substituiu |
+
+A segunda é **apenas lida**. Essa pasta é a área de uma transação da geração e
+o `jsc_reparar_transacao()` depende dela: escrever, renomear ou apagar ali
+partiria o rollback de uma publicação interrompida.
+
+Com as duas, cada estado publicado fica guardado mesmo que duas publicações
+aconteçam entre duas execuções. Três publicações entre duas execuções perdem o
+estado do meio — a garantia exacta de uma cópia **antes** de cada publicação
+precisa de uma chamada dentro da publicação, que não existe ainda.
+
+### A política de retenção de dados pessoais
+
+O `data/db.json` não é o conteúdo público: leva a data de nascimento, o nome do
+encarregado e o telefone de cada atleta, e a projeção pública só deixa passar
+sete campos. **Uma cópia do `db.json` é uma cópia de dados pessoais de
+menores**, e é isso que a retenção existe para limitar — não o disco, que a
+2,9 MB por cópia e 188 GB livres não é restrição nenhuma.
+
+| Escalão | Guarda |
+|---|---|
+| recentes | todas as cópias das últimas **48 horas**, e no mínimo as **10** mais recentes |
+| diária | a mais antiga de cada um dos últimos **14 dias** |
+| semanal | a mais antiga de cada uma das últimas **8 semanas** ISO |
+| mensal | a mais antiga de cada um dos últimos **12 meses** |
+| protegidas | as etiquetas `manual` e `pre-publicacao`, **12 meses** |
+
+A mais **antiga** de cada período, não a mais recente: numa recuperação
+procura-se o estado antes de algo ter corrido mal, e a primeira cópia do dia é
+a que está mais longe do erro.
+
+Os valores estão em `jsc_bk_politica()`, no topo do `api/backup.php`, e podem
+ser mudados na linha de comandos para se ver o efeito antes de se mexer no
+código: `--recentes-horas`, `--recentes-minimo`, `--dias`, `--semanas`,
+`--meses`, `--protegidas-meses`, `--maximo`.
+
+### Nenhuma eliminação, até a política ser aprovada
+
+```php
+define('JSC_BK_POLITICA_APROVADA', false);
+```
+
+Enquanto esta linha for `false`, o `--limpar` mostra o que faria e o `--aplicar`
+recusa-se: **nenhuma execução apaga uma cópia**. É uma constante e não uma
+opção da linha de comandos de propósito — um engano num cron não pode ligar as
+eliminações.
+
+Quando for ligada, estas regras aplicam-se pela ordem:
+
+1. verificação profunda de tudo;
+2. sem nenhuma cópia válida, **apaga zero** e sai com erro;
+3. se a cópia **mais recente** falhar a verificação, **apaga zero** — pode
+   estar a acontecer algo agora, e não é hora de limpar o histórico;
+4. a cópia válida mais recente é acrescentada à força ao conjunto a guardar;
+5. uma cópia que não se consegue verificar **nunca** é candidata: é prova, e
+   apaga-se à mão depois de se olhar para ela;
+6. no máximo **5 remoções por execução**;
+7. a entrada sai do manifesto e o ficheiro sai do disco dentro da mesma tranca.
+
+### O cron, no cPanel
+
+```
+7 * * * *  /opt/cpanel/ea-php83/root/usr/bin/php /home/campinense/novo.campinense.pt/api/backup.php --conteudo >/dev/null
+17 4 * * 1 /opt/cpanel/ea-php83/root/usr/bin/php /home/campinense/novo.campinense.pt/api/backup.php --verificar --profundo >/dev/null
+23 5 1 * * /opt/cpanel/ea-php83/root/usr/bin/php /home/campinense/novo.campinense.pt/api/backup.php --limpar >/dev/null
+```
+
+O `>/dev/null` manda o sucesso para o lixo e deixa o **stderr** ir para o email
+da conta: só se recebe mensagem quando algo corre mal. Nenhuma destas linhas
+apaga nada.
+
 ## Auditar as notícias já escritas, a partir do browser
 
 As notícias vivem no `localStorage` do browser onde o painel é usado. Para as
