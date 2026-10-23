@@ -437,41 +437,6 @@
             </div>
           </div>
 
-          <!-- MODAL: COLAR CLASSIFICAÇÃO / JOGOS -->
-          <div id="colarClassModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;padding:16px">
-            <div style="background:#fff;border-radius:12px;width:100%;max-width:700px;max-height:92vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.25)">
-              <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:2px solid var(--yellow);background:var(--blue)">
-                <span id="colarClassTitle" style="font-family:var(--font-display);font-size:1.3rem;color:#fff;letter-spacing:1px"></span>
-                <button onclick="fecharColarClass()" style="background:none;border:none;color:#fff;font-size:1.4rem;cursor:pointer;line-height:1">&times;</button>
-              </div>
-              <div style="padding:20px">
-                <!-- URL import -->
-                <div style="margin-bottom:14px">
-                  <label style="display:block;font-size:0.8rem;font-weight:700;margin-bottom:6px">&#8659; Importar diretamente do ZeroZero ou AF Algarve</label>
-                  <div style="display:flex;gap:8px">
-                    <input type="url" id="colarClassUrl" placeholder="https://www.zerozero.pt/... ou https://afalgarve.pt/..."
-                      style="flex:1;padding:8px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:0.82rem;min-width:0">
-                    <button class="btn-primary" onclick="buscarUrlColar(this)" style="white-space:nowrap;flex-shrink:0">&#8659; Buscar</button>
-                  </div>
-                </div>
-                <details style="margin-bottom:14px">
-                  <summary style="font-size:0.8rem;color:#888;cursor:pointer;padding:4px 0">ou colar manualmente &#9660;</summary>
-                  <div style="margin-top:8px;background:#e8f4fd;border:1px solid #b3d9f7;border-radius:8px;padding:12px;font-size:0.83rem;color:#1a5276;line-height:1.6">
-                    <span id="colarClassHint"></span>
-                  </div>
-                </details>
-                <textarea id="colarClassTA" rows="8"
-                  style="width:100%;box-sizing:border-box;padding:10px;border:1.5px solid #ddd;border-radius:8px;font-family:monospace;font-size:0.82rem;resize:vertical"></textarea>
-                <div style="display:flex;gap:10px;margin-top:12px">
-                  <button class="btn-save" onclick="previewColarClass()">&#128269; Pré-visualizar</button>
-                  <button class="btn-primary" onclick="guardarColarClass()">&#10003; Guardar</button>
-                  <button class="btn-sm" onclick="fecharColarClass()" style="margin-left:auto">Cancelar</button>
-                </div>
-                <div id="colarClassPreview" style="margin-top:16px"></div>
-              </div>
-            </div>
-          </div>
-
           <!-- PRÓXIMOS JOGOS -->
           <div class="card" style="margin-bottom:20px">
             <div class="card-header"><h3>&#128197; Próximos Jogos <span id="jogosProxCount" style="font-weight:400;font-size:0.8rem;color:#888"></span></h3></div>
@@ -1078,6 +1043,72 @@
             <button class="btn-save" id="btnGuardarInfoSeniores" style="margin-top:12px">&#128190; Guardar Informações</button>
           </div>
 
+
+          <!-- JOGOS E RESULTADOS — EQUIPA SÉNIOR -->
+          <!--
+            Reutiliza o db_jogos e o modal de colagem da Formação, sem duplicar
+            nada: o escalão gravado é 'Seniores' (JSC_SENIOR_ESCALAO no
+            admin.js), um valor que de propósito NÃO está no db_escaloes nem no
+            CLASS_ESCALOES. É isso que mantém estes jogos fora da Formação sem
+            criar lá um escalão: o js/escalao.js filtra por escalão da página e
+            os separadores da resultados.html são fixos (Sub-19 a Sub-11).
+          -->
+          <div class="card" style="margin-bottom:24px">
+            <div class="card-header">
+              <h3>&#128197; Jogos e Resultados <span id="seniorJogosCount" style="font-weight:400;font-size:0.8rem;color:#888"></span></h3>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn-fpf" id="btnColarJogosSenior">&#128203; Colar jogos</button>
+                <button class="btn-primary" id="btnNovoJogoSenior">+ Novo Jogo</button>
+              </div>
+            </div>
+            <p style="padding:14px 20px 0;margin:0;font-size:0.78rem;color:var(--gray-text)">
+              A jornada é opcional. Os jogos gravados antes de este campo existir
+              continuam a funcionar e aparecem com &laquo;&mdash;&raquo;.
+            </p>
+            <h4 style="margin:16px 20px 6px;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--blue)">Próximos jogos</h4>
+            <table class="table table--full" id="seniorJogosProxTable">
+              <thead>
+                <tr><th>Jorn.</th><th>Data</th><th>Casa</th><th>Fora</th><th>Resultado</th><th>Local</th><th>Ações</th></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+            <h4 style="margin:22px 20px 6px;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--blue)">Resultados</h4>
+            <table class="table table--full" id="seniorJogosTable">
+              <thead>
+                <tr><th>Jorn.</th><th>Data</th><th>Casa</th><th>Fora</th><th>Resultado</th><th>Local</th><th>Ações</th></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <!-- CLASSIFICAÇÃO — EQUIPA SÉNIOR -->
+          <!--
+            Os três botões chamam as funções que a Formação já usa, com o
+            escalão 'Seniores' e sem série: abrirColar(), abrirEditorClass() e
+            apagarClassBase(). A tabela vive na chave fpf_class_Seniores, que
+            atravessa a publicação sem alteração nenhuma no PHP — o
+            jsc_class_data_publica() do api/conteudo.php aceita qualquer chave
+            fpf_class_* / fpf_jogos_*.
+          -->
+          <div class="card" style="margin-bottom:24px">
+            <div class="card-header">
+              <h3>&#127942; Classificação <span id="seniorClassResumo" style="font-weight:400;font-size:0.8rem;color:#888"></span></h3>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn-fpf" id="btnColarClassSenior">&#128203; Colar classificação</button>
+                <button class="btn-sm" id="btnEditarClassSenior">&#9998; Manual</button>
+                <button class="btn-danger" id="btnApagarClassSenior" style="display:none">&#128465; Apagar classificação</button>
+              </div>
+            </div>
+            <div style="padding:16px 20px">
+              <p style="font-size:0.82rem;color:var(--gray-text);margin:0 0 12px">
+                Os pontos são calculados automaticamente a partir das vitórias e
+                dos empates (V&times;3 + E). Pode colar uma tabela do ZeroZero ou
+                da AF Algarve, ou escrever as linhas à mão em &laquo;Manual&raquo;.
+              </p>
+              <div id="seniorClassTabela"></div>
+            </div>
+          </div>
+
           <!-- Plantel -->
           <div class="card">
             <h2 class="card__title" style="margin-bottom:16px">&#128100; Plantel</h2>
@@ -1681,6 +1712,49 @@
       </main>
     </div><!-- end main-wrap -->
   </div><!-- end admin-layout -->
+
+    <!--
+      Este modal estava dentro da secção #page-jogos. O goToPage() põe
+      display:none em todas as .page, e por isso, chamado a partir da Equipa
+      Sénior, ele acendia-se dentro de uma secção escondida e não aparecia.
+      Passou para o nível de topo, ao lado do #modalOverlay: é
+      position:fixed;inset:0, logo o resultado visual é o mesmo, e as duas
+      páginas podem usá-lo. Nada do seu conteúdo mudou.
+    -->
+    <!-- MODAL: COLAR CLASSIFICAÇÃO / JOGOS -->
+    <div id="colarClassModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;padding:16px">
+      <div style="background:#fff;border-radius:12px;width:100%;max-width:700px;max-height:92vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.25)">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:2px solid var(--yellow);background:var(--blue)">
+          <span id="colarClassTitle" style="font-family:var(--font-display);font-size:1.3rem;color:#fff;letter-spacing:1px"></span>
+          <button onclick="fecharColarClass()" style="background:none;border:none;color:#fff;font-size:1.4rem;cursor:pointer;line-height:1">&times;</button>
+        </div>
+        <div style="padding:20px">
+          <!-- URL import -->
+          <div style="margin-bottom:14px">
+            <label style="display:block;font-size:0.8rem;font-weight:700;margin-bottom:6px">&#8659; Importar diretamente do ZeroZero ou AF Algarve</label>
+            <div style="display:flex;gap:8px">
+              <input type="url" id="colarClassUrl" placeholder="https://www.zerozero.pt/... ou https://afalgarve.pt/..."
+                style="flex:1;padding:8px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:0.82rem;min-width:0">
+              <button class="btn-primary" onclick="buscarUrlColar(this)" style="white-space:nowrap;flex-shrink:0">&#8659; Buscar</button>
+            </div>
+          </div>
+          <details style="margin-bottom:14px">
+            <summary style="font-size:0.8rem;color:#888;cursor:pointer;padding:4px 0">ou colar manualmente &#9660;</summary>
+            <div style="margin-top:8px;background:#e8f4fd;border:1px solid #b3d9f7;border-radius:8px;padding:12px;font-size:0.83rem;color:#1a5276;line-height:1.6">
+              <span id="colarClassHint"></span>
+            </div>
+          </details>
+          <textarea id="colarClassTA" rows="8"
+            style="width:100%;box-sizing:border-box;padding:10px;border:1.5px solid #ddd;border-radius:8px;font-family:monospace;font-size:0.82rem;resize:vertical"></textarea>
+          <div style="display:flex;gap:10px;margin-top:12px">
+            <button class="btn-save" onclick="previewColarClass()">&#128269; Pré-visualizar</button>
+            <button class="btn-primary" onclick="guardarColarClass()">&#10003; Guardar</button>
+            <button class="btn-sm" onclick="fecharColarClass()" style="margin-left:auto">Cancelar</button>
+          </div>
+          <div id="colarClassPreview" style="margin-top:16px"></div>
+        </div>
+      </div>
+    </div>
 
   <!-- MODAL -->
   <div class="modal-overlay" id="modalOverlay" style="display:none">

@@ -2514,6 +2514,16 @@ function _onEscaloesChanged() {
 // ==================================================
 // JOGOS
 // ==================================================
+// O escalão com que os jogos da Equipa Sénior são gravados no db_jogos.
+//
+// É uma string e não uma entrada do db_escaloes, e isso é o ponto todo: criar
+// um escalão "Seniores" na Formação punha-o no plantel, nos atletas, na
+// formacao.html e na escalao.html. Assim os jogos vivem no mesmo db_jogos — a
+// publicação, a projeção pública e o js/sync.js levam-nos sem uma linha de PHP
+// nova — e nenhuma página da Formação os mostra: o js/escalao.js filtra pelo
+// escalão da sua página e os separadores da resultados.html são fixos.
+const JSC_SENIOR_ESCALAO = 'Seniores';
+
 function fmtDataJogo(str) {
   if (!str) return '—';
   const d = new Date(str);
@@ -2542,7 +2552,12 @@ function renderJogos(filterEscalao = '') {
         </td>
       </tr>`;
 
-  let data = [...DB.jogos];
+  // Os jogos da Equipa Sénior ficam fora desta lista, de propósito: são
+  // geridos na página Equipa Sénior e não pertencem à Formação. O escalão
+  // 'Seniores' não existe no db_escaloes nem no CLASS_ESCALOES, logo também
+  // não aparece no filtro acima — sem esta linha apareceriam em "Todos os
+  // escalões", que é precisamente onde não devem estar.
+  let data = (DB.jogos || []).filter(j => j.escalao !== JSC_SENIOR_ESCALAO);
   if (filterEscalao) data = data.filter(j => j.escalao === filterEscalao);
 
   // Próximos jogos: agendados, mais próximo primeiro
@@ -2566,6 +2581,12 @@ function renderJogos(filterEscalao = '') {
   const rc = document.getElementById('jogosResCount');
   if (pc) pc.textContent = prox.length ? `(${prox.length})` : '';
   if (rc) rc.textContent = res.length ? `(${res.length})` : '';
+
+  // A colagem de jogos e o CRUD acabam todos aqui. A tabela da Equipa Sénior
+  // lê o mesmo DB.jogos, por isso refresca-se no mesmo sítio em vez de cada
+  // caminho ter de se lembrar dela. A função devolve logo se a página não
+  // estiver montada.
+  if (typeof renderJogosSenior === 'function') renderJogosSenior();
 }
 
 document.getElementById('filterJogoEscalao')?.addEventListener('change', function () {
@@ -2693,6 +2714,287 @@ window.removeJogo = function (id) {
   if (idx > -1) DB.jogos.splice(idx, 1);
   renderJogos();
   showToast('Jogo eliminado.', 'red');
+};
+
+// ==================================================
+// EQUIPA SÉNIOR — JOGOS, RESULTADOS E CLASSIFICAÇÃO
+// ==================================================
+// Nada aqui duplica o sistema da Formação: os jogos vão para o mesmo
+// DB.jogos com escalao === JSC_SENIOR_ESCALAO, e a classificação usa as
+// funções que já existem — abrirColar(), abrirEditorClass() e
+// apagarClassBase() — com o escalão 'Seniores' e sem série. A chave fica
+// fpf_class_Seniores e atravessa a publicação sem alteração no PHP.
+//
+// A JORNADA é opcional, e opcional quer dizer que a propriedade não existe
+// quando está vazia, em vez de existir com '' ou 0. Os 73 jogos que já
+// estavam gravados não a têm e continuam a funcionar: aparecem com «—».
+
+// O número da jornada escrito no formulário, ou undefined se estiver vazio.
+function _sjJornada() {
+  const el = document.getElementById('mSJJornada');
+  if (!el) return undefined;
+  const v = String(el.value || '').trim();
+  if (v === '') return undefined;
+  const n = parseInt(v, 10);
+  return (isFinite(n) && n > 0 && n < 1000) ? n : undefined;
+}
+
+function _sjFormulario(j) {
+  const o = j || {};
+  return `
+    <div class="modal-row">
+      <div class="modal-field"><label>Jornada</label>
+        <input type="number" id="mSJJornada" min="1" max="999" placeholder="opcional"
+               value="${jscEsc(o.jornada != null ? o.jornada : '')}" /></div>
+      <div class="modal-field"><label>Data *</label>
+        <input type="date" id="mSJData" value="${jscEsc(o.data || '')}" /></div>
+    </div>
+    <div class="modal-row">
+      <div class="modal-field"><label>Hora</label>
+        <input type="time" id="mSJHora" value="${jscEsc(o.hora || '15:00')}" /></div>
+      <div class="modal-field"><label>Local</label>
+        <input type="text" id="mSJLocal" placeholder="Campo Municipal N.º 2 - Loulé"
+               value="${jscEsc(o.local || '')}" /></div>
+    </div>
+    <div class="modal-row">
+      <div class="modal-field"><label>Equipa Casa *</label>
+        <input type="text" id="mSJCasa" placeholder="Nome da equipa"
+               value="${jscEsc(o.casa || '')}" /></div>
+      <div class="modal-field"><label>Equipa Fora *</label>
+        <input type="text" id="mSJFora" placeholder="Nome da equipa"
+               value="${jscEsc(o.fora || '')}" /></div>
+    </div>`;
+}
+
+function renderJogosSenior() {
+  const corpoProx = document.querySelector('#seniorJogosProxTable tbody');
+  const corpoRes  = document.querySelector('#seniorJogosTable tbody');
+  if (!corpoProx || !corpoRes) return;   // a página não está montada
+
+  const scRe = /sport campinense|js campinense|campinense/i;
+  const linha = (j) => `
+      <tr>
+        <td style="text-align:center">${jscEsc(j.jornada != null && j.jornada !== '' ? j.jornada : '—')}</td>
+        <td>${jscEsc(fmtDataJogo(j.data))}<br/><span style="font-size:0.75rem;color:var(--gray-text)">${jscEsc(j.hora || '')}</span></td>
+        <td style="${jscEsc(scRe.test(j.casa || '') ? 'font-weight:700;color:var(--blue)' : '')}">${jscEsc(j.casa)}</td>
+        <td style="${jscEsc(scRe.test(j.fora || '') ? 'font-weight:700;color:var(--blue)' : '')}">${jscEsc(j.fora)}</td>
+        <td style="text-align:center;font-size:1.1rem">${j.estado === 'Realizado'
+          ? `<strong>${jscEsc(j.gcasa)} – ${jscEsc(j.gfora)}</strong>`
+          : '<span style="color:var(--gray-text)">—</span>'}</td>
+        <td style="font-size:0.8rem;color:var(--gray-text)">${jscEsc(j.local || '')}</td>
+        <td>
+          <div class="btn-actions">
+            ${j.estado !== 'Realizado' ? `<button class="btn-icon btn-icon--green" onclick="registarResultadoSenior(${jscEsc(j.id)})" title="Registar resultado">&#9999;</button>` : ''}
+            <button class="btn-icon" onclick="editJogoSenior(${jscEsc(j.id)})" title="Editar">&#9998;</button>
+            <button class="btn-icon btn-icon--red" onclick="removeJogoSenior(${jscEsc(j.id)})" title="Eliminar">&#128465;</button>
+          </div>
+        </td>
+      </tr>`;
+
+  const todos = (DB.jogos || []).filter(j => j && j.escalao === JSC_SENIOR_ESCALAO);
+  // A data pode faltar num jogo importado: o localeCompare direto rebentava.
+  const porData = (a, b) => String(a.data || '').localeCompare(String(b.data || ''));
+  const prox = todos.filter(j => j.estado !== 'Realizado').sort(porData);
+  const res  = todos.filter(j => j.estado === 'Realizado').sort((a, b) => porData(b, a));
+
+  corpoProx.innerHTML = prox.length ? prox.map(linha).join('')
+    : '<tr><td colspan="7" style="text-align:center;color:#999;padding:20px">Sem jogos agendados.</td></tr>';
+  corpoRes.innerHTML = res.length ? res.map(linha).join('')
+    : '<tr><td colspan="7" style="text-align:center;color:#999;padding:20px">Sem resultados registados.</td></tr>';
+
+  const cnt = document.getElementById('seniorJogosCount');
+  if (cnt) cnt.textContent = todos.length
+    ? `(${todos.length} — ${prox.length} agendados, ${res.length} realizados)` : '';
+}
+
+window.novoJogoSenior = function () {
+  openModal('Novo Jogo — Equipa Sénior', _sjFormulario(null),
+    `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+     <button class="btn-save" onclick="saveNovoJogoSenior()">Guardar</button>`);
+  const d = document.getElementById('mSJData');
+  if (d) d.value = new Date().toISOString().split('T')[0];
+  const c = document.getElementById('mSJCasa');
+  if (c) c.value = 'Sport Campinense';
+};
+
+window.saveNovoJogoSenior = function () {
+  const casa = (document.getElementById('mSJCasa')?.value || '').trim();
+  const fora = (document.getElementById('mSJFora')?.value || '').trim();
+  const data = document.getElementById('mSJData')?.value || '';
+  if (!casa || !fora) { showToast('Preencha as equipas.', 'red'); return; }
+  if (!data)          { showToast('Preencha a data.', 'red');    return; }
+
+  const jogo = {
+    id: Date.now(),
+    escalao: JSC_SENIOR_ESCALAO,
+    casa, fora,
+    gcasa: null, gfora: null,
+    data,
+    hora:  document.getElementById('mSJHora')?.value || '',
+    local: (document.getElementById('mSJLocal')?.value || '').trim() || 'Campo Municipal N.º 2 - Loulé',
+    estado: 'Agendado',
+  };
+  const jorn = _sjJornada();
+  if (jorn !== undefined) jogo.jornada = jorn;   // opcional: vazio não grava campo
+
+  DB.jogos.push(jogo);
+  saveDB();      // o CRUD de jogos da Formação não grava; este grava.
+  renderJogos(); // e isto refresca as duas tabelas
+  closeModal();
+  showToast('Jogo adicionado!', 'green');
+};
+
+window.editJogoSenior = function (id) {
+  const j = (DB.jogos || []).find(x => x.id === id);
+  if (!j) return;
+  openModal('Editar Jogo — Equipa Sénior', _sjFormulario(j),
+    `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+     <button class="btn-save" onclick="saveEditJogoSenior(${jscEsc(id)})">Guardar</button>`);
+};
+
+window.saveEditJogoSenior = function (id) {
+  const j = (DB.jogos || []).find(x => x.id === id);
+  if (!j) return;
+  const casa = (document.getElementById('mSJCasa')?.value || '').trim();
+  const fora = (document.getElementById('mSJFora')?.value || '').trim();
+  j.data  = document.getElementById('mSJData')?.value || j.data;
+  j.hora  = document.getElementById('mSJHora')?.value || '';
+  j.local = (document.getElementById('mSJLocal')?.value || '').trim();
+  j.casa  = casa || j.casa;
+  j.fora  = fora || j.fora;
+  // Apagar a jornada é uma operação legítima: o campo é opcional, e deixá-lo
+  // em branco tem de o devolver a «sem jornada», não guardar '' nem 0.
+  const jorn = _sjJornada();
+  if (jorn === undefined) delete j.jornada; else j.jornada = jorn;
+  saveDB();
+  renderJogos();
+  closeModal();
+  showToast('Jogo actualizado!', 'green');
+};
+
+// Registar resultado.
+//
+// A primeira versão disto chamava o registarResultado() da Formação e depois
+// procurava o botão do rodapé do modal para lhe reescrever o onclick. Ficava
+// a depender de um seletor de CSS acertar num botão que outra função
+// desenhou: muda-se a classe do botão ali e isto deixa de gravar, em
+// silêncio. O formulário é de três linhas — escreve-se, e a gravação é a
+// desta página, que chama o saveDB().
+window.registarResultadoSenior = function (id) {
+  const j = (DB.jogos || []).find(x => x.id === id);
+  if (!j) return;
+  const campo = (lado, nome) => `
+      <div style="text-align:center">
+        <div style="font-weight:700;margin-bottom:8px">${jscEsc(nome)}</div>
+        <input type="number" id="mSJG${lado}" min="0" max="30" value="0"
+          style="width:70px;padding:12px;font-size:1.5rem;text-align:center;border:2px solid var(--gray-border);border-radius:8px;font-family:var(--font-display)" />
+      </div>`;
+  openModal('Registar Resultado — Equipa Sénior', `
+    <p style="margin-bottom:16px;color:var(--gray-text);font-size:0.9rem">
+      ${jscEsc(j.jornada != null && j.jornada !== '' ? 'Jornada ' + j.jornada + ' · ' : '')}${jscEsc(fmtDataJogo(j.data))}${jscEsc(j.hora ? ' · ' + j.hora : '')}
+    </p>
+    <div style="display:flex;align-items:center;gap:16px;justify-content:center;margin-bottom:20px">
+      ${campo('Casa', j.casa)}
+      <div style="font-family:var(--font-display);font-size:2rem;color:var(--gray-text)">–</div>
+      ${campo('Fora', j.fora)}
+    </div>`,
+    `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+     <button class="btn-approve" onclick="saveResultadoSenior(${jscEsc(id)})">Confirmar</button>`);
+};
+
+window.saveResultadoSenior = function (id) {
+  const j = (DB.jogos || []).find(x => x.id === id);
+  if (!j) return;
+  j.gcasa  = parseInt(document.getElementById('mSJGCasa')?.value, 10) || 0;
+  j.gfora  = parseInt(document.getElementById('mSJGFora')?.value, 10) || 0;
+  j.estado = 'Realizado';
+  saveDB();
+  renderJogos();
+  closeModal();
+  showToast(`Resultado registado: ${j.gcasa} – ${j.gfora}`, 'green');
+};
+
+window.removeJogoSenior = function (id) {
+  const j = (DB.jogos || []).find(x => x.id === id);
+  if (!j) return;
+  if (!confirm(`Eliminar este jogo da Equipa Sénior?\n\n${j.casa} – ${j.fora}\n${j.data || '(sem data)'}\n\nSó este jogo é eliminado. Os jogos da Formação não são afectados.`)) return;
+  const idx = DB.jogos.findIndex(x => x.id === id);
+  if (idx > -1) DB.jogos.splice(idx, 1);
+  saveDB();
+  renderJogos();
+  showToast('Jogo eliminado.', 'red');
+};
+
+// ---- Classificação ------------------------------------------------
+// O resumo do que está gravado em fpf_class_Seniores, e o botão de apagar
+// só aparece quando há linhas para apagar.
+function renderClassSeniorResumo() {
+  const alvo = document.getElementById('seniorClassTabela');
+  if (!alvo) return;   // a página não está montada
+
+  const chave = teamStorageKey(JSC_SENIOR_ESCALAO, '', 'class');
+  let linhas = [];
+  try {
+    const cru = JSON.parse(localStorage.getItem(chave) || '[]');
+    if (Array.isArray(cru)) linhas = cru;
+  } catch (e) {}
+
+  const resumo = document.getElementById('seniorClassResumo');
+  const btnAp  = document.getElementById('btnApagarClassSenior');
+  if (btnAp) btnAp.style.display = linhas.length ? '' : 'none';
+
+  if (!linhas.length) {
+    if (resumo) resumo.textContent = '';
+    alvo.innerHTML = '<p style="color:#999;font-size:0.85rem;margin:0">'
+      + 'Sem classificação gravada. Use «Colar classificação» ou «Manual».</p>';
+    return;
+  }
+
+  const cfg  = loadClassConfig();
+  const esc  = cfg[JSC_SENIOR_ESCALAO] || {};
+  const data = esc.lastSync ? new Date(esc.lastSync).toLocaleDateString('pt-PT') : '';
+  if (resumo) resumo.textContent = `(${linhas.length} equipas${data ? ' · ' + data : ''})`;
+
+  // Os pontos são os mesmos que a página pública mostra: V×3 + E, mais o
+  // arrastado da 1.ª fase quando existe. A conta está no js/resultados.js;
+  // aqui é só para se ver no painel o que foi gravado.
+  const pontos = (t) => {
+    const base = (Number(t.v) || 0) * 3 + (Number(t.e) || 0);
+    return (t.pts != null && Number(t.pts) > base) ? Number(t.pts) : base + (Number(t.pts1fase) || 0);
+  };
+  const ordenadas = [...linhas].sort((a, b) =>
+    pontos(b) - pontos(a)
+    || ((Number(b.gm) || 0) - (Number(b.gs) || 0)) - ((Number(a.gm) || 0) - (Number(a.gs) || 0))
+    || (Number(b.gm) || 0) - (Number(a.gm) || 0));
+
+  alvo.innerHTML = `
+    <div style="overflow-x:auto">
+      <table class="table" style="min-width:560px">
+        <thead><tr>
+          <th>#</th><th>Equipa</th><th>J</th><th>V</th><th>E</th><th>D</th>
+          <th>GM</th><th>GS</th><th>DG</th><th>Pts</th>
+        </tr></thead>
+        <tbody>
+          ${ordenadas.map((t, i) => {
+            const dg = (Number(t.gm) || 0) - (Number(t.gs) || 0);
+            return `<tr>
+              <td style="text-align:center">${jscEsc(i + 1)}</td>
+              <td>${jscEsc(t.equipa || '—')}</td>
+              <td>${jscEsc(t.j)}</td><td>${jscEsc(t.v)}</td><td>${jscEsc(t.e)}</td>
+              <td>${jscEsc(t.d)}</td><td>${jscEsc(t.gm)}</td><td>${jscEsc(t.gs)}</td>
+              <td>${jscEsc(dg > 0 ? '+' : '')}${jscEsc(dg)}</td>
+              <td style="font-weight:700;color:var(--blue)">${jscEsc(pontos(t))}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+window.apagarClassSenior = function () {
+  if (typeof apagarClassBase !== 'function') return;
+  apagarClassBase(JSC_SENIOR_ESCALAO);
+  renderClassSeniorResumo();
 };
 
 // ==================================================
@@ -2996,6 +3298,12 @@ function teamStorageKey(escalao, teamKey, tipo) {
 // abrirEditorClass(), o salvarEditorClass() e o teamStorageKey() ficam como
 // estavam: a chave certa chega-lhes por aqui.
 function renderClassSyncRows() {
+  // A colagem, o editor manual e o apagar acabam todos aqui. O resumo da
+  // Equipa Sénior lê a mesma chave fpf_class_Seniores, por isso refresca-se no
+  // mesmo sítio, em vez de cada caminho se ter de lembrar dele. A função
+  // devolve logo se a página sénior não estiver montada.
+  if (typeof renderClassSeniorResumo === 'function') renderClassSeniorResumo();
+
   const tbody = document.getElementById('fpfSyncRows');
   if (!tbody) return;
   const cfg = loadClassConfig();
@@ -7572,6 +7880,24 @@ function initSeniores() {
     btnNovo._bound = true;
     btnNovo.addEventListener('click', () => editJogador(null));
   }
+
+  // ---- Jogos, resultados e classificação da Equipa Sénior ----
+  // Os cinco botões chamam funções que já existem. As de colar e a do editor
+  // manual são as mesmas da Formação, com o escalão 'Seniores' e sem série —
+  // é por isso que o modal de colagem teve de sair de dentro do #page-jogos:
+  // o goToPage() esconde essa secção, e lá dentro ele não aparecia.
+  const ligar = (id, fn) => {
+    const el = document.getElementById(id);
+    if (el && !el._bound) { el._bound = true; el.addEventListener('click', fn); }
+  };
+  ligar('btnNovoJogoSenior',    () => novoJogoSenior());
+  ligar('btnColarJogosSenior',  () => abrirColar(JSC_SENIOR_ESCALAO, 'jogos', ''));
+  ligar('btnColarClassSenior',  () => abrirColar(JSC_SENIOR_ESCALAO, 'class', ''));
+  ligar('btnEditarClassSenior', () => abrirEditorClass(JSC_SENIOR_ESCALAO, ''));
+  ligar('btnApagarClassSenior', () => apagarClassSenior());
+
+  renderJogosSenior();
+  renderClassSeniorResumo();
 }
 
 function renderSeniores() {
