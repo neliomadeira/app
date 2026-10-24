@@ -553,3 +553,20 @@ html[data-theme="dark"] .jogo-lado--casa { background: #FFD100; color: #001f4d; 
 @media (max-width: 480px) {
   .share-btns { grid-template-columns: 1fr; }
 }
+
+/* =============================================
+   EQUIPA PRINCIPAL — só a secção #seniorCompeticoes
+   ============================================= */
+/* A página da Equipa Principal reutiliza os cartões, a lista de jogos e a
+   tabela desta folha. Falta-lhe uma coisa: o nome da competição dos
+   seniores é comprido — "AF Algarve 2.ª Divisão Série 1 · 2026/2027" —, e o
+   .res-card__header é um flex sem quebra, pelo que num telemóvel o nome
+   ficava encostado ao título, sem um espaço entre os dois. Medido a 390px:
+   o título acabava em x=189 e o nome começava exactamente em x=189.
+
+   O seletor é a secção, que só existe na equipa-principal.html: no
+   resultados.html não há nenhum #seniorCompeticoes, e a Formação fica
+   exactamente como estava — medido, cabeçalhos e colunas iguais ao byte nas
+   quatro larguras. */
+#seniorCompeticoes .res-card__header { flex-wrap: wrap; gap: 2px 14px; }
+#seniorCompeticoes .res-competicao { line-height: 1.35; }
