@@ -58,7 +58,7 @@
   // ZeroZero traz a marca de lado "(C)"/"(F)" ao lado do nome e linhas que
   // não são equipas nenhumas, como o "h2h" da ligação frente-a-frente.
   var MARCA_LADO = /\(\s*[CF]\s*\)/ig;
-  var NAO_E_EQUIPA = /^(h2h|vs|realizado|agendado|adiado|adi|anulado|anu|cancelado|can|int|interrompido|encerrado)$/i;
+  var NAO_E_EQUIPA = /^(h2h|vs|realizado|agendado|adiado|adi|anulado|anu|cancelado|can|int|interrompido|encerrado|advers[áa]rio por identificar)$/i;
 
   function semMarca(nome) {
     return String(nome == null ? '' : nome).replace(MARCA_LADO, '').replace(/\s{2,}/g, ' ').trim();

@@ -2771,6 +2771,15 @@ function renderJogosSenior() {
   const corpoRes  = document.querySelector('#seniorJogosTable tbody');
   if (!corpoProx || !corpoRes) return;   // a página não está montada
 
+  // O botão de correcção só existe enquanto houver o que corrigir, e diz
+  // quantos são. Sem jogos por identificar não se mostra sequer.
+  const btnRev = document.getElementById('btnRevisaoSenior');
+  if (btnRev) {
+    const n = jogosSeniorPorCorrigir().length;
+    btnRev.style.display = n ? '' : 'none';
+    btnRev.innerHTML = '&#9888; Corrigir adversários (' + jscEsc(n) + ')';
+  }
+
   const scRe = /sport campinense|js campinense|campinense/i;
   const linha = (j) => `
       <tr>
@@ -2995,6 +3004,189 @@ window.apagarClassSenior = function () {
   if (typeof apagarClassBase !== 'function') return;
   apagarClassBase(JSC_SENIOR_ESCALAO);
   renderClassSeniorResumo();
+};
+
+// ---- Corrigir adversários por identificar --------------------------
+// Os 24 jogos que ficaram com «h2h» no lugar do adversário não se apagam nem
+// se voltam a importar: uma reimportação criaria registos novos, porque a
+// chave de fusão inclui os nomes, e ficavam 24 jogos a dobrar.
+//
+// Corrige-se cada registo no sítio, pelo id, e só o nome do lado que não
+// identifica ninguém. A data, a hora, o lado do clube, o estado, o resultado,
+// a jornada e o local ficam exactamente como estão. Nada é apagado, e os
+// jogos da Formação nem sequer são lidos.
+//
+// A correspondência é pela DATA, e só quando ela decide sozinha: medido no
+// painel, os 29 jogos dos seniores têm 29 datas diferentes. Onde houver
+// dúvida — nenhum jogo na colagem para aquela data, mais do que um, ou o lado
+// do clube a não bater certo — o registo fica como está e aparece na lista
+// dos que precisam de revisão manual.
+let _revSeniorPlano = null;   // a última pré-visualização, à espera de confirmação
+
+function jogosSeniorPorCorrigir() {
+  return (DB.jogos || []).filter(j => j && j.escalao === JSC_SENIOR_ESCALAO
+    && (_jscPorIdentificar(j.casa) || _jscPorIdentificar(j.fora)));
+}
+
+window.abrirRevisaoSenior = function () {
+  const m = document.getElementById('revisaoSeniorModal');
+  if (!m) return;
+  _revSeniorPlano = null;
+  const ta = document.getElementById('revisaoSeniorTA');
+  if (ta) ta.value = '';
+  const porCorrigir = jogosSeniorPorCorrigir().length;
+  const res = document.getElementById('revisaoSeniorResumo');
+  if (res) {
+    res.innerHTML = porCorrigir
+      ? '<strong>' + jscEsc(porCorrigir) + '</strong> jogo(s) com o adversário por identificar.'
+      : 'Nenhum jogo por corrigir — todos os adversários estão identificados.';
+  }
+  const prev = document.getElementById('revisaoSeniorPreview');
+  if (prev) prev.innerHTML = '';
+  const btn = document.getElementById('btnAplicarRevisaoSenior');
+  if (btn) btn.style.display = 'none';
+  m.style.display = 'flex';
+};
+
+window.fecharRevisaoSenior = function () {
+  const m = document.getElementById('revisaoSeniorModal');
+  if (m) m.style.display = 'none';
+  _revSeniorPlano = null;
+};
+
+// A cópia de segurança antes de corrigir: os jogos todos, como estão, num
+// ficheiro. Não publica nada e não toca no servidor.
+window.descarregarCopiaJogos = function () {
+  try {
+    const dados = JSON.stringify({ exportadoEm: new Date().toISOString(), jogos: DB.jogos || [] }, null, 2);
+    const url = URL.createObjectURL(new Blob([dados], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'jsc-jogos-' + new Date().toISOString().slice(0, 10) + '.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    showToast('Cópia dos jogos descarregada.', 'green');
+  } catch (e) {
+    showToast('Não foi possível descarregar a cópia: ' + (e.message || e.name), 'red');
+  }
+};
+
+window.previsualizarRevisaoSenior = function () {
+  const ta = document.getElementById('revisaoSeniorTA');
+  const prev = document.getElementById('revisaoSeniorPreview');
+  const btn = document.getElementById('btnAplicarRevisaoSenior');
+  if (!ta || !prev) return;
+  _revSeniorPlano = null;
+  if (btn) btn.style.display = 'none';
+
+  const colados = parsePastedJogos(ta.value || '');
+  if (!colados.length) {
+    prev.innerHTML = '<p style="color:#dc2626;font-size:0.85rem;margin:0">Nenhum jogo reconhecido nesta colagem.</p>';
+    return;
+  }
+
+  const porData = {};
+  colados.forEach(c => { (porData[c.data] = porData[c.data] || []).push(c); });
+
+  const linhas = [];
+  const plano = [];
+  jogosSeniorPorCorrigir()
+    .slice()
+    .sort((a, b) => String(a.data || '').localeCompare(String(b.data || '')))
+    .forEach(j => {
+      const atual = String(j.casa) + ' vs ' + String(j.fora);
+      const cands = porData[j.data] || [];
+      let estado = '', proposto = '—';
+      if (!cands.length)      estado = 'sem correspondência nesta colagem';
+      else if (cands.length > 1) estado = 'mais do que um jogo nesta data — rever à mão';
+      else {
+        const c = cands[0];
+        const adv = _jscAdversarioDe(c);
+        const clubeEmCasa = _jscEhClube(j.casa);
+        const coladoClubeEmCasa = _jscEhClube(c.casa);
+        if (!adv)                      estado = 'a colagem não diz quem é o adversário';
+        else if (_jscPorIdentificar(adv)) estado = 'o adversário continua por identificar na colagem';
+        else if (clubeEmCasa !== coladoClubeEmCasa) estado = 'casa/fora não bate certo — rever à mão';
+        else {
+          proposto = clubeEmCasa ? (String(j.casa) + ' vs ' + adv) : (adv + ' vs ' + String(j.fora));
+          estado = 'vai corrigir';
+          plano.push({ id: j.id, adversario: adv, lado: clubeEmCasa ? 'fora' : 'casa',
+                       logo: c.logoCasa && !coladoClubeEmCasa ? c.logoCasa : (c.logoFora && coladoClubeEmCasa ? c.logoFora : '') });
+        }
+      }
+      linhas.push({ data: j.data, atual, proposto, estado });
+    });
+
+  // Datas que a colagem traz e o painel não tem. Não se acrescenta nada aqui:
+  // só se diz, para não passarem despercebidas.
+  const datasNoPainel = new Set((DB.jogos || [])
+    .filter(j => j.escalao === JSC_SENIOR_ESCALAO).map(j => j.data));
+  const emFalta = Object.keys(porData).filter(d => !datasNoPainel.has(d)).sort();
+
+  const vaiCorrigir = linhas.filter(l => l.estado === 'vai corrigir').length;
+  const porRever = linhas.length - vaiCorrigir;
+
+  prev.innerHTML = ''
+    + '<p style="font-size:0.85rem;margin:0 0 8px">'
+    +   '<strong>' + jscEsc(colados.length) + '</strong> jogos na colagem · '
+    +   '<strong style="color:#16a34a">' + jscEsc(vaiCorrigir) + '</strong> a corrigir · '
+    +   '<strong style="color:#b45309">' + jscEsc(porRever) + '</strong> para revisão manual'
+    + '</p>'
+    + (emFalta.length
+        ? '<p style="font-size:0.8rem;background:#fff8e1;border:1px solid #ffe082;border-radius:8px;'
+          + 'padding:8px 10px;color:#7a5700;margin:0 0 8px">A colagem tem jogos em datas que não existem '
+          + 'no painel: ' + jscEsc(emFalta.join(', ')) + '. Esta ferramenta não os acrescenta — '
+          + 'acrescente-os com «Novo jogo» ou com «Colar jogos».</p>'
+        : '')
+    + '<div style="overflow-x:auto"><table class="table" style="min-width:620px;font-size:0.8rem">'
+    + '<thead><tr><th>Data</th><th>Como está</th><th>Como fica</th><th>Estado</th></tr></thead><tbody>'
+    + linhas.map(l => '<tr>'
+        + '<td style="white-space:nowrap">' + jscEsc(l.data) + '</td>'
+        + '<td>' + jscEsc(l.atual) + '</td>'
+        + '<td>' + jscEsc(l.proposto) + '</td>'
+        + '<td style="color:' + (l.estado === 'vai corrigir' ? '#16a34a' : '#b45309') + '">'
+        +   jscEsc(l.estado) + '</td>'
+        + '</tr>').join('')
+    + '</tbody></table></div>';
+
+  if (vaiCorrigir) {
+    _revSeniorPlano = plano;
+    if (btn) {
+      btn.style.display = '';
+      btn.textContent = '✓ Corrigir ' + vaiCorrigir + ' jogo(s)';
+    }
+  }
+};
+
+window.aplicarRevisaoSenior = function () {
+  if (!_revSeniorPlano || !_revSeniorPlano.length) {
+    showToast('Não há nada confirmado para corrigir. Pré-visualize primeiro.', 'red');
+    return;
+  }
+  const n = _revSeniorPlano.length;
+  if (!confirm('Vão ser corrigidos ' + n + ' jogo(s) dos Seniores.\n\n'
+      + 'Só muda o nome do adversário. A data, a hora, o lado, o estado e o resultado '
+      + 'ficam como estão, e nenhum jogo é apagado.\n\nContinuar?')) return;
+
+  let feitos = 0;
+  for (const passo of _revSeniorPlano) {
+    const j = (DB.jogos || []).find(x => x && x.id === passo.id);
+    if (!j || j.escalao !== JSC_SENIOR_ESCALAO) continue;          // desapareceu entretanto
+    if (!_jscPorIdentificar(j[passo.lado])) continue;              // já não precisa
+    j[passo.lado] = passo.adversario;
+    if (passo.logo) j[passo.lado === 'casa' ? 'logoCasa' : 'logoFora'] = passo.logo;
+    delete j.revisao;
+    feitos++;
+  }
+  saveDB();
+  _revSeniorPlano = null;
+  renderJogos();
+  const resta = jogosSeniorPorCorrigir().length;
+  fecharRevisaoSenior();
+  showToast(feitos + ' jogo(s) corrigidos' + (resta ? ', ' + resta + ' ainda por identificar' : '')
+    + '. Publique quando quiser que o site mostre a alteração.', 'green');
 };
 
 // ==================================================
@@ -4061,7 +4253,14 @@ function parseScore(s) {
 // ZeroZero format: date on own line, then optionally time, then home, score/–, away, [local]
 function parseZZJogos(lines, next) {
   const jogos = [];
-  const junkRe = /^(jogos|calendário|resultados|jornada|época|competição|equipa|©|filtrar|anterior|próximo|zerozero)/i;
+  const junkRe = /^(jogos|calendário|resultados|jornada|época|competição|equipa|©|filtrar|anterior|próximo|zerozero|h2h)/i;
+  // Onde acabou o último bloco aceite. É a terceira prova de que uma data
+  // abre um bloco — ver o comentário das provas, mais abaixo: numa lista do
+  // ZeroZero sem resultado (jogos por disputar) não há separador nenhum, e a
+  // linha antes da data é a última linha do jogo anterior, que não é data,
+  // hora nem resultado. Medido: numa lista de cinco jogos por disputar só o
+  // primeiro era reconhecido, e os outros quatro desapareciam em silêncio.
+  let fimAnterior = -1;
   for (let i = 0; i < lines.length; i++) {
     const d = parseDate(lines[i]);
     // Skip lines that are scores (e.g. "3-1") — parseDate can match them as short DD-MM dates
@@ -4117,12 +4316,59 @@ function parseZZJogos(lines, next) {
     const antes = i > 0 ? lines[i - 1].trim() : '';
     const abreBloco = !antes || !!parseDate(antes) || !!parseTime(antes)
                    || !!parseScore(antes) || junkRe.test(antes);
-    if (!separador && !abreBloco) continue;
+    // A terceira prova: esta data é a linha logo a seguir ao fim do bloco
+    // anterior deste mesmo parser. É estrutural e não se confunde com a forma
+    // do AF Algarve, onde a primeira data nunca é aceite e portanto nunca há
+    // bloco anterior de onde continuar.
+    const continuaDoAnterior = (i === fimAnterior);
+    if (!separador && !abreBloco && !continuaDoAnterior) continue;
 
     jogos.push({ id: next(), casa, fora, gcasa: score?.gcasa ?? null, gfora: score?.gfora ?? null,
       data: d, hora, local: '', estado: score ? 'Realizado' : 'Agendado' });
+    fimAnterior = j;
   }
   return jogos;
+}
+
+// Uma equipa que a colagem não conseguiu nomear.
+//
+// O token [img:...] de um escudo desconhecido era substituído por NADA, a
+// linha ficava vazia, desaparecia no filtro, e a primeira linha utilizável a
+// seguir passava a ser a equipa. Medido na página de jogos do ZeroZero, onde
+// essa linha é o «h2h» da ligação aos confrontos directos: 24 dos 29 jogos
+// dos seniores ficaram com casa="h2h" ou fora="h2h".
+//
+// Passa a ficar esta marca, que ocupa o lugar e não se confunde com um clube:
+// o jogo entra com o lado certo, fica assinalado em revisao e a ferramenta de
+// revisão dos seniores põe-lhe o nome verdadeiro. As páginas públicas não a
+// desenham, como já não desenhavam o «h2h».
+const JSC_POR_IDENTIFICAR = 'Adversário por identificar';
+
+// Etiquetas de ligação das tabelas do ZeroZero. Não são equipas, não são
+// recintos, e saem antes de qualquer parser as ver — como as linhas de
+// competição. O «h2h» é o caso medido; os outros acompanham-no porque são a
+// mesma coisa noutra coluna.
+const JSC_LINHA_LIGACAO = /^(h2h|ficha|ficha do jogo|ver ficha|detalhes|comparar|estat[íi]sticas)$/i;
+
+// Um nome que não identifica ninguém: o «h2h» que ficou gravado nos 24 jogos
+// e a marca que o importador passa a usar no lugar dele.
+function _jscPorIdentificar(nome) {
+  const t = String(nome == null ? '' : nome).trim().toLowerCase();
+  return t === 'h2h' || t === JSC_POR_IDENTIFICAR.toLowerCase();
+}
+
+function _jscEhClube(nome) {
+  return /campinense/i.test(String(nome == null ? '' : nome));
+}
+
+// O adversário de um jogo do clube. Devolve vazio quando os dois lados são o
+// clube ou nenhum o é — aí não há «o adversário» e nada se decide por ele.
+function _jscAdversarioDe(j) {
+  if (!j) return '';
+  const casa = String(j.casa || '').trim(), fora = String(j.fora || '').trim();
+  const cCasa = _jscEhClube(casa), cFora = _jscEhClube(fora);
+  if (cCasa === cFora) return '';
+  return cCasa ? fora : casa;
 }
 
 // ── Resolução de logos → nomes de equipas ─────────
@@ -4169,7 +4415,7 @@ function _resolveImgTeamTokens(text) {
     const nome = idToName[_logoId(url)];
     if (nome) return nome;
     _lastJogosUnresolved++;
-    return '';
+    return JSC_POR_IDENTIFICAR;
   });
 }
 
@@ -4344,6 +4590,10 @@ function _aplicarMarcasCasaFora(jogos) {
     // Sem os dois nomes não há jogo: acontece quando os dois campos eram só a
     // marca, e aí não há nada por onde reconstruir o adversário.
     if (!j.casa || !j.fora || j.casa.toLowerCase() === j.fora.toLowerCase()) continue;
+    // Um lado por identificar não impede o jogo de entrar — a data, a hora e
+    // o lado do clube são bons e perdê-los seria pior. Fica a marca, e é por
+    // ela que a ferramenta de revisão o encontra.
+    if (j.casa === JSC_POR_IDENTIFICAR || j.fora === JSC_POR_IDENTIFICAR) j.revisao = true;
     saida.push(j);
   }
   return saida;
@@ -4357,7 +4607,11 @@ function parsePastedJogos(text) {
   // forma que os parsers esperam — o adversário, o clube, o resultado, a hora
   // e o recinto continuam todos lá.
   const raw = text.split('\n').map(l=>l.trim()).filter(Boolean)
-    .filter(l => !_ehLinhaDeCompeticao(l));
+    .filter(l => !_ehLinhaDeCompeticao(l))
+    // E as etiquetas de ligação, pela mesma razão: o «h2h» era lido como o
+    // nome da equipa visitante sempre que a linha do adversário não tinha
+    // texto. Sai aqui, uma vez, para os quatro parsers.
+    .filter(l => !JSC_LINHA_LIGACAO.test(l));
   const idBase = { v: Date.now() };
   const next = () => idBase.v++;
   // ZeroZero detection: date lines (DD/MM/YYYY or "22 mar 2026") followed by team names on separate lines
@@ -4780,6 +5034,18 @@ window.guardarColarClass = function() {
   } else {
     let jogos = parsePastedJogos(ta.value);
     if (!jogos.length) { showToast('Nenhum jogo válido para guardar', 'red'); return; }
+    // Equipas que a colagem não conseguiu nomear: a gravação pára e pergunta.
+    // O aviso já existia na pré-visualização e passava despercebido — foi
+    // assim que 24 jogos ficaram com «h2h» no lugar do adversário.
+    const porNomear = jogos.filter(j => j.revisao).length;
+    if (porNomear && !confirm(
+        porNomear + ' de ' + jogos.length + ' jogos vêm com o adversário por identificar '
+        + '(a fonte deu o escudo e não o nome).\n\n'
+        + 'Pode guardar assim e corrigir depois na Equipa Sénior → «Corrigir adversários», '
+        + 'ou cancelar, importar primeiro a classificação deste escalão — que ensina os '
+        + 'escudos ao painel — e colar os jogos outra vez.\n\nGuardar mesmo assim?')) {
+      return;
+    }
     // Filtro "só jogos do Campinense" (checkbox na pré-visualização)
     if (document.getElementById('colarSoSC')?.checked) {
       const scRe = /sport campinense|js campinense|campinense/i;
@@ -4791,15 +5057,39 @@ window.guardarColarClass = function() {
     // Merge into DB.jogos
     const escalao = _colarEscalao, teamLabel = _colarTeam ? (teamCfg.nome || _colarTeam) : '';
     const scRe    = /sport campinense|js campinense|campinense/i;
-    let added=0, updated=0;
+    let added=0, updated=0, porRever=0;
+    const kc = s => (s||'').toLowerCase().trim();
     for (const j of jogos) {
-      const kc = s => (s||'').toLowerCase().trim();
-      const ex  = DB.jogos.find(e => e.data===j.data && kc(e.casa)===kc(j.casa) && kc(e.fora)===kc(j.fora));
+      // Primeiro a correspondência de sempre: mesma data e os dois nomes iguais.
+      let ex = DB.jogos.find(e => e.data===j.data && kc(e.casa)===kc(j.casa) && kc(e.fora)===kc(j.fora));
+      // Depois, a mesma data no mesmo escalão com o mesmo adversário, seja de
+      // que lado for. Sem isto, um nome escrito de outra maneira — ou um lado
+      // corrigido entretanto — entrava como jogo novo e ficava o mesmo jogo
+      // duas vezes. Um clube não joga duas vezes contra o mesmo adversário no
+      // mesmo dia, pelo que a data e o adversário bastam.
+      if (!ex) {
+        const advNovo = kc(_jscAdversarioDe(j));
+        if (advNovo && !_jscPorIdentificar(advNovo)) {
+          ex = DB.jogos.find(e => e.data===j.data && e.escalao===escalao
+                               && kc(_jscAdversarioDe(e)) === advNovo);
+        }
+      }
+      // E, antes de criar, o caso desta correcção: já existe um jogo nesta
+      // data com o adversário por identificar. Criar outro era duplicá-lo.
+      // Não se lhe toca aqui — quem o corrige é a ferramenta de revisão, que
+      // mostra o antes e o depois e só escreve depois de confirmado.
+      if (!ex && DB.jogos.some(e => e.data===j.data && e.escalao===escalao
+                                 && (_jscPorIdentificar(e.casa) || _jscPorIdentificar(e.fora)))) {
+        porRever++;
+        continue;
+      }
       if (ex) {
         if (j.estado==='Realizado' && ex.estado==='Agendado') { ex.gcasa=j.gcasa; ex.gfora=j.gfora; ex.estado='Realizado'; updated++; }
       } else {
-        DB.jogos.push({ id:Date.now()+Math.floor(Math.random()*10000), escalao, equipa:teamLabel,
-          casa:j.casa, fora:j.fora, gcasa:j.gcasa, gfora:j.gfora, data:j.data, hora:j.hora, local:j.local, estado:j.estado });
+        const novo = { id:Date.now()+Math.floor(Math.random()*10000), escalao, equipa:teamLabel,
+          casa:j.casa, fora:j.fora, gcasa:j.gcasa, gfora:j.gfora, data:j.data, hora:j.hora, local:j.local, estado:j.estado };
+        if (j.revisao) novo.revisao = true;
+        DB.jogos.push(novo);
         added++;
       }
     }
@@ -4816,6 +5106,7 @@ window.guardarColarClass = function() {
     fecharColarClass();
     renderClassSyncRows();
     showToast(`${escalao}${teamLabel ? ' · ' + teamLabel : ''}: ${added} jogos adicionados${updated?', '+updated+' actualizados':''}`
+      + (porRever ? `, ${porRever} já existem por corrigir (use «Corrigir adversários»)` : '')
       + (marcouJ ? '' : ' — a data de atualização não ficou registada'),
       marcouJ ? 'green' : 'red');
   }
@@ -7895,6 +8186,7 @@ function initSeniores() {
   ligar('btnColarClassSenior',  () => abrirColar(JSC_SENIOR_ESCALAO, 'class', ''));
   ligar('btnEditarClassSenior', () => abrirEditorClass(JSC_SENIOR_ESCALAO, ''));
   ligar('btnApagarClassSenior', () => apagarClassSenior());
+  ligar('btnRevisaoSenior',     () => abrirRevisaoSenior());
 
   renderJogosSenior();
   renderClassSeniorResumo();

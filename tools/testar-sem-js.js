@@ -8122,9 +8122,18 @@ async function testarAdminHistoria(browser, url) {
     {
       const fonteDesp = fs.readFileSync(path.join(raiz, 'admin', 'js', 'admin.js'), 'utf8')
         .replace(/^\s*\/\/.*$/gm, '');
-      verificar('admin.js: o parseZZJogos exige uma das duas provas',
+      // Eram duas provas; são três desde que a lista de jogos POR DISPUTAR do
+      // ZeroZero mostrou o que faltava: aí não há resultado nem separador, e a
+      // linha antes da data é a última do jogo anterior. A terceira prova é
+      // estrutural — a data começa onde o bloco anterior acabou. As duas
+      // primeiras continuam a ser exigidas aqui, tal como estavam; o que muda
+      // é que a condição passa a ter também o continuaDoAnterior. A matriz de
+      // onze colagens, logo a seguir, é que prova que o comportamento se
+      // mantém nas sete formas do AF Algarve.
+      verificar('admin.js: o parseZZJogos exige uma das três provas',
         /const abreBloco = !antes \|\| !!parseDate\(antes\) \|\| !!parseTime\(antes\)/.test(fonteDesp)
-        && /if \(!separador && !abreBloco\) continue;/.test(fonteDesp));
+        && /const continuaDoAnterior = \(i === fimAnterior\);/.test(fonteDesp)
+        && /if \(!separador && !abreBloco && !continuaDoAnterior\) continue;/.test(fonteDesp));
       verificar('admin.js: o resultado e o separador ficam registados como prova',
         /if \(sc\) \{ score = sc; separador = true; j\+\+; \}/.test(fonteDesp)
         && /else if \(\/\^\[-–\]\$\/\.test\(lines\[j\]\.trim\(\)\)\) \{ separador = true; j\+\+; \}/.test(fonteDesp));

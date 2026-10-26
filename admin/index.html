@@ -1057,6 +1057,9 @@
             <div class="card-header">
               <h3>&#128197; Jogos e Resultados <span id="seniorJogosCount" style="font-weight:400;font-size:0.8rem;color:#888"></span></h3>
               <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <!-- Só aparece quando houver jogos com o adversário por
+                     identificar; o renderJogosSenior() trata disso. -->
+                <button class="btn-sm" id="btnRevisaoSenior" style="display:none;background:#b45309;color:#fff">&#9888; Corrigir advers&aacute;rios</button>
                 <button class="btn-fpf" id="btnColarJogosSenior">&#128203; Colar jogos</button>
                 <button class="btn-primary" id="btnNovoJogoSenior">+ Novo Jogo</button>
               </div>
@@ -1722,6 +1725,37 @@
       páginas podem usá-lo. Nada do seu conteúdo mudou.
     -->
     <!-- MODAL: COLAR CLASSIFICAÇÃO / JOGOS -->
+    <!-- Corrigir adversários por identificar (Equipa Sénior).
+         Ao nível de topo pela mesma razão que o colarClassModal: o goToPage()
+         põe display:none em cada .page, e um modal dentro de uma secção
+         desaparecia com ela. É position:fixed, logo o aspeto não muda. -->
+    <div id="revisaoSeniorModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;padding:16px">
+      <div style="background:#fff;border-radius:12px;width:100%;max-width:860px;max-height:92vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.25)">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:2px solid var(--yellow);background:var(--blue)">
+          <span style="font-family:var(--font-display);font-size:1.3rem;color:#fff;letter-spacing:1px">Corrigir advers&aacute;rios por identificar</span>
+          <button onclick="fecharRevisaoSenior()" style="background:none;border:none;color:#fff;font-size:1.4rem;cursor:pointer;line-height:1">&times;</button>
+        </div>
+        <div style="padding:20px">
+          <div id="revisaoSeniorResumo" style="font-size:0.85rem;margin-bottom:10px"></div>
+          <div style="background:#e8f4fd;border:1px solid #b3d9f7;border-radius:8px;padding:12px;font-size:0.82rem;color:#1a5276;line-height:1.6;margin-bottom:12px">
+            Cole outra vez a p&aacute;gina de jogos do ZeroZero. Os jogos s&atilde;o emparelhados
+            <strong>pela data</strong> e s&oacute; se corrige o <strong>nome do advers&aacute;rio</strong>:
+            a data, a hora, o lado, o estado e o resultado ficam como est&atilde;o, e nenhum jogo &eacute; apagado.
+            O que n&atilde;o for seguro fica na lista para revis&atilde;o manual.
+          </div>
+          <button class="btn-sm" onclick="descarregarCopiaJogos()" style="margin-bottom:10px">&#11015; Descarregar c&oacute;pia dos jogos antes de corrigir</button>
+          <textarea id="revisaoSeniorTA" rows="8" placeholder="Cole aqui a p&aacute;gina de jogos do ZeroZero..."
+            style="width:100%;box-sizing:border-box;padding:10px;border:1.5px solid #ddd;border-radius:8px;font-family:monospace;font-size:0.82rem;resize:vertical"></textarea>
+          <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
+            <button class="btn-save" onclick="previsualizarRevisaoSenior()">&#128269; Pr&eacute;-visualizar</button>
+            <button class="btn-primary" id="btnAplicarRevisaoSenior" style="display:none" onclick="aplicarRevisaoSenior()">&#10003; Corrigir</button>
+            <button class="btn-sm" onclick="fecharRevisaoSenior()" style="margin-left:auto">Cancelar</button>
+          </div>
+          <div id="revisaoSeniorPreview" style="margin-top:16px"></div>
+        </div>
+      </div>
+    </div>
+
     <div id="colarClassModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;padding:16px">
       <div style="background:#fff;border-radius:12px;width:100%;max-width:700px;max-height:92vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.25)">
         <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:2px solid var(--yellow);background:var(--blue)">

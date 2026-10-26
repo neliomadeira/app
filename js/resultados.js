@@ -69,7 +69,7 @@ function marcaDe(nome) {
 // cartão ao lado do jogo verdadeiro — as linhas duplicadas que se viam em
 // Próximos Jogos. Medido com oito formas de registo: um h2h em cada lado do
 // jogo desenhava dois cartões a mais.
-const JSC_NAO_E_EQUIPA = /^(h2h|vs|realizado|agendado|adiado|adi|anulado|anu|cancelado|can|int|interrompido|encerrado)$/i;
+const JSC_NAO_E_EQUIPA = /^(h2h|vs|realizado|agendado|adiado|adi|anulado|anu|cancelado|can|int|interrompido|encerrado|advers[áa]rio por identificar)$/i;
 
 // Um registo só se desenha se tiver dois nomes de equipa a sério. Em dúvida
 // não se mostra: um cartão a menos é melhor do que um cartão com "h2h" ou com
