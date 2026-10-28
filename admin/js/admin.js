@@ -3081,9 +3081,27 @@ window.previsualizarRevisaoSenior = function () {
   _revSeniorPlano = null;
   if (btn) btn.style.display = 'none';
 
+  // O que o parser viu, para o caso de não reconhecer o que devia. Nenhuma
+  // adivinhação: é o mesmo texto, pelas mesmas funções.
+  const linhasVistas = _linhasProcessadasJogos(ta.value || '');
+  const diagnostico = (colados) => ''
+    + '<details style="margin-top:14px">'
+    + '<summary style="cursor:pointer;font-size:0.8rem;color:#555">O que a colagem deu ao painel (diagnóstico)</summary>'
+    + '<p style="font-size:0.78rem;color:#555;margin:8px 0 4px">'
+    +   jscEsc(linhasVistas.length) + ' linhas depois de tirar competições e etiquetas de ligação · '
+    +   jscEsc(colados.length) + ' jogos reconhecidos · '
+    +   jscEsc(colados.filter(c => _jscPorIdentificar(_jscAdversarioDe(c))).length) + ' com o adversário por identificar'
+    + '</p>'
+    + '<pre style="max-height:220px;overflow:auto;background:#f8fafc;border:1px solid #e2e8f0;'
+    +   'border-radius:6px;padding:8px;font-size:0.72rem;white-space:pre-wrap">'
+    +   jscEsc(linhasVistas.slice(0, 60).join('\n'))
+    +   jscEsc(linhasVistas.length > 60 ? '\n… (' + (linhasVistas.length - 60) + ' linhas a mais)' : '')
+    + '</pre></details>';
+
   const colados = parsePastedJogos(ta.value || '');
   if (!colados.length) {
-    prev.innerHTML = '<p style="color:#dc2626;font-size:0.85rem;margin:0">Nenhum jogo reconhecido nesta colagem.</p>';
+    prev.innerHTML = '<p style="color:#dc2626;font-size:0.85rem;margin:0 0 8px">Nenhum jogo reconhecido nesta colagem.</p>'
+      + diagnostico([]);
     return;
   }
 
@@ -3107,7 +3125,7 @@ window.previsualizarRevisaoSenior = function () {
         const clubeEmCasa = _jscEhClube(j.casa);
         const coladoClubeEmCasa = _jscEhClube(c.casa);
         if (!adv)                      estado = 'a colagem não diz quem é o adversário';
-        else if (_jscPorIdentificar(adv)) estado = 'o adversário continua por identificar na colagem';
+        else if (_jscPorIdentificar(adv)) estado = 'a colagem não traz o nome do adversário — copie a página do browser (Ctrl+A, Ctrl+C), não um texto simples';
         else if (clubeEmCasa !== coladoClubeEmCasa) estado = 'casa/fora não bate certo — rever à mão';
         else {
           proposto = clubeEmCasa ? (String(j.casa) + ' vs ' + adv) : (adv + ' vs ' + String(j.fora));
@@ -3149,7 +3167,8 @@ window.previsualizarRevisaoSenior = function () {
         + '<td style="color:' + (l.estado === 'vai corrigir' ? '#16a34a' : '#b45309') + '">'
         +   jscEsc(l.estado) + '</td>'
         + '</tr>').join('')
-    + '</tbody></table></div>';
+    + '</tbody></table></div>'
+    + diagnostico(colados);
 
   if (vaiCorrigir) {
     _revSeniorPlano = plano;
@@ -3745,14 +3764,20 @@ document.getElementById('btnImportarFPF')?.addEventListener('click', () => {
 // ── HTML clipboard paste for standings / results ──────────────────────────────
 // When the user copies a ZeroZero (or AF Algarve) page, the clipboard has rich
 // HTML with proper <table> structure. Parse that directly instead of messy text.
-(function() {
-  const ta = document.getElementById('colarClassTA');
-  if (!ta) return;
-  ta.addEventListener('paste', function(e) {
+//
+// Estava ligado só à caixa de «Colar». A caixa de «Corrigir adversários» não
+// o tinha, e por isso recebia apenas o texto simples — onde a célula do
+// escudo não deixa rasto nenhum e o nome do adversário não existe. Passa a
+// ser uma função, ligada às duas caixas.
+function _ligarColagemHtml(id, aSeguir) {
+  const ta = document.getElementById(id);
+  if (!ta || ta._colagemHtmlLigada) return;
+  ta._colagemHtmlLigada = true;
+  ta.addEventListener('paste', function (e) {
     const html = e.clipboardData?.getData('text/html');
     if (!html || html.length < 300) {
       // Plain-text paste — let it land in the textarea, then preview automatically
-      setTimeout(previewColarClass, 120);
+      setTimeout(aSeguir, 120);
       return;
     }
     e.preventDefault();
@@ -3760,10 +3785,101 @@ document.getElementById('btnImportarFPF')?.addEventListener('click', () => {
     const text = _htmlToStructuredText(doc);
     if (text.trim().length > 20) {
       ta.value = text;
-      setTimeout(previewColarClass, 80);
+    } else {
+      // Nada de aproveitável no HTML. Antes, com o preventDefault já dado, a
+      // colagem perdia-se e a caixa ficava vazia sem explicação nenhuma.
+      ta.value = e.clipboardData.getData('text/plain') || ta.value;
     }
+    setTimeout(aSeguir, 80);
   });
+}
+
+(function () {
+  _ligarColagemHtml('colarClassTA',    () => previewColarClass());
+  _ligarColagemHtml('revisaoSeniorTA', () => previsualizarRevisaoSenior());
 })();
+
+// O nome de uma equipa normalizado para comparação: sem acentos, sem
+// pontuação e sem maiúsculas. «Lusitano V.R.S.A.» e «lusitano vrsa» passam a
+// ser a mesma coisa.
+function _normalizaNomeEquipa(n) {
+  return String(n == null ? '' : n)
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+// As equipas que o painel já conhece pelas classificações importadas, com a
+// grafia que lá está. Serve para escrever o nome sempre da mesma maneira —
+// que é também a chave por onde o escudo é procurado.
+function _nomesConhecidosDeEquipas() {
+  const mapa = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (!k || k.indexOf('fpf_class_') !== 0) continue;
+    try {
+      const linhas = JSON.parse(localStorage.getItem(k) || '[]');
+      if (Array.isArray(linhas)) linhas.forEach(r => {
+        const nome = String((r && r.equipa) || '').trim();
+        const chave = _normalizaNomeEquipa(nome);
+        if (chave && !mapa[chave]) mapa[chave] = nome;
+      });
+    } catch (e) {}
+  }
+  return mapa;
+}
+
+function _nomeConhecidoParecido(nome) {
+  const chave = _normalizaNomeEquipa(nome);
+  if (!chave) return '';
+  const mapa = _nomesConhecidosDeEquipas();
+  return mapa[chave] || '';
+}
+
+// De «/equipa/lusitano-vrsa/2033/» tira-se «lusitano vrsa».
+function _nomeDoEnderecoDeEquipa(href) {
+  const m = String(href == null ? '' : href).match(/\/(?:equipa|team|club)\/([a-z0-9-]{3,})/i);
+  if (!m) return '';
+  // O endereço traz tudo em minúsculas. Capitaliza-se para não aparecer
+  // «lusitano vrsa» na página; quando a classificação já conhecer a equipa, é
+  // a grafia dela que ganha, no _nomeDaCelula().
+  return m[1].replace(/-/g, ' ').trim()
+    .replace(/\b[a-z0-9]/g, (c) => c.toUpperCase());
+}
+
+// O conteúdo de uma célula, como texto.
+//
+// Com texto, é o texto — como sempre foi. Sem texto, a célula é a do escudo,
+// e o NOME DA EQUIPA ESTÁ LÁ: no alt da imagem, no title, ou no endereço da
+// ligação para a página da equipa. Isso era deitado fora e só ficava o
+// endereço do escudo, que o painel só consegue traduzir se já tiver importado
+// a classificação com os mesmos escudos. Sem isso, o adversário ficava por
+// identificar — que é o que aconteceu aos 24 jogos dos seniores.
+//
+// A ordem é do mais fiável para o menos: alt, title, title da ligação,
+// endereço da ligação. E, quando o nome encontrado for uma equipa que a
+// classificação já conhece, usa-se a grafia dela.
+function _nomeDaCelula(c) {
+  const texto = c.textContent.replace(/\s+/g, ' ').trim();
+  if (texto) return texto;
+  const img = c.querySelector('img[src]');
+  const a   = c.querySelector('a[href]');
+  const candidatos = [
+    img && img.getAttribute('alt'),
+    img && img.getAttribute('title'),
+    a && a.getAttribute('title'),
+    a && _nomeDoEnderecoDeEquipa(a.getAttribute('href')),
+  ];
+  for (const bruto of candidatos) {
+    const nome = String(bruto == null ? '' : bruto).replace(/\s+/g, ' ').trim();
+    if (nome.length < 3) continue;
+    if (JSC_LINHA_LIGACAO.test(nome)) continue;
+    return _nomeConhecidoParecido(nome) || nome;
+  }
+  // Último recurso, como antes: o endereço do escudo, que o
+  // _resolveImgTeamTokens() ainda pode traduzir pela classificação.
+  if (img && /^https?:\/\//.test(img.src)) return `[img:${img.src}]`;
+  return '';
+}
 
 // Extract structured text from HTML: tables → tab-separated rows, divs → newlines
 function _htmlToStructuredText(doc) {
@@ -3777,15 +3893,7 @@ function _htmlToStructuredText(doc) {
     const rows = [];
     for (const tr of table.querySelectorAll('tr')) {
       const cells = Array.from(tr.querySelectorAll('td,th'))
-        .map(c => {
-          const text = c.textContent.replace(/\s+/g, ' ').trim();
-          // Capture team logo URLs from img-only cells (no meaningful text)
-          if (!text) {
-            const img = c.querySelector('img[src]');
-            if (img && /^https?:\/\//.test(img.src)) return `[img:${img.src}]`;
-          }
-          return text;
-        })
+        .map(_nomeDaCelula)
         .filter(Boolean);
       if (cells.length >= 3) rows.push(cells.join('\t'));
     }
@@ -4599,6 +4707,40 @@ function _aplicarMarcasCasaFora(jogos) {
   return saida;
 }
 
+// As linhas como os parsers as vêem: sem linhas de competição e sem as
+// etiquetas de ligação das tabelas. Está à parte para a ferramenta de revisão
+// poder mostrar exactamente o mesmo que o parser leu.
+function _linhasProcessadasJogos(text) {
+  return String(text == null ? '' : text).split('\n')
+    .map(l => l.trim())
+    .filter(Boolean)
+    .filter(l => !_ehLinhaDeCompeticao(l))
+    .map(_semEtiquetasDeLigacao)
+    .filter(Boolean);
+}
+
+// O «h2h» raramente vem numa linha só dele.
+//
+// Quando se copia uma tabela, cada linha chega com as colunas separadas por
+// tabulações — «1\t26/09/2026\t\t3-2\th2h» — e o filtro de linha inteira não
+// lhe tocava: a coluna sobrevivia e era lida como o nome de uma equipa. É o
+// que ficou medido no painel, com 24 jogos a dizerem «h2h» no lugar do
+// adversário mesmo depois de a filtragem por linha existir.
+//
+// Tira-se campo a campo e o resto da linha fica exactamente como estava. As
+// linhas sem tabulações nem barras não são tocadas.
+function _semEtiquetasDeLigacao(linha) {
+  const t = String(linha == null ? '' : linha).trim();
+  if (!t) return '';
+  if (JSC_LINHA_LIGACAO.test(t)) return '';
+  const temTab = t.indexOf('\t') !== -1;
+  const temBarra = (t.match(/\|/g) || []).length >= 2;
+  if (!temTab && !temBarra) return t;
+  const sep = temTab ? '\t' : '|';
+  const campos = t.split(sep).filter(c => !JSC_LINHA_LIGACAO.test(c.trim()));
+  return campos.some(c => c.trim()) ? campos.join(sep) : '';
+}
+
 function parsePastedJogos(text) {
   // Substituir tokens [img:...] pelos nomes das equipas (via classificação importada)
   text = _resolveImgTeamTokens(text);
@@ -4606,12 +4748,7 @@ function parsePastedJogos(text) {
   // não são consumidas como equipa nem como recinto, e os blocos ficam com a
   // forma que os parsers esperam — o adversário, o clube, o resultado, a hora
   // e o recinto continuam todos lá.
-  const raw = text.split('\n').map(l=>l.trim()).filter(Boolean)
-    .filter(l => !_ehLinhaDeCompeticao(l))
-    // E as etiquetas de ligação, pela mesma razão: o «h2h» era lido como o
-    // nome da equipa visitante sempre que a linha do adversário não tinha
-    // texto. Sai aqui, uma vez, para os quatro parsers.
-    .filter(l => !JSC_LINHA_LIGACAO.test(l));
+  const raw = _linhasProcessadasJogos(text);
   const idBase = { v: Date.now() };
   const next = () => idBase.v++;
   // ZeroZero detection: date lines (DD/MM/YYYY or "22 mar 2026") followed by team names on separate lines
@@ -4767,10 +4904,31 @@ function _jogoDeLinhaZZ(parts, next) {
   };
 }
 
+// A coluna da jornada, quando a linha vem de uma tabela.
+//
+// A tabela de jogos do ZeroZero começa cada linha com o número da jornada:
+// «7 | 07-11-2026 | 18:00 | Lagoa | - | Campinense». Sem resultado não há
+// nada que alinhe os campos pelo meio, e o alinhamento por sobras lia o «7»
+// como equipa da casa e empurrava tudo um campo para a frente — o adversário
+// ia para a casa e o clube para o recinto. Medido: «7 vs Lagoa», com o nome
+// do clube no local do jogo.
+//
+// Tira-se só quando é mesmo uma coluna de jornada: um número de um a três
+// algarismos, no princípio de uma linha com quatro campos ou mais, e com a
+// data noutro campo.
+function _semJornadaInicial(parts) {
+  if (!Array.isArray(parts) || parts.length < 4) return parts;
+  const primeiro = String(parts[0] == null ? '' : parts[0]).trim();
+  if (!/^\d{1,3}$/.test(primeiro)) return parts;
+  const temDataAdiante = parts.slice(1).some(p => parseDate(p) && !parseScore(p));
+  if (!temDataAdiante) return parts;
+  return parts.slice(1);
+}
+
 function parseSingleLineJogos(lines, next) {
   const jogos = [];
   for (const line of lines) {
-    let parts=_camposDaLinha(line);
+    let parts=_semJornadaInicial(_camposDaLinha(line));
     // A forma do ZeroZero com o marcador do lado tem regras próprias: o lado
     // atribui-se pelo marcador e o resultado não se inverte.
     const zz = _jogoDeLinhaZZ(parts, next);
