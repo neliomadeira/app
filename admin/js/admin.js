@@ -3115,10 +3115,19 @@ window.previsualizarRevisaoSenior = function () {
     .sort((a, b) => String(a.data || '').localeCompare(String(b.data || '')))
     .forEach(j => {
       const atual = String(j.casa) + ' vs ' + String(j.fora);
-      const cands = porData[j.data] || [];
+      let cands = porData[j.data] || [];
+      // Num calendário de competição a mesma data traz a jornada inteira —
+      // oito ou dez jogos, só um deles do clube. Fica o do clube, e a data
+      // volta a decidir sozinha. Sem isto, colar o calendário da AF Algarve
+      // ou a jornada do ZeroZero dava sempre «mais do que um jogo nesta data»
+      // e não corrigia nada.
+      if (cands.length > 1) {
+        const doClube = cands.filter(c => _jscEhClube(c.casa) || _jscEhClube(c.fora));
+        if (doClube.length === 1) cands = doClube;
+      }
       let estado = '', proposto = '—';
       if (!cands.length)      estado = 'sem correspondência nesta colagem';
-      else if (cands.length > 1) estado = 'mais do que um jogo nesta data — rever à mão';
+      else if (cands.length > 1) estado = 'mais do que um jogo do clube nesta data — rever à mão';
       else {
         const c = cands[0];
         const adv = _jscAdversarioDe(c);
