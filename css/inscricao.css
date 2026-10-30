@@ -6,7 +6,7 @@
   color: rgba(255,255,255,0.8);
   border-color: rgba(255,255,255,0.3);
   padding: 10px 20px;
-  font-size: 0.85rem;
+  font-size: var(--t-4);
 }
 .insc-back:hover { color: var(--white); border-color: var(--white); }
 
@@ -50,7 +50,7 @@
 
 .page-hero__desc {
   color: rgba(255,255,255,0.7);
-  font-size: 1.05rem;
+  font-size: var(--t-5);
   max-width: 600px;
   line-height: 1.7;
 }
@@ -93,7 +93,7 @@
 .insc-info-card--highlight p { color: rgba(255,255,255,0.8); }
 
 .insc-info-card__title {
-  font-size: 0.8rem;
+  font-size: var(--t-3);
   font-weight: 700;
   letter-spacing: 2px;
   text-transform: uppercase;
@@ -118,14 +118,14 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 0.9rem;
+  font-size: var(--t-4);
   color: var(--gray-mid);
 }
 
 .insc-cat-badge {
   background: var(--blue);
   color: var(--yellow);
-  font-size: 0.7rem;
+  font-size: var(--t-1);
   font-weight: 700;
   padding: 3px 8px;
   border-radius: 6px;
@@ -140,7 +140,7 @@
 }
 
 .insc-docs li {
-  font-size: 0.85rem;
+  font-size: var(--t-4);
   color: var(--gray-mid);
   padding: 4px 0;
   border-bottom: 1px solid #f0f0f0;
@@ -149,14 +149,14 @@
 .insc-phone {
   display: block;
   font-family: var(--font-display);
-  font-size: 1.6rem;
+  font-size: var(--t-8);
   color: var(--yellow);
   letter-spacing: 1px;
   margin: 8px 0 4px;
 }
 
 .insc-hours {
-  font-size: 0.8rem;
+  font-size: var(--t-3);
   color: rgba(255,255,255,0.62) !important;
 }
 
@@ -188,7 +188,7 @@
   align-items: center;
   gap: 12px;
   font-family: var(--font-display);
-  font-size: 1.5rem;
+  font-size: var(--t-8);
   color: var(--black);
   letter-spacing: 1px;
   margin-bottom: 24px;
@@ -204,12 +204,12 @@
   align-items: center;
   justify-content: center;
   font-family: var(--font-display);
-  font-size: 1.3rem;
+  font-size: var(--t-7);
   flex-shrink: 0;
 }
 
 .insc-form__note {
-  font-size: 0.85rem;
+  font-size: var(--t-4);
   color: var(--gray-mid);
   margin-top: -16px;
   margin-bottom: 20px;
@@ -238,7 +238,7 @@
   align-items: flex-start;
   gap: 12px;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: var(--t-4);
   color: var(--gray-mid);
   line-height: 1.6;
 }
@@ -255,7 +255,7 @@
 .checkbox-label a { color: var(--blue); font-weight: 700; }
 
 /* ---- BUTTON ---- */
-.btn--lg { padding: 18px 40px; font-size: 1.05rem; }
+.btn--lg { padding: 18px 40px; font-size: var(--t-5); }
 
 /* ---- RESPONSIVE ---- */
 @media (max-width: 900px) {

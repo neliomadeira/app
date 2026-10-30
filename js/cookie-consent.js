@@ -53,7 +53,12 @@
 
     var text = document.createElement('p');
     text.style.cssText = 'margin:0;flex:1;min-width:220px';
-    text.innerHTML = '&#127850; Este site utiliza cookies essenciais para o seu funcionamento e fontes do Google Fonts (que podem processar dados nos EUA). '
+    // As fontes deixaram de vir do Google e passaram a ser servidas deste
+    // alojamento (css/fontes.css), pelo que o browser do visitante já não
+    // contacta servidores de terceiros por causa delas. Dizer o contrário
+    // era passar a ser falso, e um aviso de privacidade falso é pior do que
+    // nenhum. O emoji saiu com os restantes ícones de interface.
+    text.innerHTML = 'Este site utiliza apenas cookies essenciais ao seu funcionamento. '
       + 'Ao continuar, aceita a nossa <a href="privacidade.html" style="color:#fbbf24;text-underline-offset:3px">Política de Privacidade</a>.';
 
     var btns = document.createElement('div');

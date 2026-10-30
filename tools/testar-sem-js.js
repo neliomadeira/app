@@ -5479,6 +5479,31 @@ async function testarServiceWorker(browser, url) {
 // A marca do último sync é envelhecida à mão em vez de se esperar o minuto de
 // validade: é a mesma marca que o código consulta, por isso o caminho
 // exercitado é o verdadeiro.
+// Uma avaliação que sobrevive a um recarregamento.
+//
+// O js/sync.js recarrega a página uma vez quando chega conteúdo novo, e o
+// instante em que isso acontece depende de quanto a página demora a carregar —
+// que muda com os recursos que ela tem. Com um tempo de espera fixo, a
+// avaliação apanhava o recarregamento a meio e a sonda inteira morria com
+// «Execution context was destroyed», levando com ela as verificações todas que
+// vinham a seguir. Medido ao servir as páginas sem o pedido externo das fontes:
+// a página fica pronta mais cedo, o recarregamento muda de instante, e a sonda
+// passou a morrer sempre no mesmo sítio.
+//
+// Espera-se que a página assente e repete-se. O que se mede não muda.
+async function avaliarEstavel(pg, fn) {
+  for (let tentativa = 0; tentativa < 3; tentativa++) {
+    try {
+      return await pg.evaluate(fn);
+    } catch (e) {
+      if (!/Execution context was destroyed|Target closed|navigation/i.test(String(e))) throw e;
+      await pg.waitForLoadState('load').catch(() => {});
+      await pg.waitForTimeout(400);
+    }
+  }
+  return await pg.evaluate(fn);
+}
+
 async function testarSincronizacaoAoVivo(browser, url, publicar, opcoes = {}) {
   const ctx = await browser.newContext({
     javaScriptEnabled: true,
@@ -5497,16 +5522,16 @@ async function testarSincronizacaoAoVivo(browser, url, publicar, opcoes = {}) {
   await pg.goto(url + alvo, { waitUntil: 'load', timeout: 20000 });
   let controlado = false;
   if (opcoes.sw) {
-    await pg.evaluate(async () => {
+    await avaliarEstavel(pg, async () => {
       await navigator.serviceWorker.register('/sw.js');
       await navigator.serviceWorker.ready;
     });
     await pg.goto(url + alvo, { waitUntil: 'load', timeout: 20000 });
-    controlado = await pg.evaluate(() => !!navigator.serviceWorker.controller);
+    controlado = await avaliarEstavel(pg, () => !!navigator.serviceWorker.controller);
   }
   // Arranque: sync inicial e, se escreveu algo novo, o recarregamento único.
   await pg.waitForTimeout(1800);
-  const antes = await pg.evaluate(() => document.body.innerText);
+  const antes = await avaliarEstavel(pg, () => document.body.innerText);
   const pedidosNoArranque = pedidos.length;
   const navegacoesNoArranque = navegacoes.length;
 
@@ -5514,13 +5539,13 @@ async function testarSincronizacaoAoVivo(browser, url, publicar, opcoes = {}) {
   publicar();
 
   // O separador volta a ficar à frente.
-  await pg.evaluate(() => {
+  await avaliarEstavel(pg, () => {
     try { sessionStorage.setItem('jsc_sync_em', String(Date.now() - 120000)); } catch (_) {}
   });
-  await pg.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+  await avaliarEstavel(pg, () => document.dispatchEvent(new Event('visibilitychange')));
   await pg.waitForTimeout(2500);
-  const depois = await pg.evaluate(() => document.body.innerText);
-  const marcas = await pg.evaluate(() => {
+  const depois = await avaliarEstavel(pg, () => document.body.innerText);
+  const marcas = await avaliarEstavel(pg, () => {
     const ler = (f) => { try { return f(); } catch (_) { return null; } };
     return {
       sync: ler(() => sessionStorage.getItem('jsc_sync_em')),

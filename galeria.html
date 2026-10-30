@@ -20,11 +20,13 @@
   <link rel="preload" as="image" href="/images/logo.svg" fetchpriority="high" />
   <link rel="stylesheet" href="css/styles.css" />
   <link rel="stylesheet" href="css/galeria.css" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" />
-  <link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" />
-  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;500;700&display=swap" /></noscript>
+  <!-- Fontes servidas deste alojamento (css/fontes.css). Antes vinham do
+       serviço de fontes do Google por um <link> com media="print" e
+       onload: se o pedido falhasse, o site caía todo para Arial, e o
+       browser de cada visitante contactava um servidor de terceiros. -->
+  <link rel="preload" as="font" type="font/woff2" href="fonts/roboto-latin.woff2" crossorigin />
+  <link rel="preload" as="font" type="font/woff2" href="fonts/bebas-neue-latin.woff2" crossorigin />
+  <link rel="stylesheet" href="css/fontes.css" />
   <meta name="theme-color" content="#001f4d" />
   <link rel="manifest" href="/manifest.json" />
   <link rel="icon" href="/favicon.ico" sizes="any" />
@@ -39,6 +41,32 @@
   </style></noscript>
 </head>
 <body>
+  <!-- Ícones do site. Estavam aqui emojis — 🔍 no cabeçalho, 🏆 nos
+       Resultados, 📷 na Galeria e mais sete —, e um emoji é desenhado por
+       cada sistema à sua maneira: o visitante do iPhone, o do Windows e o
+       do Android viam três sítios diferentes. São agora desenhos nossos,
+       monocromáticos, que herdam a cor do texto e acompanham o tema
+       escuro sem regra nenhuma. Ficam escondidos e são usados por
+       referência (<use>), uma vez por página. -->
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false"><defs>
+    <symbol id="ico-pesquisa" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></symbol>
+    <symbol id="ico-inicio" viewBox="0 0 24 24"><path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M9.5 20v-6h5v6"/></symbol>
+    <symbol id="ico-trofeu" viewBox="0 0 24 24"><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 5.5H4.5V7a3.5 3.5 0 0 0 3 3.4"/><path d="M17 5.5h2.5V7a3.5 3.5 0 0 1-3 3.4"/><path d="M12 14v3.5"/><path d="M8.5 20.5h7"/><path d="M9.5 17.5h5v3h-5z"/></symbol>
+    <symbol id="ico-pessoa" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.75"/><path d="M4.5 20.5c0-3.9 3.4-6.5 7.5-6.5s7.5 2.6 7.5 6.5"/></symbol>
+    <symbol id="ico-modalidades" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5 9 7l1.2 4h3.6L15 7z"/><path d="m3.6 9.6 3.3 1.1 1.1 3.5-2.4 2.6"/><path d="m20.4 9.6-3.3 1.1-1.1 3.5 2.4 2.6"/><path d="m8 17.2 1.6 3.6h4.8l1.6-3.6"/></symbol>
+    <symbol id="ico-noticias" viewBox="0 0 24 24"><path d="M4 5.5h13v13H4z"/><path d="M17 9h3v7.5a2 2 0 0 1-2 2"/><path d="M6.5 8.5h8M6.5 11.5h8M6.5 14.5h5"/></symbol>
+    <symbol id="ico-galeria" viewBox="0 0 24 24"><path d="M3.5 7.5h4l1.5-2h6l1.5 2h4v12h-17z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+    <symbol id="ico-video" viewBox="0 0 24 24"><path d="M3.5 6.5h11v11h-11z"/><path d="m14.5 11 6-3.5v9l-6-3.5z"/></symbol>
+    <symbol id="ico-relogio" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5.2l3.3 2"/></symbol>
+    <symbol id="ico-local" viewBox="0 0 24 24"><path d="M12 21s6.5-6 6.5-11a6.5 6.5 0 0 0-13 0C5.5 15 12 21 12 21z"/><circle cx="12" cy="10" r="2.6"/></symbol>
+    <symbol id="ico-telefone" viewBox="0 0 24 24"><path d="M7.2 4.5 9.6 9l-2 1.9a12 12 0 0 0 5.5 5.5l1.9-2 4.5 2.4-1.2 3a2 2 0 0 1-2.1 1.1C10.6 20 4 13.4 3.1 6.8A2 2 0 0 1 4.2 4.7z"/></symbol>
+    <symbol id="ico-email" viewBox="0 0 24 24"><path d="M3.5 6h17v12h-17z"/><path d="m3.5 7 8.5 6 8.5-6"/></symbol>
+    <symbol id="ico-historia" viewBox="0 0 24 24"><path d="M4 5.5h6a2.5 2.5 0 0 1 2 1 2.5 2.5 0 0 1 2-1h6V18h-6a2.5 2.5 0 0 0-2 1 2.5 2.5 0 0 0-2-1H4z"/><path d="M12 6.5V19"/></symbol>
+    <symbol id="ico-parceria" viewBox="0 0 24 24"><path d="m2.5 11 3-3 4 1.5 2.5-1 2.5 1 4-1.5 3 3"/><path d="M9.5 9.5 7 12.5a1.8 1.8 0 0 0 2.6 2.5l1.4-1.3 3.2 3a1.8 1.8 0 0 0 2.5-2.6"/><path d="M14.5 9.5 17 12.5"/></symbol>
+    <symbol id="ico-alvo" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></symbol>
+    <symbol id="ico-manutencao" viewBox="0 0 24 24"><path d="M9 4h6l3.5 15h-13z"/><path d="M8 9.5h8M7.2 14.5h9.6"/><path d="M3.5 19.5h17"/></symbol>
+    <symbol id="ico-copiar" viewBox="0 0 24 24"><path d="M8.5 3.5h9v13h-9z"/><path d="M15.5 19.5h-9v-13"/></symbol>
+  </defs></svg>
 <a href="#main-content" class="skip-link">Saltar para o conteúdo</a>
 
   <!-- HEADER -->
@@ -58,10 +86,10 @@
               Clube <span class="nav__chevron">&#9662;</span>
             </button>
             <ul class="nav__submenu">
-              <li><a href="index.html#sobre" class="nav__sublink">&#127968; Sobre</a></li>
-              <li><a href="index.html#modalidades" class="nav__sublink">&#127948; Modalidades</a></li>
-              <li><a href="agenda.html" class="nav__sublink">&#128336; Agenda</a></li>
-              <li><a href="resultados.html" class="nav__sublink">&#127942; Resultados</a></li>
+              <li><a href="index.html#sobre" class="nav__sublink"><svg class="ico" aria-hidden="true" focusable="false"><use href="#ico-inicio"></use></svg> Sobre</a></li>
+              <li><a href="index.html#modalidades" class="nav__sublink"><svg class="ico" aria-hidden="true" focusable="false"><use href="#ico-modalidades"></use></svg> Modalidades</a></li>
+              <li><a href="agenda.html" class="nav__sublink"><svg class="ico" aria-hidden="true" focusable="false"><use href="#ico-relogio"></use></svg> Agenda</a></li>
+              <li><a href="resultados.html" class="nav__sublink"><svg class="ico" aria-hidden="true" focusable="false"><use href="#ico-trofeu"></use></svg> Resultados</a></li>
             </ul>
           </li>
           <li class="nav__dropdown">
@@ -70,7 +98,7 @@
             </button>
             <ul class="nav__submenu">
               <li><a href="equipa-principal.html" class="nav__sublink">&#9917; Equipa Principal</a></li>
-              <li><a href="formacao.html" class="nav__sublink">&#128100; Formação</a></li>
+              <li><a href="formacao.html" class="nav__sublink"><svg class="ico" aria-hidden="true" focusable="false"><use href="#ico-pessoa"></use></svg> Formação</a></li>
             </ul>
           </li>
           <li class="nav__dropdown">
@@ -78,14 +106,14 @@
               Media <span class="nav__chevron">&#9662;</span>
             </button>
             <ul class="nav__submenu">
-              <li><a href="noticias.html" class="nav__sublink">&#128240; Notícias</a></li>
-              <li><a href="galeria.html" class="nav__sublink" style="color:var(--yellow)">&#128247; Galeria</a></li>
-              <li><a href="videos.html" class="nav__sublink">&#127909; Vídeos</a></li>
+              <li><a href="noticias.html" class="nav__sublink"><svg class="ico" aria-hidden="true" focusable="false"><use href="#ico-noticias"></use></svg> Notícias</a></li>
+              <li><a href="galeria.html" class="nav__sublink" style="color:var(--yellow)"><svg class="ico" aria-hidden="true" focusable="false"><use href="#ico-galeria"></use></svg> Galeria</a></li>
+              <li><a href="videos.html" class="nav__sublink"><svg class="ico" aria-hidden="true" focusable="false"><use href="#ico-video"></use></svg> Vídeos</a></li>
             </ul>
           </li>
           <li class="nav__sep" aria-hidden="true"></li>
           <li><a href="contacto.html" class="nav__link nav__link--contact">Contacto</a></li>
-          <li><a href="pesquisa.html" class="nav__search-btn" aria-label="Pesquisar" title="Pesquisar">&#128269;</a></li>
+          <li><a href="pesquisa.html" class="nav__search-btn" aria-label="Pesquisar" title="Pesquisar"><svg class="ico" aria-hidden="true" focusable="false"><use href="#ico-pesquisa"></use></svg></a></li>
           <li><a href="inscricao.html" class="btn btn--nav">Inscrever</a></li>
         </ul>
       </nav>
