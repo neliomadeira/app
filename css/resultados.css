@@ -555,6 +555,66 @@ html[data-theme="dark"] .jogo-lado--casa { background: #FFD100; color: #001f4d; 
 }
 
 /* =============================================
+   TABELA DE CLASSIFICAÇÃO EM ECRÃS PEQUENOS
+   =============================================
+   Medido num ecrã de 320px: a moldura tem 272px e a tabela 560px — fica
+   escondida mais de metade dela, e nada na página diz que se pode
+   arrastar. A 390px escondem-se 218px.
+
+   Duas correcções, e uma recusa.
+
+   1. As células apertam. Tinham 11px em cima e em baixo e 12px de cada
+      lado; abaixo dos 600px passam a 9px e 6px, o que devolve cerca de
+      120px de largura à tabela sem tocar no tamanho da letra.
+
+   2. Uma sombra na borda direita diz que há mais tabela para o lado, e
+      desaparece sozinha quando se chega ao fim. É feita com fundos em
+      background-attachment: local, sem uma linha de JavaScript.
+
+   E a recusa: NÃO se fixa a coluna da equipa. A 320px ela tem 160px de
+   largura mínima numa moldura de 272px — fixá-la congelava 59% do ecrã e
+   deixava 112px para as nove colunas de números, que é pior do que o
+   problema que resolve. Também não se fixa o cabeçalho: um contentor com
+   overflow-x cria contexto de rolagem nos dois eixos, e um thead sticky
+   lá dentro não teria nada a que se colar. */
+
+.table-wrap {
+  background:
+    linear-gradient(to right, var(--white) 30%, rgba(255,255,255,0)) left center,
+    linear-gradient(to left,  var(--white) 30%, rgba(255,255,255,0)) right center,
+    radial-gradient(farthest-side at 0 50%, rgba(0,31,77,0.18), rgba(0,0,0,0)) left center,
+    radial-gradient(farthest-side at 100% 50%, rgba(0,31,77,0.18), rgba(0,0,0,0)) right center;
+  background-repeat: no-repeat;
+  background-size: 28px 100%, 28px 100%, 14px 100%, 14px 100%;
+  background-attachment: local, local, scroll, scroll;
+}
+
+/* No tema escuro o cartão é #1e293b, e as duas faixas que escondem a
+   sombra têm de ser dessa cor — a branco apareciam duas manchas claras
+   nas bordas da tabela. */
+html[data-theme="dark"] .table-wrap {
+  background:
+    linear-gradient(to right, #1e293b 30%, rgba(30,41,59,0)) left center,
+    linear-gradient(to left,  #1e293b 30%, rgba(30,41,59,0)) right center,
+    radial-gradient(farthest-side at 0 50%, rgba(0,0,0,0.45), rgba(0,0,0,0)) left center,
+    radial-gradient(farthest-side at 100% 50%, rgba(0,0,0,0.45), rgba(0,0,0,0)) right center;
+  background-repeat: no-repeat;
+  background-size: 28px 100%, 28px 100%, 14px 100%, 14px 100%;
+  background-attachment: local, local, scroll, scroll;
+}
+
+@media (max-width: 600px) {
+  .class-table th { padding: 9px 6px; }
+  .class-table td { padding: 9px 6px; }
+  .class-table th.team-col { min-width: 120px; }
+}
+
+/* A coluna dos pontos é a que se procura primeiro. Já tinha o fundo azul
+   no cabeçalho; passa a ter também peso na própria célula, em todas as
+   larguras. */
+.class-table td.pts-cell { font-size: var(--t-6); }
+
+/* =============================================
    EQUIPA PRINCIPAL — só a secção #seniorCompeticoes
    ============================================= */
 /* A página da Equipa Principal reutiliza os cartões, a lista de jogos e a
