@@ -4975,3 +4975,73 @@ main[tabindex="-1"]:focus-visible {
 @media (max-width: 768px) {
   :root { --sec-y: 40px; --sec-y-cab: 28px; }
 }
+
+
+/* =====================================================================
+   ALVOS DE TOQUE
+   =====================================================================
+   Medido num ecrã de 390px, antes desta regra: 18 a 21 elementos
+   clicáveis por página abaixo de 44×44px — a medida mínima recomendada
+   para um dedo. Entre eles o hamburger, que é o controlo principal da
+   navegação no telemóvel, com 42×30px; os links do menu aberto com 42px
+   de altura; os ícones de redes sociais do rodapé com 38×38px; e o
+   fecho do arquivo de notícias com 36×36px.
+
+   Tudo o que se segue acrescenta altura ou área, sem mudar tipos de
+   letra, cores ou posições. Onde o elemento já é maior, nada acontece. */
+
+.hamburger {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav__link,
+.nav__sublink {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+.footer__social-link {
+  width: 44px;
+  height: 44px;
+}
+
+.skip-link { min-height: 44px; display: inline-flex; align-items: center; }
+
+.news-archive__close {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.contact__map-link {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* A linha de baixo do rodapé (Privacidade & Termos) e o botão de voltar
+   ao topo ficavam a dois ou três pixéis do mínimo. */
+.footer__bottom a { min-height: 44px; display: inline-flex; align-items: center; }
+#scrollTopBtn { min-width: 44px; min-height: 44px; }
+
+/* Os links rápidos e os escalões, no rodapé: 42px de altura, por duas
+   unidades. São oito por página e estão num sítio onde se carrega com o
+   polegar. */
+.footer__links ul a,
+.footer__contact a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* O selo do herói é um <p> com um <a> lá dentro: a área clicável era a
+   do texto, com 15px de altura. O selo inteiro passa a ser o alvo. */
+.hero__tag { display: inline-flex; align-items: center; min-height: 44px; }
+.hero__tag a { display: inline-flex; align-items: center; min-height: 44px; }
