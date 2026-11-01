@@ -587,10 +587,22 @@ ul { list-style: none; }
   padding: 0;
 }
 
+/* A barra tinha quatro colunas fixas. Dois dos quatro cartões — os que
+   não têm número confirmado — já vêm com hidden no HTML e são escondidos
+   pelo js/site-config.js, mas a grelha continuava a reservar-lhes a
+   coluna: metade da faixa amarela ficava em branco, como se vê na
+   fotografia da página inicial.
+   
+   Com flex, um cartão escondido não ocupa lugar nenhum e os que ficam
+   repartem a barra. Não se esconde nada aqui: quem decide o que aparece
+   continua a ser o painel, pelo js/site-config.js. Com os quatro
+   preenchidos, o resultado é exactamente o de antes. */
 .hero__stats-inner {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  display: flex;
+  flex-wrap: wrap;
 }
+
+.hero__stats-inner > .stat { flex: 1 1 0; min-width: 0; }
 
 .stat {
   display: flex;
@@ -2292,7 +2304,7 @@ a.sponsor-card:hover { border-color: #aaa; transform: translateY(-3px); box-shad
   }
 
   .hero__title { font-size: clamp(3rem, 10vw, 5rem); }
-  .hero__stats-inner { grid-template-columns: repeat(2, 1fr); }
+  .hero__stats-inner > .stat { flex: 1 1 50%; }
   .stat { border-right: none; border-bottom: 1px solid rgba(0,59,142,0.2); }
   .stat:nth-child(odd) { border-right: 1px solid rgba(0,59,142,0.2); }
   .stat:nth-child(3), .stat:nth-child(4) { border-bottom: none; }
