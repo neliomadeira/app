@@ -119,6 +119,12 @@
      muda é a base a que ele soma. */
   --sec-y: 64px;       /* respiro de cada secção, em cima e em baixo */
   --sec-y-cab: 40px;   /* do cabeçalho da secção até ao conteúdo */
+
+  /* ---- Cartões -------------------------------------------------------
+     Os cartões subiam quantidades diferentes ao passar o rato: 4px nas
+     notícias, 6px nas modalidades, nada nos patrocinadores. Passa a ser
+     um valor só, para o site inteiro se comportar da mesma maneira. */
+  --elevacao: -4px;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -939,7 +945,7 @@ ul { list-style: none; }
 }
 
 .news-card:hover {
-  transform: translateY(-4px);
+  transform: translateY(var(--elevacao));
   box-shadow: var(--shadow-lg);
 }
 
@@ -968,9 +974,31 @@ ul { list-style: none; }
 
 .news-card--featured .news-card__img { height: 280px; }
 
+/* Uma notícia sem fotografia mostrava um bloco de cor liso, e um dos três
+   era VERDE (#2d5016 → #4a8522) — uma cor que não é do clube e que saltava
+   à vista ao lado dos outros dois. Os três passam a ser variações do azul
+   do Campinense, com o escudo em marca de água: um cartão sem foto passa a
+   ler-se como sendo do clube, em vez de um rectângulo por preencher.
+   As classes só são usadas quando NÃO há imagem — com fotografia, o cartão
+   recebe-a como background inline e nada disto se aplica. */
+.news-card__img--1,
+.news-card__img--2,
+.news-card__img--3 { position: relative; }
+
 .news-card__img--1 { background: linear-gradient(135deg, var(--blue-dark), var(--blue-mid)); }
-.news-card__img--2 { background: linear-gradient(135deg, #1a1a2e, #16213e); }
-.news-card__img--3 { background: linear-gradient(135deg, #2d5016, #4a8522); }
+.news-card__img--2 { background: linear-gradient(135deg, #001a3d, var(--blue)); }
+.news-card__img--3 { background: linear-gradient(135deg, var(--blue), #2a62c9); }
+
+.news-card__img--1::before,
+.news-card__img--2::before,
+.news-card__img--3::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url('../images/logo.png') center / 150px no-repeat;
+  opacity: 0.10;
+  pointer-events: none;
+}
 
 .news-card__cat {
   background: var(--yellow);
@@ -1521,9 +1549,11 @@ html.jsc-anima .tl-reveal.tl-visible {
   background-position: center;
   background-repeat: no-repeat;
 }
-.not-related__img--1 { background-color: #001f4d; }
-.not-related__img--2 { background-color: #1a1a2e; }
-.not-related__img--3 { background-color: #2d5016; }
+/* Os mesmos três fundos dos cartões de notícia, e pela mesma razão: o
+   terceiro era verde, fora da paleta do clube. */
+.not-related__img--1 { background-color: var(--blue-bg); }
+.not-related__img--2 { background-color: #001a3d; }
+.not-related__img--3 { background-color: var(--blue); }
 .not-related__body { padding: 12px 14px 14px; }
 .not-related__heading {
   font-size: var(--t-4);
@@ -2119,12 +2149,18 @@ html[data-theme="dark"] .form-group textarea.is-invalid {
    O .sponsor-card sozinho não tinha nada disso. Passa a ter, com os valores
    do nível do meio, o mais sóbrio dos três, e nenhum patrocinador tem
    tratamento visual diferente de outro. */
+/* Era um flex com flex:1 em cada cartão: a última linha esticava os que
+   lá estivessem — dois patrocinadores sozinhos ocupavam a largura toda e
+   ficavam enormes ao lado dos de cima. Numa grelha, cada mosaico tem a
+   mesma largura, haja os que houver, e os logótipos alinham. */
 .sponsors-row {
-  display: flex; gap: 16px; flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
 }
 
 .sponsor-card {
-  flex: 1; min-width: 180px; padding: 24px;
+  min-height: 150px; padding: 24px;
   border: 2px solid #e0e0e0;
   /* O acento do clube, em vez das cores de medalha de cada nível. */
   border-top: 4px solid var(--yellow);
@@ -2139,6 +2175,11 @@ a.sponsor-card { cursor: pointer; }
 a.sponsor-card:hover { border-color: #aaa; transform: translateY(-3px); box-shadow: var(--shadow); }
 
 /* Sem logótipo, é o nome que faz de logótipo — como já era. */
+.sponsors-row > .sponsor-card:hover {
+  transform: translateY(var(--elevacao));
+  box-shadow: var(--shadow);
+}
+
 .sponsor-card__logo {
   font-family: var(--font-display);
   letter-spacing: 2px;
@@ -2504,7 +2545,7 @@ a.sponsor-card:hover { border-color: #aaa; transform: translateY(-3px); box-shad
 }
 
 .modality-card:hover {
-  transform: translateY(-6px);
+  transform: translateY(var(--elevacao));
   box-shadow: var(--shadow-lg);
 }
 
