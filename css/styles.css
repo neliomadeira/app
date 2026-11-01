@@ -616,7 +616,7 @@ ul { list-style: none; }
 
 .stat__num {
   font-family: var(--font-display);
-  font-size: 2.8rem;
+  font-size: var(--t-13);
   color: var(--blue);
   line-height: 1;
 }
@@ -3819,7 +3819,7 @@ a.sponsor-card:hover { border-color: #aaa; transform: translateY(-3px); box-shad
 .escalao-hero__back a:hover { color: #FFD100; }
 .escalao-hero__info { padding: 20px 0 12px; }
 .escalao-hero__badge { display:inline-block; background:#FFD100; color:#001f4d; font-family:'Bebas Neue',sans-serif; font-size: var(--t-6); letter-spacing:1px; padding: 4px 14px; border-radius:20px; margin-bottom:8px; }
-.escalao-hero__title { font-family:'Bebas Neue',sans-serif; font-size:2.8rem; letter-spacing:1px; margin:0 0 4px; line-height:1; }
+.escalao-hero__title { font-family:'Bebas Neue',sans-serif; font-size: var(--t-13); letter-spacing:1px; margin:0 0 4px; line-height:1; }
 .escalao-hero__faixa { color:rgba(255,255,255,0.7); font-size: var(--t-4); margin:0; }
 .escalao-hero__stats { display:flex; gap:0; border-top:1px solid rgba(255,255,255,0.15); margin-top:20px; }
 .escalao-hero__stat { flex:1; text-align:center; padding:16px 8px; border-right:1px solid rgba(255,255,255,0.15); }
@@ -3983,7 +3983,7 @@ html[data-theme="dark"] .esc-empty__btn { background:var(--yellow); color:#001f4
 .atleta-hero__numero {
   margin-left: auto;
   font-family: 'Bebas Neue', sans-serif;
-  font-size: 5rem;
+  font-size: var(--t-15);
   color: rgba(255,255,255,0.12);
   line-height: 1;
   user-select: none;
@@ -4384,7 +4384,7 @@ body.has-banner .header { top: 38px; }
 .gallery-placeholder::before {
   content: '⚽';
   position: absolute;
-  font-size: 5rem;
+  font-size: var(--t-15);
   opacity: 0.06;
   bottom: -10px;
   right: -5px;
