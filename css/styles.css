@@ -106,6 +106,19 @@
   --e-7: 40px;
   --e-8: 48px;
   --e-9: 64px;
+
+  /* ---- Ritmo vertical ------------------------------------------------
+     As secções tinham 96px em cima e em baixo, o que dá 192px entre duas
+     secções seguidas — e 264px nas que têm o corte diagonal, que soma o
+     --cut aos dois lados. Medido numa página de 1440px: 132px de padding
+     em cada extremo de cada secção escura.
+
+     O resultado era o ar morto que se vê entre o título de uma secção e o
+     conteúdo dela. Passa a 64px, e a 40px no telemóvel, onde o espaço é
+     caro e o visitante rola mais. O corte diagonal fica como está; o que
+     muda é a base a que ele soma. */
+  --sec-y: 64px;       /* respiro de cada secção, em cima e em baixo */
+  --sec-y-cab: 40px;   /* do cabeçalho da secção até ao conteúdo */
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -594,7 +607,7 @@ ul { list-style: none; }
 
 /* ---- SECTIONS ---- */
 .section {
-  padding: 96px 0;
+  padding: var(--sec-y) 0;
 }
 
 .section--dark {
@@ -611,13 +624,13 @@ ul { list-style: none; }
 .section--birthday {
   --cut: clamp(14px, 2.5vw, 36px);
   clip-path: polygon(0 0, 100% var(--cut), 100% 100%, 0 calc(100% - var(--cut)));
-  padding-top: calc(96px + var(--cut));
-  padding-bottom: calc(96px + var(--cut));
+  padding-top: calc(var(--sec-y) + var(--cut));
+  padding-bottom: calc(var(--sec-y) + var(--cut));
 }
 
 .section__header {
   text-align: center;
-  margin-bottom: 64px;
+  margin-bottom: var(--sec-y-cab);
 }
 
 .section__header--light .section__title,
@@ -2988,7 +3001,7 @@ a.sponsor-card:hover { border-color: #aaa; transform: translateY(-3px); box-shad
    PAGE HERO (equipa-principal, formacao, etc.)
    =================================================== */
 .page-hero {
-  padding: 120px 0 64px;
+  padding: 104px 0 48px;
   background: var(--blue-dark);
   position: relative;
   overflow: hidden;
@@ -4260,7 +4273,7 @@ body.has-banner .header { top: 38px; }
   font-size: var(--t-5);
   color: var(--gray-mid);
   max-width: 580px;
-  margin: -48px auto 52px;
+  margin: calc(var(--sec-y-cab) * -0.6) auto var(--sec-y-cab);
   line-height: 1.7;
   text-align: center;
 }
@@ -4897,4 +4910,12 @@ main[tabindex="-1"]:focus-visible {
   .esc-player:hover, .modality-card:hover, .timeline-card:hover {
     transform: none !important;
   }
+}
+
+
+/* ---- Ritmo vertical no telemóvel ------------------------------------
+   O mesmo ritmo, mais apertado: num ecrã de 390px, 64px em cima e em
+   baixo de cada secção são quase um sexto do ecrã gastos em nada. */
+@media (max-width: 768px) {
+  :root { --sec-y: 40px; --sec-y-cab: 28px; }
 }
