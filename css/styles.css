@@ -170,6 +170,11 @@ ul { list-style: none; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* 44px é o mínimo recomendado para um alvo de toque, e era o que
+     faltava aos botões pequenos: o .btn--sm ficava com 30px de altura e
+     o .btn--nav com 34px. O padding continua a mandar quando é maior do
+     que isto, pelo que os botões grandes não mudam de tamanho. */
+  min-height: 44px;
   padding: 14px 32px;
   border-radius: var(--radius);
   font-family: var(--font-body);
@@ -218,6 +223,7 @@ ul { list-style: none; }
 .btn--nav {
   background: var(--yellow);
   color: var(--blue);
+  min-height: 44px;
   padding: 8px 22px;
   font-size: var(--t-4);
   font-weight: 700;
@@ -2774,7 +2780,15 @@ a.sponsor-card:hover { border-color: #aaa; transform: translateY(-3px); box-shad
 /* ===================================================
    ARQUIVO DE NOTÍCIAS (modal overlay)
    =================================================== */
+/* Este botão nasceu fora da família .btn — outra fonte, outro tamanho,
+   sem altura mínima. Mantém o aspeto que tem (é o «Ver todas», em Bebas
+   Neue), mas passa a ter a mesma altura de toque e o mesmo alinhamento
+   interno dos outros. */
 .btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
   background: transparent;
   border: 2px solid var(--blue);
   color: var(--blue);
@@ -4145,6 +4159,7 @@ html[data-theme="dark"] .esc-empty__btn { background:var(--yellow); color:#001f4
 
 /* Size variants */
 .btn--sm {
+  min-height: 44px;
   padding: 8px 18px;
   font-size: var(--t-3);
   letter-spacing: 0.3px;
