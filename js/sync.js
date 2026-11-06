@@ -127,7 +127,32 @@
                 localStorage.setItem(key, json);
                 changed = true;
               }
-            } catch (_) {}
+            } catch (e) {
+              // Este catch estava vazio, e isso escondia a falha mais
+              // consequente que esta função pode ter.
+              //
+              // O localStorage tem um limite por origem — tipicamente 5 MB —
+              // e a projeção pública leva lá dentro as fotografias todas, em
+              // base64. Quando não cabe, o setItem lança, a chave fica com o
+              // valor ANTIGO, e a secção que depende dela aparece vazia ou
+              // desactualizada no site. Medido: acima de ~5,7 MB o db_atletas
+              // deixa de ser gravado e o plantel aparece sem ninguém — em
+              // todas as visitas seguintes, e sem recuperar com recarregamento
+              // forçado, porque a causa não é cache.
+              //
+              // Não se apaga nada para abrir espaço: o que lá está é o que o
+              // visitante tem, e deitá-lo fora podia deixar a página pior do
+              // que ficou. O que muda é só isto: passa a dizer-se na consola
+              // qual a chave e que tamanho não coube, para o defeito deixar de
+              // ser invisível a quem o for procurar.
+              try {
+                if (typeof console !== 'undefined' && console.warn) {
+                  console.warn('[JSC] não foi possível guardar "' + key + '" ('
+                    + json.length + ' bytes): ' + (e && e.name ? e.name : e)
+                    + '. O site vai continuar a mostrar o conteúdo anterior desta secção.');
+                }
+              } catch (_) {}
+            }
           }
         }
         // Quando foi publicado este conteúdo. Fica guardado à parte e de
