@@ -7529,8 +7529,8 @@ async function testarAdminHistoria(browser, url) {
         /jsc_painel_local/.test(fonteSync));
 
       // -- R3 e R4: o sw.js --
-      verificar('sw.js: a cache subiu para jsc-v20',
-        /CACHE_NAME = 'jsc-v20'/.test(fonteSw));
+      verificar('sw.js: a cache subiu para jsc-v21',
+        /CACHE_NAME = 'jsc-v21'/.test(fonteSw));
       verificar('sw.js: o activate apaga as caches antigas, com skipWaiting e clients.claim',
         /k !== CACHE_NAME[\s\S]{0,80}caches\.delete\(k\)/.test(fonteSw)
         && /self\.skipWaiting\(\)/.test(fonteSw) && /self\.clients\.claim\(\)/.test(fonteSw));
@@ -7738,8 +7738,8 @@ async function testarAdminHistoria(browser, url) {
       const offVisitada = await testarOffline(browser, srv.url, '/index.html');
       verificar('offline: o service worker controla a página',
         offVisitada.controlado, 'caches: ' + JSON.stringify(offVisitada.nomes));
-      verificar('offline: só existe a cache jsc-v20 — as antigas foram apagadas',
-        offVisitada.nomes.length === 1 && offVisitada.nomes[0] === 'jsc-v20',
+      verificar('offline: só existe a cache jsc-v21 — as antigas foram apagadas',
+        offVisitada.nomes.length === 1 && offVisitada.nomes[0] === 'jsc-v21',
         JSON.stringify(offVisitada.nomes));
       verificar('offline: o offline.html está na cache, pronto para o último recurso',
         offVisitada.temOffline === 200, 'estado na cache: ' + offVisitada.temOffline);

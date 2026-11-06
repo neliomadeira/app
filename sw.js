@@ -2,7 +2,7 @@
 // A subida de versão apaga as caches antigas no activate, lá em baixo. É o que
 // desencrava os dispositivos que ficaram com uma página HTML velha guardada
 // pela regra cache-first — ver o comentário do ramo das páginas.
-const CACHE_NAME = 'jsc-v20';
+const CACHE_NAME = 'jsc-v21';
 const PRECACHE = [
   '/',
   '/index.html',
@@ -76,6 +76,38 @@ self.addEventListener('fetch', e => {
   // "sem sessão", e o painel mandava entrar outra vez. A sessão no
   // servidor estava boa o tempo todo.
   if (url.pathname.includes('/api/')) return;
+
+  // ---- Nada de outra origem passa por aqui --------------------------
+  // Esta foi a causa das fotografias dos atletas que só apareciam com
+  // Ctrl+F5, e custou a encontrar porque não é cache nenhuma.
+  //
+  // O .htaccess envia uma Content-Security-Policy com
+  //     img-src     'self' data: https:
+  //     connect-src 'self' <uma lista curta de endpoints>
+  //
+  // Uma fotografia alojada noutra origem, pedida pela página, é julgada pelo
+  // img-src e passa. A MESMA fotografia, quando este ficheiro a vai buscar
+  // com fetch(), deixa de ser uma imagem e passa a ser uma ligação: dentro de
+  // um service worker é o connect-src que manda, e essa origem não está lá.
+  // O fetch() é recusado, a promessa do respondWith() fica rejeitada, e o
+  // browser escreve net::ERR_FAILED na imagem.
+  //
+  // Daí os sintomas: com "Bypass for network" ligado — ou com Ctrl+F5, que
+  // salta o service worker — as fotografias aparecem, porque o pedido deixa
+  // de passar por aqui e volta a ser julgado pelo img-src. Num carregamento
+  // normal, não.
+  //
+  // Medido: com o connect-src alargado à origem das fotografias, as mesmas
+  // seis imagens passaram a 6/6 em quatro visitas seguidas. Não é esse o
+  // caminho que se segue — alargar o connect-src é abrir a política a toda a
+  // origem, e obriga a mantê-la a par de cada sítio onde uma fotografia
+  // esteja. O caminho é este: o que não é nosso não se intercepta.
+  //
+  // Também é o que se deve fazer por si só. Uma resposta de outra origem
+  // chega aqui opaca — sem estado e sem corpo legível —, não se sabe se é
+  // boa, e guardá-la é guardar algo que não se pode inspecionar. O browser
+  // trata estes pedidos sozinho, como tratava antes de haver service worker.
+  if (url.origin !== self.location.origin) return;
 
   // Network-first for HTML pages so content stays fresh
   //
@@ -163,16 +195,28 @@ self.addEventListener('fetch', e => {
   }
 
   // Cache-first for images and other static assets
+  //
+  // O .catch no fim é a segunda rede, e faltava: era o único dos três ramos
+  // sem ele. Sem .catch, QUALQUER falha do fetch — a recusa da CSP que está
+  // explicada lá em cima, a rede que cai a meio, um pedido abortado — rejeita
+  // a promessa do respondWith() e o browser dá net::ERR_FAILED à imagem, em
+  // vez de a ir buscar sozinho. Com ele, tenta-se primeiro a cópia guardada;
+  // só quando não há nenhuma é que o erro chega ao visitante, e aí é um erro
+  // verdadeiro.
+  //
+  // O caches.open().put() também passa a ter o seu: a cache tem limite, e um
+  // disco cheio rejeitava esta promessa sem ninguém a ouvir. A imagem já
+  // tinha sido devolvida, mas a rejeição ficava por tratar.
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;
       return fetch(e.request).then(res => {
         if (res && res.status === 200 && res.type !== 'opaque') {
           const clone = res.clone();
-          caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
+          caches.open(CACHE_NAME).then(c => c.put(e.request, clone)).catch(() => {});
         }
         return res;
       });
-    })
+    }).catch(() => caches.match(e.request).then(cached => cached || Response.error()))
   );
 });
