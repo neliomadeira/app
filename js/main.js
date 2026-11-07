@@ -595,16 +595,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const cfgJogo = JSON.parse(localStorage.getItem('site_config') || '{}');
     if (cfgJogo.jogoDestaqueAtivo) {
       // O destaque lia os jogos do db_agenda, onde era preciso escrevê-los à
-      // mão uma segunda vez. Passa a ler o db_jogos, que é onde os jogos
-      // vivem — os mesmos que a secção Resultados e Classificação gere e que
-      // o Publicar leva ao site.
-      let jogosDb = [];
-      try { jogosDb = JSON.parse(localStorage.getItem('db_jogos') || '[]'); } catch (_) {}
-      const hojeIso = jscHojeISO();
-      const jogos = jogosDb
-        .filter(j => j && String(j.data || '') >= hojeIso && jscJogoPorJogar(j.estado))
-        .map(j => jscJogoComoEvento(j))
-        .sort((a, b) => (a.data + 'T' + (a.hora || '00:00')).localeCompare(b.data + 'T' + (b.hora || '00:00')));
+      // mão uma segunda vez. Passa a sair da MESMA lista que a grelha aqui em
+      // cima — jogos do db_jogos, mais as entradas de agenda do tipo Jogo que
+      // não tenham jogo a substituí-las.
+      //
+      // É de propósito que não lê só o db_jogos: um jogo que exista apenas na
+      // agenda — um particular, uma apresentação — deixaria de ter destaque
+      // de um dia para o outro, sem nada no lugar. Uma regra só, para a
+      // grelha e para o destaque, e nada se perde pelo caminho.
+      let agendaD = [], jogosD = [];
+      try { agendaD = JSON.parse(localStorage.getItem('db_agenda') || '[]'); } catch (_) {}
+      try { jogosD  = JSON.parse(localStorage.getItem('db_jogos')  || '[]'); } catch (_) {}
+      const jogos = jscProximosComJogos(agendaD, jogosD, jscHojeISO(), null)
+        .filter(e => String(e.tipo || '').trim().toLowerCase() === 'jogo');
       const jogo = jogos[0];
       const section = document.getElementById('jogoDestaqueSection');
       const widget  = document.getElementById('jogoDestaqueWidget');
