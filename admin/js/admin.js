@@ -403,7 +403,8 @@ function goToPage(name) {
   const titles = {
     dashboard: 'Dashboard', inscricoes: 'Inscrições', atletas: 'Atletas',
     noticias: 'Notícias', mensagens: 'Mensagens', escaloes: 'Escalões',
-    jogos: 'Jogos', patrocinadores: 'Patrocinadores', facebook: 'Facebook',
+    jogos: 'Resultados e Classificação',
+    patrocinadores: 'Patrocinadores', facebook: 'Facebook',
     historia: 'História do Clube',
     'pagina-inicial': 'Página Inicial',
     galeria: 'Galeria', videos: 'Vídeos', treinadores: 'Treinadores & Staff',

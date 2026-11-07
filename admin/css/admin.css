@@ -136,12 +136,23 @@ ul { list-style: none; }
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 11px 20px;
+  /* 16px, e não 20px, para o rótulo mais comprido da barra caber numa linha.
+     "Resultados e Classificação" mede 170px; com 20px de cada lado sobravam
+     167px e faltavam TRÊS pixels. 16px é também o que a zona do emblema, aqui
+     em cima, já usa, pelo que os dois blocos passam a alinhar. */
+  padding: 11px 16px;
   color: rgba(255,255,255,0.65);
   font-size: 0.88rem;
   font-weight: 500;
   cursor: pointer;
+  /* A barra amarela do item seleccionado era "border: none" aqui e 3px no
+     .active. Com box-sizing: border-box isso tira 3px à largura do texto
+     QUANDO o item está seleccionado — e era quanto bastava para o rótulo
+     quebrar só nessa secção e em mais nenhuma. Reservando o espaço desde já,
+     em transparente, a largura é a mesma nos dois estados e o texto deixa de
+     saltar ao clicar. */
   border: none;
+  border-right: 3px solid transparent;
   background: none;
   width: 100%;
   text-align: left;
@@ -154,7 +165,8 @@ ul { list-style: none; }
 .nav-item.active {
   background: rgba(255,209,0,0.12);
   color: var(--yellow);
-  border-right: 3px solid var(--yellow);
+  /* só a cor: a largura da borda já está reservada lá em cima */
+  border-right-color: var(--yellow);
 }
 
 .nav-icon { font-size: 1rem; width: 20px; text-align: center; flex-shrink: 0; }
