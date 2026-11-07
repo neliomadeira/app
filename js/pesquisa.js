@@ -15,16 +15,13 @@
 
   var DEFAULT_ATLETAS = [];
 
-  var DEFAULT_ESCALOES = [
-    { id: 7, nome: 'Sub-5',  designacao: 'Pré-Petizes', faixa: 'Até 5 anos',   treinador: '' },
-    { id: 8, nome: 'Sub-7',  designacao: 'Petizes',     faixa: '6 a 7 anos',   treinador: '' },
-    { id: 1, nome: 'Sub-9',  designacao: 'Traquinas',   faixa: '8 a 9 anos',   treinador: ''  },
-    { id: 2, nome: 'Sub-11', designacao: 'Benjamins', faixa: '10 a 11 anos', treinador: ''    },
-    { id: 3, nome: 'Sub-13', designacao: 'Infantis', faixa: '12 a 13 anos', treinador: ''  },
-    { id: 4, nome: 'Sub-15', designacao: 'Iniciados',  faixa: '14 a 15 anos', treinador: ''   },
-    { id: 5, nome: 'Sub-17', designacao: 'Juvenis', faixa: '16 a 17 anos', treinador: '' },
-    { id: 6, nome: 'Sub-19', designacao: 'Juniores',   faixa: '18 a 19 anos', treinador: '' },
-  ];
+  // Estavam aqui oito escalões escritos à mão — Sub-5 a Sub-19 — usados
+  // sempre que o db_escaloes ainda não existisse: primeira visita, antes de a
+  // sincronização terminar. A pesquisa oferecia escalões que o clube pode não
+  // ter, com ligações para páginas vazias. É o mesmo que as listas por cima
+  // já tinham deixado de fazer, e pela mesma razão: o site não mostra o que
+  // não existe. Sem dados, a pesquisa não encontra escalões — e é verdade.
+  var DEFAULT_ESCALOES = [];
 
   var DEFAULT_AGENDA = [];
 
@@ -91,7 +88,11 @@
     });
 
     // Escalões
-    var escaloes = load('db_escaloes', DEFAULT_ESCALOES);
+    // Só os publicados. A regra está escrita mais abaixo, na história e no
+    // palmarés: um registo inativo não aparece publicamente, e a pesquisa é
+    // pública. Faltava aqui, nos treinadores e nos vídeos.
+    var escaloes = load('db_escaloes', DEFAULT_ESCALOES)
+      .filter(function (e) { return e && jscAtivo(e.ativo); });
     escaloes.forEach(function (e) {
       index.push({
         type:     'escalao',
@@ -154,7 +155,8 @@
     });
 
     // Treinadores
-    var treinadores = load('db_treinadores', DEFAULT_TREINADORES);
+    var treinadores = load('db_treinadores', DEFAULT_TREINADORES)
+      .filter(function (t) { return t && jscAtivo(t.ativo); });
     treinadores.forEach(function (t) {
       index.push({
         type:     'treinador',
@@ -166,7 +168,8 @@
     });
 
     // Vídeos
-    var videos = load('db_videos', []);
+    var videos = load('db_videos', [])
+      .filter(function (v) { return v && jscMediaAtivo(v.ativo); });
     videos.forEach(function (v) {
       index.push({
         type:     'video',
