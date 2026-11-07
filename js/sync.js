@@ -186,6 +186,14 @@
         if (data.siteAviso)      ls('site_aviso',          data.siteAviso);
         if (data.siteCores)      ls('site_cores',          data.siteCores);
         if (data.siteLegal)      ls('site_legal',          data.siteLegal);
+        // Esta linha faltava, e era a única chave publicada que o cliente
+        // deitava fora. Das 29 que o api/conteudo.php publica, 28 estavam
+        // emparelhadas e esta não: o painel ligava a manutenção, o servidor
+        // publicava siteManutencao, e aqui ninguém a escrevia. Medido: com a
+        // manutenção ligada, o visitante via o site normal em todas as
+        // visitas, e o site_manutencao nunca chegava ao armazém. O mecanismo
+        // do js/site-config.js sempre funcionou — faltava-lhe o valor.
+        if (data.siteManutencao) ls('site_manutencao',    data.siteManutencao);
         if (data.emailConfig)    ls('email_config',        data.emailConfig);
         if (data.fbPosts)        ls('fb_posts',            data.fbPosts);
         // Um mapa de logótipos vazio não substitui o que o visitante tem. O

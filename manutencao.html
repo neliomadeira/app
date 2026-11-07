@@ -175,6 +175,44 @@
     } catch(e) {}
   </script>
   <script src="js/html.js"></script>
+  <!-- A saída desta página.
+       Sem isto ela não tinha nenhuma: o js/site-config.js manda para cá quem
+       tem site_manutencao.ativo no armazém, e esta página não carregava o
+       sync.js nem nada que voltasse a perguntar ao servidor. Desligada a
+       manutenção, quem cá estava continuava a ser reencaminhado para cá a
+       cada tentativa de ir ao site — a chave velha nunca era substituída,
+       porque o reencaminhamento acontece antes de o pedido ao servidor ter
+       resposta. Ficava preso até limpar os dados do browser.
+       Agora pergunta, e quando a manutenção acabar sai sozinho. -->
+  <script src="js/sync.js" defer></script>
+  <script>
+    (function () {
+      function manutencaoLigada() {
+        try { return !!(JSON.parse(localStorage.getItem('site_manutencao') || '{}') || {}).ativo; }
+        catch (e) { return false; }
+      }
+      // Duas verificações, e as duas são precisas.
+      //
+      // No carregamento: quem chega aqui sem a manutenção ligada não tem nada
+      // que ficar. É também o que apanha o recarregamento que o js/sync.js faz
+      // quando traz conteúdo novo — esse recarregamento acontece LOGO A SEGUIR
+      // ao evento jsc:synced e cancelava a saída feita só no evento. Medido.
+      //
+      // No evento: para quem já cá estava quando a manutenção foi desligada
+      // sair sem ter de fazer nada.
+      if (!manutencaoLigada()) { window.location.replace('/'); return; }
+      // Nesta página a validade de 60 segundos do js/sync.js não pode valer.
+      // Quem chega aqui por causa de uma chave velha já gastou a validade na
+      // página anterior, e sem isto ficava à espera do minuto inteiro — ou
+      // para sempre, se não recarregasse. Aqui pergunta-se sempre: é a única
+      // página do site cuja razão de existir é não saber se ainda deve
+      // existir.
+      try { sessionStorage.removeItem('jsc_sync_em'); } catch (e) {}
+      document.addEventListener('jsc:synced', function () {
+        if (!manutencaoLigada()) window.location.replace('/');
+      });
+    })();
+  </script>
   <script src="js/cookie-consent.js" defer></script>
   <script src="js/scroll-top.js" defer></script>
   <script src="js/dark-mode.js" defer></script>
