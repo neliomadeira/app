@@ -226,14 +226,39 @@ function getDados(escalao, teamKey) {
     if (cls || jgs || adminJogos.length) {
       const importados = jgs ? JSON.parse(jgs) : (teamKey || cls ? [] : base.jogos);
       return {
-        competicao:    base.competicao,
+        competicao:    nomeDaCompeticao(escalao),
         classificacao: cls ? JSON.parse(cls) : (teamKey ? [] : base.classificacao),
         jogos:         adminJogos.length ? adminJogos : importados,
         fromFPF:       true,
       };
     }
   } catch(e) {}
-  return teamKey ? { competicao: escalao, classificacao: [], jogos: [] } : base;
+  return teamKey ? { competicao: nomeDaCompeticao(escalao), classificacao: [], jogos: [] } : base;
+}
+
+// O nome da competição do escalão activo, para não se olhar para uma
+// classificação sem saber de que prova é.
+//
+// Seniores  vem do db_seniores_info (liga e temporada), que é o mesmo que a
+//           Equipa Principal já mostra.
+// Formação  vem do campo competicao do próprio escalão, em db_escaloes, que
+//           é onde o painel o escreve.
+// Sem nada escrito fica o nome do escalão, como ficava antes.
+function nomeDaCompeticao(escalao) {
+  try {
+    if (escalao === 'Seniores') {
+      const info = JSON.parse(localStorage.getItem('db_seniores_info') || '{}') || {};
+      const partes = [info.liga, info.temporada]
+        .map(v => String(v == null ? '' : v).trim()).filter(Boolean);
+      if (partes.length) return partes.join(' · ');
+    } else {
+      const escs = JSON.parse(localStorage.getItem('db_escaloes') || '[]');
+      const e = Array.isArray(escs) ? escs.find(x => x && x.nome === escalao) : null;
+      const c = e && String(e.competicao || '').trim();
+      if (c) return c;
+    }
+  } catch (_) {}
+  return escalao;
 }
 
 function syncBadge(escalao, teamKey) {
@@ -423,24 +448,109 @@ function renderTeamSelector(escalao) {
 }
 
 // ---- TABS ---- //
+//
+// Os separadores estavam escritos à mão no resultados.html: Sub-19, Sub-17,
+// Sub-15, Sub-13 e Sub-11, e mais nenhum. O clube anuncia Sub-5 a Sub-19 e
+// tem equipa sénior — um resultado de Sub-9 ou dos Seniores era gravado,
+// publicado, e não havia separador que o mostrasse. A página chamada
+// "Resultados e Classificação" não continha a equipa principal.
+//
+// Passam a ser construídos a partir do que existe: os escalões activos do
+// db_escaloes, mais os Seniores, e só os que têm alguma coisa para mostrar.
 let escalaoActivo = 'Sub-17';
 
-document.querySelectorAll('.tab').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    escalaoActivo = btn.dataset.escalao;
-    teamActivo    = '';
-    renderTeamSelector(escalaoActivo);
-    renderClass(escalaoActivo);
-    renderJogos(escalaoActivo);
+// Este escalão tem classificação ou jogos?
+function escalaoTemDados(escalao) {
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k) continue;
+      if (k === 'fpf_class_' + escalao || k === 'fpf_jogos_' + escalao
+          || k.indexOf('fpf_class_' + escalao + '__') === 0
+          || k.indexOf('fpf_jogos_' + escalao + '__') === 0) {
+        const v = localStorage.getItem(k);
+        if (v && v !== '[]' && v !== '{}') return true;
+      }
+    }
+    const jogos = JSON.parse(localStorage.getItem('db_jogos') || '[]');
+    if (Array.isArray(jogos) && jogos.some(j => j && j.escalao === escalao)) return true;
+  } catch (_) {}
+  return false;
+}
+
+// Seniores primeiro — é a equipa principal, e é essa a ordem do menu do site.
+// Depois os Sub-NN do mais velho para o mais novo, como já estavam. O que não
+// encaixar em nenhum dos dois vai para o fim, por ordem alfabética.
+function ordenarEscaloes(nomes) {
+  const n = x => { const m = /^Sub-(\d+)$/.exec(x); return m ? parseInt(m[1], 10) : null; };
+  return nomes.slice().sort((a, b) => {
+    if (a === 'Seniores') return -1;
+    if (b === 'Seniores') return 1;
+    const na = n(a), nb = n(b);
+    if (na !== null && nb !== null) return nb - na;
+    if (na !== null) return -1;
+    if (nb !== null) return 1;
+    return a.localeCompare(b, 'pt');
   });
+}
+
+function escaloesParaMostrar() {
+  let nomes = [];
+  try {
+    const escs = JSON.parse(localStorage.getItem('db_escaloes') || '[]');
+    if (Array.isArray(escs)) {
+      nomes = escs.filter(e => e && e.nome && jscAtivo(e.ativo)).map(e => String(e.nome));
+    }
+  } catch (_) {}
+  if (nomes.indexOf('Seniores') === -1) nomes.push('Seniores');
+  return ordenarEscaloes(nomes.filter(escalaoTemDados));
+}
+
+function desenharSeparadores() {
+  const barra = document.querySelector('.tabs-inner');
+  if (!barra) return;
+  const nomes = escaloesParaMostrar();
+  // Sem dados nenhuns — a primeira visita, antes de a sincronização
+  // terminar — não se mexe: os separadores que estão no ficheiro ficam, e a
+  // página não pisca para vazio. Assim que houver dados, mandam eles.
+  if (!nomes.length) return;
+  barra.innerHTML = nomes.map(nome =>
+    `<button class="tab${nome === escalaoActivo ? ' active' : ''}" data-escalao="${jscEsc(nome)}">${jscEsc(nome)}</button>`
+  ).join('');
+  if (nomes.indexOf(escalaoActivo) === -1) {
+    escalaoActivo = nomes[0];
+    teamActivo = '';
+    barra.querySelector('.tab').classList.add('active');
+  }
+}
+
+// Delegação: a barra é redesenhada, e um ouvinte por botão perdia-se a cada
+// redesenho.
+document.querySelector('.tabs-bar')?.addEventListener('click', (ev) => {
+  const btn = ev.target.closest('.tab');
+  if (!btn || !btn.dataset.escalao) return;
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  escalaoActivo = btn.dataset.escalao;
+  teamActivo    = '';
+  renderTeamSelector(escalaoActivo);
+  renderClass(escalaoActivo);
+  renderJogos(escalaoActivo);
 });
 
+function desenharTudo() {
+  desenharSeparadores();
+  renderTeamSelector(escalaoActivo);
+  renderClass(escalaoActivo);
+  renderJogos(escalaoActivo);
+}
+
 // ---- INIT ---- //
-renderTeamSelector(escalaoActivo);
-renderClass(escalaoActivo);
-renderJogos(escalaoActivo);
+desenharTudo();
+
+// Quando a sincronização traz conteúdo novo, os separadores podem mudar: um
+// escalão que passou a ter classificação, outro que deixou de a ter.
+document.addEventListener('jsc:synced', () => { try { desenharTudo(); } catch (_) {} });
 
 // =============================================
 // PARTILHA DE RESULTADOS
