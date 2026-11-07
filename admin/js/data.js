@@ -200,24 +200,53 @@ window.contarRegistosDeExemplo = function () {
 };
 
 // Persistência no localStorage
+//
+// DEVOLVE true se gravou tudo, false se alguma coisa ficou por gravar.
+//
+// Antes não devolvia nada, e quem chamava não tinha como saber. O painel
+// escrevia "Jogo adicionado!" tivesse gravado ou não — e com o armazém cheio
+// escrevia na mesma. Uma mensagem de sucesso sobre uma gravação que falhou é
+// pior do que não haver mensagem nenhuma: o utilizador vai-se embora
+// convencido de que está feito. Os 48 sítios que já chamavam esta função e
+// ignoram o retorno continuam a funcionar exactamente como funcionavam.
 window.saveDB = function() {
+  // Não se escreve por cima do que não se conseguiu ler no arranque. Ver o
+  // comentário longo na leitura, lá em cima: uma chave ilegível deixava o
+  // campo a [] em memória, e gravar isso apagava o que ainda lá estava.
+  const porLer = (DB.__porLer && Object.keys(DB.__porLer)) || [];
+  // Guarda de reentrada: a recuperação do armazém cheio, lá em baixo, volta a
+  // chamar esta função. Sem isto, um armazém que continuasse cheio depois de
+  // libertar espaço fazia o mesmo pedido outra vez, e outra, sem fim.
+  const jaATentar = window.__jscSaveDBaTentar === true;
   try {
-    localStorage.setItem('db_videos',         JSON.stringify(DB.videos));
-    localStorage.setItem('db_atletas',        JSON.stringify(DB.atletas));
-    localStorage.setItem('db_jogos',          JSON.stringify(DB.jogos));
-    localStorage.setItem('db_escaloes',       JSON.stringify(DB.escaloes));
-    localStorage.setItem('db_galeria',        JSON.stringify(DB.galeria));
-    localStorage.setItem('db_modalidades',    JSON.stringify(DB.modalidades));
-    localStorage.setItem('db_agenda',         JSON.stringify(DB.agenda));
-    localStorage.setItem('db_patrocinadores', JSON.stringify(DB.patrocinadores));
-    localStorage.setItem('db_treinadores',    JSON.stringify(DB.treinadores));
-    localStorage.setItem('db_seniores',       JSON.stringify(DB.seniores));
-    localStorage.setItem('db_seniores_info',  JSON.stringify(DB.senioresInfo));
+    const gravar = (chave, valor) => {
+      if (porLer.indexOf(chave) !== -1) return;
+      localStorage.setItem(chave, JSON.stringify(valor));
+    };
+    gravar('db_videos',         DB.videos);
+    gravar('db_atletas',        DB.atletas);
+    gravar('db_jogos',          DB.jogos);
+    gravar('db_escaloes',       DB.escaloes);
+    gravar('db_galeria',        DB.galeria);
+    gravar('db_modalidades',    DB.modalidades);
+    gravar('db_agenda',         DB.agenda);
+    gravar('db_patrocinadores', DB.patrocinadores);
+    gravar('db_treinadores',    DB.treinadores);
+    gravar('db_seniores',       DB.seniores);
+    gravar('db_seniores_info',  DB.senioresInfo);
     // Mensagens e inscrições — bridge com formulários públicos
-    localStorage.setItem('db_contact_msgs',   JSON.stringify(DB.mensagens));
-    localStorage.setItem('db_inscricoes',     JSON.stringify(DB.inscricoes));
+    gravar('db_contact_msgs',   DB.mensagens);
+    gravar('db_inscricoes',     DB.inscricoes);
+    if (porLer.length) {
+      try {
+        console.warn('[JSC] gravado, excepto ' + porLer.join(', ')
+          + ' — essas chaves estão ilegíveis e não foram tocadas.');
+      } catch (_) {}
+      return false;
+    }
+    return true;
   } catch(e) {
-    if (e.name === 'QuotaExceededError' || e.code === 22) {
+    if ((e.name === 'QuotaExceededError' || e.code === 22) && !jaATentar) {
       const libertar = confirm(
         'Armazenamento cheio! As imagens carregadas por ficheiro ocupam demasiado espaço.\n\n' +
         'Clicar OK remove as imagens guardadas localmente das notícias (as que usam URL externo ficam intactas).\n' +
@@ -225,16 +254,34 @@ window.saveDB = function() {
       );
       if (libertar) {
         DB.noticias.forEach(n => { if (n.imagem && n.imagem.startsWith('data:')) n.imagem = ''; });
+        // Segunda tentativa, agora com espaço. Se correr, o que se estava a
+        // gravar fica mesmo gravado — e é isso que se devolve.
+        //
+        // Antes esta recuperação escrevia quatro chaves à mão, e nenhuma
+        // delas era a que tinha falhado: dizia "Espaço libertado" e as
+        // alterações continuavam por gravar. Era a segunda mensagem de
+        // sucesso falsa desta função.
         try {
           localStorage.setItem('db_noticias', JSON.stringify(DB.noticias));
-          localStorage.setItem('db_galeria',  JSON.stringify(DB.galeria));
-          localStorage.setItem('db_treinadores', JSON.stringify(DB.treinadores));
-          localStorage.setItem('db_seniores', JSON.stringify(DB.seniores));
-          alert('Espaço libertado. As notícias foram guardadas sem as imagens locais.');
         } catch(_) {}
+        window.__jscSaveDBaTentar = true;
+        let segunda = false;
+        try { segunda = window.saveDB(); }
+        finally { window.__jscSaveDBaTentar = false; }
+        alert(segunda
+          ? 'Espaço libertado e alterações guardadas. As notícias ficaram sem as imagens locais.'
+          : 'Espaço libertado, mas as alterações continuam por guardar. '
+            + 'Remova imagens ou conteúdo antes de tentar outra vez.');
+        return segunda;
       }
+      return false;
+    } else if (jaATentar) {
+      // Segunda passagem e continua sem caber: não se volta a perguntar nada,
+      // devolve-se o falhanço a quem pediu.
+      return false;
     } else {
       alert('ERRO ao guardar dados: ' + e.message + '\nAs alterações não foram guardadas.');
+      return false;
     }
   }
 };
@@ -265,29 +312,63 @@ window.saveDB = function() {
     }
   } catch(_) {}
 
+  // UMA CHAVE ILEGÍVEL NÃO PODE LEVAR AS OUTRAS ATRÁS
+  //
+  // Isto eram onze leituras e onze JSON.parse dentro de um único try, por
+  // esta ordem: videos, atletas, jogos, escaloes, galeria, modalidades,
+  // agenda, patrocinadores, treinadores, seniores, senioresInfo. Bastava uma
+  // delas lançar — um db_atletas truncado, uma gravação interrompida, um
+  // restauro a meio — para TODAS as atribuições seguintes serem saltadas, e o
+  // catch vazio lá em baixo engolia o assunto.
+  //
+  // O que isso fazia, medido: com o db_atletas corrompido e 73 jogos
+  // guardados, o painel abria com DB.jogos = [] — zero jogos na tabela,
+  // nenhum aviso — enquanto os 73 continuavam intactos no armazém. E o
+  // primeiro saveDB() escrevia esse [] por cima deles. Os 73 jogos
+  // desapareciam por causa de uma chave que nem sequer era a deles.
+  //
+  // Passa a ser uma leitura por chave, cada uma com o seu try. Uma que falhe
+  // fica sem ser carregada e as outras dez entram na mesma.
+  //
+  // E a chave que falhou fica MARCADA: o saveDB() não escreve por cima do que
+  // não conseguiu ler. Enquanto estiver ilegível, o que lá está fica lá —
+  // ilegível, mas presente, e portanto ainda recuperável à mão. Uma chave
+  // ausente não é o mesmo que ilegível e não é marcada: um armazém vazio é um
+  // começo legítimo.
+  DB.__porLer = DB.__porLer || {};
+  (function () {
+    const mapa = [
+      ['db_videos',         'videos'],
+      ['db_atletas',        'atletas'],
+      ['db_jogos',          'jogos'],
+      ['db_escaloes',       'escaloes'],
+      ['db_galeria',        'galeria'],
+      ['db_modalidades',    'modalidades'],
+      ['db_agenda',         'agenda'],
+      ['db_patrocinadores', 'patrocinadores'],
+      ['db_treinadores',    'treinadores'],
+      ['db_seniores',       'seniores'],
+      ['db_seniores_info',  'senioresInfo'],
+    ];
+    for (const [chave, campo] of mapa) {
+      let bruto = null;
+      try { bruto = localStorage.getItem(chave); } catch (_) { continue; }
+      if (bruto === null || bruto === '') continue;
+      try {
+        DB[campo] = JSON.parse(bruto);
+        delete DB.__porLer[chave];
+      } catch (e) {
+        DB.__porLer[chave] = true;
+        try {
+          console.error('[JSC] "' + chave + '" está ilegível (' + (e && e.name ? e.name : e)
+            + '). Essa secção abre vazia e NÃO será gravada por cima, para o que lá está '
+            + 'poder ser recuperado. As outras secções não são afectadas.');
+        } catch (_) {}
+      }
+    }
+  })();
+
   try {
-    const vi = localStorage.getItem('db_videos');
-    const at = localStorage.getItem('db_atletas');
-    const jg = localStorage.getItem('db_jogos');
-    const e  = localStorage.getItem('db_escaloes');
-    const g  = localStorage.getItem('db_galeria');
-    const m  = localStorage.getItem('db_modalidades');
-    const a  = localStorage.getItem('db_agenda');
-    const p  = localStorage.getItem('db_patrocinadores');
-    const t  = localStorage.getItem('db_treinadores');
-    const s  = localStorage.getItem('db_seniores');
-    const si = localStorage.getItem('db_seniores_info');
-    if (vi) DB.videos         = JSON.parse(vi);
-    if (at) DB.atletas        = JSON.parse(at);
-    if (jg) DB.jogos          = JSON.parse(jg);
-    if (e)  DB.escaloes       = JSON.parse(e);
-    if (g)  DB.galeria        = JSON.parse(g);
-    if (m)  DB.modalidades    = JSON.parse(m);
-    if (a)  DB.agenda         = JSON.parse(a);
-    if (p)  DB.patrocinadores = JSON.parse(p);
-    if (t)  DB.treinadores    = JSON.parse(t);
-    if (s)  DB.seniores       = JSON.parse(s);
-    if (si) DB.senioresInfo   = JSON.parse(si);
 
     // Bridge: mensagens do formulário de contacto
     const rawMsgs = localStorage.getItem('db_contact_msgs');
