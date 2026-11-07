@@ -69,36 +69,74 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     let sent = false;
-    if (typeof sendEmail === 'function') {
-      sent = await sendEmail('tplContacto', params);
+    const msgObj = { ...params, data: new Date().toISOString().slice(0,10), estado: 'Não lida' };
+
+    // Duas mensagens iguais seguidas, enviadas por engano ou por se ter
+    // carregado duas vezes, não valem duas linhas na caixa do clube.
+    const assinatura = jscAssinatura([params.nome, params.email, params.mensagem]);
+    const jaFoi = () => { try { const v = JSON.parse(sessionStorage.getItem('jsc_contactos_enviados') || '[]');
+      return Array.isArray(v) ? v : []; } catch (_) { return []; } };
+    if (jaFoi().indexOf(assinatura) !== -1) {
+      btn.textContent = 'Enviar mensagem'; btn.disabled = false;
+      mostrarResposta('aviso', 'Esta mensagem já foi enviada. Aguarde o nosso contacto.');
+      return;
     }
 
-    // Guardar mensagem em localStorage independentemente
-    const msgObj = { ...params, data: new Date().toISOString().slice(0,10), estado: 'Não lida', id: Date.now() };
-    try {
-      const msgs = JSON.parse(localStorage.getItem('db_contact_msgs') || '[]');
-      msgs.unshift(msgObj);
-      localStorage.setItem('db_contact_msgs', JSON.stringify(msgs));
-    } catch(_) {}
+    // ---- 1. a base de dados, que é onde o clube vê a mensagem ----
+    // Isto era fetch(...).catch(() => {}): sem await, sem ler a resposta, e a
+    // seguir dizia-se sempre "Mensagem recebida". Medido com o servidor a
+    // devolver "bd nao configurada", um 500 e nada (servidor em baixo): o
+    // visitante via sempre o painel verde e a mensagem não chegava a lado
+    // nenhum.
+    const r = await jscEnviarSubmissao('contacto', msgObj);
 
-    // Enviar para o servidor (base de dados) — silencioso se não configurado
-    fetch('/api/submit.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tipo: 'contacto', dados: msgObj }),
-    }).catch(() => {});
+    // ---- 2. o email, canal à parte ----
+    if (typeof sendEmail === 'function') {
+      try { sent = await sendEmail('tplContacto', params) === true; } catch (_) { sent = false; }
+    }
 
-    form.reset();
     btn.textContent = 'Enviar mensagem';
     btn.disabled = false;
-    if (formSuccess) {
-      formSuccess.textContent = sent
-        ? '✓ Mensagem enviada com sucesso! Entraremos em contacto em breve.'
-        : '✓ Mensagem recebida! Entraremos em contacto em breve.';
-      formSuccess.style.display = 'block';
-      setTimeout(() => { formSuccess.style.display = 'none'; }, 5000);
+
+    // ---- 3. dizer a verdade ----
+    if (r.confirmado) {
+      try { const v = jaFoi(); v.push(assinatura);
+        sessionStorage.setItem('jsc_contactos_enviados', JSON.stringify(v.slice(-20))); } catch (_) {}
+      form.reset();
+      mostrarResposta('sucesso', sent
+        ? '\u2713 Mensagem enviada com sucesso! Entraremos em contacto em breve.'
+        : '\u2713 Mensagem recebida! Entraremos em contacto em breve.');
+      return;
     }
+
+    // Nada foi registado. O formulário NÃO é limpo.
+    if (r.motivo === 'rede') {
+      mostrarResposta('aviso', 'A liga\u00e7\u00e3o falhou e n\u00e3o conseguimos confirmar o envio. '
+        + 'A sua mensagem continua escrita \u2014 tente novamente dentro de momentos.');
+    } else if (sent) {
+      mostrarResposta('aviso', 'A mensagem seguiu por email, mas n\u00e3o ficou registada no '
+        + 'sistema. Se n\u00e3o tiver resposta em alguns dias, contacte-nos por telefone.');
+    } else {
+      mostrarResposta('erro', 'N\u00e3o foi poss\u00edvel enviar a mensagem. O que escreveu continua '
+        + 'aqui \u2014 tente novamente ou use o telefone ou o email indicados nesta p\u00e1gina.');
+    }
+    try { console.warn('[contacto] não confirmado —', r.motivo, r.erro || '', '| email:', sent); } catch (_) {}
   });
+
+  // Reaproveita o elemento de sucesso que já existe, mudando texto e cores:
+  // assim não é preciso tocar no HTML de nenhuma das páginas que têm o
+  // formulário, e não há passo de Publicar.
+  function mostrarResposta(tipo, texto) {
+    if (!formSuccess) { if (tipo !== 'sucesso') alert(texto); return; }
+    const cores = { sucesso: ['#e8f5e9', '#2e7d32'], aviso: ['#fff4e5', '#8a4b00'], erro: ['#fdecea', '#a32018'] };
+    const c = cores[tipo] || cores.sucesso;
+    formSuccess.textContent = texto;
+    formSuccess.style.background = c[0];
+    formSuccess.style.color = c[1];
+    formSuccess.setAttribute('role', tipo === 'sucesso' ? 'status' : 'alert');
+    formSuccess.style.display = 'block';
+    if (tipo === 'sucesso') setTimeout(() => { formSuccess.style.display = 'none'; }, 5000);
+  }
 
   // ---- PHONE MASK (Portuguese: 9XX XXX XXX or +351 9XX XXX XXX) ----
   const telefone = document.getElementById('telefone');

@@ -355,6 +355,88 @@
   global.jscModalidadeAtiva = jscModalidadeAtiva;
   global.jscHojeISO = jscHojeISO;
   global.jscBlocoAtual = jscBlocoAtual;
+  // =====================================================================
+  // SUBMISSÃO AO SERVIDOR — o que conta como entregue
+  // =====================================================================
+  // Isto existe porque os dois formulários públicos — a inscrição de um
+  // atleta e o contacto — faziam o envio assim:
+  //
+  //     fetch('/api/submit.php', { ... }).catch(() => {});
+  //
+  // Sem await, sem olhar para a resposta, com os erros engolidos. A seguir,
+  // incondicionalmente, limpavam o formulário e mostravam o painel verde.
+  //
+  // O api/submit.php tem sete respostas de falha — entre elas
+  // "bd nao configurada" e "erro ao guardar" — e nenhuma era lida. Medido
+  // com o servidor a devolver cada uma delas: o visitante via sempre
+  // "Inscrição enviada com sucesso" e a inscrição ficava apenas no
+  // localStorage do browser dele, onde o clube nunca lhe chega.
+  //
+  // O QUE CONTA COMO SUBMISSÃO CONFIRMADA, e nada menos:
+  //   1. o pedido chegou a ter resposta (não houve falha de rede);
+  //   2. o código de estado é 2xx;
+  //   3. o corpo é JSON válido;
+  //   4. esse JSON tem ok === true.
+  //
+  // O id vem junto quando a linha foi escrita. Não se exige, de propósito:
+  // o ok === true é o contrato do servidor, e a única resposta com ok:true
+  // sem id é a do engodo (honeypot), que só é dada a quem preenche o campo
+  // escondido — e esses nem chegam aqui, porque o formulário trava antes.
+  //
+  // Devolve sempre um objecto, nunca lança:
+  //   { confirmado: true,  id }
+  //   { confirmado: false, motivo: 'rede'|'servidor'|'resposta'|'recusado',
+  //     estado, erro }
+  //
+  // 'rede' é o único caso ambíguo: o pedido pode ter chegado e sido gravado
+  // antes de a ligação cair. Quem chama tem de o tratar à parte e NÃO deve
+  // reenviar sozinho, para não duplicar a inscrição de uma criança.
+  async function jscEnviarSubmissao(tipo, dados, opcoes) {
+    var o = opcoes || {};
+    var resposta;
+    try {
+      resposta = await fetch(o.url || '/api/submit.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo: tipo, dados: dados }),
+      });
+    } catch (e) {
+      return { confirmado: false, motivo: 'rede', erro: (e && e.message) || String(e) };
+    }
+    var corpo = null;
+    try { corpo = await resposta.json(); } catch (_) { /* fica null */ }
+    if (!resposta.ok) {
+      return { confirmado: false, motivo: 'servidor', estado: resposta.status,
+               erro: (corpo && corpo.error) || ('HTTP ' + resposta.status) };
+    }
+    if (!corpo || typeof corpo !== 'object') {
+      return { confirmado: false, motivo: 'resposta', estado: resposta.status,
+               erro: 'o servidor respondeu sem JSON' };
+    }
+    if (corpo.ok !== true) {
+      return { confirmado: false, motivo: 'recusado', estado: resposta.status,
+               erro: corpo.error || 'o servidor recusou a submissão' };
+    }
+    return { confirmado: true, id: corpo.id };
+  }
+
+  // Assinatura de uma submissão, para não a enviar duas vezes.
+  //
+  // Guarda-se o número, nunca os campos: o que fica no sessionStorage do
+  // visitante não pode ser o nome de uma criança nem o email do encarregado
+  // de educação. Serve só para comparar com o envio seguinte — dois irmãos
+  // inscritos do mesmo computador dão assinaturas diferentes e passam os
+  // dois.
+  function jscAssinatura(partes) {
+    var t = (partes || []).join('\u0001');
+    var h = 5381;
+    for (var i = 0; i < t.length; i++) { h = ((h * 33) ^ t.charCodeAt(i)) >>> 0; }
+    return 'a' + h.toString(36);
+  }
+
+  global.jscEnviarSubmissao = jscEnviarSubmissao;
+  global.jscAssinatura = jscAssinatura;
+
   global.jscIniciais = jscIniciais;
   global.jscPatrocinadorAtivo = jscPatrocinadorAtivo;
   global.jscPatrocinadorUrl = jscPatrocinadorUrl;

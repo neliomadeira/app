@@ -220,45 +220,114 @@ document.addEventListener('DOMContentLoaded', () => {
       estado:      'Pendente',
     };
 
-    // Guardar em localStorage
-    try {
-      const lst = JSON.parse(localStorage.getItem('db_inscricoes_modalidades') || '[]');
-      lst.unshift(insc);
-      localStorage.setItem('db_inscricoes_modalidades', JSON.stringify(lst));
-    } catch(_) {}
+    // JÁ FOI ENVIADA?
+    //
+    // O servidor gera o identificador e escreve uma linha por pedido: dois
+    // envios do mesmo formulário dão duas inscrições da mesma criança. A
+    // assinatura é só um número derivado de três campos — não guarda o nome
+    // nem o email de ninguém — e dois irmãos inscritos deste computador dão
+    // assinaturas diferentes, por isso passam os dois.
+    const assinatura = jscAssinatura([insc.nome, insc.dataNasc, insc.email]);
+    if (jaEnviadas().indexOf(assinatura) !== -1) {
+      repor(btn);
+      mostrar('aviso', 'Esta inscrição já foi enviada e registada. Se precisar de a '
+        + 'corrigir, contacte-nos em vez de a enviar outra vez.');
+      return;
+    }
 
-    // Enviar para o servidor (base de dados) — silencioso se não configurado
-    fetch('/api/submit.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tipo: 'inscricao', dados: insc }),
-    }).catch(() => {});
+    // ---- 1. a base de dados ----
+    const r = await jscEnviarSubmissao('inscricao', insc);
 
-    // Enviar email de notificação (se configurado)
+    // ---- 2. o email, que é um canal à parte ----
+    // Antes o resultado era deitado fora com um .catch(() => {}). Saber se o
+    // email saiu é o que permite distinguir "o clube não recebeu nada" de
+    // "o clube recebeu por email mas não ficou registado".
+    let emailOk = false;
+    const temEmail = typeof emailConfigured === 'function' ? emailConfigured() : false;
     if (typeof sendEmail === 'function') {
-      await sendEmail('tplInscricao', {
-        nome:       insc.nome,
-        modalidade: insc.modalidade,
-        escalao:    insc.escalao || '—',
-        nivel:      insc.nivel   || '—',
-        posicao:    insc.posicao || '—',
-        telefone:   insc.telefone,
-        email_resp: insc.email,
-        data:       insc.data,
-      }).catch(() => {});
+      try {
+        emailOk = await sendEmail('tplInscricao', {
+          nome:       insc.nome,
+          modalidade: insc.modalidade,
+          escalao:    insc.escalao || '—',
+          nivel:      insc.nivel   || '—',
+          posicao:    insc.posicao || '—',
+          telefone:   insc.telefone,
+          email_resp: insc.email,
+          data:       insc.data,
+        }) === true;
+      } catch (_) { emailOk = false; }
     }
 
-    form.reset();
-    // Reset modality picker visual
-    document.querySelectorAll('.modality-pick').forEach((l, i) => l.classList.toggle('modality-pick--active', i === 0));
-    applyModalidade();
-    btn.textContent = 'Enviar inscrição';
-    btn.disabled = false;
-    if (success) {
-      success.style.display = 'block';
-      success.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      setTimeout(() => { success.style.display = 'none'; }, 8000);
+    repor(btn);
+
+    // ---- 3. dizer a verdade ----
+    if (r.confirmado) {
+      marcarEnviada(assinatura);
+      form.reset();
+      document.querySelectorAll('.modality-pick').forEach((l, i) => l.classList.toggle('modality-pick--active', i === 0));
+      applyModalidade();
+      mostrar('sucesso', '\u2713 Inscri\u00e7\u00e3o enviada com sucesso! Em breve a nossa equipa entrar\u00e1 em contacto.');
+      return;
     }
+
+    // Daqui para baixo NADA foi registado. O formulário não é limpo: o que a
+    // pessoa escreveu fica no ecrã para poder tentar outra vez sem reescrever.
+    if (r.motivo === 'rede') {
+      // O único caso ambíguo: pode ter chegado antes de a ligação cair.
+      // Não se reenvia sozinho — duplicar a inscrição de uma criança é pior
+      // do que pedir ajuda.
+      mostrar('aviso', 'A liga\u00e7\u00e3o falhou a meio e n\u00e3o conseguimos confirmar se a '
+        + 'inscri\u00e7\u00e3o ficou registada. Os seus dados continuam preenchidos. '
+        + 'Antes de enviar outra vez, contacte-nos para n\u00e3o ficar duplicada.');
+    } else if (emailOk) {
+      mostrar('aviso', 'A inscri\u00e7\u00e3o seguiu por email para o clube, mas n\u00e3o ficou '
+        + 'registada no sistema. Guarde esta p\u00e1gina e, se n\u00e3o tiver resposta nossa '
+        + 'em 48 horas, contacte-nos.');
+    } else {
+      mostrar('erro', 'N\u00e3o foi poss\u00edvel enviar a inscri\u00e7\u00e3o. Os seus dados '
+        + 'continuam preenchidos \u2014 tente novamente dentro de alguns minutos '
+        + 'ou contacte-nos por telefone.');
+    }
+    try {
+      console.warn('[inscricao] não confirmada —', r.motivo, r.erro || '',
+        '| email enviado:', emailOk, '| email configurado:', temEmail);
+    } catch (_) {}
   });
+
+  // ---- apresentação ------------------------------------------------------
+  // Reaproveita-se o mesmo elemento do sucesso, mudando o texto e as cores.
+  // Assim esta correcção não precisa de tocar no HTML — e sem HTML novo não
+  // há passo de Publicar nem regiões geradas em risco.
+  const CORES = {
+    sucesso: { fundo: '#e8f5e9', texto: '#2e7d32' },
+    aviso:   { fundo: '#fff4e5', texto: '#8a4b00' },
+    erro:    { fundo: '#fdecea', texto: '#a32018' },
+  };
+  function mostrar(tipo, texto) {
+    if (!success) { if (tipo !== 'sucesso') alert(texto); return; }
+    const c = CORES[tipo] || CORES.sucesso;
+    success.textContent = texto;
+    success.style.background = c.fundo;
+    success.style.color = c.texto;
+    success.setAttribute('role', tipo === 'sucesso' ? 'status' : 'alert');
+    success.style.display = 'block';
+    success.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // O sucesso desaparece ao fim de 8s, como antes. Um erro fica: quem tem
+    // de agir sobre ele não o pode perder de vista.
+    if (tipo === 'sucesso') setTimeout(() => { success.style.display = 'none'; }, 8000);
+  }
+  function repor(btn) { btn.textContent = 'Enviar inscrição'; btn.disabled = false; }
+
+  // As assinaturas do que já foi enviado, só nesta aba e só como números.
+  const CHAVE_ENVIADAS = 'jsc_inscricoes_enviadas';
+  function jaEnviadas() {
+    try { const v = JSON.parse(sessionStorage.getItem(CHAVE_ENVIADAS) || '[]');
+      return Array.isArray(v) ? v : []; } catch (_) { return []; }
+  }
+  function marcarEnviada(a) {
+    try { const v = jaEnviadas(); v.push(a);
+      sessionStorage.setItem(CHAVE_ENVIADAS, JSON.stringify(v.slice(-20))); } catch (_) {}
+  }
 
 });
