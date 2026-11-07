@@ -399,6 +399,24 @@
 
         <!-- ===== JOGOS ===== -->
         <section class="page" id="page-jogos" style="display:none">
+          <!-- De onde vem a classificação.
+               Registar um resultado aqui não move uma linha da tabela, e não
+               é defeito: a classificação é a da federação, com descontos,
+               castigos e pontos de primeira fase que uma soma de vitórias e
+               empates não sabe. Nada no código a calcula a partir do
+               db_jogos. Mas o nome da secção convida à expectativa contrária,
+               por isso diz-se. -->
+          <div class="aviso-origem" role="note" style="display:flex;gap:10px;align-items:flex-start;background:#eef4ff;border:1px solid #c7d9f5;border-left:4px solid var(--blue,#003B8E);border-radius:8px;padding:12px 14px;margin-bottom:16px">
+            <span aria-hidden="true" style="font-size:1.05rem;line-height:1.3">&#8505;</span>
+            <p style="margin:0;font-size:0.86rem;line-height:1.55;color:#20365c">
+              <strong>As classificações são as oficiais.</strong>
+              São as que introduz à mão ou cola da federação, e ficam como as deixar.
+              <strong>Não são recalculadas</strong> a partir dos resultados registados aqui —
+              registar um resultado não altera a tabela, porque a classificação oficial inclui
+              descontos, castigos e pontos de primeira fase. Para a actualizar, use
+              <em>Classificação &amp; Jogos</em> e cole a tabela nova.
+            </p>
+          </div>
           <div class="page-header">
             <h1>Resultados e Classificação</h1>
             <div class="page-actions">
