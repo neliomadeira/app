@@ -315,13 +315,16 @@ function jsc_blocos() {
             'fim'      => '<!-- JSC:agenda:fim -->',
             'dados'    => function (array $conteudo) {
                 return [
-                    'eventos' => jsc_agenda_proximos($conteudo, null, jsc_agenda_previa()),
+                    // true: na página inicial os jogos vêm do db_jogos, e as
+                    // entradas de agenda do tipo Jogo saem para não duplicar.
+                    // A página da Agenda, mais abaixo, continua como estava.
+                    'eventos' => jsc_agenda_proximos($conteudo, null, jsc_agenda_previa(), true),
                     'desde'   => jsc_hoje(),
                 ];
             },
             'validar'  => function ($meio, array $conteudo) {
                 $erros = [];
-                $esperados = count(jsc_agenda_proximos($conteudo, null, jsc_agenda_previa()));
+                $esperados = count(jsc_agenda_proximos($conteudo, null, jsc_agenda_previa(), true));
                 $obtidos   = substr_count($meio, '<div class="agenda-card">');
                 if ($obtidos !== $esperados) {
                     $erros[] = "gerou $obtidos cartões, esperava $esperados";

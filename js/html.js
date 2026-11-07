@@ -434,6 +434,75 @@
     return 'a' + h.toString(36);
   }
 
+  // =====================================================================
+  // JOGOS COMO EVENTOS DE AGENDA
+  // =====================================================================
+  // A página inicial lia os jogos do db_agenda e nunca do db_jogos: para um
+  // jogo aparecer na inicial era preciso escrevê-lo duas vezes, uma em
+  // Resultados e Classificação e outra na Agenda. Passa a vir do db_jogos, e
+  // as entradas de agenda do tipo Jogo saem para não aparecer duas vezes.
+  //
+  // Réplicas exactas do jsc_jogo_como_evento() e do jsc_jogo_por_jogar() do
+  // api/conteudo.php. Têm de dar o mesmo, senão a contagem do data-itens
+  // nunca bate com o bloco que o servidor escreveu e ele é redesenhado em
+  // todas as visitas.
+  function jscJogoComoEvento(j) {
+    var casa = String((j && j.casa) || '').trim();
+    var fora = String((j && j.fora) || '').trim();
+    return {
+      id:      String((j && j.id) || ''),
+      titulo:  (casa && fora) ? (casa + ' vs ' + fora) : (casa + fora),
+      tipo:    'Jogo',
+      data:    String((j && j.data) || ''),
+      hora:    String((j && j.hora) || '').trim(),
+      local:   String((j && j.local) || '').trim(),
+      escalao: String((j && j.escalao) || '').trim(),
+      estado:  String((j && j.estado) || '').trim(),
+    };
+  }
+
+  //   Realizado  já aconteceu: não é "próximo", mesmo que seja hoje.
+  //   Cancelado  não se anuncia um jogo que não se vai disputar.
+  //   Adiado     anuncia-se, com a etiqueta — a data que lá está é a que há.
+  // Sem maiúsculas porque as colagens do ZeroZero trazem "agendado" e
+  // "realizado" em minúsculas e o painel escreve-os com inicial maiúscula.
+  function jscJogoPorJogar(estado) {
+    var e = String(estado === null || estado === undefined ? '' : estado).trim().toLowerCase();
+    return e !== 'realizado' && e !== 'cancelado';
+  }
+
+  // A lista do que vem aí, para a página inicial: eventos de agenda que não
+  // sejam jogos, mais os jogos a sério. Ordenada por data, cortada no limite.
+  function jscProximosComJogos(agenda, jogos, hojeISO, limite) {
+    var hoje = String(hojeISO || '');
+    var lista = [];
+    (Array.isArray(agenda) ? agenda : []).forEach(function (e) {
+      if (!e || typeof e !== 'object') return;
+      var data = String(e.data || '');
+      if (!data || data < hoje) return;
+      if (e.estado === 'Cancelado') return;
+      if (String(e.tipo || '').trim().toLowerCase() === 'jogo') return;
+      lista.push(e);
+    });
+    (Array.isArray(jogos) ? jogos : []).forEach(function (j) {
+      if (!j || typeof j !== 'object') return;
+      var data = String(j.data || '');
+      if (!data || data < hoje) return;
+      if (!jscJogoPorJogar(j.estado)) return;
+      lista.push(jscJogoComoEvento(j));
+    });
+    lista.sort(function (a, b) {
+      var da = String(a.data || ''), db = String(b.data || '');
+      if (da !== db) return da < db ? -1 : 1;
+      return String(a.hora || '').localeCompare(String(b.hora || ''));
+    });
+    return (limite === null || limite === undefined) ? lista : lista.slice(0, limite);
+  }
+
+  global.jscJogoComoEvento = jscJogoComoEvento;
+  global.jscJogoPorJogar = jscJogoPorJogar;
+  global.jscProximosComJogos = jscProximosComJogos;
+
   global.jscEnviarSubmissao = jscEnviarSubmissao;
   global.jscAssinatura = jscAssinatura;
 

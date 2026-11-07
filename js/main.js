@@ -540,14 +540,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (grid) {
       const raw = localStorage.getItem('db_agenda');
       const TIPO_CLS = { Jogo:'jogo', Torneio:'torneio', Treino:'treino', 'Reunião':'reuniao', Outro:'outro' };
-      const hoje = new Date(); hoje.setHours(0,0,0,0);
-      const lista = (raw ? JSON.parse(raw) : [])
-        // Um evento cancelado não aparece nas listas públicas. Mesma regra
-        // do jsc_agenda_proximos() do api/conteudo.php.
-        .filter(e => e && e.estado !== 'Cancelado')
-        .filter(e => new Date(e.data + 'T00:00:00') >= hoje)
-        .sort((a,b) => new Date(a.data) - new Date(b.data))
-        .slice(0, 6);
+      // Os jogos desportivos vêm agora do db_jogos, e as entradas de agenda
+      // do tipo Jogo saem para o mesmo jogo não aparecer duas vezes. Os
+      // treinos, torneios, reuniões e tudo o resto ficam como estavam.
+      // Mesma regra do jsc_agenda_proximos($conteudo, ..., true) do
+      // api/conteudo.php — se as duas discordarem, a contagem do data-itens
+      // nunca bate e o bloco é redesenhado em todas as visitas.
+      let agendaRaw = [], jogosRaw = [];
+      try { agendaRaw = raw ? JSON.parse(raw) : []; } catch (_) {}
+      try { jogosRaw = JSON.parse(localStorage.getItem('db_jogos') || '[]'); } catch (_) {}
+      const lista = jscProximosComJogos(agendaRaw, jogosRaw, jscHojeISO(), 6);
 
       // Se o servidor já escreveu esta grelha e ela continua a servir — a
       // contagem bate e foi gerada hoje —, não se mexe. Ao virar da
@@ -592,13 +594,17 @@ document.addEventListener('DOMContentLoaded', () => {
   try {
     const cfgJogo = JSON.parse(localStorage.getItem('site_config') || '{}');
     if (cfgJogo.jogoDestaqueAtivo) {
-      const agRaw = localStorage.getItem('db_agenda');
-      const hoje2 = new Date(); hoje2.setHours(0,0,0,0);
-      const jogos = agRaw
-        ? JSON.parse(agRaw)
-            .filter(e => e.tipo === 'Jogo' && e.estado !== 'Cancelado' && new Date(e.data + 'T00:00:00') >= hoje2)
-            .sort((a,b) => new Date(a.data + 'T' + (a.hora||'00:00')) - new Date(b.data + 'T' + (b.hora||'00:00')))
-        : [];
+      // O destaque lia os jogos do db_agenda, onde era preciso escrevê-los à
+      // mão uma segunda vez. Passa a ler o db_jogos, que é onde os jogos
+      // vivem — os mesmos que a secção Resultados e Classificação gere e que
+      // o Publicar leva ao site.
+      let jogosDb = [];
+      try { jogosDb = JSON.parse(localStorage.getItem('db_jogos') || '[]'); } catch (_) {}
+      const hojeIso = jscHojeISO();
+      const jogos = jogosDb
+        .filter(j => j && String(j.data || '') >= hojeIso && jscJogoPorJogar(j.estado))
+        .map(j => jscJogoComoEvento(j))
+        .sort((a, b) => (a.data + 'T' + (a.hora || '00:00')).localeCompare(b.data + 'T' + (b.hora || '00:00')));
       const jogo = jogos[0];
       const section = document.getElementById('jogoDestaqueSection');
       const widget  = document.getElementById('jogoDestaqueWidget');

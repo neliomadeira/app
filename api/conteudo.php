@@ -338,19 +338,76 @@ function jsc_agenda_ics(array $e) {
 // Os eventos de hoje em diante, já preparados para os modelos.
 //   $hoje    o dia a partir do qual se conta, em AAAA-MM-DD (para os testes)
 //   $limite  quantos devolver, ou null para todos
-function jsc_agenda_proximos(array $conteudo, $hoje = null, $limite = null) {
-    if (!isset($conteudo['agenda']) || !is_array($conteudo['agenda'])) return [];
+// Um jogo do db_jogos visto como evento de agenda.
+//
+// Réplica exacta do jscJogoComoEvento() do js/html.js: o que o servidor
+// escreve na página e o que o browser desenha por cima têm de dar o mesmo,
+// senão a contagem do data-itens nunca bate e o bloco é redesenhado sempre.
+function jsc_jogo_como_evento(array $j) {
+    $casa = isset($j['casa']) ? trim((string)$j['casa']) : '';
+    $fora = isset($j['fora']) ? trim((string)$j['fora']) : '';
+    $titulo = ($casa !== '' && $fora !== '') ? ($casa . ' vs ' . $fora) : ($casa . $fora);
+    return [
+        'id'      => isset($j['id']) ? (string)$j['id'] : '',
+        'titulo'  => $titulo,
+        'tipo'    => 'Jogo',
+        'data'    => isset($j['data']) ? (string)$j['data'] : '',
+        'hora'    => isset($j['hora']) ? trim((string)$j['hora']) : '',
+        'local'   => isset($j['local']) ? trim((string)$j['local']) : '',
+        'escalao' => isset($j['escalao']) ? trim((string)$j['escalao']) : '',
+        'estado'  => isset($j['estado']) ? trim((string)$j['estado']) : '',
+    ];
+}
+
+// Um jogo entra nas listas de "o que vem aí"?
+//
+// Réplica exacta do jscJogoPorJogar() do js/html.js.
+//   Realizado  já aconteceu: não é "próximo", mesmo que seja hoje.
+//   Cancelado  não se anuncia um jogo que não se vai disputar.
+//   Adiado     anuncia-se, com a etiqueta — a data que lá está é a que há.
+// A comparação é sem maiúsculas porque as colagens do ZeroZero trazem
+// "agendado" e "realizado" em minúsculas, e o painel escreve-os com inicial
+// maiúscula.
+function jsc_jogo_por_jogar($estado) {
+    $e = strtolower(trim((string)$estado));
+    return $e !== 'realizado' && $e !== 'cancelado';
+}
+
+// $com_jogos liga a junção dos jogos desportivos vindos do db_jogos.
+//
+// É um parâmetro e não o comportamento por omissão de propósito: esta função
+// serve o bloco da página inicial E o da página da Agenda, e só o primeiro
+// foi mandado mudar. A página da Agenda continua a listar o que sempre
+// listou.
+function jsc_agenda_proximos(array $conteudo, $hoje = null, $limite = null, $com_jogos = false) {
     if ($hoje === null) $hoje = jsc_hoje();
 
     $lista = [];
-    foreach ($conteudo['agenda'] as $e) {
+    $agenda = (isset($conteudo['agenda']) && is_array($conteudo['agenda'])) ? $conteudo['agenda'] : [];
+    foreach ($agenda as $e) {
         if (!is_array($e)) continue;
         $data = isset($e['data']) ? (string)$e['data'] : '';
         if ($data === '' || strcmp($data, (string)$hoje) < 0) continue;   // já passou
         // Cancelado não aparece nas listas públicas. O painel ainda não
         // escreve este estado; quando escrever, isto já está certo.
         if (isset($e['estado']) && $e['estado'] === 'Cancelado') continue;
+        // Com os jogos a vir do db_jogos, as entradas de agenda do tipo Jogo
+        // saem: eram a cópia à mão da mesma coisa, e mantê-las mostrava o
+        // mesmo jogo duas vezes. Os treinos, torneios, reuniões e tudo o
+        // resto ficam exactamente como estavam.
+        $tipo = isset($e['tipo']) ? trim((string)$e['tipo']) : '';
+        if ($com_jogos && strcasecmp($tipo, 'Jogo') === 0) continue;
         $lista[] = $e;
+    }
+
+    if ($com_jogos && isset($conteudo['jogos']) && is_array($conteudo['jogos'])) {
+        foreach ($conteudo['jogos'] as $j) {
+            if (!is_array($j)) continue;
+            $data = isset($j['data']) ? (string)$j['data'] : '';
+            if ($data === '' || strcmp($data, (string)$hoje) < 0) continue;
+            if (!jsc_jogo_por_jogar(isset($j['estado']) ? $j['estado'] : '')) continue;
+            $lista[] = jsc_jogo_como_evento($j);
+        }
     }
 
     $lista = jsc_ordenar_por_data($lista, false);   // data ascendente
