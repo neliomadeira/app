@@ -2631,6 +2631,16 @@ window.saveNovoJogo = function () {
     local: document.getElementById('mJLocal').value || 'Est. Municipal Loulé',
     estado: 'Agendado',
   });
+  // Faltava o saveDB(). O jogo entrava na tabela, o aviso dizia "Jogo
+  // adicionado!" e nada era escrito: ao recarregar o painel tinha
+  // desaparecido, e o Publicar — que lê do armazém e não da memória — nunca
+  // o levava ao site. O mesmo valia para o resultado, a edição e a
+  // eliminação; as quatro operações dos Seniores sempre gravaram.
+  if (!saveDB()) {
+    DB.jogos.pop();   // memória e armazém não ficam a discordar
+    showToast('NÃO foi possível guardar o jogo. Nada foi alterado.', 'red');
+    return;           // o formulário fica aberto para se tentar outra vez
+  }
   renderJogos();
   closeModal();
   showToast('Jogo adicionado!', 'green');
@@ -2664,9 +2674,15 @@ window.registarResultado = function (id) {
 window.saveResultado = function (id) {
   const j = DB.jogos.find(x => x.id === id);
   if (!j) return;
+  const antes = { gcasa: j.gcasa, gfora: j.gfora, estado: j.estado };
   j.gcasa  = parseInt(document.getElementById('mGCasa').value) || 0;
   j.gfora  = parseInt(document.getElementById('mGFora').value) || 0;
   j.estado = 'Realizado';
+  if (!saveDB()) {
+    j.gcasa = antes.gcasa; j.gfora = antes.gfora; j.estado = antes.estado;
+    showToast('NÃO foi possível guardar o resultado. Nada foi alterado.', 'red');
+    return;
+  }
   renderJogos();
   closeModal();
   showToast(`Resultado registado: ${j.gcasa} – ${j.gfora}`, 'green');
@@ -2698,12 +2714,19 @@ window.editJogo = function (id) {
 window.saveEditJogo = function (id) {
   const j = DB.jogos.find(x => x.id === id);
   if (!j) return;
+  const antes = { escalao: j.escalao, data: j.data, hora: j.hora,
+                  local: j.local, casa: j.casa, fora: j.fora };
   j.escalao = document.getElementById('mJEscalao').value;
   j.data    = document.getElementById('mJData').value;
   j.hora    = document.getElementById('mJHora').value;
   j.local   = document.getElementById('mJLocal').value;
   j.casa    = document.getElementById('mJCasa').value.trim() || j.casa;
   j.fora    = document.getElementById('mJFora').value.trim() || j.fora;
+  if (!saveDB()) {
+    Object.assign(j, antes);
+    showToast('NÃO foi possível guardar as alterações. Nada foi alterado.', 'red');
+    return;
+  }
   renderJogos();
   closeModal();
   showToast('Jogo actualizado!', 'green');
@@ -2712,7 +2735,13 @@ window.saveEditJogo = function (id) {
 window.removeJogo = function (id) {
   if (!confirm('Eliminar este jogo?')) return;
   const idx = DB.jogos.findIndex(x => x.id === id);
-  if (idx > -1) DB.jogos.splice(idx, 1);
+  if (idx === -1) return;
+  const removido = DB.jogos.splice(idx, 1)[0];
+  if (!saveDB()) {
+    DB.jogos.splice(idx, 0, removido);   // volta ao mesmo lugar
+    showToast('NÃO foi possível eliminar o jogo. Continua lá.', 'red');
+    return;
+  }
   renderJogos();
   showToast('Jogo eliminado.', 'red');
 };
