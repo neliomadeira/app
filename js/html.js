@@ -471,8 +471,25 @@
     return e !== 'realizado' && e !== 'cancelado';
   }
 
+  // Há no db_jogos um jogo que corresponde a esta entrada de agenda?
+  // Mesmo dia, e o mesmo escalão — ou a entrada sem escalão, ou "Todos", que
+  // não diz qual é. Réplica exacta do jsc_jogo_equivalente() do
+  // api/conteudo.php.
+  function jscJogoEquivalente(jogos, data, escalao) {
+    var esc = String(escalao === null || escalao === undefined ? '' : escalao).trim();
+    return (Array.isArray(jogos) ? jogos : []).some(function (j) {
+      if (!j || String(j.data || '') !== String(data)) return false;
+      if (esc === '' || esc.toLowerCase() === 'todos') return true;
+      return String(j.escalao || '').trim().toLowerCase() === esc.toLowerCase();
+    });
+  }
+
   // A lista do que vem aí, para a página inicial: eventos de agenda que não
   // sejam jogos, mais os jogos a sério. Ordenada por data, cortada no limite.
+  //
+  // Uma entrada de agenda do tipo Jogo só sai quando há mesmo um jogo a
+  // substituí-la. Sem jogo correspondente fica: tirá-la apagaria informação
+  // que alguém escreveu e que não está em mais lado nenhum.
   function jscProximosComJogos(agenda, jogos, hojeISO, limite) {
     var hoje = String(hojeISO || '');
     var lista = [];
@@ -481,7 +498,8 @@
       var data = String(e.data || '');
       if (!data || data < hoje) return;
       if (e.estado === 'Cancelado') return;
-      if (String(e.tipo || '').trim().toLowerCase() === 'jogo') return;
+      if (String(e.tipo || '').trim().toLowerCase() === 'jogo'
+          && jscJogoEquivalente(jogos, data, e.escalao)) return;
       lista.push(e);
     });
     (Array.isArray(jogos) ? jogos : []).forEach(function (j) {
@@ -499,6 +517,7 @@
     return (limite === null || limite === undefined) ? lista : lista.slice(0, limite);
   }
 
+  global.jscJogoEquivalente = jscJogoEquivalente;
   global.jscJogoComoEvento = jscJogoComoEvento;
   global.jscJogoPorJogar = jscJogoPorJogar;
   global.jscProximosComJogos = jscProximosComJogos;

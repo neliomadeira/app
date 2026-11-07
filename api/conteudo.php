@@ -373,6 +373,22 @@ function jsc_jogo_por_jogar($estado) {
     return $e !== 'realizado' && $e !== 'cancelado';
 }
 
+// Há no db_jogos um jogo que corresponde a esta entrada de agenda?
+//
+// Mesmo dia, e o mesmo escalão — ou a entrada sem escalão, ou "Todos", que
+// não diz qual é. Réplica exacta do jscJogoEquivalente() do js/html.js.
+function jsc_jogo_equivalente(array $conteudo, $data, $escalao) {
+    if (!isset($conteudo['jogos']) || !is_array($conteudo['jogos'])) return false;
+    $esc = trim((string)$escalao);
+    foreach ($conteudo['jogos'] as $j) {
+        if (!is_array($j)) continue;
+        if ((string)(isset($j['data']) ? $j['data'] : '') !== (string)$data) continue;
+        if ($esc === '' || strcasecmp($esc, 'Todos') === 0) return true;
+        if (strcasecmp(trim((string)(isset($j['escalao']) ? $j['escalao'] : '')), $esc) === 0) return true;
+    }
+    return false;
+}
+
 // $com_jogos liga a junção dos jogos desportivos vindos do db_jogos.
 //
 // É um parâmetro e não o comportamento por omissão de propósito: esta função
@@ -391,12 +407,17 @@ function jsc_agenda_proximos(array $conteudo, $hoje = null, $limite = null, $com
         // Cancelado não aparece nas listas públicas. O painel ainda não
         // escreve este estado; quando escrever, isto já está certo.
         if (isset($e['estado']) && $e['estado'] === 'Cancelado') continue;
-        // Com os jogos a vir do db_jogos, as entradas de agenda do tipo Jogo
-        // saem: eram a cópia à mão da mesma coisa, e mantê-las mostrava o
-        // mesmo jogo duas vezes. Os treinos, torneios, reuniões e tudo o
-        // resto ficam exactamente como estavam.
+        // Com os jogos a vir do db_jogos, uma entrada de agenda do tipo Jogo
+        // que tenha um jogo a corresponder-lhe sai: era a cópia à mão da
+        // mesma coisa, e mantê-la mostrava o mesmo jogo duas vezes.
+        //
+        // SÓ essa. Uma entrada do tipo Jogo sem jogo correspondente FICA —
+        // tirá-la apagaria informação que alguém escreveu e que não está em
+        // mais lado nenhum. Os treinos, torneios, reuniões e tudo o resto
+        // ficam sempre.
         $tipo = isset($e['tipo']) ? trim((string)$e['tipo']) : '';
-        if ($com_jogos && strcasecmp($tipo, 'Jogo') === 0) continue;
+        if ($com_jogos && strcasecmp($tipo, 'Jogo') === 0
+            && jsc_jogo_equivalente($conteudo, $data, isset($e['escalao']) ? $e['escalao'] : '')) continue;
         $lista[] = $e;
     }
 
