@@ -199,6 +199,18 @@ window.contarRegistosDeExemplo = function () {
   return achados;
 };
 
+// Inscrições no servidor de produção são sempre lidas da API MySQL.
+// Em desenvolvimento sem PHP, mantém-se o modo local para testes.
+// NÃO apaga nem modifica chaves antigas: podem ser a única cópia de registos
+// anteriores à migração e devem ser avaliadas separadamente.
+function jscInscricoesEmDesenvolvimentoLocal() {
+  if (location.protocol === 'file:') return true;
+  const h = location.hostname;
+  return h === 'localhost' || h === '127.0.0.1' || h === '::1' ||
+    /^192\.168\./.test(h) || /^10\./.test(h) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(h);
+}
+
 // Persistência no localStorage
 //
 // DEVOLVE true se gravou tudo, false se alguma coisa ficou por gravar.
@@ -234,9 +246,14 @@ window.saveDB = function() {
     gravar('db_treinadores',    DB.treinadores);
     gravar('db_seniores',       DB.seniores);
     gravar('db_seniores_info',  DB.senioresInfo);
-    // Mensagens e inscrições — bridge com formulários públicos
-    gravar('db_contact_msgs',   DB.mensagens);
-    gravar('db_inscricoes',     DB.inscricoes);
+    // Inscrições e contactos: em produção a API/MySQL é a fonte de verdade,
+    // e dados pessoais dos formulários não ficam no armazenamento local.
+    // O portão vem da V3 instalada no servidor; o gravar() é o desta árvore,
+    // para estas duas chaves terem a mesma protecção que as outras onze.
+    if (jscInscricoesEmDesenvolvimentoLocal()) {
+      gravar('db_contact_msgs',   DB.mensagens);
+      gravar('db_inscricoes',     DB.inscricoes);
+    }
     if (porLer.length) {
       try {
         console.warn('[JSC] gravado, excepto ' + porLer.join(', ')
@@ -370,13 +387,17 @@ window.saveDB = function() {
 
   try {
 
-    // Bridge: mensagens do formulário de contacto
-    const rawMsgs = localStorage.getItem('db_contact_msgs');
-    if (rawMsgs !== null) {
-      try { DB.mensagens = JSON.parse(rawMsgs); } catch(_) {}
+    // Contactos em produção são carregados exclusivamente da API/MySQL.
+    // Não apagar as chaves antigas: podem ser úteis para auditoria/migração.
+    if (jscInscricoesEmDesenvolvimentoLocal()) {
+      const rawMsgs = localStorage.getItem('db_contact_msgs');
+      if (rawMsgs !== null) {
+        try { DB.mensagens = JSON.parse(rawMsgs); } catch(_) {}
+      }
     }
 
     // Bridge: inscrições — admin-managed tem prioridade; fallback para formulário público
+    if (jscInscricoesEmDesenvolvimentoLocal()) {
     const rawInscAdmin = localStorage.getItem('db_inscricoes');
     if (rawInscAdmin !== null) {
       try { DB.inscricoes = JSON.parse(rawInscAdmin); } catch(_) {}
@@ -414,6 +435,7 @@ window.saveDB = function() {
           });
         } catch(_) {}
       }
+    }
     }
   } catch(e) {}
 })();
