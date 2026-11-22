@@ -737,42 +737,64 @@ window.verInscricao = function (id) {
     </div>`,
     i.estado === 'Pendente' ? `
       <button class="btn-cancel" onclick="closeModal()">Fechar</button>
-      <button class="btn-reject" onclick="rejeitarInscricao(${i.id});closeModal()">Rejeitar</button>
-      <button class="btn-approve" onclick="aprovarInscricao(${i.id});closeModal()">Aprovar</button>
+      <button class="btn-reject" onclick="rejeitarInscricao(${i.id})">Rejeitar</button>
+      <button class="btn-approve" onclick="aprovarInscricao(${i.id})">Aprovar</button>
     ` : `<button class="btn-cancel" onclick="closeModal()">Fechar</button>`
   );
 };
 
-window.aprovarInscricao = function (id) {
+// Evita duas operações simultâneas sobre a mesma inscrição.
+const _inscricoesEmProcessamento = new Set();
+
+window.aprovarInscricao = async function (id) {
   const i = DB.inscricoes.find(x => x.id === id);
-  if (!i) return;
-  i.estado = 'Aprovado';
-  _regPush('inscricao', i.id, 'Aprovado');
-  if (!DB.atletas.find(a => a.nome === i.nome)) {
-    DB.atletas.push({
-      id: DB.atletas.length + 1, nome: i.nome, escalao: i.escalao,
-      posicao: i.posicao, idade: i.idade, encarregado: i.nomeResp || '—',
-      telefone: i.telefone, estado: 'Activo'
-    });
+  if (!i || _inscricoesEmProcessamento.has(id)) return;
+  _inscricoesEmProcessamento.add(id);
+  try {
+    // Nunca indicar sucesso nem criar um atleta sem confirmação do MySQL.
+    if (!MODO_LOCAL && !(await _regPush('inscricao', i.id, 'Aprovado'))) {
+      showToast('Não foi possível aprovar no servidor. Tenta novamente.', 'red');
+      return;
+    }
+    i.estado = 'Aprovado';
+    if (!DB.atletas.find(a => a.nome === i.nome)) {
+      DB.atletas.push({
+        id: DB.atletas.length + 1, nome: i.nome, escalao: i.escalao,
+        posicao: i.posicao, idade: i.idade, encarregado: i.nomeResp || '—',
+        telefone: i.telefone, estado: 'Activo'
+      });
+    }
+    saveDB();
+    renderInscricoes();
+    renderDashboard();
+    renderAtletas();
+    updateBadges();
+    closeModal();
+    showToast('Inscrição aprovada!', 'green');
+  } finally {
+    _inscricoesEmProcessamento.delete(id);
   }
-  saveDB();
-  renderInscricoes();
-  renderDashboard();
-  renderAtletas();
-  updateBadges();
-  showToast('Inscrição aprovada!', 'green');
 };
 
-window.rejeitarInscricao = function (id) {
+window.rejeitarInscricao = async function (id) {
   const i = DB.inscricoes.find(x => x.id === id);
-  if (!i) return;
-  i.estado = 'Rejeitado';
-  _regPush('inscricao', i.id, 'Rejeitado');
-  saveDB();
-  renderInscricoes();
-  renderDashboard();
-  updateBadges();
-  showToast('Inscrição rejeitada.', 'red');
+  if (!i || _inscricoesEmProcessamento.has(id)) return;
+  _inscricoesEmProcessamento.add(id);
+  try {
+    if (!MODO_LOCAL && !(await _regPush('inscricao', i.id, 'Rejeitado'))) {
+      showToast('Não foi possível rejeitar no servidor. Tenta novamente.', 'red');
+      return;
+    }
+    i.estado = 'Rejeitado';
+    saveDB();
+    renderInscricoes();
+    renderDashboard();
+    updateBadges();
+    closeModal();
+    showToast('Inscrição rejeitada.', 'red');
+  } finally {
+    _inscricoesEmProcessamento.delete(id);
+  }
 };
 
 // ==================================================
@@ -2317,10 +2339,19 @@ document.getElementById('filterMsgEstado')?.addEventListener('change', function 
   renderMensagens(this.value);
 });
 
-window.verMensagem = function (id) {
+window.verMensagem = async function (id) {
   const m = DB.mensagens.find(x => x.id === id);
   if (!m) return;
-  if (m.estado === 'Não lida') { m.estado = 'Lida'; _regPush('contacto', m.id, 'Lida'); saveDB(); renderMensagens(); updateBadges(); }
+  if (m.estado === 'Não lida') {
+    if (!MODO_LOCAL && !(await _regPush('contacto', m.id, 'Lida'))) {
+      showToast('Não foi possível marcar a mensagem como lida no servidor.', 'red');
+    } else {
+      m.estado = 'Lida';
+      saveDB();
+      renderMensagens();
+      updateBadges();
+    }
+  }
   openModal(`Mensagem de ${m.nome}`, `
     <div class="detail-grid">
       <div class="detail-item"><span class="detail-item__label">Nome</span><span class="detail-item__val">${jscEsc(m.nome)}</span></div>
@@ -2333,30 +2364,36 @@ window.verMensagem = function (id) {
       <div class="detail-item"><span class="detail-item__label">Estado</span><span class="detail-item__val">${statusBadge(m.estado)}</span></div>
     </div>`,
     `<button class="btn-cancel" onclick="closeModal()">Fechar</button>
-     ${m.estado !== 'Respondida' ? `<button class="btn-approve" onclick="marcarRespondida(${m.id});closeModal()">Marcar respondida</button>` : ''}`
+     ${m.estado !== 'Respondida' ? `<button class="btn-approve" onclick="marcarRespondida(${m.id})">Marcar respondida</button>` : ''}`
   );
 };
 
-window.marcarRespondida = function (id) {
+window.marcarRespondida = async function (id) {
   const m = DB.mensagens.find(x => x.id === id);
   if (!m) return;
+  if (!MODO_LOCAL && !(await _regPush('contacto', m.id, 'Respondida'))) {
+    showToast('Não foi possível atualizar a mensagem no servidor.', 'red');
+    return;
+  }
   m.estado = 'Respondida';
-  _regPush('contacto', m.id, 'Respondida');
   saveDB();
   renderMensagens();
   updateBadges();
   showToast('Mensagem marcada como respondida.', 'green');
 };
 
-window.removeMensagem = function (id) {
+window.removeMensagem = async function (id) {
   if (!confirm('Eliminar esta mensagem?')) return;
+  if (!MODO_LOCAL && !(await _regDelete('contacto', id))) {
+    showToast('Não foi possível eliminar a mensagem no servidor.', 'red');
+    return;
+  }
   const idx = DB.mensagens.findIndex(x => x.id === id);
   if (idx > -1) DB.mensagens.splice(idx, 1);
-  _regDelete('contacto', id);
   saveDB();
   renderMensagens();
   updateBadges();
-  showToast('Mensagem eliminada.', 'red');
+  showToast('Mensagem eliminada.', 'green');
 };
 
 // ==================================================
@@ -6976,22 +7013,36 @@ window.regenerarPaginas = regenerarPaginas;
 // Sem token configurado devolve vazio: o servidor responde 401, em vez de
 // enviarmos um valor por omissão que qualquer pessoa conheceria.
 
-function _regPush(tipo, id, estado) {
-  fetch('../api/registos.php?tipo=' + tipo, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'same-origin',
-    body: JSON.stringify({ acao: 'estado', id, estado }),
-  }).catch(() => {});
+async function _regPush(tipo, id, estado) {
+  try {
+    const r = await fetch('../api/registos.php?tipo=' + tipo, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ acao: 'estado', id, estado }),
+    });
+    if (!r.ok) return false;
+    const json = await r.json();
+    return json && json.ok === true;
+  } catch (_) {
+    return false;
+  }
 }
 
-function _regDelete(tipo, id) {
-  fetch('../api/registos.php?tipo=' + tipo, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'same-origin',
-    body: JSON.stringify({ acao: 'apagar', id }),
-  }).catch(() => {});
+async function _regDelete(tipo, id) {
+  try {
+    const r = await fetch('../api/registos.php?tipo=' + tipo, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ acao: 'apagar', id }),
+    });
+    if (!r.ok) return false;
+    const json = await r.json();
+    return json && json.ok === true;
+  } catch (_) {
+    return false;
+  }
 }
 
 function _mapInscricaoServidor(item) {
@@ -7035,22 +7086,30 @@ async function sincronizarRegistosServidor() {
   let novasInsc = 0, novasMsgs = 0;
   try {
     const inscricoes = await puxar('inscricao');
-    if (inscricoes) {
-      inscricoes.forEach(item => {
-        if (!DB.inscricoes.find(x => x.id === item.id)) {
-          DB.inscricoes.unshift(_mapInscricaoServidor(item));
-          novasInsc++;
-        }
-      });
+    if (Array.isArray(inscricoes)) {
+      // O MySQL é a fonte de verdade: uma lista vazia também é uma resposta
+      // válida. Nunca fundir com inscrições antigas do navegador.
+      const idsAnteriores = new Set(DB.inscricoes.map(x => String(x.id)));
+      DB.inscricoes = inscricoes.map(_mapInscricaoServidor);
+      novasInsc = inscricoes.filter(x => !idsAnteriores.has(String(x.id))).length;
+      renderInscricoes();
+      renderDashboard();
+      updateBadges();
+    } else {
+      showToast('Não foi possível confirmar as inscrições no servidor.', 'red');
     }
     const mensagens = await puxar('contacto');
-    if (mensagens) {
-      mensagens.forEach(item => {
-        if (!DB.mensagens.find(x => x.id === item.id)) {
-          DB.mensagens.unshift(item);
-          novasMsgs++;
-        }
-      });
+    if (Array.isArray(mensagens)) {
+      // A lista do servidor substitui a lista local, incluindo quando vazia.
+      // Não juntar registos guardados no Chrome a registos MySQL.
+      const idsAnteriores = new Set(DB.mensagens.map(x => String(x.id)));
+      DB.mensagens = mensagens;
+      novasMsgs = mensagens.filter(x => !idsAnteriores.has(String(x.id))).length;
+      renderMensagens();
+      renderDashboard();
+      updateBadges();
+    } else {
+      showToast('Não foi possível confirmar os contactos no servidor.', 'red');
     }
   } catch (_) { return; }
   if (novasInsc || novasMsgs) {
