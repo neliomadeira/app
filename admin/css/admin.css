@@ -358,6 +358,21 @@ ul { list-style: none; }
 .btn-icon--red:hover { background: var(--red); border-color: var(--red); }
 .btn-icon--green:hover { background: var(--green); border-color: var(--green); }
 
+/* Eliminar, ao lado de Rejeitar, na tabela de inscrições.
+   O --red acima só é vermelho ao passar o rato: em repouso é igual ao botão
+   normal. Numa linha pendente, o Rejeitar e o Eliminar ficavam
+   indistinguíveis até lhes tocar — e um muda um estado, que se recupera,
+   enquanto o outro apaga a linha do MySQL e não volta. Este é vermelho
+   desde já.
+   O .btn-danger, que o painel usa noutros seis sítios com o mesmo ícone,
+   não serve aqui: tem padding 9px 16px contra os 5px 9px do .btn-icon e
+   desalinhava a coluna de acções. */
+.btn-icon--danger {
+  background: #dc2626; color: var(--white); border-color: #dc2626;
+  margin-left: 4px;   /* separa-o das acções recuperáveis */
+}
+.btn-icon--danger:hover { background: #b91c1c; border-color: #b91c1c; color: var(--white); }
+
 .btn-actions { display: flex; gap: 6px; }
 
 /* ===== FILTERS / INPUTS ===== */

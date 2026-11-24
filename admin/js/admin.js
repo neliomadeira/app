@@ -669,6 +669,9 @@ function renderInscricoes(filterEscalao = '', filterEstado = '') {
             <button class="btn-icon btn-icon--green" onclick="aprovarInscricao(${i.id})" title="Aprovar">&#10003;</button>
             <button class="btn-icon btn-icon--red"   onclick="rejeitarInscricao(${i.id})" title="Rejeitar">&#10007;</button>
           ` : ''}
+          <button class="btn-icon btn-icon--danger" onclick="eliminarInscricao(${i.id})"
+                  title="Eliminar inscri&ccedil;&atilde;o (definitivo)"
+                  aria-label="Eliminar a inscri&ccedil;&atilde;o de ${jscEsc(i.nome)}, definitivamente">&#128465;</button>
         </div>
       </td>
     </tr>`).join('');
@@ -793,6 +796,104 @@ window.rejeitarInscricao = async function (id) {
     updateBadges();
     closeModal();
     showToast('Inscrição rejeitada.', 'red');
+  } finally {
+    _inscricoesEmProcessamento.delete(id);
+  }
+};
+
+// ---- ELIMINAR UMA INSCRIÇÃO ------------------------------------------
+// É a única operação desta secção que não se desfaz: o api/registos.php faz
+// DELETE FROM jsc_inscricoes WHERE id = ?. Rejeitar muda um estado e
+// recupera-se; isto não.
+//
+// Por isso a confirmação não é o confirm() do browser, como nos outros 32
+// sítios do painel: é o modal, onde cabe o nome de quem se vai eliminar, o
+// aviso da ficha de atleta, e dois botões que dizem o que fazem em vez de
+// "OK" e "Cancelar".
+//
+// O painel tem UM só modal (ver openModal): abrir este destrói o que
+// estivesse aberto. É por isso que o botão vive na linha da tabela e não no
+// modal de detalhe — assim não há nada por baixo para restaurar no Cancelar.
+window.eliminarInscricao = function (id) {
+  const i = DB.inscricoes.find(x => x.id === id);
+  if (!i) return;
+
+  // A ficha de atleta é criada na aprovação e ligada à inscrição APENAS pelo
+  // nome (ver aprovarInscricao, que faz DB.atletas.find(a => a.nome === i.nome)).
+  // A ficha não guarda o id da inscrição, por isso este aviso é aproximado e
+  // diz-se que é: dois atletas com o mesmo nome dão o mesmo aviso, e um atleta
+  // renomeado depois de aprovado não é detectado. Mais vale um aviso
+  // aproximado do que eliminar sem avisar.
+  const ficha = DB.atletas.find(a => a.nome === i.nome);
+
+  const avisoFicha = ficha ? `
+    <div role="note" style="display:flex;gap:10px;align-items:flex-start;background:#fff4e5;
+         border:1px solid #f0d3a8;border-left:4px solid #b45309;border-radius:8px;
+         padding:12px 14px;margin-top:14px">
+      <span aria-hidden="true" style="font-size:1.05rem;line-height:1.3">&#9888;</span>
+      <p style="margin:0;font-size:0.86rem;line-height:1.55;color:#6b3b02">
+        <strong>Esta inscrição tem uma ficha de atleta associada.</strong>
+        A ficha de <strong>${jscEsc(ficha.nome)}</strong> (${jscEsc(ficha.escalao || '—')})
+        <strong>não é eliminada</strong> — continua em Atletas, com o plantel e as fotografias
+        intactos. Se também a quiser remover, faça-o depois, na secção Atletas.
+        A ligação entre as duas é feita só pelo nome, por isso confirme que é a ficha certa.
+      </p>
+    </div>` : '';
+
+  openModal('Eliminar inscrição', `
+    <p style="margin:0 0 14px;font-size:0.95rem;line-height:1.55">
+      Tens a certeza de que pretendes eliminar esta inscrição?
+      <strong>Esta ação é irreversível.</strong>
+    </p>
+    <div class="detail-grid">
+      <div class="detail-item"><span class="detail-item__label">Atleta</span><span class="detail-item__val">${jscEsc(i.nome)}</span></div>
+      <div class="detail-item"><span class="detail-item__label">Escalão</span><span class="detail-item__val">${jscEsc(i.escalao)}</span></div>
+      <div class="detail-item"><span class="detail-item__label">Encarregado</span><span class="detail-item__val">${jscEsc(i.nomeResp || '—')}</span></div>
+      <div class="detail-item"><span class="detail-item__label">Data</span><span class="detail-item__val">${jscEsc(fmtDate(i.data))}</span></div>
+      <div class="detail-item"><span class="detail-item__label">Estado</span><span class="detail-item__val">${statusBadge(i.estado)}</span></div>
+    </div>
+    ${avisoFicha}`,
+    `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+     <button class="btn-danger" id="btnEliminarInscConfirma"
+             onclick="confirmarEliminarInscricao(${i.id})">Eliminar definitivamente</button>`
+  );
+};
+
+// A eliminação propriamente dita. Nada sai da memória nem do ecrã antes de o
+// servidor confirmar: o _regDelete da V3 devolve true só com HTTP 2xx e
+// ok === true no corpo.
+window.confirmarEliminarInscricao = async function (id) {
+  const i = DB.inscricoes.find(x => x.id === id);
+  if (!i) { closeModal(); return; }
+
+  // A mesma guarda da V3, partilhada de propósito: uma eliminação não pode
+  // correr ao mesmo tempo que uma aprovação do mesmo registo.
+  if (_inscricoesEmProcessamento.has(id)) return;
+  _inscricoesEmProcessamento.add(id);
+
+  const btn = document.getElementById('btnEliminarInscConfirma');
+  if (btn) { btn.disabled = true; btn.textContent = 'A eliminar…'; }
+
+  try {
+    if (!MODO_LOCAL && !(await _regDelete('inscricao', id))) {
+      // Falhou no servidor: o modal fica aberto e a inscrição fica onde está,
+      // na tabela e na base de dados. O botão volta a ficar activo para se
+      // poder tentar outra vez sem reabrir nada.
+      if (btn) { btn.disabled = false; btn.textContent = 'Eliminar definitivamente'; }
+      showToast('NÃO foi possível eliminar a inscrição no servidor. Nada foi alterado.', 'red');
+      return;
+    }
+    const idx = DB.inscricoes.findIndex(x => x.id === id);
+    if (idx > -1) DB.inscricoes.splice(idx, 1);
+    // Em produção o saveDB() não escreve inscrições em sítio nenhum: o portão
+    // da V3 fecha fora de desenvolvimento local. Chama-se para o modo local
+    // ficar coerente.
+    saveDB();
+    renderInscricoes();
+    renderDashboard();
+    updateBadges();
+    closeModal();
+    showToast('Inscrição eliminada.', 'green');
   } finally {
     _inscricoesEmProcessamento.delete(id);
   }
