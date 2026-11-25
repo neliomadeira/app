@@ -274,6 +274,76 @@ if ($bytes === false) {
     jsc_saida(['ok' => false, 'error' => 'nao foi possivel converter o conteudo para JSON'], 500);
 }
 
+// ---- Uma cópia do que está, antes de lhe escrever por cima -----------
+// A guarda do esvaziamento, lá em cima, só apanha o VAZIO. Uma área que
+// chegue com menos registos do que os que estão publicados — 40 notícias no
+// servidor, 3 no painel de um browser que perdeu o armazém — passa por ela:
+// o jsc_vazio() dá falso para 3. A publicação avança, o array_merge substitui
+// a chave, e os 37 que faltavam desaparecem sem ninguém ter sido avisado.
+//
+// Até aqui não havia de onde os recuperar. O data/publicacao/anterior/ guarda
+// a geração anterior, que é o HTML, não os dados; e o "Exportar tudo" do
+// painel corre no browser e depende de alguém se lembrar de o fazer.
+//
+// UMA CÓPIA, SUBSTITUÍDA A CADA PUBLICAÇÃO, e não um arquivo. O
+// api/backup.php sabe guardar séries datadas, e de propósito não é isso que
+// aqui se faz: a etiqueta 'pre-publicacao' é protegida da retenção, e o
+// JSC_BK_POLITICA_APROVADA está a false, pelo que nada apaga nada. Uma cópia
+// nova a cada Publicar seriam ~3 MB de datas de nascimento, encarregados e
+// telefones de menores a acumular-se para sempre — exactamente a
+// "responsabilidade que cresce sozinha" de que o próprio backup.php avisa.
+// O que este caso precisa é de desfazer A ÚLTIMA publicação, e para isso
+// basta uma cópia de tamanho constante.
+//
+// Reaproveita-se a biblioteca para as duas coisas que ela faz melhor: decidir
+// a pasta (fora da raiz web em primeira escolha, porque isto são dados
+// pessoais) e escrever com segurança — temporário, hash verificado em disco,
+// e só então rename.
+require_once __DIR__ . '/backup.php';
+
+$copiaFeita = null;
+if (is_file(DATA_FILE)) {
+    $onde   = jsc_bk_onde();
+    $destino = $onde['caminho'] . '/conteudo/antes-do-ultimo-publicar.json';
+    $erroBk = '';
+
+    if (!jsc_bk_iniciar($onde['caminho'], $erroBk)) {
+        jsc_saida(['ok' => false, 'error' => 'nao foi possivel preparar a pasta das copias de '
+            . 'seguranca (' . $erroBk . '). Nada foi publicado: publicar sem conseguir guardar '
+            . 'o estado anterior deixaria esta publicacao sem forma de ser desfeita.'], 500);
+    }
+
+    $atual = @file_get_contents(DATA_FILE);
+    if ($atual === false) {
+        jsc_saida(['ok' => false, 'error' => 'o data/db.json existe mas nao foi possivel le-lo. '
+            . 'Nada foi publicado.'], 500);
+    }
+
+    // Já é esta a cópia? Então não se reescreve. Duas publicações seguidas sem
+    // alterações não têm de mexer no disco.
+    $iguais = is_file($destino) && @hash_file('sha256', $destino) === hash('sha256', $atual);
+    if (!$iguais && !jsc_bk_escrever($destino, $atual, $erroBk)) {
+        jsc_saida(['ok' => false, 'error' => 'nao foi possivel guardar a copia do conteudo atual ('
+            . $erroBk . '). Nada foi publicado.'], 500);
+    }
+    // Onde ficou, dito de forma a ser útil sem expor o alojamento. O
+    // jsc_bk_relativo() devolve o caminho absoluto quando o ficheiro está
+    // fora da árvore do projeto — que é o caso normal, porque a primeira
+    // escolha é fora da raiz web — e isso punha /home/<utilizador-cpanel>/…
+    // na resposta da API, à vista de qualquer perfil que possa publicar. O
+    // nome da conta de alojamento não é um segredo, mas é metade de um login
+    // e não tem de andar aqui. Em vez disso diz-se onde está em relação à
+    // pasta do site, que é o que quem o vai buscar precisa de saber.
+    $copiaFeita = jsc_bk_relativo($destino);
+    if (strpos($copiaFeita, '/') === 0) {
+        $raiz = @realpath(JSC_BK_RAIZ);
+        $real = @realpath($destino);
+        $copiaFeita = ($raiz && $real && strpos($real, dirname($raiz) . '/') === 0)
+            ? '../' . substr($real, strlen(dirname($raiz)) + 1)
+            : basename($destino) . ' (fora da raiz web)';
+    }
+}
+
 // O data/db.json e as páginas geradas movem-se juntos, numa só transação.
 // Se a geração falhar, nada avança: o conteúdo antigo fica onde estava e o
 // painel fica a saber. Assim nunca há dados novos com HTML antigo, nem
@@ -297,4 +367,6 @@ jsc_saida([
     'porQuem'   => $perfil['nome'],
     'gerados'   => $pub['ficheiros'],
     'avisos'    => $pub['avisos'],
+    // Onde ficou o estado anterior, para quem precisar de o ir buscar.
+    'copiaAnterior' => $copiaFeita,
 ]);
