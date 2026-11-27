@@ -52,14 +52,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$id) { http_response_code(400); echo '{"ok":false,"error":"id invalido"}'; exit; }
 
     try {
+        // O rowCount() dizia-se a si mesmo e a mais ninguém. Um DELETE que
+        // não encontre a linha tem sucesso com zero linhas afectadas, e o
+        // endpoint respondia {"ok":true} igual ao caso em que apagou — pelo
+        // que o painel anunciava "Inscrição eliminada" sem ter eliminado
+        // nada. O estado final é o mesmo (não está lá), por isso o ok
+        // continua a ser true: dizer que falhou faria o painel manter na
+        // lista um registo que não existe. O que muda é passar a dizer
+        // QUANTAS linhas mexeu, e quem chama decide o que diz à pessoa.
         if ($acao === 'estado' && isset($body['estado'])) {
             $stmt = $pdo->prepare("UPDATE $tabela SET estado = ? WHERE id = ?");
             $stmt->execute([substr($body['estado'], 0, 20), $id]);
-            echo '{"ok":true}';
+            echo json_encode(['ok' => true, 'alteradas' => $stmt->rowCount()]);
         } elseif ($acao === 'apagar') {
             $stmt = $pdo->prepare("DELETE FROM $tabela WHERE id = ?");
             $stmt->execute([$id]);
-            echo '{"ok":true}';
+            echo json_encode(['ok' => true, 'apagadas' => $stmt->rowCount()]);
         } else {
             http_response_code(400);
             echo '{"ok":false,"error":"acao invalida"}';

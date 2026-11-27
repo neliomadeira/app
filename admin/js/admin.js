@@ -861,7 +861,8 @@ window.eliminarInscricao = function (id) {
 
 // A eliminação propriamente dita. Nada sai da memória nem do ecrã antes de o
 // servidor confirmar: o _regDelete da V3 devolve true só com HTTP 2xx e
-// ok === true no corpo.
+// ok === true no corpo. O terceiro argumento recolhe quantas linhas o
+// servidor apagou, para a mensagem final não afirmar o que não houve.
 window.confirmarEliminarInscricao = async function (id) {
   const i = DB.inscricoes.find(x => x.id === id);
   if (!i) { closeModal(); return; }
@@ -874,8 +875,13 @@ window.confirmarEliminarInscricao = async function (id) {
   const btn = document.getElementById('btnEliminarInscConfirma');
   if (btn) { btn.disabled = true; btn.textContent = 'A eliminar…'; }
 
+  // Quantas linhas o servidor apagou de facto. Zero quer dizer que já não
+  // estava lá — outra pessoa apagou-a, ou foi apagada no phpMyAdmin — e isso
+  // não é uma falha: o estado final é o pretendido. Mas também não é verdade
+  // dizer "eliminada", e era o que o painel dizia.
+  const detalhe = {};
   try {
-    if (!MODO_LOCAL && !(await _regDelete('inscricao', id))) {
+    if (!MODO_LOCAL && !(await _regDelete('inscricao', id, detalhe))) {
       // Falhou no servidor: o modal fica aberto e a inscrição fica onde está,
       // na tabela e na base de dados. O botão volta a ficar activo para se
       // poder tentar outra vez sem reabrir nada.
@@ -893,7 +899,9 @@ window.confirmarEliminarInscricao = async function (id) {
     renderDashboard();
     updateBadges();
     closeModal();
-    showToast('Inscrição eliminada.', 'green');
+    showToast(detalhe.apagadas === 0
+      ? 'Esta inscrição já não existia no servidor. A lista foi actualizada.'
+      : 'Inscrição eliminada.', 'green');
   } finally {
     _inscricoesEmProcessamento.delete(id);
   }
@@ -7160,7 +7168,14 @@ async function _regPush(tipo, id, estado) {
   }
 }
 
-async function _regDelete(tipo, id) {
+// O terceiro parâmetro é opcional e existe para não mexer no que esta função
+// devolve. O registos.php passou a dizer quantas linhas o DELETE afectou, e
+// isso é útil — mas mudar o retorno de booleano para número ou objecto
+// partiria os dois sítios que fazem !(await _regDelete(...)): um zero
+// legítimo passaria a parecer falha, e um objecto passaria a parecer sucesso
+// sempre. Quem passa dois argumentos continua a receber exactamente o mesmo
+// booleano de antes; quem quiser o detalhe passa um objecto e lê-o.
+async function _regDelete(tipo, id, detalhe) {
   try {
     const r = await fetch('../api/registos.php?tipo=' + tipo, {
       method: 'POST',
@@ -7170,6 +7185,7 @@ async function _regDelete(tipo, id) {
     });
     if (!r.ok) return false;
     const json = await r.json();
+    if (detalhe && json && typeof json.apagadas === 'number') detalhe.apagadas = json.apagadas;
     return json && json.ok === true;
   } catch (_) {
     return false;
