@@ -154,6 +154,14 @@ Options -Indexes
   ExpiresByType image/png  "access plus 1 month"
   ExpiresByType image/jpeg "access plus 1 month"
   ExpiresByType image/svg+xml "access plus 1 month"
+  # O webp faltava, e a ausência não se nota: um ficheiro sem regra aqui sai
+  # sem Cache-Control nenhum e cada motor inventa a sua frescura heurística —
+  # o mesmo problema que o .js teve, e que foi medido num telemóvel.
+  #
+  # O uploads/logos/.htaccess já o tinha; a raiz não. Quem guardasse um .webp
+  # em images/, ou noutra pasta qualquer, perdia o mês de cache sem aviso. Com
+  # isto, a pasta onde a imagem fica deixa de ser uma decisão de desempenho.
+  ExpiresByType image/webp "access plus 1 month"
   ExpiresByType text/css   "access plus 1 week"
   ExpiresByType application/javascript "access plus 1 week"
   ExpiresByType application/json "access plus 1 day"
