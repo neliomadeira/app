@@ -677,6 +677,169 @@ function renderInscricoes(filterEscalao = '', filterEstado = '') {
     </tr>`).join('');
 }
 
+// ---- NOVA INSCRIÇÃO, À MÃO -------------------------------------------
+// Para as que chegam por telefone ou ao balcão. Até aqui a secção só sabia
+// ler o que vinha do formulário público: não havia por onde entrar uma.
+//
+// Nove campos, não os vinte e dois do formulário. Quem está ao telefone não
+// preenche vinte e dois, e os que faltam completam-se depois na ficha do
+// atleta, se fizerem falta. Os cinco que o servidor exige são os mesmos que
+// o formulário público marca como obrigatórios.
+//
+// O escalão calcula-se a partir da data de nascimento, com os mesmos
+// intervalos do js/inscricao.js — e fica editável, porque há casos em que o
+// clube decide outro.
+const _INSC_ESCALOES = [[7, 9, 'Sub-9'], [10, 11, 'Sub-11'], [12, 13, 'Sub-13'],
+                        [14, 15, 'Sub-15'], [16, 17, 'Sub-17'], [18, 19, 'Sub-19']];
+
+function _inscEscalaoPorData(dataNasc) {
+  if (!dataNasc) return '';
+  const hoje = new Date(), n = new Date(dataNasc + 'T00:00:00');
+  if (isNaN(n)) return '';
+  let a = hoje.getFullYear() - n.getFullYear();
+  if (hoje.getMonth() < n.getMonth() || (hoje.getMonth() === n.getMonth() && hoje.getDate() < n.getDate())) a--;
+  const f = _INSC_ESCALOES.find(e => a >= e[0] && a <= e[1]);
+  return f ? f[2] : '';
+}
+
+window.novaInscricao = function () {
+  const mods = (DB.modalidades || []).filter(m => m.ativo !== false).map(m => m.nome);
+  if (mods.indexOf('Futebol') === -1) mods.unshift('Futebol');
+  openModal('Nova inscrição', `
+    <div role="note" style="display:flex;gap:10px;align-items:flex-start;background:#eef4ff;
+         border:1px solid #c7d9f5;border-left:4px solid var(--blue,#003B8E);border-radius:8px;
+         padding:12px 14px;margin-bottom:16px">
+      <span aria-hidden="true" style="font-size:1.05rem;line-height:1.3">&#8505;</span>
+      <p style="margin:0;font-size:0.86rem;line-height:1.55;color:#20365c">
+        Para inscrições recebidas <strong>por telefone ou ao balcão</strong>. Fica registado
+        quem a introduziu. Entra como <strong>Pendente</strong>, para passar pela aprovação
+        como as outras.
+      </p>
+    </div>
+    <div class="modal-row">
+      <div class="modal-field"><label>Nome do atleta *</label>
+        <input type="text" class="form-input" id="niNome" placeholder="Nome completo" /></div>
+      <div class="modal-field"><label>Data de nascimento *</label>
+        <input type="date" class="form-input" id="niDataNasc" /></div>
+    </div>
+    <div class="modal-row">
+      <div class="modal-field"><label>Modalidade</label>
+        <select class="form-input" id="niModalidade">${mods.map(m => '<option>' + jscEsc(m) + '</option>').join('')}</select></div>
+      <div class="modal-field"><label>Escalão</label>
+        <select class="form-input" id="niEscalao">
+          <option value="">—</option>
+          ${_INSC_ESCALOES.map(e => '<option>' + e[2] + '</option>').join('')}
+        </select>
+        <small style="color:#888;font-size:11px">calculado pela data, pode ser mudado</small></div>
+    </div>
+    <div class="modal-row">
+      <div class="modal-field"><label>Encarregado de educação</label>
+        <input type="text" class="form-input" id="niNomeResp" placeholder="Nome" /></div>
+      <div class="modal-field"><label>Telefone *</label>
+        <input type="tel" class="form-input" id="niTelefone" placeholder="+351 9XX XXX XXX" /></div>
+    </div>
+    <div class="modal-row">
+      <div class="modal-field"><label>E-mail</label>
+        <input type="email" class="form-input" id="niEmail" placeholder="email@exemplo.pt" /></div>
+      <div class="modal-field"><label>Código postal *</label>
+        <input type="text" class="form-input" id="niCodigoPostal" placeholder="0000-000" maxlength="8" /></div>
+    </div>
+    <div class="modal-row">
+      <div class="modal-field" style="flex:1"><label>Morada *</label>
+        <input type="text" class="form-input" id="niRua" placeholder="Rua, número" /></div>
+    </div>
+    <label style="display:flex;gap:9px;align-items:flex-start;margin-top:14px;font-size:0.88rem;line-height:1.5">
+      <input type="checkbox" id="niConsentimento" style="margin-top:3px" />
+      <span>O encarregado de educação <strong>autorizou</strong> a inscrição e o tratamento
+      destes dados. Sem isto a inscrição não é gravada.</span>
+    </label>`,
+    `<button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+     <button class="btn-save" id="btnGuardarNovaInsc" onclick="guardarNovaInscricao()">Guardar</button>`
+  );
+  // O escalão segue a data enquanto ninguém lhe tocar à mão.
+  const dn = document.getElementById('niDataNasc');
+  const esc = document.getElementById('niEscalao');
+  let mexido = false;
+  esc?.addEventListener('change', () => { mexido = true; });
+  dn?.addEventListener('change', () => {
+    if (mexido) return;
+    const e = _inscEscalaoPorData(dn.value);
+    if (e) esc.value = e;
+  });
+};
+
+window.guardarNovaInscricao = async function () {
+  const g = id => (document.getElementById(id)?.value || '').trim();
+  const dados = {
+    nome:         g('niNome'),
+    dataNasc:     g('niDataNasc'),
+    modalidade:   g('niModalidade') || 'Futebol',
+    escalao:      g('niEscalao'),
+    nomeResp:     g('niNomeResp'),
+    telefone:     g('niTelefone'),
+    email:        g('niEmail'),
+    codigoPostal: g('niCodigoPostal'),
+    rua:          g('niRua'),
+    data:         new Date().toISOString().slice(0, 10),
+    consentimento: !!document.getElementById('niConsentimento')?.checked,
+  };
+
+  const faltam = [['nome', 'o nome do atleta'], ['dataNasc', 'a data de nascimento'],
+                  ['telefone', 'o telefone'], ['codigoPostal', 'o código postal'], ['rua', 'a morada']]
+    .filter(c => !dados[c[0]]).map(c => c[1]);
+  if (faltam.length) { showToast('Falta ' + faltam.join(', ') + '.', 'red'); return; }
+  if (!dados.consentimento) {
+    showToast('Sem a autorização do encarregado de educação a inscrição não é gravada.', 'red');
+    return;
+  }
+
+  // Um aviso, não uma recusa: dois irmãos com o mesmo nome não existem, mas
+  // duas inscrições do mesmo atleta por engano existem, e o clube é que sabe.
+  const igual = DB.inscricoes.find(i => i.nome === dados.nome && i.dataNasc === dados.dataNasc);
+  if (igual && !confirm('Já existe uma inscrição de ' + dados.nome + ' com a mesma data de '
+      + 'nascimento, em estado ' + igual.estado + '.\n\nGravar na mesma?')) return;
+
+  const btn = document.getElementById('btnGuardarNovaInsc');
+  if (btn) { btn.disabled = true; btn.textContent = 'A guardar…'; }
+
+  if (MODO_LOCAL) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Guardar'; }
+    showToast('Modo local: criar inscrições precisa de PHP e da base de dados.', 'red');
+    return;
+  }
+
+  // Nada entra na lista antes de o servidor confirmar, e o id é o que ele
+  // devolve — nunca um inventado aqui.
+  let json = null;
+  try {
+    const r = await fetch('../api/registos.php?tipo=inscricao', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ acao: 'criar', dados }),
+    });
+    json = await r.json().catch(() => null);
+    if (!r.ok || !json || json.ok !== true) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Guardar'; }
+      showToast('NÃO foi possível gravar: ' + ((json && json.error) || ('HTTP ' + r.status))
+        + '. Os dados ficam no formulário.', 'red');
+      return;
+    }
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Guardar'; }
+    showToast('Sem ligação ao servidor. A inscrição NÃO foi gravada e os dados ficam no formulário.', 'red');
+    return;
+  }
+
+  DB.inscricoes.unshift(_mapInscricaoServidor(Object.assign({}, dados, { id: json.id, estado: 'Pendente' })));
+  saveDB();
+  renderInscricoes();
+  renderDashboard();
+  updateBadges();
+  closeModal();
+  showToast('Inscrição criada.', 'green');
+};
+
 document.getElementById('filterInscEscalao')?.addEventListener('change', function () {
   renderInscricoes(this.value, document.getElementById('filterInscEstado').value);
 });
