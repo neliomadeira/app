@@ -67,7 +67,7 @@ function jsc_sanitizar_inline($html) {
     return jsc_sanitizar_html($html, JSC_ELEMENTOS_INLINE, []);
 }
 
-function jsc_sanitizar_html($html, array $permitidos = null, array $atributos = null) {
+function jsc_sanitizar_html($html, ?array $permitidos = null, ?array $atributos = null) {
     $html = (string)$html;
     if (trim($html) === '') return '';
 
@@ -93,7 +93,7 @@ function jsc_sanitizar_html($html, array $permitidos = null, array $atributos = 
     return trim($saida);
 }
 
-function jsc_limpar_no(DOMNode $no, array $permitidos = null, array $atributos = null) {
+function jsc_limpar_no(DOMNode $no, ?array $permitidos = null, ?array $atributos = null) {
     if ($permitidos === null) $permitidos = JSC_ELEMENTOS;
     if ($atributos === null)  $atributos  = JSC_ATRIBUTOS;
     // De trás para a frente: a lista é viva e remover altera os índices.
@@ -135,7 +135,7 @@ function jsc_limpar_no(DOMNode $no, array $permitidos = null, array $atributos =
     }
 }
 
-function jsc_limpar_atributos(DOMElement $el, $nome, array $atributos = null) {
+function jsc_limpar_atributos(DOMElement $el, $nome, ?array $atributos = null) {
     if ($atributos === null) $atributos = JSC_ATRIBUTOS;
     $permitidos = isset($atributos[$nome]) ? $atributos[$nome] : [];
 

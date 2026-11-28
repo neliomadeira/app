@@ -1689,7 +1689,7 @@ function jsc_campos_publicos($item, array $permitidos) {
 
 // Uma lista de registos, opcionalmente filtrada e opcionalmente reduzida aos
 // campos permitidos. A ordem original é preservada: quem ordena é quem mostra.
-function jsc_lista_publica($valor, array $permitidos = null, $predicado = null) {
+function jsc_lista_publica($valor, ?array $permitidos = null, $predicado = null) {
     if (!is_array($valor)) return null;
     $fora = [];
     foreach ($valor as $item) {
