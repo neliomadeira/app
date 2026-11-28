@@ -386,7 +386,20 @@ function jsc_bk_ultima_entrada(array $m, $tipo = 'conteudo') {
         if ($ultima === null) { $ultima = $e; continue; }
         $a = isset($e['criado_em']) ? (string)$e['criado_em'] : '';
         $b = isset($ultima['criado_em']) ? (string)$ultima['criado_em'] : '';
-        if (strcmp($a, $b) > 0) $ultima = $e;
+        // O empate conta para a MAIS RECENTE, e é por isso que é >= e não >.
+        //
+        // O criado_em tem resolução de um segundo. Com > estrito, duas cópias
+        // nascidas no mesmo segundo empatavam e ganhava a PRIMEIRA da lista —
+        // as entradas são acrescentadas por ordem, pelo que a primeira é a mais
+        // antiga das duas. O --ultimo devolvia então uma cópia que não era a
+        // última, e o --ensaio-recuperacao ensaiava a errada: quem verificasse
+        // as suas cópias estaria a verificar uma que não é a mais recente.
+        //
+        // Apanhado pela bateria, que cria várias cópias dentro do mesmo segundo
+        // e por isso falhava ou passava conforme a corrida atravessasse ou não
+        // a fronteira do segundo. Cinco falsos alarmes até se perceber que o
+        // teste tinha razão e o código é que não.
+        if (strcmp($a, $b) >= 0) $ultima = $e;
     }
     return $ultima;
 }
